@@ -5,7 +5,7 @@ import '../models/user_model.dart';
 
 class AuthController {
   String get baseUrl {
-    return dotenv.env['BASE_URL'] ?? 'http://192.168.68.100:3000/api/auth';
+    return dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api/auth';
   }
 
   Future<UserModel?> signup({
