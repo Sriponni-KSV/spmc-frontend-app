@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../models/user_model.dart';
-import '../widgets/live_clock.dart';
+import '../controllers/auth_provider.dart';
+import '../widgets/nurse_widgets.dart';
 import 'login_page.dart';
 
 class DashboardScreen extends StatefulWidget {
-  final UserModel user;
-  const DashboardScreen({Key? key, required this.user}) : super(key: key);
+  const DashboardScreen({Key? key}) : super(key: key);
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -30,6 +31,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
+      floatingActionButton: CustomSpeedDial(
+        children: [
+          SpeedDialChild(
+            label: 'New Prescription',
+            icon: Icons.add_task,
+            color: Colors.indigo,
+            onTap: () {},
+          ),
+          SpeedDialChild(
+            label: 'Adjust Schedule',
+            icon: Icons.calendar_month_outlined,
+            color: AppTheme.primaryColor,
+            onTap: () {},
+          ),
+        ],
+      ),
       body: Row(
         children: [
           // Sidebar (only on desktop)
@@ -133,34 +150,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // User Profile Area
           Padding(
             padding: const EdgeInsets.all(24.0),
-            child: Row(
-              children: [
-                const CircleAvatar(
-                  backgroundColor: AppTheme.primaryColor,
-                  radius: 18,
-                  child: Icon(Icons.person, color: Colors.white, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(widget.user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
-                      Text(widget.user.role, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
-                  onPressed: () {
-                     Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (context) => const LoginScreen()),
-                      (route) => false,
-                    );
-                  },
-                ),
-              ],
+            child: Consumer<AuthProvider>(
+              builder: (context, auth, _) {
+                final user = auth.user;
+                if (user == null) return const SizedBox.shrink();
+                return Row(
+                  children: [
+                    const CircleAvatar(
+                      backgroundColor: AppTheme.primaryColor,
+                      radius: 18,
+                      child: Icon(Icons.person, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
+                          Text(user.role, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
+                      onPressed: () {
+                        auth.logout();
+                         Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (context) => const LoginScreen()),
+                          (route) => false,
+                        );
+                      },
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -240,10 +264,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildGreeting() {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Hello, ${widget.user.fullname}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+        Text(user != null ? 'Hello, ${user.fullname}' : 'Dashboard', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         const Text('Here is what\'s happening with your patients today.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14)),
       ],
@@ -277,37 +302,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildStatCard(String title, String value, String sub, IconData icon, Color color, bool isMobile) {
-    Widget card = Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.borderColor.withOpacity(0.5))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              Text(sub, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          Text(title, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
-        ],
-      ),
+    return StatCard(
+      title: title,
+      value: value,
+      subLabel: sub,
+      icon: icon,
+      color: color,
+      isMobile: isMobile,
     );
-
-    if (isMobile) {
-      return SizedBox(
-        width: (MediaQuery.of(context).size.width - 48) / 2, // 2 cards per row
-        child: card,
-      );
-    }
-    return Expanded(child: card);
   }
 
   Widget _buildNotificationBanner(bool isMobile) {
@@ -375,22 +377,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildActionButton(IconData icon, String label, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-          child: Row(
-            children: [
-              Icon(icon, color: Colors.white, size: 20),
-              const SizedBox(width: 12),
-              Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 13)),
-            ],
-          ),
-        ),
-      ),
+    return QuickActionButton(
+      icon: icon,
+      label: label,
+      onTap: onTap,
     );
   }
 

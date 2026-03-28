@@ -1,0 +1,69 @@
+﻿Analyzing spmc-frontend-app...                                  
+
+warning - Unused import: 'package:intl/intl.dart' - lib\screens\admin_dashboard.dart:2:8 - unused_import
+warning - Unused import: '../models/user_model.dart' - lib\screens\admin_dashboard.dart:5:8 - unused_import
+   info - Parameter 'key' could be a super parameter - lib\screens\admin_dashboard.dart:11:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\admin_dashboard.dart:132:50 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\admin_dashboard.dart:212:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\admin_dashboard.dart:354:56 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\screens\admin_dashboard.dart:444:9 - use_super_parameters
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\screens\admin_dashboard.dart:545:19 - deprecated_member_use
+warning - Unused import: 'package:intl/intl.dart' - lib\screens\dashboard_page.dart:2:8 - unused_import
+warning - Unused import: '../models/user_model.dart' - lib\screens\dashboard_page.dart:5:8 - unused_import
+   info - Parameter 'key' could be a super parameter - lib\screens\dashboard_page.dart:11:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\dashboard_page.dart:203:53 - deprecated_member_use
+   info - Unnecessary use of 'toList' in a spread - lib\screens\dashboard_page.dart:401:63 - unnecessary_to_list_in_spreads
+warning - Unused import: '../utils/custom_app_bar.dart' - lib\screens\login_page.dart:4:8 - unused_import
+   info - Parameter 'key' could be a super parameter - lib\screens\login_page.dart:12:9 - use_super_parameters
+   info - Invalid use of a private type in a public API - lib\screens\login_page.dart:15:3 - library_private_types_in_public_api
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\login_page.dart:146:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\login_page.dart:175:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\login_page.dart:203:46 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\screens\new_patient_registration.dart:6:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\new_patient_registration.dart:121:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\new_patient_registration.dart:124:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\new_patient_registration.dart:202:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\new_patient_registration.dart:205:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\new_patient_registration.dart:418:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\new_patient_registration.dart:421:33 - deprecated_member_use
+   info - Unnecessary 'const' keyword - lib\screens\new_patient_registration.dart:625:25 - unnecessary_const
+   info - Unnecessary 'const' keyword - lib\screens\new_patient_registration.dart:626:25 - unnecessary_const
+   info - Parameter 'key' could be a super parameter - lib\screens\nurse_dashboard.dart:11:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\nurse_dashboard.dart:33:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\nurse_dashboard.dart:361:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\nurse_dashboard.dart:694:47 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\nurse_dashboard.dart:860:38 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\nurse_dashboard.dart:1201:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\utils\app_theme.dart:23:27 - deprecated_member_use
+   info - 'background' is deprecated and shouldn't be used. Use surface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\utils\app_theme.dart:41:9 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\utils\custom_app_bar.dart:9:9 - use_super_parameters
+   info - Parameter 'key' could be a super parameter - lib\utils\custom_nav_bar.dart:7:9 - use_super_parameters
+   info - Parameter 'key' could be a super parameter - lib\widgets\nurse_widgets.dart:33:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:63:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:64:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:78:41 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\widgets\nurse_widgets.dart:127:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:163:56 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\widgets\nurse_widgets.dart:203:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:234:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:235:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:239:38 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\widgets\nurse_widgets.dart:283:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:358:49 - deprecated_member_use
+   info - Unnecessary use of 'toList' in a spread - lib\widgets\nurse_widgets.dart:385:14 - unnecessary_to_list_in_spreads
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:402:41 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\widgets\nurse_widgets.dart:438:9 - use_super_parameters
+   info - Invalid use of a private type in a public API - lib\widgets\nurse_widgets.dart:441:3 - library_private_types_in_public_api
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:497:39 - deprecated_member_use
+   info - Unnecessary use of 'toList' in a spread - lib\widgets\nurse_widgets.dart:574:30 - unnecessary_to_list_in_spreads
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:635:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:668:52 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\widgets\nurse_widgets.dart:765:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:783:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:786:33 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\widgets\nurse_widgets.dart:912:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:934:41 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\widgets\nurse_widgets.dart:958:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\nurse_widgets.dart:976:41 - deprecated_member_use
+   info - Use interpolation to compose strings and values - patch.dart:29:26 - prefer_interpolation_to_compose_strings
+
