@@ -16,12 +16,181 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
+  String _selectedRoleFilter = 'All';
+  final AuthController _authController = AuthController();
+  Future<List<UserModel>>? _staffFuture;
+  final ScrollController _verticalScrollController = ScrollController();
+  final ScrollController _horizontalScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _verticalScrollController.dispose();
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStaff();
+  }
+
+  void _loadStaff() {
+    setState(() {
+      _staffFuture = _authController.fetchStaff();
+    });
+  }
 
   void _showAddUserDialog(BuildContext context) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => const AddUserDialog(),
+    ).then((_) => _loadStaff()); // Refresh list after dialog closes
+  }
+
+  void _showEditDialog(BuildContext context, UserModel user) {
+    final nameCtrl = TextEditingController(text: user.fullname);
+    final emailCtrl = TextEditingController(text: user.email);
+    final licenseCtrl = TextEditingController(text: user.medicalLicense ?? '');
+    String selectedRole = user.role;
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Edit Staff', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.9,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: emailCtrl,
+                    decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedRole,
+                    decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.badge_outlined)),
+                    items: ['Doctor', 'Nurse'].map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                    onChanged: (val) { if (val != null) setDialogState(() => selectedRole = val); },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: licenseCtrl,
+                    decoration: const InputDecoration(labelText: 'Medical License (Optional)', prefixIcon: Icon(Icons.medical_services_outlined)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving ? null : () async {
+                setDialogState(() => isSaving = true);
+                try {
+                  await _authController.updateStaff(
+                    id: user.id,
+                    fullname: nameCtrl.text.trim(),
+                    email: emailCtrl.text.trim(),
+                    role: selectedRole,
+                    medicalLicense: licenseCtrl.text.trim().isNotEmpty ? licenseCtrl.text.trim() : null,
+                  );
+                  if (mounted) {
+                    Navigator.pop(ctx);
+                    _loadStaff();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${nameCtrl.text.trim()} updated successfully!'), backgroundColor: Colors.green.shade600),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
+                    );
+                  }
+                } finally {
+                  if (mounted) setDialogState(() => isSaving = false);
+                }
+              },
+              style: ElevatedButton.styleFrom(minimumSize: const Size(100, 44)),
+              child: isSaving
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, UserModel user) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            title: const Text('Delete Staff', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: RichText(
+              text: TextSpan(
+                style: const TextStyle(color: Colors.black87, fontSize: 15),
+                children: [
+                  const TextSpan(text: 'Are you sure you want to delete '),
+                  TextSpan(text: user.fullname, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const TextSpan(text: '? This action cannot be undone.'),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isDeleting ? null : () async {
+                  setDialogState(() => isDeleting = true);
+                  try {
+                    await _authController.deleteStaff(user.id);
+                    if (mounted) {
+                      Navigator.pop(ctx);
+                      _loadStaff();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${user.fullname} deleted.'), backgroundColor: Colors.green.shade600),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
+                      );
+                    }
+                  } finally {
+                    if (mounted) setDialogState(() => isDeleting = false);
+                  }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                child: isDeleting
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Delete'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -32,72 +201,461 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
-      body: Row(
+      body: SafeArea(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Sidebar (only on desktop)
+            if (!isMobile) _buildSidebar(context),
+            
+            // Main Content Area
+            Expanded(
+              child: Column(
+                children: [
+                  _buildHeader(context, isMobile),
+                  Expanded(
+                    child: ClipRRect(child: _buildBodyContent(isMobile)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBodyContent(bool isMobile) {
+    switch (_selectedIndex) {
+      case 0:
+        return _buildControlPanel(isMobile);
+      case 1:
+        return _buildStaffManagement(isMobile);
+      default:
+        return _buildControlPanel(isMobile);
+    }
+  }
+
+  Widget _buildControlPanel(bool isMobile) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sidebar (only on desktop)
-          if (!isMobile) _buildSidebar(context),
-          
-          // Main Content
-          Expanded(
-            child: Column(
+          _buildGreeting(),
+          const SizedBox(height: 24),
+          _buildStatsRow(isMobile),
+          const SizedBox(height: 24),
+          if (isMobile) ...[
+            _buildAlertsSection(),
+            const SizedBox(height: 24),
+            _buildQuickActions(),
+            const SizedBox(height: 24),
+            _buildUserManagementInfo(),
+            const SizedBox(height: 24),
+            _buildSystemStatus(),
+          ] else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeader(context, isMobile),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildGreeting(),
-                        const SizedBox(height: 24),
-                        _buildStatsRow(isMobile),
-                        const SizedBox(height: 24),
-                        if (isMobile) ...[
-                          _buildAlertsSection(),
-                          const SizedBox(height: 24),
-                          _buildQuickActions(),
-                          const SizedBox(height: 24),
-                          _buildUserManagementInfo(),
-                          const SizedBox(height: 24),
-                          _buildSystemStatus(),
-                        ] else
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: Column(
-                                  children: [
-                                    _buildAlertsSection(),
-                                    const SizedBox(height: 24),
-                                    _buildUserManagementInfo(),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 24),
-                              Expanded(
-                                flex: 1,
-                                child: Column(
-                                  children: [
-                                    _buildQuickActions(),
-                                    const SizedBox(height: 24),
-                                    _buildSystemStatus(),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
+                  flex: 2,
+                  child: Column(
+                    children: [
+                      _buildAlertsSection(),
+                      const SizedBox(height: 24),
+                      _buildUserManagementInfo(),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    children: [
+                      _buildQuickActions(),
+                      const SizedBox(height: 24),
+                      _buildSystemStatus(),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
         ],
       ),
     );
   }
+
+  Widget _buildStaffManagement(bool isMobile) {
+    return FutureBuilder<List<UserModel>>(
+      future: _staffFuture,
+      builder: (context, snapshot) {
+        List<UserModel> allStaff = snapshot.data ?? [];
+        List<UserModel> filtered = _selectedRoleFilter == 'All'
+            ? allStaff
+            : allStaff.where((u) => u.role == _selectedRoleFilter).toList();
+
+        return Column(
+          children: [
+            // ── Header: Title + Register Button ──
+            Container(
+              padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, isMobile ? 16 : 24, isMobile ? 16 : 24, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Staff Management', style: TextStyle(fontSize: isMobile ? 22 : 28, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        const Text('View and manage healthcare staff members', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddUserDialog(context),
+                    icon: const Icon(Icons.person_add_outlined, size: 18),
+                    label: Text(isMobile ? 'Add' : 'Register Staff', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      minimumSize: const Size(0, 44),
+                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Role Filter Tabs ──
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+              alignment: Alignment.centerLeft,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: ['All', 'Doctor', 'Nurse'].map((role) {
+                    final isActive = _selectedRoleFilter == role;
+                    final count = role == 'All'
+                        ? allStaff.length
+                        : allStaff.where((u) => u.role == role).length;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () => setState(() => _selectedRoleFilter = role),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isActive ? AppTheme.primaryColor : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: isActive ? AppTheme.primaryColor : AppTheme.borderColor),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                role,
+                                style: TextStyle(
+                                  color: isActive ? Colors.white : AppTheme.textSecondaryColor,
+                                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isActive ? Colors.white.withOpacity(0.2) : AppTheme.backgroundColor,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '$count',
+                                  style: TextStyle(
+                                    color: isActive ? Colors.white : AppTheme.textSecondaryColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Content Area ──
+            Expanded(
+              child: ClipRRect(
+                child: _buildStaffContent(snapshot, filtered, isMobile),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStaffContent(AsyncSnapshot<List<UserModel>> snapshot, List<UserModel> staff, bool isMobile) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (snapshot.hasError) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+            const SizedBox(height: 12),
+            const Text('Failed to load staff data', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text('${snapshot.error}', style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _loadStaff,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (staff.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.people_outline, color: AppTheme.textSecondaryColor.withOpacity(0.4), size: 64),
+            const SizedBox(height: 12),
+            const Text('No staff found', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            const SizedBox(height: 4),
+            Text(
+              _selectedRoleFilter == 'All' ? 'Register your first staff member.' : 'No $_selectedRoleFilter found.',
+              style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (isMobile) {
+      return _buildStaffCards(staff);
+    }
+    return _buildStaffTable(staff, isMobile);
+  }
+
+  Widget _buildStaffTable(List<UserModel> staff, bool isMobile) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Scrollbar(
+          controller: _verticalScrollController,
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            controller: _verticalScrollController,
+            scrollDirection: Axis.vertical,
+            child: SingleChildScrollView(
+              controller: _horizontalScrollController,
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                horizontalMargin: 24,
+                columnSpacing: 32,
+                headingRowHeight: 56,
+                dataRowMinHeight: 60,
+                dataRowMaxHeight: 68,
+                headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
+                headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13),
+                columns: const [
+                  DataColumn(label: Text('Name')),
+                  DataColumn(label: Text('Email')),
+                  DataColumn(label: Text('Role')),
+                  DataColumn(label: Text('License')),
+                  DataColumn(label: Text('Status')),
+                  DataColumn(label: Text('Actions')),
+                ],
+                rows: staff.map((user) {
+                  final roleColor = user.role == 'Doctor' ? const Color(0xFF6366F1) : const Color(0xFF14B8A6);
+                  return DataRow(
+                    cells: [
+                      DataCell(Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: roleColor.withOpacity(0.1),
+                            child: Text(
+                              user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                              style: TextStyle(color: roleColor, fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        ],
+                      )),
+                      DataCell(Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13))),
+                      DataCell(Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: roleColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(user.role, style: TextStyle(color: roleColor, fontSize: 12, fontWeight: FontWeight.w600)),
+                      )),
+                      DataCell(Text(user.medicalLicense ?? '\u2014', style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13))),
+                      DataCell(Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+                            const SizedBox(width: 6),
+                            const Text('Active', style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      )),
+                      DataCell(Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
+                            onPressed: () => _showEditDialog(context, user),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                            onPressed: () => _showDeleteConfirmation(context, user),
+                          ),
+                        ],
+                      )),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  Widget _buildStaffCards(List<UserModel> staff) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: staff.length,
+      itemBuilder: (context, index) {
+        final user = staff[index];
+        final roleColor = user.role == 'Doctor' ? const Color(0xFF6366F1) : const Color(0xFF14B8A6);
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.borderColor.withOpacity(0.4)),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: roleColor.withOpacity(0.1),
+                child: Text(
+                  user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                  style: TextStyle(color: roleColor, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const SizedBox(height: 2),
+                    Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: roleColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(user.role, style: TextStyle(color: roleColor, fontSize: 11, fontWeight: FontWeight.w600)),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+                              const SizedBox(width: 4),
+                              const Text('Active', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                        if (user.medicalLicense != null) ...[
+                          const SizedBox(width: 8),
+                          Text(user.medicalLicense!, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  InkWell(
+                    onTap: () => _showEditDialog(context, user),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: () => _showDeleteConfirmation(context, user),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+
 
   Widget _buildSidebar(BuildContext context) {
     return Container(
@@ -213,43 +771,60 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         color: Colors.white,
         border: Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1)),
       ),
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          if (isMobile) ...[
+          // Left: Menu & Search
+          if (isMobile) 
             Builder(
               builder: (context) => IconButton(
                 icon: const Icon(Icons.menu, color: AppTheme.textSecondaryColor),
                 onPressed: () => Scaffold.of(context).openDrawer(),
               ),
             ),
-            const SizedBox(width: 8),
-          ],
           
-          Expanded(
-            child: SizedBox(
+          Flexible(
+            flex: 2,
+            child: Container(
               height: 40,
-              child: TextFormField(
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const TextField(
                 decoration: InputDecoration(
-                  hintText: isMobile ? 'Search...' : 'Search system...',
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  fillColor: AppTheme.backgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                  hintText: 'Search system...',
+                  prefixIcon: Icon(Icons.search, size: 20),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 10),
                 ),
               ),
             ),
           ),
           
-          if (!isMobile) ...[
-            const SizedBox(width: 24),
-            const Icon(Icons.notifications_none_outlined, color: AppTheme.textSecondaryColor),
-            const SizedBox(width: 24),
-          ] else
-            const SizedBox(width: 12),
+          const SizedBox(width: 16),
           
-          // Date & Time
-          const LiveClock(), // Using the simplified clock
+          // Right Actions
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Notifications icon only on web
+              if (!isMobile) ...[
+                const Icon(Icons.notifications_none_outlined, color: AppTheme.textSecondaryColor),
+                const SizedBox(width: 20),
+              ],
+              
+              // Restored LiveClock widget for real-time display with seconds and day
+              if (!isMobile) 
+                const LiveClock()
+              else
+                Text(
+                  DateFormat('hh:mm a').format(DateTime.now()),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
+                ),
+            ],
+          ),
         ],
       ),
     );
@@ -525,7 +1100,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
     return AlertDialog(
       title: const Text('Register New User', style: TextStyle(fontFamily: AppTheme.fontFamily, fontWeight: FontWeight.bold)),
       content: SizedBox(
-        width: 400,
+        width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.9,
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
