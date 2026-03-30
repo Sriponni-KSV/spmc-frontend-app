@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../utils/app_theme.dart';
 
 class NewPatientRegistrationView extends StatefulWidget {
@@ -20,19 +21,20 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   final TextEditingController _addressController = TextEditingController();
   
   // Step 2 Controllers
-  final TextEditingController _bpController = TextEditingController();
+  final TextEditingController _bpSystolicController = TextEditingController();
+  final TextEditingController _bpDiastolicController = TextEditingController();
   final TextEditingController _sugarController = TextEditingController();
   final TextEditingController _tempController = TextEditingController();
   final TextEditingController _complaintsController = TextEditingController();
   final TextEditingController _historyController = TextEditingController();
-  final TextEditingController _allergiesController = TextEditingController();
-  final TextEditingController _medicationsController = TextEditingController();
 
   // Step 3: Lifestyle Data
   String? _smokingStatus;
   String? _alcoholStatus;
-  String? _dietType;
-  String? _exerciseStatus;
+  final TextEditingController _occupationController = TextEditingController();
+  final TextEditingController _hobbiesController = TextEditingController();
+  final TextEditingController _foodHabitsController = TextEditingController();
+  final TextEditingController _physicalActivityController = TextEditingController();
   
   String? _selectedGender;
   String? _selectedDepartment;
@@ -44,11 +46,16 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     _ageController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _bpController.dispose();
+    _bpSystolicController.dispose();
+    _bpDiastolicController.dispose();
     _sugarController.dispose();
     _tempController.dispose();
     _complaintsController.dispose();
     _historyController.dispose();
+    _occupationController.dispose();
+    _hobbiesController.dispose();
+    _foodHabitsController.dispose();
+    _physicalActivityController.dispose();
     super.dispose();
   }
 
@@ -141,11 +148,11 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
       ),
       child: Row(
         children: [
-          _buildStepItem(1, 'Basic', _currentStep >= 1, isCompleted: _currentStep > 1, isMobile: isMobile),
+          _buildStepItem(1, 'Basic Details', _currentStep >= 1, isCompleted: _currentStep > 1, isMobile: isMobile),
           _buildStepDivider(_currentStep > 1),
-          _buildStepItem(2, 'Intake', _currentStep >= 2, isCompleted: _currentStep > 2, isMobile: isMobile),
+          _buildStepItem(2, 'Medical\nIntake', _currentStep >= 2, isCompleted: _currentStep > 2, isMobile: isMobile),
           _buildStepDivider(_currentStep > 2),
-          _buildStepItem(3, 'Lifestyle', _currentStep >= 3, isCompleted: _currentStep > 3, isMobile: isMobile),
+          _buildStepItem(3, 'Lifestyle Data', _currentStep >= 3, isCompleted: _currentStep > 3, isMobile: isMobile),
           _buildStepDivider(_currentStep > 3),
           _buildStepItem(4, 'Review', _currentStep >= 4, isCompleted: _currentStep > 4, isMobile: isMobile),
         ],
@@ -187,7 +194,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                   (isActive || isCompleted) ? AppTheme.textPrimaryColor : const Color(0xFF718096),
             ),
             textAlign: TextAlign.center,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -234,10 +241,11 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
           _buildTextField(
             controller: _nameController,
             hint: 'Enter patient\'s full name',
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]'))],
           ),
           const SizedBox(height: 24),
 
-          // DOB & Age
+          // DOB & Gender
           Row(
             children: [
               Expanded(
@@ -260,26 +268,6 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildLabel('Age *'),
-                    _buildTextField(
-                      controller: _ageController,
-                      hint: 'Enter age',
-                      keyboardType: TextInputType.number,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Gender & Phone
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
                     _buildLabel('Gender *'),
                     _buildDropdownField(
                       value: _selectedGender,
@@ -290,7 +278,13 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                   ],
                 ),
               ),
-              const SizedBox(width: 24),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Phone Number & Department
+          Row(
+            children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,21 +294,27 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                       controller: _phoneController,
                       hint: '+1 555-0100',
                       keyboardType: TextInputType.phone,
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]'))],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLabel('Department *'),
+                    _buildDropdownField(
+                      value: _selectedDepartment,
+                      hint: 'Select department',
+                      items: ['General Medicine', 'Cardiology', 'Pediatrics', 'Orthopedics'],
+                      onChanged: (val) => setState(() => _selectedDepartment = val),
                     ),
                   ],
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 24),
-
-          // Department
-          _buildLabel('Department *'),
-          _buildDropdownField(
-            value: _selectedDepartment,
-            hint: 'Select department',
-            items: ['General Medicine', 'Cardiology', 'Pediatrics', 'Orthopedics'],
-            onChanged: (val) => setState(() => _selectedDepartment = val),
           ),
           const SizedBox(height: 24),
 
@@ -352,7 +352,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () => setState(() => _currentStep = 2),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFE53E3E),
                       foregroundColor: Colors.white,
@@ -393,7 +393,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                   ),
                 ),
                 ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () => setState(() => _currentStep = 2),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE53E3E),
                     foregroundColor: Colors.white,
@@ -483,6 +483,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
                       'AI Voice Input: ',
@@ -496,6 +497,8 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0D5D9A),
                         foregroundColor: Colors.white,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -507,6 +510,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
               ],
             ),
           // Vitals Section
+          const SizedBox(height: 24),
           const Text(
             'Vitals',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2D3748)),
@@ -514,13 +518,19 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
           const SizedBox(height: 20),
           if (isMobile) ...[
             _buildLabel('Blood Pressure'),
-            _buildTextField(controller: _bpController, hint: '120/80'),
+            Row(
+              children: [
+                Expanded(child: _buildTextField(controller: _bpSystolicController, hint: '120', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
+                const Padding(padding: EdgeInsets.symmetric(horizontal: 12.0), child: Text('/', style: TextStyle(fontSize: 20, color: Color(0xFF4A5568)))),
+                Expanded(child: _buildTextField(controller: _bpDiastolicController, hint: '80', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
+              ],
+            ),
             const SizedBox(height: 16),
             _buildLabel('Sugar Level'),
-            _buildTextField(controller: _sugarController, hint: '100 mg/dL'),
+            _buildTextField(controller: _sugarController, hint: '100 mg/dL', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
             const SizedBox(height: 16),
             _buildLabel('Temperature'),
-            _buildTextField(controller: _tempController, hint: '98.6°F'),
+            _buildTextField(controller: _tempController, hint: '98.6°F', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
           ] else
             Row(
               children: [
@@ -529,7 +539,13 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildLabel('Blood Pressure'),
-                      _buildTextField(controller: _bpController, hint: '120/80'),
+                      Row(
+                        children: [
+                          Expanded(child: _buildTextField(controller: _bpSystolicController, hint: '120', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
+                          const Padding(padding: EdgeInsets.symmetric(horizontal: 12.0), child: Text('/', style: TextStyle(fontSize: 20, color: Color(0xFF4A5568)))),
+                          Expanded(child: _buildTextField(controller: _bpDiastolicController, hint: '80', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -539,7 +555,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildLabel('Sugar Level'),
-                      _buildTextField(controller: _sugarController, hint: '100 mg/dL'),
+                      _buildTextField(controller: _sugarController, hint: '100 mg/dL', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
                     ],
                   ),
                 ),
@@ -549,74 +565,28 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildLabel('Temperature'),
-                      _buildTextField(controller: _tempController, hint: '98.6°F'),
+                      _buildTextField(controller: _tempController, hint: '98.6°F', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
                     ],
                   ),
                 ),
               ],
             ),
           const SizedBox(height: 32),
-
-          // Allergies and Medications Row
-          if (isMobile) ...[
-            _buildLabel('Allergies'),
-            _buildTextField(
-              controller: _allergiesController,
-              hint: 'List any allergies (drugs, food, etc.)...',
-            ),
-            const SizedBox(height: 24),
-            _buildLabel('Current Medications'),
-            _buildTextField(
-              controller: _medicationsController,
-              hint: 'List current medications and dosages...',
-            ),
-          ] else
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Allergies'),
-                      _buildTextField(
-                        controller: _allergiesController,
-                        hint: 'List any allergies...',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Current Medications'),
-                      _buildTextField(
-                        controller: _medicationsController,
-                        hint: 'List current medications...',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          const SizedBox(height: 32),
-
           // Chief Complaints
           _buildLabel('Chief Complaints'),
           _buildTextField(
             controller: _complaintsController,
             hint: 'Describe current health complaints...',
-            maxLines: 3,
+            maxLines: 4,
           ),
           const SizedBox(height: 24),
 
           // Past Medical History
-          _buildLabel('Past Medical History'),
+          _buildLabelAccent('Past Medical History'),
           _buildTextField(
             controller: _historyController,
             hint: 'Previous conditions, surgeries, medications...',
-            maxLines: 3,
+            maxLines: 4,
           ),
           const SizedBox(height: 48),
 
@@ -721,7 +691,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                 ),
                 const Spacer(),
                 ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () => setState(() => _currentStep = 3),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE53E3E),
                     foregroundColor: Colors.white,
@@ -768,56 +738,82 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Lifestyle Assessment',
+            'Lifestyle & Behavioral Data',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
-          // Lifestyle Grid
+          // Occupation & Hobbies Row
           if (isMobile) ...[
-            _buildLabel('Smoking Status'),
-            _buildDropdownField(
-              value: _smokingStatus,
-              hint: 'Select status',
-              items: ['Never', 'Former', 'Current'],
-              onChanged: (val) => setState(() => _smokingStatus = val),
-            ),
-            const SizedBox(height: 16),
-            _buildLabel('Alcohol Consumption'),
-            _buildDropdownField(
-              value: _alcoholStatus,
-              hint: 'Select frequency',
-              items: ['None', 'Social', 'Regular', 'Occasional'],
-              onChanged: (val) => setState(() => _alcoholStatus = val),
-            ),
-            const SizedBox(height: 16),
-            _buildLabel('Diet Type'),
-            _buildDropdownField(
-              value: _dietType,
-              hint: 'Select diet',
-              items: ['Vegetarian', 'Non-Vegetarian', 'Vegan', 'Other'],
-              onChanged: (val) => setState(() => _dietType = val),
-            ),
-            const SizedBox(height: 16),
-            _buildLabel('Physical Activity'),
-            _buildDropdownField(
-              value: _exerciseStatus,
-              hint: 'Select activity level',
-              items: ['Sedentary', 'Lightly Active', 'Moderately Active', 'Very Active'],
-              onChanged: (val) => setState(() => _exerciseStatus = val),
-            ),
-          ] else ...[
+            _buildLabel('Occupation'),
+            _buildTextField(controller: _occupationController, hint: 'Enter occupation'),
+            const SizedBox(height: 20),
+            _buildLabel('Hobbies'),
+            _buildTextField(controller: _hobbiesController, hint: 'e.g., gardening, walking'),
+          ] else
             Row(
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildLabel('Smoking Status'),
+                      _buildLabel('Occupation'),
+                      _buildTextField(controller: _occupationController, hint: 'Enter occupation'),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Hobbies'),
+                      _buildTextField(controller: _hobbiesController, hint: 'e.g., gardening, walking'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 24),
+
+          // Food Habits
+          _buildLabel('Food Habits'),
+          _buildTextField(
+            controller: _foodHabitsController,
+            hint: 'Dietary preferences and eating patterns...',
+            maxLines: 4,
+          ),
+          const SizedBox(height: 24),
+
+          // Smoking & Alcohol Row
+          if (isMobile) ...[
+            _buildLabel('Smoking'),
+            _buildDropdownField(
+              value: _smokingStatus,
+              hint: 'Select status',
+              items: ['Never', 'Former smoker', 'Current smoker'],
+              onChanged: (val) => setState(() => _smokingStatus = val),
+            ),
+            const SizedBox(height: 16),
+            _buildLabel('Alcohol Usage'),
+            _buildDropdownField(
+              value: _alcoholStatus,
+              hint: 'Select frequency',
+              items: ['Never', 'Occasional', 'Regular'],
+              onChanged: (val) => setState(() => _alcoholStatus = val),
+            ),
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Smoking'),
                       _buildDropdownField(
                         value: _smokingStatus,
                         hint: 'Select status',
-                        items: ['Never', 'Former', 'Current'],
+                        items: ['Never', 'Former smoker', 'Current smoker'],
                         onChanged: (val) => setState(() => _smokingStatus = val),
                       ),
                     ],
@@ -828,11 +824,11 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildLabel('Alcohol Consumption'),
+                      _buildLabel('Alcohol Usage'),
                       _buildDropdownField(
                         value: _alcoholStatus,
                         hint: 'Select frequency',
-                        items: ['None', 'Social', 'Regular', 'Occasional'],
+                        items: ['Never', 'Occasional', 'Regular'],
                         onChanged: (val) => setState(() => _alcoholStatus = val),
                       ),
                     ],
@@ -840,78 +836,68 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Diet Type'),
-                      _buildDropdownField(
-                        value: _dietType,
-                        hint: 'Select diet',
-                        items: ['Vegetarian', 'Non-Vegetarian', 'Vegan', 'Other'],
-                        onChanged: (val) => setState(() => _dietType = val),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Physical Activity'),
-                      _buildDropdownField(
-                        value: _exerciseStatus,
-                        hint: 'Select activity level',
-                        items: ['Sedentary', 'Lightly Active', 'Moderately Active', 'Very Active'],
-                        onChanged: (val) => setState(() => _exerciseStatus = val),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-          
+          const SizedBox(height: 24),
+
+          // Physical Activity Level
+          _buildLabel('Physical Activity Level'),
+          _buildTextField(
+            controller: _physicalActivityController,
+            hint: 'Describe daily physical activities...',
+            maxLines: 1,
+          ),
           const SizedBox(height: 48),
 
           // Action Buttons
           if (isMobile)
             Column(
               children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => setState(() => _currentStep = 2),
-                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                    label: const Text('Back'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF4A5568),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => setState(() => _currentStep = 2),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                        label: const Text('Back'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF4A5568),
+                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          minimumSize: const Size(0, 52),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {},
+                        icon: const Icon(Icons.description_outlined, size: 18),
+                        label: const Text('Save as Draft'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF4A5568),
+                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          minimumSize: const Size(0, 52),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {},
+                  child: ElevatedButton.icon(
+                    onPressed: () => setState(() => _currentStep = 4),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                    label: const Text('Next', style: TextStyle(fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFE53E3E),
                       foregroundColor: Colors.white,
+                      minimumSize: const Size(0, 52),
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: const Text('Continue to Review', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -927,25 +913,35 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                     foregroundColor: const Color(0xFF4A5568),
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    minimumSize: const Size(0, 52),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.description_outlined, size: 18),
+                  label: const Text('Save as Draft'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF4A5568),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     minimumSize: const Size(0, 52),
                   ),
                 ),
                 const Spacer(),
-                ElevatedButton(
-                  onPressed: () {},
+                ElevatedButton.icon(
+                  onPressed: () => setState(() => _currentStep = 4),
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                  label: const Text('Next', style: TextStyle(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE53E3E),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
                     minimumSize: const Size(0, 52),
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('Continue to Review', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -955,6 +951,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   }
 
   Widget _buildReviewForm(bool isMobile) {
+    String _val(String v) => v.isEmpty ? '-' : v;
     return Container(
       padding: EdgeInsets.all(isMobile ? 20 : 32),
       decoration: BoxDecoration(
@@ -966,28 +963,118 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Review Patient Registration',
+            'Review & Confirmation',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 24),
-          
-          _buildReviewSection('Basic Details', [
-            'Name: ${_nameController.text}',
-            'Gender: ${_selectedGender ?? "Not Specified"}',
-            'Age: ${_ageController.text}',
-            'Department: ${_selectedDepartment ?? "Not Specified"}',
-          ]),
+
+          // Basic Information Card
+          _buildReviewCard(
+            title: 'Basic Information',
+            color: const Color(0xFFEBF8FF),
+            borderColor: const Color(0xFFBEE3F8),
+            onEdit: () => setState(() => _currentStep = 1),
+            child: isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildReviewField('Name', _val(_nameController.text)),
+                      _buildReviewField('Age / DOB', '${_val(_ageController.text)} / ${_val(_dobController.text)}'),
+                      _buildReviewField('Gender', _val(_selectedGender ?? '')),
+                      _buildReviewField('Phone', _val(_phoneController.text)),
+                      _buildReviewField('Department', _val(_selectedDepartment ?? '')),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildReviewField('Name', _val(_nameController.text))),
+                          Expanded(child: _buildReviewField('Age / DOB', '${_val(_ageController.text)} / ${_val(_dobController.text)}')),
+                        ],
+                      ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildReviewField('Gender', _val(_selectedGender ?? ''))),
+                          Expanded(child: _buildReviewField('Phone', _val(_phoneController.text))),
+                        ],
+                      ),
+                      _buildReviewField('Department', _val(_selectedDepartment ?? '')),
+                    ],
+                  ),
+          ),
           const SizedBox(height: 16),
-          _buildReviewSection('Vitals Summary', [
-            'BP: ${_bpController.text}',
-            'Sugar: ${_sugarController.text}',
-            'Temp: ${_tempController.text}',
-          ]),
+
+          // Medical Data Card
+          _buildReviewCard(
+            title: 'Medical Data',
+            color: const Color(0xFFEBF8FF),
+            borderColor: const Color(0xFFBEE3F8),
+            onEdit: () => setState(() => _currentStep = 2),
+            child: isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: _buildReviewField('BP', _bpSystolicController.text.isEmpty && _bpDiastolicController.text.isEmpty ? '-' : '${_bpSystolicController.text}/${_bpDiastolicController.text}')),
+                          Expanded(child: _buildReviewField('Sugar', _val(_sugarController.text))),
+                          Expanded(child: _buildReviewField('Temp', _val(_tempController.text))),
+                        ],
+                      ),
+                      _buildReviewField('Chief Complaints', _val(_complaintsController.text)),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: _buildReviewField('BP', _bpSystolicController.text.isEmpty && _bpDiastolicController.text.isEmpty ? '-' : '${_bpSystolicController.text}/${_bpDiastolicController.text}')),
+                          Expanded(child: _buildReviewField('Sugar', _val(_sugarController.text))),
+                          Expanded(child: _buildReviewField('Temp', _val(_tempController.text))),
+                        ],
+                      ),
+                      _buildReviewField('Chief Complaints', _val(_complaintsController.text)),
+                    ],
+                  ),
+          ),
           const SizedBox(height: 16),
-          _buildReviewSection('Medical Flags', [
-            'Allergies: ${_allergiesController.text.isEmpty ? "None" : _allergiesController.text}',
-            'Diet: ${_dietType ?? "Regular"}',
-          ]),
+
+          // Lifestyle Data Card
+          _buildReviewCard(
+            title: 'Lifestyle Data',
+            color: const Color(0xFFF0FFF4),
+            borderColor: const Color(0xFFC6F6D5),
+            onEdit: () => setState(() => _currentStep = 3),
+            child: isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildReviewField('Occupation', _val(_occupationController.text)),
+                      _buildReviewField('Hobbies', _val(_hobbiesController.text)),
+                      _buildReviewField('Food Habits', _val(_foodHabitsController.text)),
+                      _buildReviewField('Physical Activity', _val(_physicalActivityController.text)),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildReviewField('Occupation', _val(_occupationController.text))),
+                          Expanded(child: _buildReviewField('Hobbies', _val(_hobbiesController.text))),
+                        ],
+                      ),
+                      _buildReviewField('Food Habits', _val(_foodHabitsController.text)),
+                      _buildReviewField('Physical Activity', _val(_physicalActivityController.text)),
+                    ],
+                  ),
+          ),
 
           const SizedBox(height: 48),
 
@@ -995,33 +1082,53 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
           if (isMobile)
             Column(
               children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => setState(() => _currentStep = 3),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => setState(() => _currentStep = 3),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                        label: const Text('Back'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF4A5568),
+                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          minimumSize: const Size(0, 52),
+                        ),
                       ),
                     ),
-                    child: const Text('Back to Edit'),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {},
+                        icon: const Icon(Icons.description_outlined, size: 18),
+                        label: const Text('Save as Draft'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF4A5568),
+                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          minimumSize: const Size(0, 52),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
+                  child: ElevatedButton.icon(
                     onPressed: widget.onBack,
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Confirm & Complete', style: TextStyle(fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF38A169),
+                      backgroundColor: const Color(0xFFE53E3E),
                       foregroundColor: Colors.white,
+                      minimumSize: const Size(0, 52),
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: const Text('Finalize Registration', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -1029,29 +1136,42 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
           else
             Row(
               children: [
-                OutlinedButton(
+                OutlinedButton.icon(
                   onPressed: () => setState(() => _currentStep = 3),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Back'),
                   style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF4A5568),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    minimumSize: const Size(0, 52),
                   ),
-                  child: const Text('Back to Edit'),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.description_outlined, size: 18),
+                  label: const Text('Save as Draft'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF4A5568),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    minimumSize: const Size(0, 52),
+                  ),
                 ),
                 const Spacer(),
                 ElevatedButton.icon(
                   onPressed: widget.onBack,
-                  icon: const Icon(Icons.check_circle_outline, size: 20),
-                  label: const Text('Finalize Registration', style: TextStyle(fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.check, size: 18),
+                  label: const Text('Confirm & Complete', style: TextStyle(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF38A169),
+                    backgroundColor: const Color(0xFFE53E3E),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
                     minimumSize: const Size(0, 52),
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
               ],
@@ -1061,31 +1181,79 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     );
   }
 
-  Widget _buildReviewSection(String title, List<String> details) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF718096)),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(8),
+  Widget _buildReviewCard({
+    required String title,
+    required Color color,
+    required Color borderColor,
+    required VoidCallback onEdit,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Color(0xFF2D3748),
+                ),
+              ),
+              GestureDetector(
+                onTap: onEdit,
+                child: const Text(
+                  'Edit',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: details.map((d) => Padding(
-              padding: const EdgeInsets.only(bottom: 4.0),
-              child: Text(d, style: const TextStyle(fontSize: 14)),
-            )).toList(),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppTheme.primaryColor,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFF2D3748),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1103,6 +1271,20 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     );
   }
 
+  Widget _buildLabelAccent(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.primaryColor,
+        ),
+      ),
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String hint,
@@ -1111,6 +1293,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     VoidCallback? onTap,
     bool readOnly = false,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextFormField(
       controller: controller,
@@ -1118,6 +1301,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
       readOnly: readOnly,
       onTap: onTap,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 13),
