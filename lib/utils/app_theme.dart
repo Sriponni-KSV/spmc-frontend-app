@@ -10,12 +10,21 @@ class AppTheme {
   static const Color borderColor = Color(0xFFE2E8F0);
   static const Color iconColor = Color(0xFFA0AEC0);
   static const Color labelColor = Color(0xFF4A5568);
-  static const Color successColor = Color(0xFF48BB78);
+  static const Color successColor = Color(0xFF7fb547);
   static const Color infoColor = Color(0xFF4299E1);
   static const Color warningColor = Color(0xFFED8936);
   static const Color alertBgColor = Color(0xFFFFF5F5);
   static const Color alertTextColor = Color(0xFFC53030);
   static const Color infoBgColor = Color(0xFFEBF8FF);
+
+  // Premium Card Shadow
+  static List<BoxShadow> get cardShadow => [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.06),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+  ];
 
   // App-wide Font Family
   static const String fontFamily = 'Inter';
@@ -32,7 +41,7 @@ class AppTheme {
         background: backgroundColor,
         surface: cardColor,
       ),
-      
+
       // Default AppBar Styling
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.white,
@@ -47,17 +56,18 @@ class AppTheme {
           color: textPrimaryColor,
         ),
       ),
-      
+
       // Uniform Button Sizes and Colors
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 56), // consistent global height
+          minimumSize: const Size(
+            double.infinity,
+            56,
+          ), // consistent global height
           padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: const TextStyle(
             fontFamily: fontFamily,
             fontSize: 16,
@@ -67,12 +77,15 @@ class AppTheme {
           elevation: 0,
         ),
       ),
-      
+
       // Text Field Design (used globally in all forms)
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: borderColor),
@@ -85,10 +98,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: primaryColor, width: 1.5),
         ),
-        hintStyle: const TextStyle(
-          color: iconColor,
-          fontFamily: fontFamily,
-        ),
+        hintStyle: const TextStyle(color: iconColor, fontFamily: fontFamily),
         labelStyle: const TextStyle(
           fontFamily: fontFamily,
           fontSize: 14,
@@ -99,16 +109,38 @@ class AppTheme {
         suffixIconColor: iconColor,
         floatingLabelBehavior: FloatingLabelBehavior.never,
       ),
-      
+
       // Typography scaling
       textTheme: const TextTheme(
-        displayLarge: TextStyle(fontFamily: fontFamily, fontSize: 28, fontWeight: FontWeight.bold, color: textPrimaryColor),
-        headlineMedium: TextStyle(fontFamily: fontFamily, fontSize: 20, fontWeight: FontWeight.bold, color: textPrimaryColor),
-        bodyLarge: TextStyle(fontFamily: fontFamily, fontSize: 16, color: textPrimaryColor),
-        bodyMedium: TextStyle(fontFamily: fontFamily, fontSize: 14, color: textPrimaryColor),
-        bodySmall: TextStyle(fontFamily: fontFamily, fontSize: 12, color: textSecondaryColor),
+        displayLarge: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+          color: textPrimaryColor,
+        ),
+        headlineMedium: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: textPrimaryColor,
+        ),
+        bodyLarge: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 16,
+          color: textPrimaryColor,
+        ),
+        bodyMedium: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 14,
+          color: textPrimaryColor,
+        ),
+        bodySmall: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 12,
+          color: textSecondaryColor,
+        ),
       ),
-      
+
       // Bottom Navigation Bar Styling
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: Colors.white,
@@ -117,7 +149,7 @@ class AppTheme {
         showUnselectedLabels: true,
         type: BottomNavigationBarType.fixed,
         elevation: 10,
-      )
+      ),
     );
   }
 }

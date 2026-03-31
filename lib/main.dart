@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
 import 'utils/app_theme.dart';
 import 'screens/login_page.dart';
+import 'controllers/auth_provider.dart';
 
 Future<void> main() async {
   await dotenv.load(fileName: ".env");
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -16,9 +25,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Medical App Auth',
       debugShowCheckedModeBanner: false,
-      // This single line injects our centralized AppTheme across the entire app
       theme: AppTheme.lightTheme,
-      // Start the application at the Login Screen
       home: const LoginScreen(),
     );
   }

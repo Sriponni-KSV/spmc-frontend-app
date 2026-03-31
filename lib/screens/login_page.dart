@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../utils/custom_app_bar.dart';
-import '../controllers/auth_controller.dart';
+import '../controllers/auth_provider.dart';
 
 import 'dashboard_page.dart';
 import 'nurse_dashboard.dart';
@@ -15,13 +16,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final AuthController _authController = AuthController();
-  
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -41,42 +39,40 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final success = await authProvider.login(email: email, password: password);
 
-    try {
-      final user = await _authController.login(email: email, password: password);
-      if (mounted && user != null) {
+    if (mounted) {
+      if (success) {
+        final user = authProvider.user!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Welcome back, ${user.fullname}!'), backgroundColor: AppTheme.primaryColor),
         );
         
         Widget nextScreen;
         if (user.role == 'Nurse' || user.role == 'Head Nurse') {
-          nextScreen = NurseDashboardScreen(user: user);
+          nextScreen = const NurseDashboardScreen();
         } else if (user.role == 'Admin' || user.role == 'Supervisor') {
-          nextScreen = AdminDashboardScreen(user: user);
+          nextScreen = const AdminDashboardScreen();
         } else {
-          nextScreen = DashboardScreen(user: user); // Doctor dashboard
+          nextScreen = const DashboardScreen(); // Doctor dashboard
         }
 
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => nextScreen),
         );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(authProvider.errorMessage ?? 'Login failed'), backgroundColor: Colors.redAccent),
+        );
       }
-    } catch (e) {
-      if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
-         );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isLoading = Provider.of<AuthProvider>(context).isLoading;
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: LayoutBuilder(
@@ -153,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ],
                         ),
-                        child: _buildForm(context, showMobileHeader: false),
+                        child: _buildForm(context, showMobileHeader: false, isLoading: isLoading),
                       ),
                     ),
                   ),
@@ -182,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                      child: _buildForm(context, showMobileHeader: true),
+                      child: _buildForm(context, showMobileHeader: true, isLoading: isLoading),
                     ),
                   ),
                 ),
@@ -194,7 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildForm(BuildContext context, {required bool showMobileHeader}) {
+  Widget _buildForm(BuildContext context, {required bool showMobileHeader, bool isLoading = false}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -276,8 +272,8 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 32),
 
         ElevatedButton(
-          onPressed: _isLoading ? null : _handleLogin,
-          child: _isLoading 
+          onPressed: isLoading ? null : _handleLogin,
+          child: isLoading 
             ? const SizedBox(
                 width: 24, height: 24, 
                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
@@ -285,7 +281,6 @@ class _LoginScreenState extends State<LoginScreen> {
             : const Text('Sign In'),
         ),
         const SizedBox(height: 32),
-
 
       ],
     );
