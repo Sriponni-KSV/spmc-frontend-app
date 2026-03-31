@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../models/user_model.dart';
 import '../controllers/auth_provider.dart';
+import '../controllers/auth_controller.dart';
 import '../widgets/nurse_widgets.dart';
 import 'login_page.dart';
 
