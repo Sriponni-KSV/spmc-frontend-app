@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../controllers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart';
@@ -18,6 +22,38 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   int _selectedIndex = 0;
   bool _isRegisteringPatient = false;
   final FocusNode _mainFocusNode = FocusNode();
+  List<dynamic> _dbPatients = [];
+  bool _isLoadingPatients = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPatients();
+  }
+
+  Future<void> _fetchPatients() async {
+    setState(() => _isLoadingPatients = true);
+    try {
+      final String baseUrl = dotenv.env['API_URL'] ?? 'http://localhost:3000';
+      final response = await http.get(Uri.parse('$baseUrl/api/patients'));
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        setState(() {
+          if (decoded is List) {
+            _dbPatients = List<dynamic>.from(decoded);
+          } else {
+            _dbPatients = [];
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching patients: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingPatients = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -33,7 +69,15 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       barrierColor: Colors.black.withOpacity(0.4),
       transitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (context, anim1, anim2) {
-        return const SearchOverlay();
+        return SearchOverlay(
+          patients: _dbPatients,
+          onNewPatient: () {
+            setState(() {
+              _selectedIndex = 1;
+              _isRegisteringPatient = true;
+            });
+          },
+        );
       },
       transitionBuilder: (context, anim1, anim2, child) {
         return FadeTransition(
@@ -108,7 +152,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     if (_isRegisteringPatient) {
       return NewPatientRegistrationView(
         key: UniqueKey(),
-        onBack: () => setState(() => _isRegisteringPatient = false),
+        onBack: () {
+          setState(() => _isRegisteringPatient = false);
+          _fetchPatients();
+        },
       );
     }
     switch (_selectedIndex) {
@@ -727,7 +774,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           _buildActionButton(
             Icons.person_add_outlined,
             'Register New Patient',
-            () {},
+            () {
+              setState(() {
+                _selectedIndex = 1;
+                _isRegisteringPatient = true;
+              });
+            },
           ),
           _buildActionButton(
             Icons.calendar_month_outlined,
@@ -1154,16 +1206,48 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Widget _buildRecentPatientsRow(bool isMobile) {
-    List<Widget> cards = [
-      _buildPatientInfoCard('John Smith', '45y • Male', 'JS', ['Diabetic']),
-      const SizedBox(width: 16),
-      _buildPatientInfoCard('Sarah Johnson', '32y • Female', 'SJ', []),
-      const SizedBox(width: 16),
-      _buildPatientInfoCard('Robert Brown', '58y • Male', 'RB', [
-        'High Risk',
-        'Hypertension',
-      ]),
-    ];
+    if (_isLoadingPatients) {
+      return const Padding(
+        padding: EdgeInsets.all(24.0),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    
+    if (_dbPatients.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(24.0),
+        child: Text('No recent patients found.'),
+      );
+    }
+
+    final recentPatients = _dbPatients.take(3).toList();
+    List<Widget> cards = [];
+    
+    for (int i = 0; i < recentPatients.length; i++) {
+        final patient = recentPatients[i];
+        String name = patient['name']?.toString() ?? 'Unknown';
+        String age = patient['age']?.toString() ?? '-';
+        String gender = patient['gender'] ?? '-';
+        
+        String initials = '?';
+        if (name.trim().isNotEmpty) {
+          final parts = name.trim().split(' ').where((p) => p.isNotEmpty).take(2).toList();
+          if (parts.isNotEmpty) {
+            initials = parts.map((p) => p[0].toUpperCase()).join('');
+          }
+        }
+        
+        cards.add(_buildPatientInfoCard(
+          name, 
+          '${age}y • $gender', 
+          initials, 
+          [] // Removed hardcoded tags
+        ));
+        
+        if (i < recentPatients.length - 1) {
+            cards.add(const SizedBox(width: 16));
+        }
+    }
 
     if (isMobile) {
       return SingleChildScrollView(
@@ -1229,101 +1313,50 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             ),
           ),
           // Table Rows
-          _buildPatientTableRow(
-            'John Smith',
-            '45',
-            'Male',
-            '+1 555-0101',
-            'Mar 25, 2026',
-            'Active',
-            'JS',
-            ['Diabetic'],
-            isMobile,
-          ),
-          const Divider(height: 1),
-          _buildPatientTableRow(
-            'Sarah Johnson',
-            '32',
-            'Female',
-            '+1 555-0102',
-            'Mar 25, 2026',
-            'Active',
-            'SJ',
-            [],
-            isMobile,
-          ),
-          const Divider(height: 1),
-          _buildPatientTableRow(
-            'Robert Brown',
-            '58',
-            'Male',
-            '+1 555-0103',
-            'Mar 24, 2026',
-            'Active',
-            'RB',
-            ['High Risk', 'Hypertension'],
-            isMobile,
-          ),
-          const Divider(height: 1),
-          _buildPatientTableRow(
-            'Emily Davis',
-            '28',
-            'Female',
-            '+1 555-0104',
-            'Mar 23, 2026',
-            'Active',
-            'ED',
-            [],
-            isMobile,
-          ),
-          const Divider(height: 1),
-          _buildPatientTableRow(
-            'Michael Wilson',
-            '52',
-            'Male',
-            '+1 555-0105',
-            'Mar 22, 2026',
-            'Active',
-            'MW',
-            ['Diabetic'],
-            isMobile,
-          ),
-          const Divider(height: 1),
-          _buildPatientTableRow(
-            'Jessica Taylor',
-            '39',
-            'Female',
-            '+1 555-0106',
-            'Mar 22, 2026',
-            'Active',
-            'JT',
-            [],
-            isMobile,
-          ),
-          const Divider(height: 1),
-          _buildPatientTableRow(
-            'David Martinez',
-            '65',
-            'Male',
-            '+1 555-0107',
-            'Mar 20, 2026',
-            'Inactive',
-            'DM',
-            ['High Risk'],
-            isMobile,
-          ),
-          const Divider(height: 1),
-          _buildPatientTableRow(
-            'Linda Anderson',
-            '41',
-            'Female',
-            '+1 555-0108',
-            'Mar 19, 2026',
-            'Active',
-            'LA',
-            [],
-            isMobile,
-          ),
+          if (_isLoadingPatients)
+            const Padding(
+              padding: EdgeInsets.all(32.0),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_dbPatients.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(32.0),
+              child: Center(child: Text('No patients found')),
+            )
+          else
+            ..._dbPatients.map((patient) {
+              List<String> tags = [];
+
+              String name = patient['name']?.toString() ?? 'Unknown';
+              String initials = '?';
+              if (name.trim().isNotEmpty) {
+                final parts = name.trim().split(' ').where((p) => p.isNotEmpty).take(2).toList();
+                if (parts.isNotEmpty) {
+                  initials = parts.map((p) => p[0].toUpperCase()).join('');
+                }
+              }
+                  
+              String createdAt = patient['created_at'] != null  
+                  ? DateFormat('MMM dd, yyyy').format(DateTime.parse(patient['created_at']))
+                  : 'Unknown';
+
+              return Column(
+                children: [
+                  _buildPatientTableRow(
+                    name,
+                    patient['age']?.toString() ?? '-',
+                    patient['gender'] ?? '-',
+                    patient['phone'] ?? '-',
+                    createdAt,
+                    patient['status'] ?? 'Active',
+                    initials,
+                    tags,
+                    isMobile,
+                  ),
+                  const Divider(height: 1),
+                ],
+              );
+            }).toList(),
         ],
       ),
     );

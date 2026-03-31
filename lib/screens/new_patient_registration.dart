@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../utils/app_theme.dart';
 
 class NewPatientRegistrationView extends StatefulWidget {
@@ -12,6 +15,7 @@ class NewPatientRegistrationView extends StatefulWidget {
 
 class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView> {
   int _currentStep = 1;
+  bool _isSubmitting = false;
 
   // Controllers for form fields
   final TextEditingController _nameController = TextEditingController();
@@ -1119,8 +1123,8 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: widget.onBack,
-                    icon: const Icon(Icons.check, size: 18),
+                    onPressed: _isSubmitting ? null : _submitPatientData,
+                    icon: _isSubmitting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.check, size: 18),
                     label: const Text('Confirm & Complete', style: TextStyle(fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFE53E3E),
@@ -1163,8 +1167,8 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                 ),
                 const Spacer(),
                 ElevatedButton.icon(
-                  onPressed: widget.onBack,
-                  icon: const Icon(Icons.check, size: 18),
+                  onPressed: _isSubmitting ? null : _submitPatientData,
+                  icon: _isSubmitting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.check, size: 18),
                   label: const Text('Confirm & Complete', style: TextStyle(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE53E3E),
@@ -1368,6 +1372,64 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
         ),
       ),
     );
+  }
+
+  Future<void> _submitPatientData() async {
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final String baseUrl = dotenv.env['API_URL'] ?? 'http://localhost:3000';
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/patients/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': _nameController.text,
+          'dob': _dobController.text,
+          'age': int.tryParse(_ageController.text) ?? 0,
+          'gender': _selectedGender,
+          'phone': _phoneController.text,
+          'department': _selectedDepartment,
+          'address': _addressController.text,
+          'bpSystolic': _bpSystolicController.text,
+          'bpDiastolic': _bpDiastolicController.text,
+          'sugar': _sugarController.text,
+          'temp': _tempController.text,
+          'complaints': _complaintsController.text,
+          'history': _historyController.text,
+          'smokingStatus': _smokingStatus,
+          'alcoholStatus': _alcoholStatus,
+          'occupation': _occupationController.text,
+          'hobbies': _hobbiesController.text,
+          'foodHabits': _foodHabitsController.text,
+          'physicalActivity': _physicalActivityController.text,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Patient registered successfully!')),
+          );
+          widget.onBack();
+        }
+      } else {
+        throw Exception('Failed to register patient: ${response.body}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {

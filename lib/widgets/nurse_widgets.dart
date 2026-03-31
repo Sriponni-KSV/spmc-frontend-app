@@ -435,7 +435,10 @@ class _CustomSpeedDialState extends State<CustomSpeedDial>
 // --- Nurse-Specific Widgets ---
 
 class SearchOverlay extends StatefulWidget {
-  const SearchOverlay({Key? key}) : super(key: key);
+  final List<dynamic>? patients;
+  final VoidCallback? onNewPatient;
+
+  const SearchOverlay({Key? key, this.patients, this.onNewPatient}) : super(key: key);
 
   @override
   _SearchOverlayState createState() => _SearchOverlayState();
@@ -445,25 +448,15 @@ class _SearchOverlayState extends State<SearchOverlay> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
-  final List<PatientModel> _samplePatients = [
-    PatientModel(
-      name: 'John Smith',
-      age: '45y',
-      phone: '555-0123',
-      initials: 'JS',
-    ),
-    PatientModel(
-      name: 'Sarah Johnson',
-      age: '32y',
-      phone: '555-0124',
-      initials: 'SJ',
-    ),
-  ];
+  // Removed harcoded static sample patients
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() => _focusNode.requestFocus());
+    _searchController.addListener(() {
+      setState(() {});
+    });
   }
 
   @override
@@ -475,6 +468,24 @@ class _SearchOverlayState extends State<SearchOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    final String query = _searchController.text.toLowerCase();
+    final List<PatientModel> displayPatients = (widget.patients ?? [])
+        .map((p) {
+          String name = p['name']?.toString() ?? 'Unknown';
+          String age = p['age']?.toString() ?? '-';
+          String phone = p['phone']?.toString() ?? '-';
+          String initials = '?';
+          if (name.trim().isNotEmpty) {
+            final parts = name.trim().split(' ').where((part) => part.isNotEmpty).take(2).toList();
+            if (parts.isNotEmpty) {
+              initials = parts.map((part) => part[0].toUpperCase()).join('');
+            }
+          }
+          return PatientModel(name: name, age: '${age}y', phone: phone, initials: initials);
+        })
+        .where((p) => p.name.toLowerCase().contains(query) || p.phone.contains(query))
+        .toList();
+
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): () =>
@@ -558,6 +569,12 @@ class _SearchOverlayState extends State<SearchOverlay> {
                           icon: Icons.person_add_alt_1_outlined,
                           label: 'New Patient',
                           color: AppTheme.successColor,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            if (widget.onNewPatient != null) {
+                              widget.onNewPatient!();
+                            }
+                          },
                         ),
                         const SizedBox(height: 12),
                         _buildQuickAction(
@@ -567,11 +584,21 @@ class _SearchOverlayState extends State<SearchOverlay> {
                         ),
 
                         const SizedBox(height: 32),
-                        _buildSectionTitle('Patients (3)'),
+                        _buildSectionTitle('Patients (${displayPatients.length})'),
                         const SizedBox(height: 16),
-                        ..._samplePatients
-                            .map((p) => _buildPatientItem(p))
-                            .toList(),
+                        if (displayPatients.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16.0),
+                            child: Text(
+                              'No patients found.',
+                              style: TextStyle(color: AppTheme.textSecondaryColor),
+                            ),
+                          )
+                        else
+                          ...displayPatients
+                              .take(10)
+                              .map((p) => _buildPatientItem(p))
+                              .toList(),
                       ],
                     ),
                   ),
@@ -622,11 +649,12 @@ class _SearchOverlayState extends State<SearchOverlay> {
     required IconData icon,
     required String label,
     required Color color,
+    VoidCallback? onTap,
   }) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () {},
+        onTap: onTap ?? () {},
         child: Row(
           children: [
             Container(
@@ -776,18 +804,11 @@ class PatientInfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 320,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: const Color(0xFFF1F5F9), // Subtle light blue-grey background
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDCDFE4), width: 1.0),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -795,16 +816,14 @@ class PatientInfoCard extends StatelessWidget {
           Row(
             children: [
               CircleAvatar(
-                radius: 20,
-                backgroundColor: const Color(
-                  0xFF005691,
-                ), // Dark blue from image
+                radius: 22,
+                backgroundColor: const Color(0xFF005691), // Dark blue from image
                 child: Text(
                   initials,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
                   ),
                 ),
               ),
@@ -816,16 +835,17 @@ class PatientInfoCard extends StatelessWidget {
                     Text(
                       name,
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w500,
                         fontSize: 15,
-                        color: AppTheme.textPrimaryColor,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       info,
                       style: const TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 12,
+                        color: Color(0xFF475569),
+                        fontSize: 13,
                       ),
                     ),
                   ],
@@ -840,42 +860,43 @@ class PatientInfoCard extends StatelessWidget {
               runSpacing: 8,
               children: tags.map((tag) => HealthTag(label: tag)).toList(),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
           ],
-          if (tags.isEmpty) const SizedBox(height: 38), // placeholder spacing
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: onView,
                   icon: const Icon(
-                    Icons.visibility_outlined,
+                    Icons.remove_red_eye_outlined,
                     size: 16,
-                    color: Color(0xFF2D3748),
+                    color: Color(0xFF0F172A),
                   ),
                   label: const Text(
                     'View',
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2D3748),
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF0F172A),
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppTheme.borderColor),
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFFCBD5E1)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: onBook,
                   icon: const Icon(
-                    Icons.calendar_month_outlined,
+                    Icons.calendar_today_outlined,
                     size: 16,
                     color: Colors.white,
                   ),
@@ -883,7 +904,7 @@ class PatientInfoCard extends StatelessWidget {
                     'Book',
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                       color: Colors.white,
                     ),
                   ),
@@ -894,7 +915,8 @@ class PatientInfoCard extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
               ),
