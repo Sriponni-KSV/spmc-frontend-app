@@ -14,7 +14,7 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   String get baseUrl {
-    return dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api/auth';
+    return dotenv.env['BASE_URL'];
   }
 
   Future<bool> login({
@@ -27,7 +27,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/login'),
+        Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,
