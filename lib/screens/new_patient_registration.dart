@@ -1382,7 +1382,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     try {
       final String baseUrl = dotenv.env['API_URL'] ?? 'http://localhost:3000';
       final response = await http.post(
-        Uri.parse('$baseUrl/api/patients/register'),
+        Uri.parse('$baseUrl/patients/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'name': _nameController.text,

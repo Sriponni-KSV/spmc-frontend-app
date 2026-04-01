@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../models/user_model.dart';
-import '../controllers/auth_provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart';
 import 'login_page.dart';
 

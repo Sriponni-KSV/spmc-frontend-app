@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../models/user_model.dart';
-import '../controllers/auth_provider.dart';
+import '../providers/auth_provider.dart';
 import '../controllers/auth_controller.dart';
 import '../widgets/nurse_widgets.dart';
 import 'login_page.dart';
@@ -1035,45 +1035,31 @@ class _AddUserDialogState extends State<AddUserDialog> {
   }
 
   Future<void> _createUser() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  setState(() => _isLoading = true);
 
-    try {
-      final success = await authProvider.signup(
-        fullname: _nameController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-        role: _selectedRole,
-        medicalLicense: _licenseController.text.trim().isNotEmpty ? _licenseController.text.trim() : null,
-      );
+  try {
+    // 🚨 Currently signup is removed → so just show message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('User creation API not implemented'),
+        backgroundColor: Colors.orange,
+      ),
+    );
 
-      if (mounted) {
-        if (success) {
-          Navigator.pop(context); // Close dialog
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('User created successfully!'),
-              backgroundColor: Colors.green.shade600,
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(authProvider.errorMessage ?? 'Signup failed'), backgroundColor: Colors.redAccent),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    Navigator.pop(context); // close dialog
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.toString()),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {

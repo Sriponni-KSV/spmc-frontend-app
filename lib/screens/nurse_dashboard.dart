@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
-import '../controllers/auth_provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart';
 import 'login_page.dart';
 import 'new_patient_registration.dart';
