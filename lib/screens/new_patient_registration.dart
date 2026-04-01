@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../services/api_service.dart';
 
 class NewPatientRegistrationView extends StatefulWidget {
   final VoidCallback onBack;
@@ -1380,31 +1382,38 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     });
 
     try {
-      final String baseUrl = dotenv.env['API_URL'] ?? 'http://localhost:3000';
-      final response = await http.post(
-        Uri.parse('$baseUrl/patients/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': _nameController.text,
-          'dob': _dobController.text,
-          'age': int.tryParse(_ageController.text) ?? 0,
-          'gender': _selectedGender,
-          'phone': _phoneController.text,
-          'department': _selectedDepartment,
-          'address': _addressController.text,
-          'bpSystolic': _bpSystolicController.text,
-          'bpDiastolic': _bpDiastolicController.text,
-          'sugar': _sugarController.text,
-          'temp': _tempController.text,
-          'complaints': _complaintsController.text,
-          'history': _historyController.text,
-          'smokingStatus': _smokingStatus,
-          'alcoholStatus': _alcoholStatus,
-          'occupation': _occupationController.text,
-          'hobbies': _hobbiesController.text,
-          'foodHabits': _foodHabitsController.text,
-          'physicalActivity': _physicalActivityController.text,
-        }),
+      // Front-end validation before calling API (helpful when backend gives 500 on unknown inputs)
+      if (_nameController.text.trim().isEmpty || _dobController.text.trim().isEmpty || _phoneController.text.trim().isEmpty) {
+        throw Exception('Please fill in name, date of birth and phone number before submitting.');
+      }
+
+      final String rawBaseUrl = dotenv.env['BASE_URL'] ?? dotenv.env['API_URL'] ?? 'http://localhost:3000/api';
+      final String baseUrl = rawBaseUrl.replaceAll(RegExp(r'/+$'), '');
+      final String endpoint = '$baseUrl/patients/register';
+
+      final response = await ApiService.post(
+        endpoint,
+        {
+          'name': _nameController.text.trim(),
+          'dob': _dobController.text.trim(),
+          'age': int.tryParse(_ageController.text.trim()) ?? 0,
+          'gender': _selectedGender ?? 'Unknown',
+          'phone': _phoneController.text.trim(),
+          'department': _selectedDepartment ?? 'General',
+          'address': _addressController.text.trim(),
+          'bpSystolic': int.tryParse(_bpSystolicController.text.trim()) ?? 0,
+          'bpDiastolic': int.tryParse(_bpDiastolicController.text.trim()) ?? 0,
+          'sugar': double.tryParse(_sugarController.text.trim()) ?? 0.0,
+          'temp': double.tryParse(_tempController.text.trim()) ?? 0.0,
+          'complaints': _complaintsController.text.trim(),
+          'history': _historyController.text.trim(),
+          'smokingStatus': _smokingStatus ?? 'No',
+          'alcoholStatus': _alcoholStatus ?? 'No',
+          'occupation': _occupationController.text.trim(),
+          'hobbies': _hobbiesController.text.trim(),
+          'foodHabits': _foodHabitsController.text.trim(),
+          'physicalActivity': _physicalActivityController.text.trim(),
+        },
       );
 
       if (response.statusCode == 201) {
@@ -1441,7 +1450,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     );
     if (picked != null) {
       setState(() {
-        _dobController.text = "${picked.day}-${picked.month}-${picked.year}";
+        _dobController.text = DateFormat('yyyy-MM-dd').format(picked);
         // Auto-calculate age
         _ageController.text = (DateTime.now().year - picked.year).toString();
       });

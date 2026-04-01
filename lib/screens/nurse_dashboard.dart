@@ -34,8 +34,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   Future<void> _fetchPatients() async {
     setState(() => _isLoadingPatients = true);
     try {
-      final String baseUrl = dotenv.env['API_URL'] ?? 'http://localhost:3000';
-      final response = await http.get(Uri.parse('$baseUrl/api/patients'));
+      final String baseUrl = dotenv.env['BASE_URL'] ?? dotenv.env['API_URL'] ?? 'http://localhost:3000/api';
+      final response = await http.get(Uri.parse('$baseUrl/patients'));
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         setState(() {
