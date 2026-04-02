@@ -7,6 +7,8 @@ import '../providers/auth_provider.dart';
 import '../controllers/auth_controller.dart';
 import '../widgets/nurse_widgets.dart';
 import 'login_page.dart';
+import 'package:http/http.dart' as http;  
+import 'dart:convert';                     
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -1022,6 +1024,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
   
   String _selectedRole = 'Doctor';
   final List<String> _roles = ['Doctor', 'Nurse'];
+  final String baseUrl = 'http://localhost:3000';
   
   bool _isLoading = false;
 
@@ -1040,15 +1043,33 @@ class _AddUserDialogState extends State<AddUserDialog> {
   setState(() => _isLoading = true);
 
   try {
-    // 🚨 Currently signup is removed → so just show message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('User creation API not implemented'),
-        backgroundColor: Colors.orange,
-      ),
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/admin/create'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        "fullname": _nameController.text.trim(),
+        "email": _emailController.text.trim(),
+        "password": _passwordController.text.trim(),
+        "role": _selectedRole,
+        "medical_license": _licenseController.text.trim(),
+      }),
     );
 
-    Navigator.pop(context); // close dialog
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 201) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(data['message']),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pop(context);
+    } else {
+      throw Exception(data['message']);
+    }
+
   } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
