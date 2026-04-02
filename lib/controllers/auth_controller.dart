@@ -5,100 +5,27 @@ import '../services/api_service.dart';
 import '../services/token_service.dart';
 
 class AuthController {
-
   String get baseUrl => dotenv.env['BASE_URL'] ?? '';
 
   Future<UserModel?> login({
     required String email,
     required String password,
   }) async {
-    try {
-      final response = await ApiService.post(
-        '$baseUrl/auth/login',
-        {
-          'email': email,
-          'password': password,
-        },
-      );
+    final response = await ApiService.post(
+      '$baseUrl/auth/login',
+      {
+        'email': email,
+        'password': password,
+      },
+    );
 
-      final data = jsonDecode(response.body);
+    final data = jsonDecode(response.body);
 
-      if (response.statusCode == 200) {
-
-        // ✅ STEP 3: SAVE TOKEN
-        await TokenService.saveToken(data['token']);
-
-        return UserModel.fromJson(data['user']);
-      } else {
-        throw Exception(data['error'] ?? 'Login failed');
-      }
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
-    }
-  }
-
-  Future<List<UserModel>> fetchStaff({String? role}) async {
-    try {
-      String url = '$baseUrl/admin/staff';
-      if (role != null && role != 'All') {
-        url += '?role=$role';
-      }
-
-      final response = await ApiService.get(url);
-      final body = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && body['success'] == true) {
-        final List data = body['data'] ?? [];
-        return data.map((e) => UserModel.fromJson(e)).toList();
-      } else {
-        throw Exception(body['message'] ?? 'Failed to fetch staff');
-      }
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
-    }
-  }
-
-  Future<void> updateStaff({
-    required int id,
-    required String fullname,
-    required String email,
-    required String role,
-    String? medicalLicense,
-  }) async {
-    try {
-      final response = await ApiService.put(
-        '$baseUrl/admin/staff/$id',
-        {
-          'fullname': fullname,
-          'email': email,
-          'role': role,
-          'medical_license': medicalLicense,
-        },
-      );
-
-      final body = jsonDecode(response.body);
-
-      if (response.statusCode != 200 || body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to update staff');
-      }
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
-    }
-  }
-
-  Future<void> deleteStaff(int id) async {
-    try {
-      final response = await ApiService.delete(
-        '$baseUrl/admin/staff/$id',
-      );
-
-      final body = jsonDecode(response.body);
-
-      if (response.statusCode != 200 || body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to delete staff');
-      }
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    if (response.statusCode == 200) {
+      await TokenService.saveToken(data['token']);
+      return UserModel.fromJson(data['user']);
+    } else {
+      throw Exception(data['error'] ?? 'Login failed');
     }
   }
 }

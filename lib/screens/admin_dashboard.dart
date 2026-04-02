@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
-import '../controllers/auth_controller.dart';
+import '../controllers/admin_controller.dart';
 import '../widgets/nurse_widgets.dart';
 import 'login_page.dart';
 import 'package:http/http.dart' as http;  
@@ -20,7 +20,7 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
   String _selectedRoleFilter = 'All';
-  final AuthController _authController = AuthController();
+  final AdminController _adminController = AdminController();
   Future<List<UserModel>>? _staffFuture;
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
@@ -40,7 +40,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   void _loadStaff() {
     setState(() {
-      _staffFuture = _authController.fetchStaff();
+      _staffFuture = _adminController.fetchStaff();
     });
   }
 
@@ -105,7 +105,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               onPressed: isSaving ? null : () async {
                 setDialogState(() => isSaving = true);
                 try {
-                  await _authController.updateStaff(
+                  await _adminController.updateStaff(
                     id: user.id,
                     fullname: nameCtrl.text.trim(),
                     email: emailCtrl.text.trim(),
@@ -167,7 +167,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 onPressed: isDeleting ? null : () async {
                   setDialogState(() => isDeleting = true);
                   try {
-                    await _authController.deleteStaff(user.id);
+                    await _adminController.deleteStaff(user.id);
                     if (mounted) {
                       Navigator.pop(ctx);
                       _loadStaff();
