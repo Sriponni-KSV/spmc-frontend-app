@@ -5,7 +5,7 @@ import '../services/api_service.dart';
 import '../services/token_service.dart';
 
 class AuthController {
-  String get baseUrl => dotenv.env['BASE_URL'] ?? '';
+  String get baseUrl => dotenv.env['BASE_URL']!;
 
   Future<UserModel?> login({
     required String email,
