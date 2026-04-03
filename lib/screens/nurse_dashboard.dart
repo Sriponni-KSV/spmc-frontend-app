@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/nurse_widgets.dart';
+import '../widgets/nurse_widgets.dart' hide PatientModel;
+import '../controllers/patient_controller.dart';
+import '../models/patient_model.dart';
 import 'login_page.dart';
 import 'new_patient_registration.dart';
 
@@ -22,7 +21,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   int _selectedIndex = 0;
   bool _isRegisteringPatient = false;
   final FocusNode _mainFocusNode = FocusNode();
-  List<dynamic> _dbPatients = [];
+  List<PatientModel> _dbPatients = [];
+  String? _patientError;
+  final PatientController _patientController = PatientController();
   bool _isLoadingPatients = false;
 
   @override
@@ -32,28 +33,20 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Future<void> _fetchPatients() async {
-    setState(() => _isLoadingPatients = true);
-    try {
-      final String baseUrl = dotenv.env['BASE_URL'] ?? dotenv.env['API_URL'] ?? 'http://localhost:3000/api';
-      final response = await http.get(Uri.parse('$baseUrl/patients'));
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        setState(() {
-          if (decoded is List) {
-            _dbPatients = List<dynamic>.from(decoded);
-          } else {
-            _dbPatients = [];
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint('Error fetching patients: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingPatients = false);
-      }
-    }
+  setState(() {
+    _isLoadingPatients = true;
+    _patientError = null;
+  });
+  try {
+    final patients = await _patientController.fetchPatients(); 
+    if (mounted) setState(() => _dbPatients = patients);
+  } catch (e) {
+    if (mounted) setState(() => _patientError = e.toString());
+    debugPrint('Error fetching patients: $e');
+  } finally {
+    if (mounted) setState(() => _isLoadingPatients = false);
   }
+}
 
   @override
   void dispose() {
@@ -70,7 +63,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       transitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (context, anim1, anim2) {
         return SearchOverlay(
-          patients: _dbPatients,
+         patients: _dbPatients.map((p) => p.toJson()).toList(),
           onNewPatient: () {
             setState(() {
               _selectedIndex = 1;
@@ -1225,9 +1218,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     
     for (int i = 0; i < recentPatients.length; i++) {
         final patient = recentPatients[i];
-        String name = patient['name']?.toString() ?? 'Unknown';
-        String age = patient['age']?.toString() ?? '-';
-        String gender = patient['gender'] ?? '-';
+        String name = (patient as PatientModel).name;
+        String age = patient.age.toString();
+        String gender = patient.gender;
         
         String initials = '?';
         if (name.trim().isNotEmpty) {
@@ -1267,7 +1260,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     String info,
     String initials,
     List<String> tags,
-  ) {
+   ) {
     return PatientInfoCard(
       name: name,
       info: info,
@@ -1325,38 +1318,28 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             )
           else
             ..._dbPatients.map((patient) {
-              List<String> tags = [];
-
-              String name = patient['name']?.toString() ?? 'Unknown';
-              String initials = '?';
-              if (name.trim().isNotEmpty) {
-                final parts = name.trim().split(' ').where((p) => p.isNotEmpty).take(2).toList();
-                if (parts.isNotEmpty) {
-                  initials = parts.map((p) => p[0].toUpperCase()).join('');
-                }
-              }
-                  
-              String createdAt = patient['created_at'] != null  
-                  ? DateFormat('MMM dd, yyyy').format(DateTime.parse(patient['created_at']))
-                  : 'Unknown';
-
-              return Column(
-                children: [
-                  _buildPatientTableRow(
-                    name,
-                    patient['age']?.toString() ?? '-',
-                    patient['gender'] ?? '-',
-                    patient['phone'] ?? '-',
-                    createdAt,
-                    patient['status'] ?? 'Active',
-                    initials,
-                    tags,
-                    isMobile,
-                  ),
-                  const Divider(height: 1),
-                ],
-              );
-            }).toList(),
+  final parts = patient.name.trim().split(' ').where((p) => p.isNotEmpty).take(2).toList();
+  final String initials = parts.isNotEmpty
+      ? parts.map((p) => p[0].toUpperCase()).join('')
+      : '?';
+ 
+  return Column(
+    children: [
+      _buildPatientTableRow(
+        patient.name,
+        patient.age.toString(),
+        patient.gender,
+        patient.phone,
+        patient.department,    
+        'Active',            
+        initials,
+        [],                  
+        isMobile,
+      ),
+      const Divider(height: 1),
+    ],
+  );
+}).toList(),
         ],
       ),
     );
