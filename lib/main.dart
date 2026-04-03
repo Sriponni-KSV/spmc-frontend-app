@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'utils/app_theme.dart';
-import 'screens/login_page.dart';
-import 'controllers/auth_provider.dart';
+import 'providers/auth_provider.dart';
+
+import 'screens/splash_screen.dart';
 
 Future<void> main() async {
   await dotenv.load(fileName: ".env");
   runApp(
     MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => AuthProvider())],
       child: const MyApp(),
     ),
   );
@@ -23,10 +22,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Medical App Auth',
+      title: 'Sri Ponni Medical Center',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const LoginScreen(),
+      home: const SplashScreen(),
     );
   }
 }

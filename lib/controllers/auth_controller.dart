@@ -1,152 +1,31 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/user_model.dart';
+import '../services/api_service.dart';
+import '../services/token_service.dart';
 
 class AuthController {
-  String get baseUrl {
-    return dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api/auth';
-    //  return dotenv.env['BASE_URL'] ?? 'http://192.168.1.114:3000/api/auth';
-    //  Same wifi - main0001 wifi - Run on mobile
-  }
-
-  Future<UserModel?> signup({
-    required String fullname,
-    required String email,
-    required String password,
-    required String role,
-    String? medicalLicense,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/signup'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'fullname': fullname,
-          'email': email,
-          'password': password,
-          'role': role,
-          'medical_license': medicalLicense,
-        }),
-      );
-
-      final data = jsonDecode(response.body);
-      
-      if (response.statusCode == 201) {
-        return UserModel.fromJson(data['user']);
-      } else {
-        throw Exception(data['error'] ?? 'Signup failed');
-      }
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
-    }
-  }
+  String get baseUrl => dotenv.env['BASE_URL']!;
 
   Future<UserModel?> login({
     required String email,
     required String password,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
-      );
+    final response = await ApiService.post(
+      '$baseUrl/auth/login',
+      {
+        'email': email,
+        'password': password,
+      },
+    );
 
-      final data = jsonDecode(response.body);
+    final data = jsonDecode(response.body);
 
-      if (response.statusCode == 200) {
-        return UserModel.fromJson(data['user']);
-      } else {
-        throw Exception(data['error'] ?? 'Login failed');
-      }
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
-    }
-  }
-
-  Future<List<UserModel>> fetchStaff({String? role}) async {
-    try {
-      String url = '$baseUrl/admin/staff';
-      if (role != null && role != 'All') {
-        url += '?role=$role';
-      }
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      final body = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && body['success'] == true) {
-        final List<dynamic> data = body['data'] ?? [];
-        return data.map((item) => UserModel.fromJson(item)).toList();
-      } else {
-        throw Exception(body['message'] ?? 'Failed to fetch staff');
-      }
-    } on FormatException {
-      throw Exception('Invalid response from server');
-    } on http.ClientException {
-      throw Exception('Network error. Please check your connection.');
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
-    }
-  }
-
-  Future<void> updateStaff({
-    required int id,
-    required String fullname,
-    required String email,
-    required String role,
-    String? medicalLicense,
-  }) async {
-    try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/admin/staff/$id'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'fullname': fullname,
-          'email': email,
-          'role': role,
-          'medical_license': medicalLicense,
-        }),
-      );
-
-      final body = jsonDecode(response.body);
-
-      if (response.statusCode != 200 || body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to update staff');
-      }
-    } on FormatException {
-      throw Exception('Invalid response from server');
-    } on http.ClientException {
-      throw Exception('Network error. Please check your connection.');
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
-    }
-  }
-
-  Future<void> deleteStaff(int id) async {
-    try {
-      final response = await http.delete(
-        Uri.parse('$baseUrl/admin/staff/$id'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      final body = jsonDecode(response.body);
-
-      if (response.statusCode != 200 || body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to delete staff');
-      }
-    } on FormatException {
-      throw Exception('Invalid response from server');
-    } on http.ClientException {
-      throw Exception('Network error. Please check your connection.');
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    if (response.statusCode == 200) {
+      await TokenService.saveToken(data['token']);
+      return UserModel.fromJson(data['user']);
+    } else {
+      throw Exception(data['error'] ?? 'Login failed');
     }
   }
 }

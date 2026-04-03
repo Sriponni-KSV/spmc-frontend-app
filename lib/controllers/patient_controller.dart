@@ -1,0 +1,67 @@
+import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../models/patient_model.dart';
+import '../services/api_service.dart';
+
+class PatientController {
+  String get baseUrl => dotenv.env['BASE_URL']!;
+
+  /// Register a new patient
+  Future<void> registerPatient(PatientModel patient) async {
+    try {
+      final response = await ApiService.post(
+        '$baseUrl/patients/register',
+        patient.toJson(),
+      );
+
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode != 201) {
+        throw Exception(body['message'] ?? 'Failed to register patient');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch all patients
+  Future<List<PatientModel>> fetchPatients() async {
+  try {
+    final url = '$baseUrl/patients';
+    final response = await ApiService.get(url);
+
+    if (response.statusCode != 200) {
+      switch (response.statusCode) {
+        case 401:
+          throw Exception('Unauthorized — please log in again.');
+        case 403:
+          throw Exception('Forbidden — no permission.');
+        case 404:
+          throw Exception('Endpoint not found — check BASE_URL ($baseUrl)');
+        default:
+          throw Exception('Server error ${response.statusCode}');
+      }
+    }
+
+    final body = jsonDecode(response.body);
+
+    if (body is Map) {
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Unknown error');
+      }
+
+      final List data = body['data'] ?? [];
+      return data.map((e) => PatientModel.fromJson(e)).toList();
+    }
+
+    if (body is List) {
+      return body.map((e) => PatientModel.fromJson(e)).toList();
+    }
+
+    throw Exception('Unexpected response format');
+
+  } catch (e) {
+    rethrow;
+  }
+}
+}

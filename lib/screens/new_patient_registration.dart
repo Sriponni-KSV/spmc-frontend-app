@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../controllers/patient_controller.dart'; 
+import '../models/patient_model.dart';  
 
 class NewPatientRegistrationView extends StatefulWidget {
   final VoidCallback onBack;
@@ -23,6 +23,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  final PatientController _patientController = PatientController();
   
   // Step 2 Controllers
   final TextEditingController _bpSystolicController = TextEditingController();
@@ -1374,63 +1375,56 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     );
   }
 
-  Future<void> _submitPatientData() async {
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    try {
-      final String baseUrl = dotenv.env['API_URL'] ?? 'http://localhost:3000';
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/patients/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': _nameController.text,
-          'dob': _dobController.text,
-          'age': int.tryParse(_ageController.text) ?? 0,
-          'gender': _selectedGender,
-          'phone': _phoneController.text,
-          'department': _selectedDepartment,
-          'address': _addressController.text,
-          'bpSystolic': _bpSystolicController.text,
-          'bpDiastolic': _bpDiastolicController.text,
-          'sugar': _sugarController.text,
-          'temp': _tempController.text,
-          'complaints': _complaintsController.text,
-          'history': _historyController.text,
-          'smokingStatus': _smokingStatus,
-          'alcoholStatus': _alcoholStatus,
-          'occupation': _occupationController.text,
-          'hobbies': _hobbiesController.text,
-          'foodHabits': _foodHabitsController.text,
-          'physicalActivity': _physicalActivityController.text,
-        }),
-      );
-
-      if (response.statusCode == 201) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Patient registered successfully!')),
-          );
-          widget.onBack();
-        }
-      } else {
-        throw Exception('Failed to register patient: ${response.body}');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+ Future<void> _submitPatientData() async {
+  setState(() => _isSubmitting = true);
+ 
+  try {
+    if (_nameController.text.trim().isEmpty ||
+        _dobController.text.trim().isEmpty ||
+        _phoneController.text.trim().isEmpty) {
+      throw Exception('Please fill in name, date of birth and phone number before submitting.');
     }
+ 
+    final patient = PatientModel(
+      name:             _nameController.text.trim(),
+      dob:              _dobController.text.trim(),
+      age:              int.tryParse(_ageController.text.trim()) ?? 0,
+      gender:           _selectedGender ?? 'Unknown',
+      phone:            _phoneController.text.trim(),
+      department:       _selectedDepartment ?? 'General',
+      address:          _addressController.text.trim(),
+      bpSystolic:       int.tryParse(_bpSystolicController.text.trim()) ?? 0,
+      bpDiastolic:      int.tryParse(_bpDiastolicController.text.trim()) ?? 0,
+      sugar:            double.tryParse(_sugarController.text.trim()) ?? 0.0,
+      temp:             double.tryParse(_tempController.text.trim()) ?? 0.0,
+      complaints:       _complaintsController.text.trim(),
+      history:          _historyController.text.trim(),
+      smokingStatus:    _smokingStatus ?? 'No',
+      alcoholStatus:    _alcoholStatus ?? 'No',
+      occupation:       _occupationController.text.trim(),
+      hobbies:          _hobbiesController.text.trim(),
+      foodHabits:       _foodHabitsController.text.trim(),
+      physicalActivity: _physicalActivityController.text.trim(),
+    );
+ 
+    await _patientController.registerPatient(patient);
+ 
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Patient registered successfully!')),
+      );
+      widget.onBack();
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  } finally {
+    if (mounted) setState(() => _isSubmitting = false);
   }
+}
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -1441,7 +1435,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     );
     if (picked != null) {
       setState(() {
-        _dobController.text = "${picked.day}-${picked.month}-${picked.year}";
+        _dobController.text = DateFormat('yyyy-MM-dd').format(picked);
         // Auto-calculate age
         _ageController.text = (DateTime.now().year - picked.year).toString();
       });

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../utils/custom_app_bar.dart';
-import '../controllers/auth_provider.dart';
+import '../providers/auth_provider.dart';
 
 import 'dashboard_page.dart';
 import 'nurse_dashboard.dart';

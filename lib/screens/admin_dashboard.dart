@@ -3,10 +3,12 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../models/user_model.dart';
-import '../controllers/auth_provider.dart';
-import '../controllers/auth_controller.dart';
+import '../providers/auth_provider.dart';
+import '../controllers/admin_controller.dart';
 import '../widgets/nurse_widgets.dart';
 import 'login_page.dart';
+import 'package:http/http.dart' as http;  
+import 'dart:convert';                     
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -18,7 +20,7 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
   String _selectedRoleFilter = 'All';
-  final AuthController _authController = AuthController();
+  final AdminController _adminController = AdminController();
   Future<List<UserModel>>? _staffFuture;
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
@@ -38,7 +40,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   void _loadStaff() {
     setState(() {
-      _staffFuture = _authController.fetchStaff();
+      _staffFuture = _adminController.fetchStaff();
     });
   }
 
@@ -103,7 +105,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               onPressed: isSaving ? null : () async {
                 setDialogState(() => isSaving = true);
                 try {
-                  await _authController.updateStaff(
+                  await _adminController.updateStaff(
                     id: user.id,
                     fullname: nameCtrl.text.trim(),
                     email: emailCtrl.text.trim(),
@@ -165,7 +167,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 onPressed: isDeleting ? null : () async {
                   setDialogState(() => isDeleting = true);
                   try {
-                    await _authController.deleteStaff(user.id);
+                    await _adminController.deleteStaff(user.id);
                     if (mounted) {
                       Navigator.pop(ctx);
                       _loadStaff();
@@ -1019,7 +1021,8 @@ class _AddUserDialogState extends State<AddUserDialog> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _licenseController = TextEditingController();
-  
+final AdminController _adminController = AdminController();
+
   String _selectedRole = 'Doctor';
   final List<String> _roles = ['Doctor', 'Nurse'];
   
@@ -1034,46 +1037,32 @@ class _AddUserDialogState extends State<AddUserDialog> {
     super.dispose();
   }
 
-  Future<void> _createUser() async {
-    if (!_formKey.currentState!.validate()) return;
+ Future<void> _createUser() async {
+  if (!_formKey.currentState!.validate()) return;
+  setState(() => _isLoading = true);
 
-    setState(() => _isLoading = true);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  try {
+    await _adminController.createStaff(
+      fullname: _nameController.text.trim(),
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+      role: _selectedRole,
+      medicalLicense: _licenseController.text.trim(),
+    );
 
-    try {
-      final success = await authProvider.signup(
-        fullname: _nameController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-        role: _selectedRole,
-        medicalLicense: _licenseController.text.trim().isNotEmpty ? _licenseController.text.trim() : null,
-      );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('User created successfully'), backgroundColor: Colors.green),
+    );
+    Navigator.pop(context);
 
-      if (mounted) {
-        if (success) {
-          Navigator.pop(context); // Close dialog
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('User created successfully!'),
-              backgroundColor: Colors.green.shade600,
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(authProvider.errorMessage ?? 'Signup failed'), backgroundColor: Colors.redAccent),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+    );
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
