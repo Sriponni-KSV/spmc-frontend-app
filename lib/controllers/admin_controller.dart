@@ -4,7 +4,7 @@ import '../models/user_model.dart';
 import '../services/api_service.dart';
 
 class AdminController {
-  String get baseUrl => dotenv.env['BASE_URL'] ?? '';
+  String get baseUrl => dotenv.env['BASE_URL']!;
 
 Future<void> createStaff({
   required String fullname,
@@ -31,6 +31,10 @@ Future<void> createStaff({
       throw Exception(body['message'] ?? 'Failed to create staff');
     }
   } catch (e) {
+    print("ERROR TYPE: ${e.runtimeType}");
+    print("ERROR MESSAGE: $e");
+    
+    // 3. Throw a clean message for the UI
     throw Exception(e.toString().replaceAll('Exception: ', ''));
   }
 }
