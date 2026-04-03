@@ -24,20 +24,44 @@ class PatientController {
     }
   }
 
-  /// Fetch all patients (for future patient list screen)
+  /// Fetch all patients
   Future<List<PatientModel>> fetchPatients() async {
-    try {
-      final response = await ApiService.get('$baseUrl/patients');
-      final body = jsonDecode(response.body);
+  try {
+    final url = '$baseUrl/patients';
+    final response = await ApiService.get(url);
 
-      if (response.statusCode == 200 && body['success'] == true) {
-        final List data = body['data'] ?? [];
-        return data.map((e) => PatientModel.fromJson(e)).toList();
-      } else {
-        throw Exception(body['message'] ?? 'Failed to fetch patients');
+    if (response.statusCode != 200) {
+      switch (response.statusCode) {
+        case 401:
+          throw Exception('Unauthorized — please log in again.');
+        case 403:
+          throw Exception('Forbidden — no permission.');
+        case 404:
+          throw Exception('Endpoint not found — check BASE_URL ($baseUrl)');
+        default:
+          throw Exception('Server error ${response.statusCode}');
       }
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
+
+    final body = jsonDecode(response.body);
+
+    if (body is Map) {
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Unknown error');
+      }
+
+      final List data = body['data'] ?? [];
+      return data.map((e) => PatientModel.fromJson(e)).toList();
+    }
+
+    if (body is List) {
+      return body.map((e) => PatientModel.fromJson(e)).toList();
+    }
+
+    throw Exception('Unexpected response format');
+
+  } catch (e) {
+    rethrow;
   }
+}
 }
