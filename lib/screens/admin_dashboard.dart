@@ -1021,10 +1021,10 @@ class _AddUserDialogState extends State<AddUserDialog> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _licenseController = TextEditingController();
-  
+final AdminController _adminController = AdminController();
+
   String _selectedRole = 'Doctor';
   final List<String> _roles = ['Doctor', 'Nurse'];
-  final String baseUrl = 'http://localhost:3000';
   
   bool _isLoading = false;
 
@@ -1037,45 +1037,27 @@ class _AddUserDialogState extends State<AddUserDialog> {
     super.dispose();
   }
 
-  Future<void> _createUser() async {
+ Future<void> _createUser() async {
   if (!_formKey.currentState!.validate()) return;
-
   setState(() => _isLoading = true);
 
   try {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/admin/create'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        "fullname": _nameController.text.trim(),
-        "email": _emailController.text.trim(),
-        "password": _passwordController.text.trim(),
-        "role": _selectedRole,
-        "medical_license": _licenseController.text.trim(),
-      }),
+    await _adminController.createStaff(
+      fullname: _nameController.text.trim(),
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+      role: _selectedRole,
+      medicalLicense: _licenseController.text.trim(),
     );
 
-    final data = jsonDecode(response.body);
-
-    if (response.statusCode == 201) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(data['message']),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      Navigator.pop(context);
-    } else {
-      throw Exception(data['message']);
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('User created successfully'), backgroundColor: Colors.green),
+    );
+    Navigator.pop(context);
 
   } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(e.toString()),
-        backgroundColor: Colors.red,
-      ),
+      SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
     );
   } finally {
     if (mounted) setState(() => _isLoading = false);
