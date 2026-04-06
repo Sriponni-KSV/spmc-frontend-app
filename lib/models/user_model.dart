@@ -5,6 +5,8 @@ class UserModel {
   final String role;
   final String status;
   final String? medicalLicense;
+  final int? specializationId;
+  final String? specialization;
   final String? token;
 
   UserModel({
@@ -14,6 +16,8 @@ class UserModel {
     required this.role,
     this.status = 'active',
     this.medicalLicense,
+    this.specializationId,
+    this.specialization,
     this.token,
   });
 
@@ -25,6 +29,8 @@ class UserModel {
       role: json['role'] ?? '',
       status: json['status'] ?? 'active',
       medicalLicense: json['medical_license'],
+      specializationId: json['specialization_id'],
+      specialization: json['specialization'],
       token: json['token'],
     );
   }
