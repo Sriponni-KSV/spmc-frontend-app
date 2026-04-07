@@ -25,6 +25,8 @@ class PatientModel {
   final String hobbies;
   final String foodHabits;
   final String physicalActivity;
+  final bool isQuickRegister;
+
 
   PatientModel({
     this.id,
@@ -49,7 +51,9 @@ class PatientModel {
     required this.hobbies,
     required this.foodHabits,
     required this.physicalActivity,
+    this.isQuickRegister = false,
   });
+
 
   /// Convert model → JSON to send to backend
   Map<String, dynamic> toJson() {
@@ -75,7 +79,9 @@ class PatientModel {
       'hobbies': hobbies,
       'foodHabits': foodHabits,
       'physicalActivity': physicalActivity,
+      'isQuickRegister': isQuickRegister,
     };
+
   }
 
   /// Convert JSON from backend → model (for future fetch patient list)
@@ -110,6 +116,8 @@ class PatientModel {
       hobbies:         (json['hobbies']                                       ?? '').toString(),
       foodHabits:      (json['foodHabits']     ?? json['food_habits']         ?? '').toString(),
       physicalActivity:(json['physicalActivity']?? json['physical_activity']  ?? '').toString(),
+      isQuickRegister: json['isQuickRegister'] ?? json['is_quick_register'] ?? false,
     );
+
   }
 }

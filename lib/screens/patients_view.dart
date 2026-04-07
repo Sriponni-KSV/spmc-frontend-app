@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../models/patient_model.dart';
 import '../widgets/nurse_widgets.dart' hide PatientModel;
+import '../controllers/patient_controller.dart';
 
 class PatientsView extends StatefulWidget {
   final List<PatientModel> patients;
   final bool isLoading;
   final String? error;
   final VoidCallback onRegisterPatient;
+  final VoidCallback? onRefresh;
 
   const PatientsView({
     Key? key,
@@ -15,7 +19,9 @@ class PatientsView extends StatefulWidget {
     required this.isLoading,
     this.error,
     required this.onRegisterPatient,
+    this.onRefresh,
   }) : super(key: key);
+
 
   @override
   State<PatientsView> createState() => _PatientsViewState();
@@ -331,15 +337,16 @@ class _PatientsViewState extends State<PatientsView> {
                   _buildPatientTableRow(
                     patient,
                     name,
-                    patient.age.toString(),
+                    '${patient.age}y',
                     patient.gender,
                     patient.phone,
                     patient.department,
                     'Active',
                     initials,
-                    const [],
+                    patient.isQuickRegister ? ['Quick'] : [],
                     isMobile,
                   ),
+
                   const Divider(height: 1),
                 ],
               );
@@ -527,8 +534,16 @@ class _PatientsViewState extends State<PatientsView> {
   }
 
   void _showQuickRegisterDialog(BuildContext context) {
+    final PatientController patientController = PatientController();
     String? selectedGender;
     String? selectedDepartment;
+    final TextEditingController nameCtrl = TextEditingController();
+    final TextEditingController dobCtrl = TextEditingController();
+    final TextEditingController phoneCtrl = TextEditingController();
+    final TextEditingController reasonCtrl = TextEditingController();
+
+    bool isSaving = false;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -586,10 +601,61 @@ class _PatientsViewState extends State<PatientsView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildQuickFieldLabel('Full Name'),
-                          _buildQuickTextField(hint: 'Enter patient\'s full name'),
+                          _buildQuickTextField(controller: nameCtrl, hint: 'Enter patient\'s full name'),
                           const SizedBox(height: 16),
-                          _buildQuickFieldLabel('Phone Number'),
-                          _buildQuickTextField(hint: '+1 555-0100'),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildQuickFieldLabel('Date of Birth'),
+                                    _buildQuickTextField(
+                                      controller: dobCtrl, 
+                                      hint: 'YYYY-MM-DD',
+                                      icon: Icons.calendar_today_outlined,
+                                      readOnly: true,
+                                      onTap: () async {
+                                        DateTime? pickedDate = await showDatePicker(
+                                          context: context,
+                                          initialDate: DateTime.now().subtract(const Duration(days: 365 * 30)),
+                                          firstDate: DateTime(1900),
+                                          lastDate: DateTime.now(),
+                                        );
+                                        if (pickedDate != null) {
+                                          setState(() {
+                                            dobCtrl.text = DateFormat('yyyy-MM-dd').format(pickedDate);
+                                          });
+                                        }
+                                      },
+                                    ),
+
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildQuickFieldLabel('Phone Number'),
+                                    _buildQuickTextField(
+                                      controller: phoneCtrl, 
+                                      hint: '98765 43210',
+                                      keyboardType: TextInputType.phone,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                        LengthLimitingTextInputFormatter(10),
+                                      ],
+                                    ),
+
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+
                           const SizedBox(height: 16),
                           Row(
                             children: [
@@ -665,7 +731,8 @@ class _PatientsViewState extends State<PatientsView> {
                           ),
                       const SizedBox(height: 16),
                       _buildQuickFieldLabel('Reason for Visit'),
-                      _buildQuickTextField(hint: 'Brief description of symptoms or reason...', maxLines: 3),
+                      _buildQuickTextField(controller: reasonCtrl, hint: 'Brief description of symptoms or reason...', maxLines: 3),
+
                       const SizedBox(height: 24),
                       // Actions
                       Row(
@@ -682,11 +749,92 @@ class _PatientsViewState extends State<PatientsView> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Expanded(
+                           Expanded(
                             child: ElevatedButton(
-                              onPressed: () {
-                                // Add quick check-in logic
-                                Navigator.pop(context);
+                              onPressed: isSaving ? null : () async {
+                                if (nameCtrl.text.trim().isEmpty || phoneCtrl.text.trim().isEmpty || dobCtrl.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Please enter name, dob, and phone number')),
+                                  );
+                                  return;
+                                }
+
+
+                                setState(() => isSaving = true);
+
+                                try {
+                                  int calculatedAge = 0;
+                                  if (dobCtrl.text.isNotEmpty) {
+                                    try {
+                                      // Use DateFormat to parse precisely
+                                      final dob = DateFormat('yyyy-MM-dd').parse(dobCtrl.text);
+                                      final now = DateTime.now();
+                                      calculatedAge = now.year - dob.year;
+                                      if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
+                                        calculatedAge--;
+                                      }
+                                    } catch (e) {
+                                      debugPrint('Error parsing DOB for age: $e');
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Invalid Date Format: ${dobCtrl.text}')),
+                                        );
+                                      }
+                                      setState(() => isSaving = false);
+                                      return;
+                                    }
+                                  }
+
+                                  final newPatient = PatientModel(
+                                    name: nameCtrl.text.trim(),
+                                    dob: dobCtrl.text.trim(),
+                                    age: calculatedAge,
+                                    gender: selectedGender ?? 'Other',
+                                    phone: phoneCtrl.text.trim(),
+                                    department: selectedDepartment ?? 'General',
+                                    address: '',
+                                    height: 0.0,
+                                    weight: 0.0,
+                                    bpSystolic: 0,
+                                    bpDiastolic: 0,
+                                    sugar: 0.0,
+                                    temp: 0.0,
+                                    complaints: reasonCtrl.text.trim(),
+                                    history: '',
+                                    smokingStatus: 'No',
+                                    alcoholStatus: 'No',
+                                    occupation: '',
+                                    hobbies: '',
+                                    foodHabits: '',
+                                    physicalActivity: '',
+                                    isQuickRegister: true,
+                                  );
+
+
+                                  await patientController.registerPatient(newPatient);
+
+                                  if (context.mounted) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Patient registered successfully!')),
+                                    );
+                                    // Trigger a refresh if possible
+                                    if (widget.onRefresh != null) {
+                                      widget.onRefresh!();
+                                    }
+                                  }
+
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error: ${e.toString()}')),
+                                    );
+                                  }
+                                } finally {
+                                  if (context.mounted) {
+                                    setState(() => isSaving = false);
+                                  }
+                                }
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFE53E3E), // Red color from design
@@ -694,9 +842,12 @@ class _PatientsViewState extends State<PatientsView> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 elevation: 0,
                               ),
-                              child: const Text('Register & Check In', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              child: isSaving 
+                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Text('Register & Check In', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
                           ),
+
                         ],
                       ),
                     ],
@@ -751,14 +902,28 @@ class _PatientsViewState extends State<PatientsView> {
     );
   }
 
-  Widget _buildQuickTextField({required String hint, int maxLines = 1, IconData? icon}) {
+  Widget _buildQuickTextField({
+    required TextEditingController controller,
+    required String hint,
+    int maxLines = 1,
+    IconData? icon,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(8),
       ),
       child: TextField(
+        controller: controller,
         maxLines: maxLines,
+        readOnly: readOnly,
+        onTap: onTap,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
@@ -770,6 +935,8 @@ class _PatientsViewState extends State<PatientsView> {
       ),
     );
   }
+
+
 }
 class PatientDetailView extends StatefulWidget {
   final PatientModel patient;

@@ -961,6 +961,10 @@ class HealthTag extends StatelessWidget {
         color = const Color(0xFFDD6B20);
         bgColor = const Color(0xFFFFFAF0);
         break;
+      case 'quick':
+        color = const Color(0xFF805AD5);
+        bgColor = const Color(0xFFFAF5FF);
+        break;
       default:
         color = AppTheme.primaryColor;
         bgColor = AppTheme.primaryColor.withOpacity(0.1);

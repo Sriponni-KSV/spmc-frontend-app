@@ -10,6 +10,7 @@ import '../models/patient_model.dart';
 import 'login_page.dart';
 import 'new_patient_registration.dart';
 import 'patients_view.dart';
+import 'appointments_view.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
   const NurseDashboardScreen({Key? key}) : super(key: key);
@@ -161,7 +162,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           isLoading: _isLoadingPatients,
           error: _patientError,
           onRegisterPatient: () => setState(() => _isRegisteringPatient = true),
+          onRefresh: _fetchPatients,
         );
+      case 2:
+        return const AppointmentsView();
       default:
         return _buildDashboardView(isMobile);
     }

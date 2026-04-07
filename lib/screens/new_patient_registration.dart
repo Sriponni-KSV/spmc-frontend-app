@@ -1540,8 +1540,14 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     if (picked != null) {
       setState(() {
         _dobController.text = DateFormat('yyyy-MM-dd').format(picked);
-        // Auto-calculate age
-        _ageController.text = (DateTime.now().year - picked.year).toString();
+        
+        // Accurate age calculation including month/day check
+        final now = DateTime.now();
+        int age = now.year - picked.year;
+        if (now.month < picked.month || (now.month == picked.month && now.day < picked.day)) {
+          age--;
+        }
+        _ageController.text = age.toString();
       });
     }
   }
