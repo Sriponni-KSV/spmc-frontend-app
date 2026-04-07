@@ -9,6 +9,8 @@ class PatientModel {
   final String address;
 
   // Medical intake
+  final double height;
+  final double weight;
   final int bpSystolic;
   final int bpDiastolic;
   final double sugar;
@@ -33,6 +35,8 @@ class PatientModel {
     required this.phone,
     required this.department,
     required this.address,
+    required this.height,
+    required this.weight,
     required this.bpSystolic,
     required this.bpDiastolic,
     required this.sugar,
@@ -57,6 +61,8 @@ class PatientModel {
       'phone': phone,
       'department': department,
       'address': address,
+      'height': height,
+      'weight': weight,
       'bpSystolic': bpSystolic,
       'bpDiastolic': bpDiastolic,
       'sugar': sugar,
@@ -74,27 +80,36 @@ class PatientModel {
 
   /// Convert JSON from backend → model (for future fetch patient list)
   factory PatientModel.fromJson(Map<String, dynamic> json) {
+    final bpSys  = json['bpSystolic']  ?? json['bp_systolic'];
+    final bpDia  = json['bpDiastolic'] ?? json['bp_diastolic'];
+    final sugarV = json['sugar'];
+    final tempV  = json['temp'];
+    final heightV = json['height'];
+    final weightV = json['weight'];
+
     return PatientModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()),
-      name: json['name'] ?? '',
-      dob: json['dob'] ?? '',
-      age: json['age'] is int ? json['age'] : int.tryParse(json['age'].toString()) ?? 0,
-      gender: json['gender'] ?? '',
-      phone: json['phone'] ?? '',
-      department: json['department'] ?? '',
-      address: json['address'] ?? '',
-      bpSystolic: json['bpSystolic'] is int ? json['bpSystolic'] : int.tryParse(json['bpSystolic'].toString()) ?? 0,
-      bpDiastolic: json['bpDiastolic'] is int ? json['bpDiastolic'] : int.tryParse(json['bpDiastolic'].toString()) ?? 0,
-      sugar: json['sugar'] is double ? json['sugar'] : double.tryParse(json['sugar'].toString()) ?? 0.0,
-      temp: json['temp'] is double ? json['temp'] : double.tryParse(json['temp'].toString()) ?? 0.0,
-      complaints: json['complaints'] ?? '',
-      history: json['history'] ?? '',
-      smokingStatus: json['smokingStatus'] ?? 'No',
-      alcoholStatus: json['alcoholStatus'] ?? 'No',
-      occupation: json['occupation'] ?? '',
-      hobbies: json['hobbies'] ?? '',
-      foodHabits: json['foodHabits'] ?? '',
-      physicalActivity: json['physicalActivity'] ?? '',
+      name:       (json['name']       ?? '').toString(),
+      dob:        (json['dob']        ?? '').toString(),
+      age:        json['age'] is int  ? json['age'] : int.tryParse(json['age'].toString()) ?? 0,
+      gender:     (json['gender']     ?? '').toString(),
+      phone:      (json['phone']      ?? '').toString(),
+      department: (json['department'] ?? '').toString(),
+      address:    (json['address']    ?? '').toString(),
+      height:     heightV == null ? 0.0 : (heightV is double ? heightV : double.tryParse(heightV.toString()) ?? 0.0),
+      weight:     weightV == null ? 0.0 : (weightV is double ? weightV : double.tryParse(weightV.toString()) ?? 0.0),
+      bpSystolic:  bpSys  == null ? 0 : (bpSys  is int ? bpSys  : int.tryParse(bpSys.toString())  ?? 0),
+      bpDiastolic: bpDia  == null ? 0 : (bpDia  is int ? bpDia  : int.tryParse(bpDia.toString())  ?? 0),
+      sugar:       sugarV == null ? 0.0 : (sugarV is double ? sugarV : double.tryParse(sugarV.toString()) ?? 0.0),
+      temp:        tempV  == null ? 0.0 : (tempV  is double ? tempV  : double.tryParse(tempV.toString())  ?? 0.0),
+      complaints:      (json['complaints']                                    ?? '').toString(),
+      history:         (json['history']                                       ?? '').toString(),
+      smokingStatus:   (json['smokingStatus']  ?? json['smoking_status']      ?? 'No').toString(),
+      alcoholStatus:   (json['alcoholStatus']  ?? json['alcohol_status']      ?? 'No').toString(),
+      occupation:      (json['occupation']                                    ?? '').toString(),
+      hobbies:         (json['hobbies']                                       ?? '').toString(),
+      foodHabits:      (json['foodHabits']     ?? json['food_habits']         ?? '').toString(),
+      physicalActivity:(json['physicalActivity']?? json['physical_activity']  ?? '').toString(),
     );
   }
 }

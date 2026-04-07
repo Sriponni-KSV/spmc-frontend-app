@@ -30,6 +30,8 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   final TextEditingController _bpDiastolicController = TextEditingController();
   final TextEditingController _sugarController = TextEditingController();
   final TextEditingController _tempController = TextEditingController();
+  final TextEditingController _heightController = TextEditingController();
+  final TextEditingController _weightController = TextEditingController();
   final TextEditingController _complaintsController = TextEditingController();
   final TextEditingController _historyController = TextEditingController();
 
@@ -44,6 +46,11 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   String? _selectedGender;
   String? _selectedDepartment;
 
+  // Form keys for validation
+  final _formKeyStep1 = GlobalKey<FormState>();
+  final _formKeyStep2 = GlobalKey<FormState>();
+  final _formKeyStep3 = GlobalKey<FormState>();
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -55,6 +62,8 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     _bpDiastolicController.dispose();
     _sugarController.dispose();
     _tempController.dispose();
+    _heightController.dispose();
+    _weightController.dispose();
     _complaintsController.dispose();
     _historyController.dispose();
     _occupationController.dispose();
@@ -218,739 +227,818 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   }
 
   Widget _buildBasicDetailsForm(bool isMobile) {
-    return Container(
-      padding: EdgeInsets.all(isMobile ? 20 : 32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Basic Details',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 32),
+    return Form(
+      key: _formKeyStep1,
+      child: Container(
+        padding: EdgeInsets.all(isMobile ? 20 : 32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Basic Details',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 32),
 
-          // Full Name
-          _buildLabel('Full Name *'),
-          _buildTextField(
-            controller: _nameController,
-            hint: 'Enter patient\'s full name',
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]'))],
-          ),
-          const SizedBox(height: 24),
+            // Full Name
+            _buildLabel('Full Name *'),
+            _buildTextField(
+              controller: _nameController,
+              hint: 'Enter patient\'s full name',
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]'))],
+              validator: (val) => val == null || val.isEmpty ? 'Full name is required' : null,
+            ),
+            const SizedBox(height: 24),
 
-          // DOB & Gender
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLabel('Date of Birth *'),
-                    _buildTextField(
-                      controller: _dobController,
-                      hint: 'dd-mm-yyyy',
-                      icon: Icons.calendar_today_outlined,
-                      onTap: () => _selectDate(context),
-                      readOnly: true,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLabel('Gender *'),
-                    _buildDropdownField(
-                      value: _selectedGender,
-                      hint: 'Select gender',
-                      items: ['Male', 'Female', 'Other'],
-                      onChanged: (val) => setState(() => _selectedGender = val),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Phone Number & Department
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLabel('Phone Number *'),
-                    _buildTextField(
-                      controller: _phoneController,
-                      hint: '+1 555-0100',
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]'))],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLabel('Department *'),
-                    _buildDropdownField(
-                      value: _selectedDepartment,
-                      hint: 'Select department',
-                      items: ['General Medicine', 'Cardiology', 'Pediatrics', 'Orthopedics'],
-                      onChanged: (val) => setState(() => _selectedDepartment = val),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Address
-          _buildLabel('Address'),
-          _buildTextField(
-            controller: _addressController,
-            hint: 'Enter full address',
-            maxLines: 4,
-          ),
-          const SizedBox(height: 48),
-
-          // Action Buttons
-          if (isMobile)
-            Column(
+            // DOB & Gender
+            Row(
               children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Date of Birth *'),
+                      _buildTextField(
+                        controller: _dobController,
+                        hint: 'dd-mm-yyyy',
+                        icon: Icons.calendar_today_outlined,
+                        onTap: () => _selectDate(context),
+                        readOnly: true,
+                        validator: (val) => val == null || val.isEmpty ? 'DOB is required' : null,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Gender *'),
+                      _buildDropdownField(
+                        value: _selectedGender,
+                        hint: 'Select gender',
+                        items: ['Male', 'Female', 'Other'],
+                        onChanged: (val) => setState(() => _selectedGender = val),
+                        validator: (val) => val == null || val.isEmpty ? 'Gender is required' : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Phone Number & Department
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Phone Number *'),
+                      _buildTextField(
+                        controller: _phoneController,
+                        hint: '98765 43210',
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return 'Phone number is required';
+                          if (val.length != 10) return 'Enter a valid 10-digit mobile number';
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Department *'),
+                      _buildDropdownField(
+                        value: _selectedDepartment,
+                        hint: 'Select department',
+                        items: ['General Medicine', 'Cardiology', 'Pediatrics', 'Orthopedics'],
+                        onChanged: (val) => setState(() => _selectedDepartment = val),
+                        validator: (val) => val == null || val.isEmpty ? 'Department is required' : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Address
+            _buildLabel('Address'),
+            _buildTextField(
+              controller: _addressController,
+              hint: 'Enter full address',
+              maxLines: 4,
+            ),
+            const SizedBox(height: 48),
+
+            // Action Buttons
+            if (isMobile)
+              Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.description_outlined, size: 18),
+                      label: const Text('Save as Draft'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF4A5568),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        minimumSize: const Size(0, 52),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (_formKeyStep1.currentState!.validate()) {
+                          setState(() => _currentStep = 2);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE53E3E),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        minimumSize: const Size(0, 52),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('Next', style: TextStyle(fontWeight: FontWeight.bold)),
+                          SizedBox(width: 12),
+                          Icon(Icons.arrow_forward_rounded, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  OutlinedButton.icon(
                     onPressed: () {},
                     icon: const Icon(Icons.description_outlined, size: 18),
                     label: const Text('Save as Draft'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF4A5568),
                       side: const BorderSide(color: Color(0xFFE2E8F0)),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       minimumSize: const Size(0, 52),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => setState(() => _currentStep = 2),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_formKeyStep1.currentState!.validate()) {
+                        setState(() => _currentStep = 2);
+                      }
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFE53E3E),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       minimumSize: const Size(0, 52),
                     ),
                     child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Next', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          'Next',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         SizedBox(width: 12),
                         Icon(Icons.arrow_forward_rounded, size: 18),
                       ],
                     ),
                   ),
-                ),
-              ],
-            )
-          else
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.description_outlined, size: 18),
-                  label: const Text('Save as Draft'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF4A5568),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    minimumSize: const Size(0, 52),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () => setState(() => _currentStep = 2),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE53E3E),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    minimumSize: const Size(0, 52),
-                  ),
-                  child: const Row(
-                    children: [
-                      Text(
-                        'Next',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(width: 12),
-                      Icon(Icons.arrow_forward_rounded, size: 18),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-        ],
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildMedicalIntakeForm(bool isMobile) {
-    return Container(
-      padding: EdgeInsets.all(isMobile ? 20 : 32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (isMobile)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Medical Intake',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Text(
-                      'AI Voice Input: ',
-                      style: TextStyle(color: Color(0xFF4A5568), fontSize: 13),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
+    return Form(
+      key: _formKeyStep2,
+      child: Container(
+        padding: EdgeInsets.all(isMobile ? 20 : 32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isMobile)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Medical Intake',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Text(
+                        'AI Voice Input: ',
+                        style: TextStyle(color: Color(0xFF4A5568), fontSize: 13),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {},
+                          icon: const Icon(Icons.mic_none_outlined, size: 18),
+                          label: const Text('Start Recording'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D5D9A),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Medical Intake',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'AI Voice Input: ',
+                        style: TextStyle(color: Color(0xFF4A5568), fontSize: 13),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
                         onPressed: () {},
                         icon: const Icon(Icons.mic_none_outlined, size: 18),
                         label: const Text('Start Recording'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0D5D9A),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                       ),
+                    ],
+                  ),
+                ],
+              ),
+            // Vitals Section
+            const SizedBox(height: 24),
+            const Text(
+              'Vitals',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2D3748)),
+            ),
+            const SizedBox(height: 20),
+            if (isMobile) ...[
+              _buildLabel('Height & Weight'),
+              Row(
+                children: [
+                  Expanded(child: _buildTextField(controller: _heightController, hint: '170 cm', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))])),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildTextField(controller: _weightController, hint: '70 kg', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))])),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildLabel('Blood Pressure'),
+              Row(
+                children: [
+                  Expanded(child: _buildTextField(controller: _bpSystolicController, hint: '120', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
+                  const Padding(padding: EdgeInsets.symmetric(horizontal: 12.0), child: Text('/', style: TextStyle(fontSize: 20, color: Color(0xFF4A5568)))),
+                  Expanded(child: _buildTextField(controller: _bpDiastolicController, hint: '80', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildLabel('Sugar Level'),
+              _buildTextField(controller: _sugarController, hint: '100 mg/dL', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
+              const SizedBox(height: 16),
+              _buildLabel('Temperature'),
+              _buildTextField(controller: _tempController, hint: '98.6°F', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Height (cm)'),
+                        _buildTextField(controller: _heightController, hint: '170', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
+                      ],
                     ),
-                  ],
-                ),
-              ],
-            )
-          else
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Medical Intake',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'AI Voice Input: ',
-                      style: TextStyle(color: Color(0xFF4A5568), fontSize: 13),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Weight (kg)'),
+                        _buildTextField(controller: _weightController, hint: '70', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.mic_none_outlined, size: 18),
-                      label: const Text('Start Recording'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Blood Pressure'),
+                        Row(
+                          children: [
+                            Expanded(child: _buildTextField(controller: _bpSystolicController, hint: '120', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
+                            const Padding(padding: EdgeInsets.symmetric(horizontal: 12.0), child: Text('/', style: TextStyle(fontSize: 20, color: Color(0xFF4A5568)))),
+                            Expanded(child: _buildTextField(controller: _bpDiastolicController, hint: '80', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Sugar Level'),
+                        _buildTextField(controller: _sugarController, hint: '100 mg/dL', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Temperature'),
+                        _buildTextField(controller: _tempController, hint: '98.6°F', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 32),
+            // Reason for Visit
+            _buildLabel('Reason for Visit'),
+            _buildTextField(
+              controller: _complaintsController,
+              hint: 'Describe current health complaints...',
+              maxLines: 4,
+            ),
+            const SizedBox(height: 24),
+
+            // Past Medical History
+            _buildLabelAccent('Past Medical History'),
+            _buildTextField(
+              controller: _historyController,
+              hint: 'Previous conditions, surgeries, medications...',
+              maxLines: 4,
+            ),
+            const SizedBox(height: 48),
+
+            // Action Buttons
+            if (isMobile)
+              Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => setState(() => _currentStep = 1),
+                          icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                          label: const Text('Back'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF4A5568),
+                            side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            minimumSize: const Size(0, 52),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {},
+                          icon: const Icon(Icons.description_outlined, size: 18),
+                          label: const Text('Save'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF4A5568),
+                            side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            minimumSize: const Size(0, 52),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (_formKeyStep2.currentState!.validate()) {
+                          setState(() => _currentStep = 3);
+                        }
+                      },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D5D9A),
+                        backgroundColor: const Color(0xFFE53E3E),
                         foregroundColor: Colors.white,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
+                        minimumSize: const Size(0, 52),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          // Vitals Section
-          const SizedBox(height: 24),
-          const Text(
-            'Vitals',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2D3748)),
-          ),
-          const SizedBox(height: 20),
-          if (isMobile) ...[
-            _buildLabel('Blood Pressure'),
-            Row(
-              children: [
-                Expanded(child: _buildTextField(controller: _bpSystolicController, hint: '120', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
-                const Padding(padding: EdgeInsets.symmetric(horizontal: 12.0), child: Text('/', style: TextStyle(fontSize: 20, color: Color(0xFF4A5568)))),
-                Expanded(child: _buildTextField(controller: _bpDiastolicController, hint: '80', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildLabel('Sugar Level'),
-            _buildTextField(controller: _sugarController, hint: '100 mg/dL', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
-            const SizedBox(height: 16),
-            _buildLabel('Temperature'),
-            _buildTextField(controller: _tempController, hint: '98.6°F', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
-          ] else
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Blood Pressure'),
-                      Row(
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Expanded(child: _buildTextField(controller: _bpSystolicController, hint: '120', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
-                          const Padding(padding: EdgeInsets.symmetric(horizontal: 12.0), child: Text('/', style: TextStyle(fontSize: 20, color: Color(0xFF4A5568)))),
-                          Expanded(child: _buildTextField(controller: _bpDiastolicController, hint: '80', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
+                          Text('Next', style: TextStyle(fontWeight: FontWeight.bold)),
+                          SizedBox(width: 12),
+                          Icon(Icons.arrow_forward_rounded, size: 18),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Sugar Level'),
-                      _buildTextField(controller: _sugarController, hint: '100 mg/dL', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Temperature'),
-                      _buildTextField(controller: _tempController, hint: '98.6°F', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          const SizedBox(height: 32),
-          // Chief Complaints
-          _buildLabel('Chief Complaints'),
-          _buildTextField(
-            controller: _complaintsController,
-            hint: 'Describe current health complaints...',
-            maxLines: 4,
-          ),
-          const SizedBox(height: 24),
-
-          // Past Medical History
-          _buildLabelAccent('Past Medical History'),
-          _buildTextField(
-            controller: _historyController,
-            hint: 'Previous conditions, surgeries, medications...',
-            maxLines: 4,
-          ),
-          const SizedBox(height: 48),
-
-          // Action Buttons
-          if (isMobile)
-            Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => setState(() => _currentStep = 1),
-                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                        label: const Text('Back'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF4A5568),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          minimumSize: const Size(0, 52),
-                        ),
-                      ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.description_outlined, size: 18),
-                        label: const Text('Save'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF4A5568),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          minimumSize: const Size(0, 52),
-                        ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => setState(() => _currentStep = 1),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                    label: const Text('Back'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF4A5568),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      minimumSize: const Size(0, 52),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
                     onPressed: () {},
+                    icon: const Icon(Icons.description_outlined, size: 18),
+                    label: const Text('Save as Draft'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF4A5568),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      minimumSize: const Size(0, 52),
+                    ),
+                  ),
+                  const Spacer(),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_formKeyStep2.currentState!.validate()) {
+                        setState(() => _currentStep = 3);
+                      }
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFE53E3E),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       minimumSize: const Size(0, 52),
                     ),
                     child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Next', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          'Next',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         SizedBox(width: 12),
                         Icon(Icons.arrow_forward_rounded, size: 18),
                       ],
                     ),
                   ),
-                ),
-              ],
-            )
-          else
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => setState(() => _currentStep = 1),
-                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                  label: const Text('Back'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF4A5568),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    minimumSize: const Size(0, 52),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.description_outlined, size: 18),
-                  label: const Text('Save as Draft'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF4A5568),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    minimumSize: const Size(0, 52),
-                  ),
-                ),
-                const Spacer(),
-                ElevatedButton(
-                  onPressed: () => setState(() => _currentStep = 3),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE53E3E),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    minimumSize: const Size(0, 52),
-                  ),
-                  child: const Row(
-                    children: [
-                      Text(
-                        'Next',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(width: 12),
-                      Icon(Icons.arrow_forward_rounded, size: 18),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-        ],
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildLifestyleDataForm(bool isMobile) {
-    return Container(
-      padding: EdgeInsets.all(isMobile ? 20 : 32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Lifestyle & Behavioral Data',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 28),
-
-          // Occupation & Hobbies Row
-          if (isMobile) ...[
-            _buildLabel('Occupation'),
-            _buildTextField(controller: _occupationController, hint: 'Enter occupation'),
-            const SizedBox(height: 20),
-            _buildLabel('Hobbies'),
-            _buildTextField(controller: _hobbiesController, hint: 'e.g., gardening, walking'),
-          ] else
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Occupation'),
-                      _buildTextField(controller: _occupationController, hint: 'Enter occupation'),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Hobbies'),
-                      _buildTextField(controller: _hobbiesController, hint: 'e.g., gardening, walking'),
-                    ],
-                  ),
-                ),
-              ],
+    return Form(
+      key: _formKeyStep3,
+      child: Container(
+        padding: EdgeInsets.all(isMobile ? 20 : 32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
             ),
-          const SizedBox(height: 24),
-
-          // Food Habits
-          _buildLabel('Food Habits'),
-          _buildTextField(
-            controller: _foodHabitsController,
-            hint: 'Dietary preferences and eating patterns...',
-            maxLines: 4,
-          ),
-          const SizedBox(height: 24),
-
-          // Smoking & Alcohol Row
-          if (isMobile) ...[
-            _buildLabel('Smoking'),
-            _buildDropdownField(
-              value: _smokingStatus,
-              hint: 'Select status',
-              items: ['Never', 'Former smoker', 'Current smoker'],
-              onChanged: (val) => setState(() => _smokingStatus = val),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Lifestyle & Behavioral Data',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
-            _buildLabel('Alcohol Usage'),
-            _buildDropdownField(
-              value: _alcoholStatus,
-              hint: 'Select frequency',
-              items: ['Never', 'Occasional', 'Regular'],
-              onChanged: (val) => setState(() => _alcoholStatus = val),
-            ),
-          ] else
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Smoking'),
-                      _buildDropdownField(
-                        value: _smokingStatus,
-                        hint: 'Select status',
-                        items: ['Never', 'Former smoker', 'Current smoker'],
-                        onChanged: (val) => setState(() => _smokingStatus = val),
-                      ),
-                    ],
+            const SizedBox(height: 28),
+
+            // Occupation & Hobbies Row
+            if (isMobile) ...[
+              _buildLabel('Occupation'),
+              _buildTextField(controller: _occupationController, hint: 'Enter occupation'),
+              const SizedBox(height: 20),
+              _buildLabel('Hobbies'),
+              _buildTextField(controller: _hobbiesController, hint: 'e.g., gardening, walking'),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Occupation'),
+                        _buildTextField(controller: _occupationController, hint: 'Enter occupation'),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Alcohol Usage'),
-                      _buildDropdownField(
-                        value: _alcoholStatus,
-                        hint: 'Select frequency',
-                        items: ['Never', 'Occasional', 'Regular'],
-                        onChanged: (val) => setState(() => _alcoholStatus = val),
-                      ),
-                    ],
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Hobbies'),
+                        _buildTextField(controller: _hobbiesController, hint: 'e.g., gardening, walking'),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+            const SizedBox(height: 24),
+
+            // Food Habits
+            _buildLabel('Food Habits'),
+            _buildTextField(
+              controller: _foodHabitsController,
+              hint: 'Dietary preferences and eating patterns...',
+              maxLines: 4,
             ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // Physical Activity Level
-          _buildLabel('Physical Activity Level'),
-          _buildTextField(
-            controller: _physicalActivityController,
-            hint: 'Describe daily physical activities...',
-            maxLines: 1,
-          ),
-          const SizedBox(height: 48),
+            // Smoking & Alcohol Row
+            if (isMobile) ...[
+              _buildLabel('Smoking'),
+              _buildDropdownField(
+                value: _smokingStatus,
+                hint: 'Select status',
+                items: ['Never', 'Former smoker', 'Current smoker'],
+                onChanged: (val) => setState(() => _smokingStatus = val),
+              ),
+              const SizedBox(height: 16),
+              _buildLabel('Alcohol Usage'),
+              _buildDropdownField(
+                value: _alcoholStatus,
+                hint: 'Select frequency',
+                items: ['Never', 'Occasional', 'Regular'],
+                onChanged: (val) => setState(() => _alcoholStatus = val),
+              ),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Smoking'),
+                        _buildDropdownField(
+                          value: _smokingStatus,
+                          hint: 'Select status',
+                          items: ['Never', 'Former smoker', 'Current smoker'],
+                          onChanged: (val) => setState(() => _smokingStatus = val),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Alcohol Usage'),
+                        _buildDropdownField(
+                          value: _alcoholStatus,
+                          hint: 'Select frequency',
+                          items: ['Never', 'Occasional', 'Regular'],
+                          onChanged: (val) => setState(() => _alcoholStatus = val),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 24),
 
-          // Action Buttons
-          if (isMobile)
-            Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => setState(() => _currentStep = 2),
-                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                        label: const Text('Back'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF4A5568),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          minimumSize: const Size(0, 52),
+            // Physical Activity Level
+            _buildLabel('Physical Activity Level'),
+            _buildTextField(
+              controller: _physicalActivityController,
+              hint: 'Describe daily physical activities...',
+              maxLines: 1,
+            ),
+            const SizedBox(height: 48),
+
+            // Action Buttons
+            if (isMobile)
+              Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => setState(() => _currentStep = 2),
+                          icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                          label: const Text('Back'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF4A5568),
+                            side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            minimumSize: const Size(0, 52),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.description_outlined, size: 18),
-                        label: const Text('Save as Draft'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF4A5568),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          minimumSize: const Size(0, 52),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {},
+                          icon: const Icon(Icons.description_outlined, size: 18),
+                          label: const Text('Save as Draft'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF4A5568),
+                            side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            minimumSize: const Size(0, 52),
+                          ),
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (_formKeyStep3.currentState!.validate()) {
+                          setState(() => _currentStep = 4);
+                        }
+                      },
+                      icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                      label: const Text('Next', style: TextStyle(fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE53E3E),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 52),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => setState(() => _currentStep = 4),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => setState(() => _currentStep = 2),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                    label: const Text('Back'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF4A5568),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      minimumSize: const Size(0, 52),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.description_outlined, size: 18),
+                    label: const Text('Save as Draft'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF4A5568),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      minimumSize: const Size(0, 52),
+                    ),
+                  ),
+                  const Spacer(),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      if (_formKeyStep3.currentState!.validate()) {
+                        setState(() => _currentStep = 4);
+                      }
+                    },
                     icon: const Icon(Icons.arrow_forward_rounded, size: 18),
                     label: const Text('Next', style: TextStyle(fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFE53E3E),
                       foregroundColor: Colors.white,
                       minimumSize: const Size(0, 52),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                   ),
-                ),
-              ],
-            )
-          else
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => setState(() => _currentStep = 2),
-                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                  label: const Text('Back'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF4A5568),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    minimumSize: const Size(0, 52),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.description_outlined, size: 18),
-                  label: const Text('Save as Draft'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF4A5568),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    minimumSize: const Size(0, 52),
-                  ),
-                ),
-                const Spacer(),
-                ElevatedButton.icon(
-                  onPressed: () => setState(() => _currentStep = 4),
-                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                  label: const Text('Next', style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE53E3E),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(0, 52),
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ],
-            ),
-        ],
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1023,6 +1111,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _buildReviewField('Height / Weight', '${_val(_heightController.text)} cm / ${_val(_weightController.text)} kg'),
                       Row(
                         children: [
                           Expanded(child: _buildReviewField('BP', _bpSystolicController.text.isEmpty && _bpDiastolicController.text.isEmpty ? '-' : '${_bpSystolicController.text}/${_bpDiastolicController.text}')),
@@ -1030,7 +1119,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                           Expanded(child: _buildReviewField('Temp', _val(_tempController.text))),
                         ],
                       ),
-                      _buildReviewField('Chief Complaints', _val(_complaintsController.text)),
+                      _buildReviewField('Reason for Visit', _val(_complaintsController.text)),
                     ],
                   )
                 : Column(
@@ -1038,12 +1127,18 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                     children: [
                       Row(
                         children: [
+                          Expanded(child: _buildReviewField('Height / Weight', '${_val(_heightController.text)} cm / ${_val(_weightController.text)} kg')),
+                          Expanded(child: SizedBox()),
+                        ],
+                      ),
+                      Row(
+                        children: [
                           Expanded(child: _buildReviewField('BP', _bpSystolicController.text.isEmpty && _bpDiastolicController.text.isEmpty ? '-' : '${_bpSystolicController.text}/${_bpDiastolicController.text}')),
                           Expanded(child: _buildReviewField('Sugar', _val(_sugarController.text))),
                           Expanded(child: _buildReviewField('Temp', _val(_tempController.text))),
                         ],
                       ),
-                      _buildReviewField('Chief Complaints', _val(_complaintsController.text)),
+                      _buildReviewField('Reason for Visit', _val(_complaintsController.text)),
                     ],
                   ),
           ),
@@ -1299,9 +1394,12 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     bool readOnly = false,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
+      validator: validator,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       maxLines: maxLines,
       readOnly: readOnly,
       onTap: onTap,
@@ -1338,40 +1436,44 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     required String hint,
     required List<String> items,
     required ValueChanged<String?> onChanged,
+    String? Function(String?)? validator,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          hint: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              hint,
-              style: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 13),
-            ),
-          ),
-          isExpanded: true,
-          items: items.map((String item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(item, style: const TextStyle(fontSize: 14)),
-              ),
-            );
-          }).toList(),
-          onChanged: onChanged,
-          icon: const Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: Icon(Icons.expand_more_rounded, color: Color(0xFFA0AEC0)),
-          ),
+    return DropdownButtonFormField<String>(
+      value: value,
+      validator: validator,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 13),
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.red, width: 1),
         ),
       ),
+      icon: const Icon(Icons.expand_more_rounded, color: Color(0xFFA0AEC0)),
+      isExpanded: true,
+      items: items.map((String item) {
+        return DropdownMenuItem<String>(
+          value: item,
+          child: Text(item, style: const TextStyle(fontSize: 14)),
+        );
+      }).toList(),
+      onChanged: onChanged,
     );
   }
 
@@ -1393,6 +1495,8 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
       phone:            _phoneController.text.trim(),
       department:       _selectedDepartment ?? 'General',
       address:          _addressController.text.trim(),
+      height:           double.tryParse(_heightController.text.trim()) ?? 0.0,
+      weight:           double.tryParse(_weightController.text.trim()) ?? 0.0,
       bpSystolic:       int.tryParse(_bpSystolicController.text.trim()) ?? 0,
       bpDiastolic:      int.tryParse(_bpDiastolicController.text.trim()) ?? 0,
       sugar:            double.tryParse(_sugarController.text.trim()) ?? 0.0,
