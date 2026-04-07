@@ -245,12 +245,16 @@ class _QuickActionButtonState extends State<QuickActionButton> {
                 children: [
                   Icon(widget.icon, color: Colors.white, size: 20),
                   const SizedBox(width: 12),
-                  Text(
-                    widget.label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 13,
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ],
@@ -716,6 +720,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     fontSize: 15,
                     color: AppTheme.textPrimaryColor,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
                 Text(
                   '${patient.age} • ${patient.phone}',
@@ -803,7 +809,7 @@ class PatientInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 320,
+      constraints: const BoxConstraints(minWidth: 200),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFF1F5F9), // Subtle light blue-grey background
@@ -839,6 +845,8 @@ class PatientInfoCard extends StatelessWidget {
                         fontSize: 15,
                         color: Color(0xFF0F172A),
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -847,6 +855,8 @@ class PatientInfoCard extends StatelessWidget {
                         color: Color(0xFF475569),
                         fontSize: 13,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -950,6 +960,10 @@ class HealthTag extends StatelessWidget {
       case 'hypertension':
         color = const Color(0xFFDD6B20);
         bgColor = const Color(0xFFFFFAF0);
+        break;
+      case 'quick':
+        color = const Color(0xFF805AD5);
+        bgColor = const Color(0xFFFAF5FF);
         break;
       default:
         color = AppTheme.primaryColor;
