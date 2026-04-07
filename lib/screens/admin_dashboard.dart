@@ -57,13 +57,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final emailCtrl = TextEditingController(text: user.email);
     final licenseCtrl = TextEditingController(text: user.medicalLicense ?? '');
     String selectedRole = user.role;
+    int? selectedSpecializationId = user.specializationId;
+    List<Map<String, dynamic>> specializations = [];
     bool isSaving = false;
+    bool isLoadingSpecializations = false;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) {
+          // Initialize specializations once if needed
+          if (specializations.isEmpty && !isLoadingSpecializations) {
+            setDialogState(() => isLoadingSpecializations = true);
+            _adminController.fetchSpecializations().then((specs) {
+              setDialogState(() {
+                specializations = specs;
+                isLoadingSpecializations = false;
+              });
+            }).catchError((e) {
+              setDialogState(() => isLoadingSpecializations = false);
+            });
+          }
+          return AlertDialog(
           title: const Text('Edit Staff', style: TextStyle(fontWeight: FontWeight.bold)),
           content: SizedBox(
             width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.9,
@@ -85,9 +101,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     value: selectedRole,
                     decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.badge_outlined)),
                     items: ['Doctor', 'Nurse'].map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-                    onChanged: (val) { if (val != null) setDialogState(() => selectedRole = val); },
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedRole = val;
+                          if (selectedRole != 'Doctor') {
+                            selectedSpecializationId = null;
+                          }
+                        });
+                      }
+                    },
                   ),
                   const SizedBox(height: 16),
+                  if (selectedRole == 'Doctor') ...[
+                    if (isLoadingSpecializations)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      DropdownButtonFormField<int>(
+                        value: selectedSpecializationId,
+                        decoration: const InputDecoration(labelText: 'Specialization', prefixIcon: Icon(Icons.star_outline)),
+                        items: specializations.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['name']))).toList(),
+                        onChanged: (val) { if (val != null) setDialogState(() => selectedSpecializationId = val); },
+                      ),
+                    const SizedBox(height: 16),
+                  ],
                   TextFormField(
                     controller: licenseCtrl,
                     decoration: const InputDecoration(labelText: 'Medical License (Optional)', prefixIcon: Icon(Icons.medical_services_outlined)),
@@ -111,6 +148,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     email: emailCtrl.text.trim(),
                     role: selectedRole,
                     medicalLicense: licenseCtrl.text.trim().isNotEmpty ? licenseCtrl.text.trim() : null,
+                    specializationId: selectedRole == 'Doctor' ? selectedSpecializationId : null,
                   );
                   if (mounted) {
                     Navigator.pop(ctx);
@@ -135,10 +173,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   : const Text('Save'),
             ),
           ],
-        ),
-      ),
-    );
-  }
+        );
+      },
+    ),
+  );
+}
 
   void _showDeleteConfirmation(BuildContext context, UserModel user) {
     showDialog(
@@ -491,6 +530,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   DataColumn(label: Text('Name')),
                   DataColumn(label: Text('Email')),
                   DataColumn(label: Text('Role')),
+                  DataColumn(label: Text('Specialization')),
                   DataColumn(label: Text('License')),
                   DataColumn(label: Text('Status')),
                   DataColumn(label: Text('Actions')),
@@ -523,6 +563,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                         child: Text(user.role, style: TextStyle(color: roleColor, fontSize: 12, fontWeight: FontWeight.w600)),
                       )),
+                      DataCell(Text(user.specialization ?? '\u2014', style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13))),
                       DataCell(Text(user.medicalLicense ?? '\u2014', style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13))),
                       DataCell(Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -606,6 +647,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           child: Text(user.role, style: TextStyle(color: roleColor, fontSize: 11, fontWeight: FontWeight.w600)),
                         ),
+                        if (user.specialization != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(user.specialization!, style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1025,8 +1077,34 @@ final AdminController _adminController = AdminController();
 
   String _selectedRole = 'Doctor';
   final List<String> _roles = ['Doctor', 'Nurse'];
-  
+  int? _selectedSpecializationId;
+  List<Map<String, dynamic>> _specializations = [];
   bool _isLoading = false;
+  bool _isLoadingSpecializations = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSpecializations();
+  }
+
+  Future<void> _loadSpecializations() async {
+    setState(() => _isLoadingSpecializations = true);
+    try {
+      final specs = await _adminController.fetchSpecializations();
+      setState(() {
+        _specializations = specs;
+        _isLoadingSpecializations = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingSpecializations = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading specializations: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -1048,6 +1126,7 @@ final AdminController _adminController = AdminController();
       password: _passwordController.text.trim(),
       role: _selectedRole,
       medicalLicense: _licenseController.text.trim(),
+      specializationId: _selectedRole == 'Doctor' ? _selectedSpecializationId : null,
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1102,16 +1181,43 @@ final AdminController _adminController = AdminController();
                   items: _roles.map((role) => DropdownMenuItem(value: role, child: Text(role))).toList(),
                   onChanged: (val) {
                     if (val != null) {
-                      setState(() => _selectedRole = val);
+                      setState(() {
+                        _selectedRole = val;
+                        if (_selectedRole != 'Doctor') {
+                          _selectedSpecializationId = null;
+                        }
+                      });
                     }
                   },
                 ),
                 const SizedBox(height: 16),
-                if (_selectedRole == 'Doctor')
+                if (_selectedRole == 'Doctor') ...[
+                  const SizedBox(height: 16),
+                  _isLoadingSpecializations
+                      ? const Center(child: CircularProgressIndicator())
+                      : DropdownButtonFormField<int>(
+                          value: _selectedSpecializationId,
+                          decoration: const InputDecoration(
+                            labelText: 'Specialization',
+                            prefixIcon: Icon(Icons.star_outline),
+                          ),
+                          items: _specializations.map((spec) {
+                            return DropdownMenuItem<int>(
+                              value: spec['id'],
+                              child: Text(spec['name']),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            setState(() => _selectedSpecializationId = val);
+                          },
+                          validator: (val) => _selectedRole == 'Doctor' && val == null ? 'Please select a specialization' : null,
+                        ),
+                  const SizedBox(height: 16),
                   TextFormField(
                     controller: _licenseController,
                     decoration: const InputDecoration(labelText: 'Medical License (Optional)', prefixIcon: Icon(Icons.medical_services_outlined)),
                   ),
+                ],
               ],
             ),
           ),

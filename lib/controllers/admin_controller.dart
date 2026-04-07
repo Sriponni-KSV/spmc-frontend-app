@@ -12,6 +12,7 @@ Future<void> createStaff({
   required String password,
   required String role,
   String? medicalLicense,
+  int? specializationId,
    }) async {
    try {
     final response = await ApiService.post(
@@ -22,6 +23,7 @@ Future<void> createStaff({
         "password": password,
         "role": role,
         "medical_license": medicalLicense,
+        "specialization_id": specializationId,
       },
     );
 
@@ -66,6 +68,7 @@ Future<void> createStaff({
     required String email,
     required String role,
     String? medicalLicense,
+    int? specializationId,
    }) async {
     try {
       final response = await ApiService.put(
@@ -75,6 +78,7 @@ Future<void> createStaff({
           'email': email,
           'role': role,
           'medical_license': medicalLicense,
+          'specialization_id': specializationId,
         },
       );
 
@@ -98,6 +102,21 @@ Future<void> createStaff({
 
       if (response.statusCode != 200 || body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to delete staff');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchSpecializations() async {
+    try {
+      final response = await ApiService.get('$baseUrl/admin/specializations');
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        return List<Map<String, dynamic>>.from(body['data'] ?? []);
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch specializations');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
