@@ -1082,7 +1082,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   Row(
                     children: [
                       Text(
-                        '${p.age} years â€¢ ${p.gender}',
+                        '${p.age} years • ${p.gender}',
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.85),
                           fontSize: 14,
@@ -1090,7 +1090,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                       ),
                       if (p.department.isNotEmpty) ...[
                         Text(
-                          ' â€¢ ',
+                          ' • ',
                           style: TextStyle(color: Colors.white.withOpacity(0.6)),
                         ),
                         Text(
@@ -1176,7 +1176,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${p.age} years â€¢ ${p.gender}',
+                    '${p.age} years • ${p.gender}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.85),
                       fontSize: 13,
@@ -1292,7 +1292,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
       _VitalItem(
         label: 'Blood Pressure',
         value: (p.bpSystolic == 0 && p.bpDiastolic == 0)
-            ? 'â€”'
+            ? '—'
             : '${p.bpSystolic}/${p.bpDiastolic} mmHg',
         unit: 'Systolic / Diastolic',
         color: const Color(0xFFEBF8FF),
@@ -1306,19 +1306,19 @@ class _PatientDetailViewState extends State<PatientDetailView>
       ),
       _VitalItem(
         label: 'Temperature',
-        value: '${p.temp}Â°F',
+        value: '${p.temp}°F',
         color: const Color(0xFFFFFAF0),
         textColor: const Color(0xFFDD6B20),
       ),
       _VitalItem(
         label: 'Occupation',
-        value: p.occupation.isNotEmpty ? p.occupation : 'â€”',
+        value: p.occupation.isNotEmpty ? p.occupation : '—',
         color: const Color(0xFFF0FFF4),
         textColor: const Color(0xFF276749),
       ),
       _VitalItem(
         label: 'Department',
-        value: p.department.isNotEmpty ? p.department : 'â€”',
+        value: p.department.isNotEmpty ? p.department : '—',
         color: const Color(0xFFFAF5FF),
         textColor: const Color(0xFF6B46C1),
       ),
@@ -1637,7 +1637,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
         children: [
           _buildTimelineItem(
             date: p.dob.isNotEmpty ? 'Registration Visit' : 'Initial Visit',
-            time: p.dob.isNotEmpty ? p.dob : 'â€”',
+            time: p.dob.isNotEmpty ? p.dob : '—',
             dept: p.department,
             description: p.complaints.isNotEmpty
                 ? p.complaints
@@ -1747,7 +1747,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
               Expanded(
                 child: _buildLifestyleCard(
                   'Occupation',
-                  p.occupation.isNotEmpty ? p.occupation : 'â€”',
+                  p.occupation.isNotEmpty ? p.occupation : '—',
                   const Color(0xFFEEF2F7),
                   const Color(0xFF4A5568),
                 ),
@@ -1756,7 +1756,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
               Expanded(
                 child: _buildLifestyleCard(
                   'Hobbies',
-                  p.hobbies.isNotEmpty ? p.hobbies : 'â€”',
+                  p.hobbies.isNotEmpty ? p.hobbies : '—',
                   const Color(0xFFEEF2F7),
                   const Color(0xFF4A5568),
                 ),
@@ -1766,7 +1766,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
           const SizedBox(height: 16),
           _buildLifestyleCard(
             'Food Habits',
-            p.foodHabits.isNotEmpty ? p.foodHabits : 'â€”',
+            p.foodHabits.isNotEmpty ? p.foodHabits : '—',
             const Color(0xFFEEF2F7),
             const Color(0xFF4A5568),
           ),
@@ -1776,7 +1776,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
               Expanded(
                 child: _buildLifestyleCard(
                   'Smoking',
-                  p.smokingStatus.isNotEmpty ? p.smokingStatus : 'â€”',
+                  p.smokingStatus.isNotEmpty ? p.smokingStatus : '—',
                   const Color(0xFFFFF7ED),
                   const Color(0xFF9A3412),
                 ),
@@ -1785,7 +1785,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
               Expanded(
                 child: _buildLifestyleCard(
                   'Alcohol Usage',
-                  p.alcoholStatus.isNotEmpty ? p.alcoholStatus : 'â€”',
+                  p.alcoholStatus.isNotEmpty ? p.alcoholStatus : '—',
                   const Color(0xFFFEFCE8),
                   const Color(0xFF713F12),
                 ),
@@ -1795,7 +1795,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
           const SizedBox(height: 16),
           _buildLifestyleCard(
             'Physical Activity',
-            p.physicalActivity.isNotEmpty ? p.physicalActivity : 'â€”',
+            p.physicalActivity.isNotEmpty ? p.physicalActivity : '—',
             const Color(0xFFEEF2F7),
             const Color(0xFF4A5568),
           ),
