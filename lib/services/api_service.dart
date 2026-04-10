@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'token_service.dart';
 
 class ApiService {
-
   static Future<http.Response> get(String url) async {
     String? token = await TokenService.getToken();
 
@@ -51,6 +50,19 @@ class ApiService {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       },
+    );
+  }
+
+  static Future<http.Response> patch(String url, Map body) async {
+    String? token = await TokenService.getToken();
+
+    return http.patch(
+      Uri.parse(url),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
     );
   }
 }

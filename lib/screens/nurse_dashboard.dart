@@ -22,6 +22,7 @@ class NurseDashboardScreen extends StatefulWidget {
 class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   int _selectedIndex = 0;
   bool _isRegisteringPatient = false;
+  bool _forceBookingForm = false;
   final FocusNode _mainFocusNode = FocusNode();
   List<PatientModel> _dbPatients = [];
   String? _patientError;
@@ -72,6 +73,13 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               _isRegisteringPatient = true;
             });
           },
+          onBookAppointment: () {
+            setState(() {
+              _selectedIndex = 2;
+              _isRegisteringPatient = false;
+              _forceBookingForm = true;
+            });
+          },
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -119,7 +127,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               label: 'Book Appointment',
               icon: Icons.calendar_month_outlined,
               color: const Color(0xFF0D5D9A),
-              onTap: () {},
+              onTap: () => setState(() {
+                _selectedIndex = 2;
+                _isRegisteringPatient = false;
+                _forceBookingForm = true;
+              }),
             ),
           ],
         ),
@@ -162,10 +174,20 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           isLoading: _isLoadingPatients,
           error: _patientError,
           onRegisterPatient: () => setState(() => _isRegisteringPatient = true),
+          onBookAppointment: () => setState(() {
+            _selectedIndex = 2;
+            _isRegisteringPatient = false;
+            _forceBookingForm = true;
+          }),
           onRefresh: _fetchPatients,
         );
       case 2:
-        return const AppointmentsView();
+        final showForm = _forceBookingForm;
+        _forceBookingForm = false; // Reset for next time
+        return AppointmentsView(
+          key: showForm ? UniqueKey() : null,
+          startWithBookingForm: showForm,
+        );
       default:
         return _buildDashboardView(isMobile);
     }
@@ -795,7 +817,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           _buildActionButton(
             Icons.calendar_month_outlined,
             'Book Appointment',
-            () {},
+            () => setState(() {
+              _selectedIndex = 2;
+              _isRegisteringPatient = false;
+              _forceBookingForm = true;
+            }),
           ),
           _buildActionButton(
             Icons.medical_services_outlined,

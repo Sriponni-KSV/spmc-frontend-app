@@ -441,8 +441,9 @@ class _CustomSpeedDialState extends State<CustomSpeedDial>
 class SearchOverlay extends StatefulWidget {
   final List<dynamic>? patients;
   final VoidCallback? onNewPatient;
+  final VoidCallback? onBookAppointment;
 
-  const SearchOverlay({Key? key, this.patients, this.onNewPatient}) : super(key: key);
+  const SearchOverlay({Key? key, this.patients, this.onNewPatient, this.onBookAppointment}) : super(key: key);
 
   @override
   _SearchOverlayState createState() => _SearchOverlayState();
@@ -585,6 +586,12 @@ class _SearchOverlayState extends State<SearchOverlay> {
                           icon: Icons.calendar_month_outlined,
                           label: 'Book Appointment',
                           color: AppTheme.primaryColor,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            if (widget.onBookAppointment != null) {
+                              widget.onBookAppointment!();
+                            }
+                          },
                         ),
 
                         const SizedBox(height: 32),
@@ -734,7 +741,12 @@ class _SearchOverlayState extends State<SearchOverlay> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.of(context).pop();
+              if (widget.onBookAppointment != null) {
+                widget.onBookAppointment!();
+              }
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
@@ -1013,10 +1025,10 @@ class StatusChip extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         status,

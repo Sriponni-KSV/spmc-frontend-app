@@ -11,6 +11,7 @@ class PatientsView extends StatefulWidget {
   final bool isLoading;
   final String? error;
   final VoidCallback onRegisterPatient;
+  final VoidCallback onBookAppointment;
   final VoidCallback? onRefresh;
 
   const PatientsView({
@@ -19,6 +20,7 @@ class PatientsView extends StatefulWidget {
     required this.isLoading,
     this.error,
     required this.onRegisterPatient,
+    required this.onBookAppointment,
     this.onRefresh,
   }) : super(key: key);
 
@@ -252,7 +254,7 @@ class _PatientsViewState extends State<PatientsView> {
         initials: initials,
         tags: const [],
         onView: () => setState(() => _selectedPatient = patient),
-        onBook: () {},
+        onBook: widget.onBookAppointment,
       ));
 
       if (i < recentPatients.length - 1) {
@@ -457,7 +459,12 @@ class _PatientsViewState extends State<PatientsView> {
                 style: const TextStyle(fontSize: 13, color: Color(0xFF4A5568)),
               ),
             ),
-          Expanded(child: StatusChip(status: status)),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: StatusChip(status: status),
+            ),
+          ),
           Expanded(
             flex: 2,
             child: Row(
@@ -473,6 +480,7 @@ class _PatientsViewState extends State<PatientsView> {
                   Icons.calendar_month_outlined,
                   'Book',
                   const Color(0xFF38A169),
+                  onTap: widget.onBookAppointment,
                 ),
               ],
             ),
