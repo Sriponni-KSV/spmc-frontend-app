@@ -129,6 +129,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     controller: licenseCtrl,
                     decoration: const InputDecoration(labelText: 'Medical License (Optional)', prefixIcon: Icon(Icons.medical_services_outlined)),
                   ),
+                  const SizedBox(height: 16),
+                  if (user.staffUniqueId != null)
+                    TextFormField(
+                      initialValue: user.staffUniqueId,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Staff ID',
+                        prefixIcon: Icon(Icons.pin_outlined),
+                        fillColor: Color(0xFFF3F4F6),
+                        filled: true,
+                        helperText: 'Auto-generated ID',
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -527,8 +540,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
                 headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13),
                 columns: const [
+                  DataColumn(label: Text('Staff ID')),
                   DataColumn(label: Text('Name')),
-                  DataColumn(label: Text('Email')),
                   DataColumn(label: Text('Role')),
                   DataColumn(label: Text('Specialization')),
                   DataColumn(label: Text('License')),
@@ -539,6 +552,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   final roleColor = user.role == 'Doctor' ? const Color(0xFF6366F1) : const Color(0xFF14B8A6);
                   return DataRow(
                     cells: [
+                      DataCell(Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(user.staffUniqueId ?? '\u2014', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13, fontFamily: 'monospace')),
+                      )),
                       DataCell(Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -551,10 +572,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
+                            ],
+                          ),
                         ],
                       )),
-                      DataCell(Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13))),
                       DataCell(Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
@@ -633,7 +660,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    Row(
+                      children: [
+                        Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        const Spacer(),
+                        if (user.staffUniqueId != null)
+                          Text(user.staffUniqueId!, style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace')),
+                      ],
+                    ),
                     const SizedBox(height: 2),
                     Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
                     const SizedBox(height: 8),
@@ -1155,6 +1189,18 @@ final AdminController _adminController = AdminController();
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                TextFormField(
+                  initialValue: 'Auto-generated',
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Staff ID',
+                    prefixIcon: Icon(Icons.pin_outlined),
+                    fillColor: Color(0xFFF3F4F6),
+                    filled: true,
+                    helperText: 'Assigned automatically upon registration',
+                  ),
+                ),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
