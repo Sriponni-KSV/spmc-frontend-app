@@ -87,6 +87,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (user.staffUniqueId != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: TextFormField(
+                        initialValue: user.staffUniqueId,
+                        readOnly: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Staff ID',
+                          prefixIcon: Icon(Icons.pin_outlined),
+                          fillColor: Color(0xFFF3F4F6),
+                          filled: true,
+                          helperText: 'Auto-generated ID',
+                        ),
+                      ),
+                    ),
                   TextFormField(
                     controller: nameCtrl,
                     decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
@@ -129,19 +144,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     controller: licenseCtrl,
                     decoration: const InputDecoration(labelText: 'Medical License (Optional)', prefixIcon: Icon(Icons.medical_services_outlined)),
                   ),
-                  const SizedBox(height: 16),
-                  if (user.staffUniqueId != null)
-                    TextFormField(
-                      initialValue: user.staffUniqueId,
-                      readOnly: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Staff ID',
-                        prefixIcon: Icon(Icons.pin_outlined),
-                        fillColor: Color(0xFFF3F4F6),
-                        filled: true,
-                        helperText: 'Auto-generated ID',
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -1189,18 +1191,6 @@ final AdminController _adminController = AdminController();
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextFormField(
-                  initialValue: 'Auto-generated',
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Staff ID',
-                    prefixIcon: Icon(Icons.pin_outlined),
-                    fillColor: Color(0xFFF3F4F6),
-                    filled: true,
-                    helperText: 'Assigned automatically upon registration',
-                  ),
-                ),
-                const SizedBox(height: 16),
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
