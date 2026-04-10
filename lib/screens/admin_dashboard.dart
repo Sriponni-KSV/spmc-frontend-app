@@ -1146,7 +1146,7 @@ final AdminController _adminController = AdminController();
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Register New User', style: TextStyle(fontFamily: AppTheme.fontFamily, fontWeight: FontWeight.bold)),
+      title: const Text('Register New Staff', style: TextStyle(fontFamily: AppTheme.fontFamily, fontWeight: FontWeight.bold)),
       content: SizedBox(
         width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.9,
         child: SingleChildScrollView(
@@ -1233,7 +1233,7 @@ final AdminController _adminController = AdminController();
           style: ElevatedButton.styleFrom(minimumSize: const Size(120, 48)),
           child: _isLoading 
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : const Text('Create User'),
+              : const Text('Create Staff'),
         ),
       ],
     );
