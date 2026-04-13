@@ -32,15 +32,54 @@ class PatientsView extends StatefulWidget {
 class _PatientsViewState extends State<PatientsView> {
   String _searchQuery = '';
   PatientModel? _selectedPatient;
+  bool _isFilterVisible = false;
+  
+  // Filter values
+  String _selectedAgeRange = 'All Ages';
+  String _selectedGender = 'All Genders';
+  String _selectedLastVisit = 'Any Time';
+  String _selectedStatus = 'All Status';
 
   List<PatientModel> get _filteredPatients {
-    if (_searchQuery.isEmpty) return widget.patients;
-    final q = _searchQuery.toLowerCase();
-    return widget.patients.where((p) {
-      return p.name.toLowerCase().contains(q) ||
-          p.phone.toLowerCase().contains(q) ||
-          p.department.toLowerCase().contains(q);
-    }).toList();
+    List<PatientModel> filtered = widget.patients;
+    
+    // Search query filter
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      filtered = filtered.where((p) {
+        return p.name.toLowerCase().contains(q) ||
+            p.phone.toLowerCase().contains(q) ||
+            p.department.toLowerCase().contains(q);
+      }).toList();
+    }
+
+    // Age Range filter
+    if (_selectedAgeRange != 'All Ages') {
+      filtered = filtered.where((p) {
+        if (_selectedAgeRange == 'Under 18') return p.age < 18;
+        if (_selectedAgeRange == '18-35') return p.age >= 18 && p.age <= 35;
+        if (_selectedAgeRange == '36-60') return p.age >= 36 && p.age <= 60;
+        if (_selectedAgeRange == 'Over 60') return p.age > 60;
+        return true;
+      }).toList();
+    }
+
+    // Gender filter
+    if (_selectedGender != 'All Genders') {
+      filtered = filtered.where((p) => p.gender.toLowerCase() == _selectedGender.toLowerCase()).toList();
+    }
+
+    // Status filter
+    if (_selectedStatus != 'All Status') {
+       if (_selectedStatus == 'Active') {
+         // Assuming all currently fetched patients are active for now
+         return filtered; 
+       } else if (_selectedStatus == 'Inactive') {
+         return []; // No inactive patients in the current dataset
+       }
+    }
+
+    return filtered;
   }
 
   @override
@@ -62,6 +101,10 @@ class _PatientsViewState extends State<PatientsView> {
           _buildPatientsHeader(isMobile),
           const SizedBox(height: 24),
           _buildPatientsSearch(isMobile),
+          if (_isFilterVisible) ...[
+            const SizedBox(height: 16),
+            _buildFilterPanel(isMobile),
+          ],
           const SizedBox(height: 32),
           const Text(
             'Recent Patients',
@@ -81,6 +124,40 @@ class _PatientsViewState extends State<PatientsView> {
   }
 
   Widget _buildPatientsHeader(bool isMobile) {
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Patients',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Manage patient records and information',
+            style: TextStyle(
+              color: AppTheme.textSecondaryColor,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: widget.onRegisterPatient,
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text('New Patient'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53E3E),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -101,21 +178,20 @@ class _PatientsViewState extends State<PatientsView> {
             ),
           ],
         ),
-        if (!isMobile)
-          ElevatedButton.icon(
-            onPressed: widget.onRegisterPatient,
-            icon: const Icon(Icons.add, size: 20),
-            label: const Text('New Patient'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE53E3E),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(120, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+        ElevatedButton.icon(
+          onPressed: widget.onRegisterPatient,
+          icon: const Icon(Icons.add, size: 20),
+          label: const Text('New Patient'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFE53E3E),
+            foregroundColor: Colors.white,
+            minimumSize: const Size(120, 48),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
+        ),
       ],
     );
   }
@@ -133,14 +209,16 @@ class _PatientsViewState extends State<PatientsView> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                const Icon(Icons.search, color: AppTheme.textSecondaryColor, size: 20),
+                const Icon(Icons.search,
+                    color: AppTheme.textSecondaryColor, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     onChanged: (val) => setState(() => _searchQuery = val),
                     decoration: const InputDecoration(
                       hintText: 'Search patients...',
-                      hintStyle: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                      hintStyle: TextStyle(
+                          color: AppTheme.textSecondaryColor, fontSize: 13),
                       border: InputBorder.none,
                       isDense: true,
                     ),
@@ -150,11 +228,40 @@ class _PatientsViewState extends State<PatientsView> {
             ),
           ),
           const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () => _showQuickRegisterDialog(context),
+            icon: const Icon(Icons.flash_on, size: 18),
+            label: const Text(
+              'Quick Register',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D5D9A),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _buildFilterButton('Gender')),
-              const SizedBox(width: 8),
-              Expanded(child: _buildFilterButton('Department')),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => setState(() => _isFilterVisible = !_isFilterVisible),
+                  icon: Icon(_isFilterVisible ? Icons.filter_list_off : Icons.filter_list, size: 18),
+                  label: const Text('Filter'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.textPrimaryColor,
+                    minimumSize: const Size(double.infinity, 48),
+                    elevation: 0,
+                    side: const BorderSide(color: AppTheme.borderColor),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -209,9 +316,22 @@ class _PatientsViewState extends State<PatientsView> {
           ),
         ),
         const SizedBox(width: 12),
-        _buildFilterButton('Gender'),
-        const SizedBox(width: 8),
-        _buildFilterButton('Department'),
+        ElevatedButton.icon(
+          onPressed: () => setState(() => _isFilterVisible = !_isFilterVisible),
+          icon: Icon(_isFilterVisible ? Icons.filter_list_off : Icons.filter_list, size: 18),
+          label: const Text('Filter', style: TextStyle(fontWeight: FontWeight.bold)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: AppTheme.textPrimaryColor,
+            minimumSize: const Size(120, 52),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: AppTheme.borderColor),
+            ),
+            elevation: 0,
+          ),
+        ),
       ],
     );
   }
@@ -248,14 +368,28 @@ class _PatientsViewState extends State<PatientsView> {
         }
       }
 
-      cards.add(PatientInfoCard(
-        name: name,
-        info: '${age}y • $gender',
-        initials: initials,
-        tags: const [],
-        onView: () => setState(() => _selectedPatient = patient),
-        onBook: widget.onBookAppointment,
-      ));
+      cards.add(
+        isMobile
+            ? SizedBox(
+                width: 280,
+                child: PatientInfoCard(
+                  name: name,
+                  info: '${age}y • $gender',
+                  initials: initials,
+                  tags: patient.isQuickRegister ? ['Quick'] : [],
+                  onView: () => setState(() => _selectedPatient = patient),
+                  onBook: widget.onBookAppointment,
+                ),
+              )
+            : PatientInfoCard(
+                name: name,
+                info: '${age}y • $gender',
+                initials: initials,
+                tags: patient.isQuickRegister ? ['Quick'] : [],
+                onView: () => setState(() => _selectedPatient = patient),
+                onBook: widget.onBookAppointment,
+              ),
+      );
 
       if (i < recentPatients.length - 1) {
         cards.add(const SizedBox(width: 16));
@@ -265,18 +399,50 @@ class _PatientsViewState extends State<PatientsView> {
     if (isMobile) {
       return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: Row(children: cards),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(children: cards),
+        ),
       );
     }
-    return Row(
-      children: cards
-          .map((c) => c is SizedBox ? c : Flexible(child: c))
-          .toList(),
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: cards
+            .map((c) => c is SizedBox ? c : Expanded(child: c))
+            .toList(),
+      ),
     );
   }
 
   Widget _buildPatientsTable(bool isMobile) {
     final patients = _filteredPatients;
+
+    if (isMobile) {
+      if (widget.isLoading) {
+        return const Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
+      if (patients.isEmpty) {
+        return const Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Center(child: Text('No patients found')),
+        );
+      }
+
+      return ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: patients.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          return _buildPatientCardMobile(patients[index]);
+        },
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -339,7 +505,7 @@ class _PatientsViewState extends State<PatientsView> {
                   _buildPatientTableRow(
                     patient,
                     name,
-                    '${patient.age}y',
+                    patient.age == 0 ? 'Not Provided' : '${patient.age}y',
                     patient.gender,
                     patient.phone,
                     patient.department,
@@ -353,6 +519,165 @@ class _PatientsViewState extends State<PatientsView> {
                 ],
               );
             }).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPatientCardMobile(PatientModel patient) {
+    final String name = patient.name;
+    final String ageStr = patient.age == 0 ? 'Not Prov.' : '${patient.age}y';
+    final bool isQuick = patient.isQuickRegister;
+    
+    final parts = name.trim().split(' ').where((p) => p.isNotEmpty).take(2).toList();
+    final String initials = parts.isNotEmpty
+        ? parts.map((p) => p[0].toUpperCase()).join('')
+        : '?';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isQuick ? const Color(0xFFF9F5FF) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isQuick ? const Color(0xFFD6BCFA) : AppTheme.borderColor.withOpacity(0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: isQuick ? const Color(0xFF805AD5) : const Color(0xFF0D5D9A),
+                child: Text(
+                  initials,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isQuick) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.bolt, size: 14, color: Color(0xFF805AD5)),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$ageStr • ${patient.department}',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                    if (isQuick) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF805AD5).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFF805AD5).withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.bolt, size: 10, color: Color(0xFF805AD5)),
+                            SizedBox(width: 4),
+                            Text(
+                              'QUICK',
+                              style: TextStyle(
+                                color: Color(0xFF805AD5),
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              StatusChip(status: 'Active'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => setState(() => _selectedPatient = patient),
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: const Text('View'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: widget.onBookAppointment,
+                  icon: const Icon(Icons.calendar_month_outlined, size: 16),
+                  label: const Text('Book'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF38A169),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (isQuick) ...[
+             const SizedBox(height: 12),
+             Container(
+               width: double.infinity,
+               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+               decoration: BoxDecoration(
+                 color: const Color(0xFFFAF5FF),
+                 borderRadius: BorderRadius.circular(6),
+                 border: Border.all(color: const Color(0xFFD6BCFA).withOpacity(0.5)),
+               ),
+               child: Row(
+                 mainAxisAlignment: MainAxisAlignment.center,
+                 children: const [
+                   Icon(Icons.flash_on, size: 12, color: Color(0xFF805AD5)),
+                   SizedBox(width: 6),
+                   Text(
+                     'Quick Registered Patient',
+                     style: TextStyle(
+                       color: Color(0xFF805AD5),
+                       fontSize: 11,
+                       fontWeight: FontWeight.w600,
+                     ),
+                   ),
+                 ],
+               ),
+             ),
+          ],
         ],
       ),
     );
@@ -382,8 +707,12 @@ class _PatientsViewState extends State<PatientsView> {
     List<String> tags,
     bool isMobile,
   ) {
+    bool isQuick = patient.isQuickRegister;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(
+        color: isQuick ? const Color(0xFFF9F5FF) : Colors.white,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -392,7 +721,7 @@ class _PatientsViewState extends State<PatientsView> {
               children: [
                 CircleAvatar(
                   radius: 16,
-                  backgroundColor: const Color(0xFF0D5D9A),
+                  backgroundColor: isQuick ? const Color(0xFF805AD5) : const Color(0xFF0D5D9A),
                   child: Text(
                     initials,
                     style: const TextStyle(
@@ -407,21 +736,64 @@ class _PatientsViewState extends State<PatientsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: Color(0xFF2D3748),
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              name,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF2D3748),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isQuick) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF805AD5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.flash_on, size: 10, color: Colors.white),
+                            ),
+                          ],
+                        ],
                       ),
                       if (tags.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Wrap(
                             spacing: 4,
-                            children: tags.map((t) => HealthTag(label: t)).toList(),
+                            children: tags.map((t) {
+                              if (t == 'Quick') {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF805AD5),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.bolt, size: 10, color: Colors.white),
+                                      SizedBox(width: 2),
+                                      Text(
+                                        'QUICK',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                              return HealthTag(label: t);
+                            }).toList(),
                           ),
                         ),
                     ],
@@ -433,30 +805,43 @@ class _PatientsViewState extends State<PatientsView> {
           Expanded(
             child: Text(
               age,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF4A5568)),
+              style: TextStyle(
+                fontSize: 13, 
+                color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF4A5568),
+                fontWeight: isQuick ? FontWeight.w500 : FontWeight.normal,
+              ),
             ),
           ),
           if (!isMobile)
             Expanded(
               child: Text(
-                gender,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF4A5568)),
+                gender.isNotEmpty ? gender : 'Not Provided',
+                style: TextStyle(
+                  fontSize: 13, 
+                  color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF4A5568),
+                ),
               ),
             ),
           if (!isMobile)
             Expanded(
               flex: 2,
               child: Text(
-                contact,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF4A5568)),
+                contact.isNotEmpty ? contact : 'Not Provided',
+                style: TextStyle(
+                  fontSize: 13, 
+                  color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF4A5568),
+                ),
               ),
             ),
           if (!isMobile)
             Expanded(
               flex: 2,
               child: Text(
-                department,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF4A5568)),
+                department.isNotEmpty ? department : 'Not Provided',
+                style: TextStyle(
+                  fontSize: 13, 
+                  color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF4A5568),
+                ),
               ),
             ),
           Expanded(
@@ -472,7 +857,7 @@ class _PatientsViewState extends State<PatientsView> {
                 _buildActionLabel(
                   Icons.visibility_outlined,
                   'View',
-                  const Color(0xFF3182CE),
+                  isQuick ? const Color(0xFF805AD5) : const Color(0xFF3182CE),
                   onTap: () => setState(() => _selectedPatient = patient),
                 ),
                 const SizedBox(width: 12),
@@ -508,6 +893,80 @@ class _PatientsViewState extends State<PatientsView> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFilterPanel(bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: isMobile 
+        ? Column(
+            children: [
+              _buildFilterDropdown('Age Range', _selectedAgeRange, ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'], (val) => setState(() => _selectedAgeRange = val!)),
+              const SizedBox(height: 16),
+              _buildFilterDropdown('Gender', _selectedGender, ['All Genders', 'Male', 'Female', 'Other'], (val) => setState(() => _selectedGender = val!)),
+              const SizedBox(height: 16),
+              _buildFilterDropdown('Last Visit', _selectedLastVisit, ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'], (val) => setState(() => _selectedLastVisit = val!)),
+              const SizedBox(height: 16),
+              _buildFilterDropdown('Status', _selectedStatus, ['All Status', 'Active', 'Inactive'], (val) => setState(() => _selectedStatus = val!)),
+            ],
+          )
+        : Row(
+            children: [
+              Expanded(child: _buildFilterDropdown('Age Range', _selectedAgeRange, ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'], (val) => setState(() => _selectedAgeRange = val!))),
+              const SizedBox(width: 16),
+              Expanded(child: _buildFilterDropdown('Gender', _selectedGender, ['All Genders', 'Male', 'Female', 'Other'], (val) => setState(() => _selectedGender = val!))),
+              const SizedBox(width: 16),
+              Expanded(child: _buildFilterDropdown('Last Visit', _selectedLastVisit, ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'], (val) => setState(() => _selectedLastVisit = val!))),
+              const SizedBox(width: 16),
+              Expanded(child: _buildFilterDropdown('Status', _selectedStatus, ['All Status', 'Active', 'Inactive'], (val) => setState(() => _selectedStatus = val!))),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildFilterDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppTheme.borderColor),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: value,
+              icon: const Icon(Icons.keyboard_arrow_down, size: 20),
+              style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14),
+              items: items.map((item) {
+                return DropdownMenuItem(value: item, child: Text(item));
+              }).toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -560,12 +1019,16 @@ class _PatientsViewState extends State<PatientsView> {
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: Container(
-                width: 450,
+                width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.95,
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                ),
                 padding: const EdgeInsets.all(0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                     // Header
                     Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -611,132 +1074,221 @@ class _PatientsViewState extends State<PatientsView> {
                           _buildQuickFieldLabel('Full Name'),
                           _buildQuickTextField(controller: nameCtrl, hint: 'Enter patient\'s full name'),
                           const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildQuickFieldLabel('Date of Birth'),
-                                    _buildQuickTextField(
-                                      controller: dobCtrl, 
-                                      hint: 'YYYY-MM-DD',
-                                      icon: Icons.calendar_today_outlined,
-                                      readOnly: true,
-                                      onTap: () async {
-                                        DateTime? pickedDate = await showDatePicker(
-                                          context: context,
-                                          initialDate: DateTime.now().subtract(const Duration(days: 365 * 30)),
-                                          firstDate: DateTime(1900),
-                                          lastDate: DateTime.now(),
-                                        );
-                                        if (pickedDate != null) {
-                                          setState(() {
-                                            dobCtrl.text = DateFormat('yyyy-MM-dd').format(pickedDate);
-                                          });
-                                        }
-                                      },
-                                    ),
+                          if (MediaQuery.of(context).size.width < 500) ...[
+                            _buildQuickFieldLabel('Date of Birth'),
+                            _buildQuickTextField(
+                              controller: dobCtrl, 
+                              hint: 'YYYY-MM-DD',
+                              icon: Icons.calendar_today_outlined,
+                              readOnly: true,
+                              onTap: () async {
+                                DateTime? pickedDate = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now().subtract(const Duration(days: 365 * 30)),
+                                  firstDate: DateTime(1900),
+                                  lastDate: DateTime.now(),
+                                );
+                                if (pickedDate != null) {
+                                  setState(() {
+                                    dobCtrl.text = DateFormat('yyyy-MM-dd').format(pickedDate);
+                                  });
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _buildQuickFieldLabel('Phone Number'),
+                            _buildQuickTextField(
+                              controller: phoneCtrl, 
+                              hint: '98765 43210',
+                              keyboardType: TextInputType.phone,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(10),
+                              ],
+                            ),
+                          ] else
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildQuickFieldLabel('Date of Birth'),
+                                      _buildQuickTextField(
+                                        controller: dobCtrl, 
+                                        hint: 'YYYY-MM-DD',
+                                        icon: Icons.calendar_today_outlined,
+                                        readOnly: true,
+                                        onTap: () async {
+                                          DateTime? pickedDate = await showDatePicker(
+                                            context: context,
+                                            initialDate: DateTime.now().subtract(const Duration(days: 365 * 30)),
+                                            firstDate: DateTime(1900),
+                                            lastDate: DateTime.now(),
+                                          );
+                                          if (pickedDate != null) {
+                                            setState(() {
+                                              dobCtrl.text = DateFormat('yyyy-MM-dd').format(pickedDate);
+                                            });
+                                          }
+                                        },
+                                      ),
 
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildQuickFieldLabel('Phone Number'),
-                                    _buildQuickTextField(
-                                      controller: phoneCtrl, 
-                                      hint: '98765 43210',
-                                      keyboardType: TextInputType.phone,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                        LengthLimitingTextInputFormatter(10),
-                                      ],
-                                    ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildQuickFieldLabel('Phone Number'),
+                                      _buildQuickTextField(
+                                        controller: phoneCtrl, 
+                                        hint: '98765 43210',
+                                        keyboardType: TextInputType.phone,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.digitsOnly,
+                                          LengthLimitingTextInputFormatter(10),
+                                        ],
+                                      ),
 
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
 
 
                           const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildQuickFieldLabel('Department'),
-                                    Container(
-                                      height: 42,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(color: AppTheme.borderColor),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: DropdownButtonHideUnderline(
-                                        child: DropdownButton<String>(
-                                          isExpanded: true,
-                                          value: selectedDepartment,
-                                          hint: const Text('Select', style: TextStyle(fontSize: 14)),
-                                          items: const [
-                                            DropdownMenuItem(value: 'Cardiology', child: Text('Cardiology', style: TextStyle(fontSize: 14))),
-                                            DropdownMenuItem(value: 'Neurology', child: Text('Neurology', style: TextStyle(fontSize: 14))),
-                                            DropdownMenuItem(value: 'Orthopedics', child: Text('Orthopedics', style: TextStyle(fontSize: 14))),
-                                            DropdownMenuItem(value: 'General', child: Text('General', style: TextStyle(fontSize: 14))),
-                                          ],
-                                          onChanged: (val) {
-                                            setState(() {
-                                              selectedDepartment = val;
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                    ),
+                          if (MediaQuery.of(context).size.width < 500) ...[
+                            _buildQuickFieldLabel('Department'),
+                            Container(
+                              height: 42,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppTheme.borderColor),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  isExpanded: true,
+                                  value: selectedDepartment,
+                                  hint: const Text('Select', style: TextStyle(fontSize: 14)),
+                                  items: const [
+                                    DropdownMenuItem(value: 'Cardiology', child: Text('Cardiology', style: TextStyle(fontSize: 14))),
+                                    DropdownMenuItem(value: 'Neurology', child: Text('Neurology', style: TextStyle(fontSize: 14))),
+                                    DropdownMenuItem(value: 'Orthopedics', child: Text('Orthopedics', style: TextStyle(fontSize: 14))),
+                                    DropdownMenuItem(value: 'General', child: Text('General', style: TextStyle(fontSize: 14))),
                                   ],
+                                  onChanged: (val) {
+                                    setState(() {
+                                      selectedDepartment = val;
+                                    });
+                                  },
                                 ),
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildQuickFieldLabel('Gender'),
-                                    Container(
-                                      height: 42,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(color: AppTheme.borderColor),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: DropdownButtonHideUnderline(
-                                        child: DropdownButton<String>(
-                                          isExpanded: true,
-                                          value: selectedGender,
-                                          hint: const Text('Select', style: TextStyle(fontSize: 14)),
-                                          items: const [
-                                            DropdownMenuItem(value: 'Male', child: Text('Male', style: TextStyle(fontSize: 14))),
-                                            DropdownMenuItem(value: 'Female', child: Text('Female', style: TextStyle(fontSize: 14))),
-                                            DropdownMenuItem(value: 'Other', child: Text('Other', style: TextStyle(fontSize: 14))),
-                                          ],
-                                          onChanged: (val) {
-                                            setState(() {
-                                              selectedGender = val;
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                    ),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildQuickFieldLabel('Gender'),
+                            Container(
+                              height: 42,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppTheme.borderColor),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  isExpanded: true,
+                                  value: selectedGender,
+                                  hint: const Text('Select', style: TextStyle(fontSize: 14)),
+                                  items: const [
+                                    DropdownMenuItem(value: 'Male', child: Text('Male', style: TextStyle(fontSize: 14))),
+                                    DropdownMenuItem(value: 'Female', child: Text('Female', style: TextStyle(fontSize: 14))),
+                                    DropdownMenuItem(value: 'Other', child: Text('Other', style: TextStyle(fontSize: 14))),
                                   ],
+                                  onChanged: (val) {
+                                    setState(() {
+                                      selectedGender = val;
+                                    });
+                                  },
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ] else
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildQuickFieldLabel('Department'),
+                                      Container(
+                                        height: 42,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: AppTheme.borderColor),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: DropdownButtonHideUnderline(
+                                          child: DropdownButton<String>(
+                                            isExpanded: true,
+                                            value: selectedDepartment,
+                                            hint: const Text('Select', style: TextStyle(fontSize: 14)),
+                                            items: const [
+                                              DropdownMenuItem(value: 'Cardiology', child: Text('Cardiology', style: TextStyle(fontSize: 14))),
+                                              DropdownMenuItem(value: 'Neurology', child: Text('Neurology', style: TextStyle(fontSize: 14))),
+                                              DropdownMenuItem(value: 'Orthopedics', child: Text('Orthopedics', style: TextStyle(fontSize: 14))),
+                                              DropdownMenuItem(value: 'General', child: Text('General', style: TextStyle(fontSize: 14))),
+                                            ],
+                                            onChanged: (val) {
+                                              setState(() {
+                                                selectedDepartment = val;
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildQuickFieldLabel('Gender'),
+                                      Container(
+                                        height: 42,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: AppTheme.borderColor),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: DropdownButtonHideUnderline(
+                                          child: DropdownButton<String>(
+                                            isExpanded: true,
+                                            value: selectedGender,
+                                            hint: const Text('Select', style: TextStyle(fontSize: 14)),
+                                            items: const [
+                                              DropdownMenuItem(value: 'Male', child: Text('Male', style: TextStyle(fontSize: 14))),
+                                              DropdownMenuItem(value: 'Female', child: Text('Female', style: TextStyle(fontSize: 14))),
+                                              DropdownMenuItem(value: 'Other', child: Text('Other', style: TextStyle(fontSize: 14))),
+                                            ],
+                                            onChanged: (val) {
+                                              setState(() {
+                                                selectedGender = val;
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                       const SizedBox(height: 16),
                       _buildQuickFieldLabel('Reason for Visit'),
                       _buildQuickTextField(controller: reasonCtrl, hint: 'Brief description of symptoms or reason...', maxLines: 3),
@@ -821,74 +1373,89 @@ class _PatientsViewState extends State<PatientsView> {
 
                                   await patientController.registerPatient(newPatient);
 
+                                  setState(() => isSaving = false);
+                                  Navigator.pop(context);
                                   if (context.mounted) {
-                                    Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Patient registered successfully!')),
+                                      const SnackBar(
+                                        content: Text(
+                                          'Patient Registered Successfully!',
+                                        ),
+                                        backgroundColor: Colors.green,
+                                      ),
                                     );
-                                    // Trigger a refresh if possible
-                                    if (widget.onRefresh != null) {
-                                      widget.onRefresh!();
-                                    }
                                   }
-
+                                  if (widget.onRefresh != null) {
+                                    widget.onRefresh!();
+                                  }
                                 } catch (e) {
+                                  setState(() => isSaving = false);
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Error: ${e.toString()}')),
+                                      SnackBar(
+                                        content: Text('Error: $e'),
+                                        backgroundColor: Colors.redAccent,
+                                      ),
                                     );
-                                  }
-                                } finally {
-                                  if (context.mounted) {
-                                    setState(() => isSaving = false);
                                   }
                                 }
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFE53E3E), // Red color from design
+                                backgroundColor: const Color(0xFF0D5D9A),
+                                foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 elevation: 0,
                               ),
-                              child: isSaving 
-                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Text('Register & Check In', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              child: isSaving
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Register', style: TextStyle(fontWeight: FontWeight.bold)),
                             ),
                           ),
-
                         ],
                       ),
                     ],
                   ),
                 ),
-                // Footer link
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.only(bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16)),
-                  ),
-                  child: Center(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.pop(context);
-                        widget.onRegisterPatient();
-                      },
-                      child: const Text(
-                        'Need full registration with complete details?',
-                        style: TextStyle(
-                          color: Color(0xFF3182CE),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                    const SizedBox(height: 16),
+                      // Footer link moved inside the scroll view or as a separate column item
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+                        ),
+                        child: Center(
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.pop(context);
+                              widget.onRegisterPatient();
+                            },
+                            child: const Text(
+                              'Need full registration with complete details?',
+                              style: TextStyle(
+                                color: Color(0xFF3182CE),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        );
+              ),
+            );
           },
         );
       },
@@ -1137,14 +1704,20 @@ class _PatientDetailViewState extends State<PatientDetailView>
           children: [
             if (p.phone.isNotEmpty) ...[
               _buildContactItem(Icons.phone_outlined, p.phone),
-              const SizedBox(width: 32),
+            ] else ...[
+              _buildContactItem(Icons.phone_outlined, 'Not Provided'),
             ],
+            const SizedBox(width: 32),
             if (p.dob.isNotEmpty) ...[
               _buildContactItem(Icons.cake_outlined, 'DOB: ${p.dob}'),
-              const SizedBox(width: 32),
+            ] else ...[
+              _buildContactItem(Icons.cake_outlined, 'DOB: Not Provided'),
             ],
+            const SizedBox(width: 32),
             if (p.address.isNotEmpty)
-              Flexible(child: _buildContactItem(Icons.location_on_outlined, p.address)),
+              Flexible(child: _buildContactItem(Icons.location_on_outlined, p.address))
+            else
+              Flexible(child: _buildContactItem(Icons.location_on_outlined, 'Address: Not Provided')),
           ],
         ),
       ],
@@ -1300,7 +1873,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
       _VitalItem(
         label: 'Blood Pressure',
         value: (p.bpSystolic == 0 && p.bpDiastolic == 0)
-            ? '—'
+            ? 'Not Provided'
             : '${p.bpSystolic}/${p.bpDiastolic} mmHg',
         unit: 'Systolic / Diastolic',
         color: const Color(0xFFEBF8FF),
@@ -1308,25 +1881,25 @@ class _PatientDetailViewState extends State<PatientDetailView>
       ),
       _VitalItem(
         label: 'Sugar Level',
-        value: '${p.sugar} mg/dL',
+        value: p.sugar == 0.0 ? 'Not Provided' : '${p.sugar} mg/dL',
         color: const Color(0xFFFFF5F5),
         textColor: const Color(0xFFC53030),
       ),
       _VitalItem(
         label: 'Temperature',
-        value: '${p.temp}°F',
+        value: p.temp == 0.0 ? 'Not Provided' : '${p.temp}°F',
         color: const Color(0xFFFFFAF0),
         textColor: const Color(0xFFDD6B20),
       ),
       _VitalItem(
         label: 'Occupation',
-        value: p.occupation.isNotEmpty ? p.occupation : '—',
+        value: p.occupation.isNotEmpty ? p.occupation : 'Not Provided',
         color: const Color(0xFFF0FFF4),
         textColor: const Color(0xFF276749),
       ),
       _VitalItem(
         label: 'Department',
-        value: p.department.isNotEmpty ? p.department : '—',
+        value: p.department.isNotEmpty ? p.department : 'Not Provided',
         color: const Color(0xFFFAF5FF),
         textColor: const Color(0xFF6B46C1),
       ),
@@ -1745,65 +2318,97 @@ class _PatientDetailViewState extends State<PatientDetailView>
   }
 
   Widget _buildLifestyleTab(PatientModel p) {
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
+    
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _buildLifestyleCard(
-                  'Occupation',
-                  p.occupation.isNotEmpty ? p.occupation : '—',
-                  const Color(0xFFEEF2F7),
-                  const Color(0xFF4A5568),
+          if (isMobile) ...[
+            _buildLifestyleCard(
+              'Occupation',
+              p.occupation.isNotEmpty ? p.occupation : 'Not Provided',
+              const Color(0xFFEEF2F7),
+              const Color(0xFF4A5568),
+            ),
+            const SizedBox(height: 16),
+            _buildLifestyleCard(
+              'Hobbies',
+              p.hobbies.isNotEmpty ? p.hobbies : 'Not Provided',
+              const Color(0xFFEEF2F7),
+              const Color(0xFF4A5568),
+            ),
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  child: _buildLifestyleCard(
+                    'Occupation',
+                    p.occupation.isNotEmpty ? p.occupation : 'Not Provided',
+                    const Color(0xFFEEF2F7),
+                    const Color(0xFF4A5568),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildLifestyleCard(
-                  'Hobbies',
-                  p.hobbies.isNotEmpty ? p.hobbies : '—',
-                  const Color(0xFFEEF2F7),
-                  const Color(0xFF4A5568),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildLifestyleCard(
+                    'Hobbies',
+                    p.hobbies.isNotEmpty ? p.hobbies : 'Not Provided',
+                    const Color(0xFFEEF2F7),
+                    const Color(0xFF4A5568),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 16),
           _buildLifestyleCard(
             'Food Habits',
-            p.foodHabits.isNotEmpty ? p.foodHabits : '—',
+            p.foodHabits.isNotEmpty ? p.foodHabits : 'Not Provided',
             const Color(0xFFEEF2F7),
             const Color(0xFF4A5568),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildLifestyleCard(
-                  'Smoking',
-                  p.smokingStatus.isNotEmpty ? p.smokingStatus : '—',
-                  const Color(0xFFFFF7ED),
-                  const Color(0xFF9A3412),
+          if (isMobile) ...[
+            _buildLifestyleCard(
+              'Smoking',
+              p.smokingStatus.isNotEmpty ? p.smokingStatus : 'Not Provided',
+              const Color(0xFFFFF7ED),
+              const Color(0xFF9A3412),
+            ),
+            const SizedBox(height: 16),
+            _buildLifestyleCard(
+              'Alcohol Usage',
+              p.alcoholStatus.isNotEmpty ? p.alcoholStatus : 'Not Provided',
+              const Color(0xFFFEFCE8),
+              const Color(0xFF713F12),
+            ),
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  child: _buildLifestyleCard(
+                    'Smoking',
+                    p.smokingStatus.isNotEmpty ? p.smokingStatus : 'Not Provided',
+                    const Color(0xFFFFF7ED),
+                    const Color(0xFF9A3412),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildLifestyleCard(
-                  'Alcohol Usage',
-                  p.alcoholStatus.isNotEmpty ? p.alcoholStatus : '—',
-                  const Color(0xFFFEFCE8),
-                  const Color(0xFF713F12),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildLifestyleCard(
+                    'Alcohol Usage',
+                    p.alcoholStatus.isNotEmpty ? p.alcoholStatus : 'Not Provided',
+                    const Color(0xFFFEFCE8),
+                    const Color(0xFF713F12),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 16),
           _buildLifestyleCard(
             'Physical Activity',
-            p.physicalActivity.isNotEmpty ? p.physicalActivity : '—',
+            p.physicalActivity.isNotEmpty ? p.physicalActivity : 'Not Provided',
             const Color(0xFFEEF2F7),
             const Color(0xFF4A5568),
           ),

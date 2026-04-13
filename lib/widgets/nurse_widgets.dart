@@ -820,6 +820,9 @@ class PatientInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasQuickTag = tags.any((t) => t.toLowerCase() == 'quick');
+    final List<String> otherTags = tags.where((t) => t.toLowerCase() != 'quick').toList();
+
     return Container(
       constraints: const BoxConstraints(minWidth: 200),
       padding: const EdgeInsets.all(16),
@@ -832,6 +835,7 @@ class PatientInfoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
                 radius: 22,
@@ -873,17 +877,20 @@ class PatientInfoCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (hasQuickTag) 
+                const HealthTag(label: 'Quick'),
             ],
           ),
           const SizedBox(height: 16),
-          if (tags.isNotEmpty) ...[
+          if (otherTags.isNotEmpty) ...[
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: tags.map((tag) => HealthTag(label: tag)).toList(),
+              children: otherTags.map((tag) => HealthTag(label: tag)).toList(),
             ),
             const SizedBox(height: 16),
           ],
+          const Spacer(),
           Row(
             children: [
               Expanded(

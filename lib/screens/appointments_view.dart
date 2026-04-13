@@ -251,86 +251,73 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           const SizedBox(height: 32),
 
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Left Column: Form Cards
-              Expanded(
-                flex: 2,
-                child: Column(
-                  children: [
-                    _buildFormCard(
-                      title: 'Select Patient',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          if (isMobile)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFormCard(
+                  title: 'Select Patient',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDropdown<PatientModel>(
+                        hint: 'Select a patient',
+                        value: _selectedPatient,
+                        items: _patients,
+                        itemLabel: (p) => p.name,
+                        onChanged: (val) =>
+                            setState(() => _selectedPatient = val),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildFormCard(
+                  title: 'Patient Vitals',
+                  headerExtra: TextButton(
+                    onPressed: () {},
+                    child: const Text(
+                      'Collect vitals',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFieldLabel('Blood Pressure'),
+                      Row(
                         children: [
-                          _buildDropdown<PatientModel>(
-                            hint: 'Select a patient',
-                            value: _selectedPatient,
-                            items: _patients,
-                            itemLabel: (p) => p.name,
-                            onChanged: (val) =>
-                                setState(() => _selectedPatient = val),
+                          Expanded(
+                            child: _buildTextField(
+                              controller: _bpSystolicController,
+                              hint: '120',
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Text(
+                              '/',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildTextField(
+                              controller: _bpDiastolicController,
+                              hint: '80',
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    _buildFormCard(
-                      title: 'Patient Vitals',
-                      headerExtra: TextButton(
-                        onPressed: () {},
-                        child: const Text(
-                          'Collect vitals during booking',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 16),
+                      Row(
                         children: [
                           Expanded(
-                            flex: 4,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildFieldLabel('Blood Pressure'),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildTextField(
-                                        controller: _bpSystolicController,
-                                        hint: '120',
-                                      ),
-                                    ),
-                                    const Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 8.0,
-                                      ),
-                                      child: Text(
-                                        '/',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          color: Color(0xFF94A3B8),
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: _buildTextField(
-                                        controller: _bpDiastolicController,
-                                        hint: '80',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 3,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -344,7 +331,6 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            flex: 3,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -358,471 +344,995 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           ),
                         ],
                       ),
-                    ),
-                    _buildFormCard(
-                      title: 'Reason for Visit',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildFieldLabel('Reason *'),
-                          _buildTextField(
-                            controller: _reasonController,
-                            hint: 'e.g. Regular check-up, fever, etc.',
-                            isNumeric: false,
-                          ),
-                        ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildFormCard(
+                  title: 'Reason for Visit',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFieldLabel('Reason *'),
+                      _buildTextField(
+                        controller: _reasonController,
+                        hint: 'e.g. Regular check-up, fever, etc.',
+                        isNumeric: false,
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    _buildFormCard(
-                      title: 'Department & Doctor',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildFieldLabel('Department *'),
-                          _buildDropdown<String>(
-                            hint: 'Select department',
-                            value: _selectedDept,
-                            items: _departments,
-                            itemLabel: (s) => s,
-                            onChanged: (val) => setState(() {
-                              _selectedDept = val;
-                              _selectedDoctor = null;
-                            }),
-                          ),
-                          if (_selectedDept != null) ...[
-                            const SizedBox(height: 24),
-                            _buildFieldLabel('Select Doctor *'),
-                            const SizedBox(height: 4),
-                            SizedBox(
-                              height: 60,
-                              child:
-                                  _doctors
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildFormCard(
+                  title: 'Department & Doctor',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFieldLabel('Department *'),
+                      _buildDropdown<String>(
+                        hint: 'Select department',
+                        value: _selectedDept,
+                        items: _departments,
+                        itemLabel: (s) => s,
+                        onChanged: (val) => setState(() {
+                          _selectedDept = val;
+                          _selectedDoctor = null;
+                        }),
+                      ),
+                      if (_selectedDept != null) ...[
+                        const SizedBox(height: 24),
+                        _buildFieldLabel('Select Doctor *'),
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          height: 70,
+                          child:
+                              _doctors
+                                  .where(
+                                    (d) => d.specialization == _selectedDept,
+                                  )
+                                  .isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'No doctors available',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _doctors
                                       .where(
                                         (d) =>
                                             d.specialization == _selectedDept,
                                       )
-                                      .isEmpty
-                                  ? const Center(
-                                      child: Text(
-                                        'No doctors available in this department',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey,
+                                      .length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(width: 12),
+                                  itemBuilder: (context, index) {
+                                    final doc = _doctors
+                                        .where(
+                                          (d) =>
+                                              d.specialization == _selectedDept,
+                                        )
+                                        .toList()[index];
+                                    final isSelected =
+                                        _selectedDoctor?.fullname ==
+                                        doc.fullname;
+                                    return InkWell(
+                                      onTap: () =>
+                                          setState(() => _selectedDoctor = doc),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? const Color(0xFFF0F7FF)
+                                              : Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? const Color(0xFF3B82F6)
+                                                : AppTheme.borderColor,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            CircleAvatar(
+                                              radius: 12,
+                                              backgroundColor: const Color(
+                                                0xFF1E40AF,
+                                              ),
+                                              child: Text(
+                                                _getInitials(doc.fullname),
+                                                style: const TextStyle(
+                                                  fontSize: 8,
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  doc.fullname,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                    color: Color(0xFF2D3748),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    )
-                                  : ListView.separated(
-                                      scrollDirection: Axis.horizontal,
-                                      itemCount: _doctors
-                                          .where(
-                                            (d) =>
-                                                d.specialization ==
-                                                _selectedDept,
-                                          )
-                                          .length,
-                                      separatorBuilder: (_, __) =>
-                                          const SizedBox(width: 16),
-                                      itemBuilder: (context, index) {
-                                        final doc = _doctors
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildFormCard(
+                  title: 'Date & Time',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFieldLabel('Appointment Date *'),
+                      TextField(
+                        controller: _dateController,
+                        readOnly: true,
+                        onTap: () async {
+                          DateTime? picked = await showDatePicker(
+                            context: context,
+                            initialDate: _bookingDate ?? DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 365),
+                            ),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _bookingDate = picked;
+                              _dateController.text = DateFormat(
+                                'dd-MM-yyyy',
+                              ).format(picked);
+                              _selectedTime = null; // Reset time
+                            });
+                          }
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'dd-mm-yyyy',
+                          filled: true,
+                          fillColor: Colors.white,
+                          prefixIcon: const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 18,
+                            color: Color(0xFF94A3B8),
+                          ),
+                          suffixIcon: const Icon(
+                            Icons.calendar_month,
+                            size: 18,
+                            color: Color(0xFF1E293B),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: AppTheme.borderColor,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: AppTheme.primaryColor,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                      if (_bookingDate != null) ...[
+                        const SizedBox(height: 24),
+                        _buildFieldLabel('Available Time Slots *'),
+                        const SizedBox(height: 8),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                childAspectRatio: 2.5,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                              ),
+                          itemCount: _availableSlots.length,
+                          itemBuilder: (context, index) {
+                            final time = _availableSlots[index];
+                            final isSelected = _selectedTime == time;
+                            return InkWell(
+                              onTap: () => setState(() => _selectedTime = time),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? const Color(0xFF3B82F6)
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? const Color(0xFF3B82F6)
+                                        : AppTheme.borderColor,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    time,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : const Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Summary section at bottom for mobile
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9).withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppTheme.borderColor.withOpacity(0.5),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Appointment Summary',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: AppTheme.textPrimaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      if (_selectedPatient != null)
+                        _buildSummaryItem(
+                          Icons.person_outline,
+                          'Patient',
+                          _selectedPatient!.name,
+                        ),
+
+                      if (_selectedDoctor != null)
+                        _buildSummaryItem(
+                          Icons.medical_services_outlined,
+                          'Doctor',
+                          _selectedDoctor!.fullname,
+                          subtitle: _selectedDept,
+                        ),
+
+                      if (_bookingDate != null)
+                        _buildSummaryItem(
+                          Icons.calendar_month_outlined,
+                          'Date',
+                          DateFormat('EEEE, MMM d, yyyy').format(_bookingDate!),
+                        ),
+
+                      if (_selectedTime != null)
+                        _buildSummaryItem(
+                          Icons.access_time,
+                          'Time',
+                          _selectedTime!,
+                        ),
+
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed:
+                            (_selectedPatient != null &&
+                                _selectedDoctor != null &&
+                                _bookingDate != null &&
+                                _selectedTime != null)
+                            ? () async {
+                                try {
+                                  final appointment = AppointmentModel(
+                                    patientId: _selectedPatient!.id!,
+                                    patientName: _selectedPatient!.name,
+                                    department: _selectedDept!,
+                                    doctorName: _selectedDoctor!.fullname,
+                                    appointmentDate: DateFormat(
+                                      'yyyy-MM-dd',
+                                    ).format(_bookingDate!),
+                                    appointmentTime: _selectedTime!,
+                                    bloodPressureSystolic: int.tryParse(
+                                      _bpSystolicController.text,
+                                    ),
+                                    bloodPressureDiastolic: int.tryParse(
+                                      _bpDiastolicController.text,
+                                    ),
+                                    sugarLevel: double.tryParse(
+                                      _sugarController.text,
+                                    ),
+                                    temperature: double.tryParse(
+                                      _tempController.text,
+                                    ),
+                                    reasonForVisit: _reasonController.text,
+                                  );
+
+                                  await _appointmentController.bookAppointment(
+                                    appointment,
+                                  );
+
+                                  setState(() => _isBookingAppointment = false);
+
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Appointment Booked Successfully!',
+                                      ),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                  _clearSelections();
+                                  _fetchData(); // Refresh the table
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE53E3E),
+                          disabledBackgroundColor: const Color(
+                            0xFFE53E3E,
+                          ).withOpacity(0.5),
+                          minimumSize: const Size(double.infinity, 52),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check, size: 20, color: Colors.white),
+                            SizedBox(width: 12),
+                            Text(
+                              'Confirm Appointment',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left Column: Form Cards
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    children: [
+                      _buildFormCard(
+                        title: 'Select Patient',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildDropdown<PatientModel>(
+                              hint: 'Select a patient',
+                              value: _selectedPatient,
+                              items: _patients,
+                              itemLabel: (p) => p.name,
+                              onChanged: (val) =>
+                                  setState(() => _selectedPatient = val),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildFormCard(
+                        title: 'Patient Vitals',
+                        headerExtra: TextButton(
+                          onPressed: () {},
+                          child: const Text(
+                            'Collect vitals during booking',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 4,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildFieldLabel('Blood Pressure'),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildTextField(
+                                          controller: _bpSystolicController,
+                                          hint: '120',
+                                        ),
+                                      ),
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 8.0,
+                                        ),
+                                        child: Text(
+                                          '/',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            color: Color(0xFF94A3B8),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: _buildTextField(
+                                          controller: _bpDiastolicController,
+                                          hint: '80',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildFieldLabel('Sugar Level'),
+                                  _buildTextField(
+                                    controller: _sugarController,
+                                    hint: '100 mg/dL',
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildFieldLabel('Temperature'),
+                                  _buildTextField(
+                                    controller: _tempController,
+                                    hint: '98.6°F',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _buildFormCard(
+                        title: 'Reason for Visit',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFieldLabel('Reason *'),
+                            _buildTextField(
+                              controller: _reasonController,
+                              hint: 'e.g. Regular check-up, fever, etc.',
+                              isNumeric: false,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildFormCard(
+                        title: 'Department & Doctor',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFieldLabel('Department *'),
+                            _buildDropdown<String>(
+                              hint: 'Select department',
+                              value: _selectedDept,
+                              items: _departments,
+                              itemLabel: (s) => s,
+                              onChanged: (val) => setState(() {
+                                _selectedDept = val;
+                                _selectedDoctor = null;
+                              }),
+                            ),
+                            if (_selectedDept != null) ...[
+                              const SizedBox(height: 24),
+                              _buildFieldLabel('Select Doctor *'),
+                              const SizedBox(height: 4),
+                              SizedBox(
+                                height: 60,
+                                child:
+                                    _doctors
+                                        .where(
+                                          (d) =>
+                                              d.specialization == _selectedDept,
+                                        )
+                                        .isEmpty
+                                    ? const Center(
+                                        child: Text(
+                                          'No doctors available in this department',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      )
+                                    : ListView.separated(
+                                        scrollDirection: Axis.horizontal,
+                                        itemCount: _doctors
                                             .where(
                                               (d) =>
                                                   d.specialization ==
                                                   _selectedDept,
                                             )
-                                            .toList()[index];
-                                        final isSelected =
-                                            _selectedDoctor?.fullname ==
-                                            doc.fullname;
-                                        return InkWell(
-                                          onTap: () => setState(
-                                            () => _selectedDoctor = doc,
-                                          ),
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 8,
+                                            .length,
+                                        separatorBuilder: (_, __) =>
+                                            const SizedBox(width: 16),
+                                        itemBuilder: (context, index) {
+                                          final doc = _doctors
+                                              .where(
+                                                (d) =>
+                                                    d.specialization ==
+                                                    _selectedDept,
+                                              )
+                                              .toList()[index];
+                                          final isSelected =
+                                              _selectedDoctor?.fullname ==
+                                              doc.fullname;
+                                          return InkWell(
+                                            onTap: () => setState(
+                                              () => _selectedDoctor = doc,
                                             ),
-                                            decoration: BoxDecoration(
-                                              color: isSelected
-                                                  ? const Color(0xFFF0F7FF)
-                                                  : Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              border: Border.all(
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 8,
+                                                  ),
+                                              decoration: BoxDecoration(
                                                 color: isSelected
-                                                    ? const Color(0xFF3B82F6)
-                                                    : AppTheme.borderColor,
-                                              ),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Icon(
-                                                  isSelected
-                                                      ? Icons
-                                                            .radio_button_checked
-                                                      : Icons.radio_button_off,
-                                                  size: 18,
+                                                    ? const Color(0xFFF0F7FF)
+                                                    : Colors.white,
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                border: Border.all(
                                                   color: isSelected
                                                       ? const Color(0xFF3B82F6)
-                                                      : const Color(0xFF94A3B8),
+                                                      : AppTheme.borderColor,
                                                 ),
-                                                const SizedBox(width: 12),
-                                                CircleAvatar(
-                                                  radius: 14,
-                                                  backgroundColor: const Color(
-                                                    0xFF1E40AF,
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    isSelected
+                                                        ? Icons
+                                                              .radio_button_checked
+                                                        : Icons
+                                                              .radio_button_off,
+                                                    size: 18,
+                                                    color: isSelected
+                                                        ? const Color(
+                                                            0xFF3B82F6,
+                                                          )
+                                                        : const Color(
+                                                            0xFF94A3B8,
+                                                          ),
                                                   ),
-                                                  child: Text(
-                                                    _getInitials(doc.fullname),
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      color: Colors.white,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Column(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      doc.fullname,
+                                                  const SizedBox(width: 12),
+                                                  CircleAvatar(
+                                                    radius: 14,
+                                                    backgroundColor:
+                                                        const Color(0xFF1E40AF),
+                                                    child: Text(
+                                                      _getInitials(
+                                                        doc.fullname,
+                                                      ),
                                                       style: const TextStyle(
+                                                        fontSize: 10,
+                                                        color: Colors.white,
                                                         fontWeight:
                                                             FontWeight.bold,
-                                                        fontSize: 13,
-                                                        color: Color(
-                                                          0xFF2D3748,
-                                                        ),
                                                       ),
                                                     ),
-                                                    Text(
-                                                      _selectedDept!,
-                                                      style: const TextStyle(
-                                                        fontSize: 11,
-                                                        color: Color(
-                                                          0xFF64748B,
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Column(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        doc.fullname,
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 13,
+                                                          color: Color(
+                                                            0xFF2D3748,
+                                                          ),
                                                         ),
                                                       ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
+                                                      Text(
+                                                        _selectedDept!,
+                                                        style: const TextStyle(
+                                                          fontSize: 11,
+                                                          color: Color(
+                                                            0xFF64748B,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _buildFormCard(
-                      title: 'Date & Time',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildFieldLabel('Appointment Date *'),
-                          TextField(
-                            controller: _dateController,
-                            readOnly: true,
-                            onTap: () async {
-                              DateTime? picked = await showDatePicker(
-                                context: context,
-                                initialDate: _bookingDate ?? DateTime.now(),
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(
-                                  const Duration(days: 365),
-                                ),
-                              );
-                              if (picked != null) {
-                                setState(() {
-                                  _bookingDate = picked;
-                                  _dateController.text = DateFormat(
-                                    'dd-MM-yyyy',
-                                  ).format(picked);
-                                  _selectedTime = null; // Reset time
-                                });
-                              }
-                            },
-                            decoration: InputDecoration(
-                              hintText: 'dd-mm-yyyy',
-                              filled: true,
-                              fillColor: Colors.white,
-                              prefixIcon: const Icon(
-                                Icons.calendar_today_outlined,
-                                size: 18,
-                                color: Color(0xFF94A3B8),
-                              ),
-                              suffixIcon: const Icon(
-                                Icons.calendar_month,
-                                size: 18,
-                                color: Color(0xFF1E293B),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.borderColor,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.primaryColor,
-                                  width: 1.5,
-                                ),
-                              ),
-                            ),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          if (_bookingDate != null) ...[
-                            const SizedBox(height: 24),
-                            _buildFieldLabel('Available Time Slots *'),
-                            const SizedBox(height: 8),
-                            GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 4,
-                                    childAspectRatio: 2.5,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
-                                  ),
-                              itemCount: _availableSlots.length,
-                              itemBuilder: (context, index) {
-                                final time = _availableSlots[index];
-                                final isSelected = _selectedTime == time;
-                                return InkWell(
-                                  onTap: () =>
-                                      setState(() => _selectedTime = time),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? const Color(0xFF3B82F6)
-                                          : Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? const Color(0xFF3B82F6)
-                                            : AppTheme.borderColor,
+                                          );
+                                        },
                                       ),
-                                    ),
-                                    child: Center(
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.access_time,
-                                            size: 14,
-                                            color: isSelected
-                                                ? Colors.white
-                                                : const Color(0xFF94A3B8),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            time,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: isSelected
-                                                  ? FontWeight.bold
-                                                  : FontWeight.normal,
-                                              color: isSelected
-                                                  ? Colors.white
-                                                  : const Color(0xFF1E293B),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 32),
-              // Right Column: Summary
-              Expanded(
-                flex: 1,
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9).withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppTheme.borderColor.withOpacity(0.5),
                         ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Appointment Summary',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: AppTheme.textPrimaryColor,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          if (_selectedPatient != null)
-                            _buildSummaryItem(
-                              Icons.person_outline,
-                              'Patient',
-                              _selectedPatient!.name,
-                            ),
-
-                          if (_selectedDoctor != null)
-                            _buildSummaryItem(
-                              Icons.medical_services_outlined,
-                              'Doctor',
-                              _selectedDoctor!.fullname,
-                              subtitle: _selectedDept,
-                            ),
-
-                          if (_bookingDate != null)
-                            _buildSummaryItem(
-                              Icons.calendar_month_outlined,
-                              'Date',
-                              DateFormat(
-                                'EEEE, MMMM d, yyyy',
-                              ).format(_bookingDate!),
-                            ),
-
-                          if (_selectedTime != null)
-                            _buildSummaryItem(
-                              Icons.access_time,
-                              'Time',
-                              _selectedTime!,
-                            ),
-
-                          const SizedBox(height: 8),
-                          ElevatedButton(
-                            onPressed:
-                                (_selectedPatient != null &&
-                                    _selectedDoctor != null &&
-                                    _bookingDate != null &&
-                                    _selectedTime != null)
-                                ? () async {
-                                    try {
-                                      final appointment = AppointmentModel(
-                                        patientId: _selectedPatient!.id!,
-                                        patientName: _selectedPatient!.name,
-                                        department: _selectedDept!,
-                                        doctorName: _selectedDoctor!.fullname,
-                                        appointmentDate: DateFormat(
-                                          'yyyy-MM-dd',
-                                        ).format(_bookingDate!),
-                                        appointmentTime: _selectedTime!,
-                                        bloodPressureSystolic: int.tryParse(
-                                          _bpSystolicController.text,
-                                        ),
-                                        bloodPressureDiastolic: int.tryParse(
-                                          _bpDiastolicController.text,
-                                        ),
-                                        sugarLevel: double.tryParse(
-                                          _sugarController.text,
-                                        ),
-                                        temperature: double.tryParse(
-                                          _tempController.text,
-                                        ),
-                                        reasonForVisit: _reasonController.text,
-                                      );
-
-                                      await _appointmentController
-                                          .bookAppointment(appointment);
-
-                                      setState(
-                                        () => _isBookingAppointment = false,
-                                      );
-
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Appointment Booked Successfully!',
-                                          ),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                      _clearSelections();
-                                      _fetchData(); // Refresh the table
-                                    } catch (e) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Error: $e'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFE53E3E),
-                              disabledBackgroundColor: const Color(
-                                0xFFE53E3E,
-                              ).withOpacity(0.5),
-                              minimumSize: const Size(double.infinity, 52),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.check,
-                                  size: 20,
-                                  color: Colors.white,
+                      const SizedBox(height: 24),
+                      _buildFormCard(
+                        title: 'Date & Time',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFieldLabel('Appointment Date *'),
+                            TextField(
+                              controller: _dateController,
+                              readOnly: true,
+                              onTap: () async {
+                                DateTime? picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: _bookingDate ?? DateTime.now(),
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now().add(
+                                    const Duration(days: 365),
+                                  ),
+                                );
+                                if (picked != null) {
+                                  setState(() {
+                                    _bookingDate = picked;
+                                    _dateController.text = DateFormat(
+                                      'dd-MM-yyyy',
+                                    ).format(picked);
+                                    _selectedTime = null; // Reset time
+                                  });
+                                }
+                              },
+                              decoration: InputDecoration(
+                                hintText: 'dd-mm-yyyy',
+                                filled: true,
+                                fillColor: Colors.white,
+                                prefixIcon: const Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 18,
+                                  color: Color(0xFF94A3B8),
                                 ),
-                                SizedBox(width: 12),
-                                Text(
-                                  'Confirm Appointment',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
+                                suffixIcon: const Icon(
+                                  Icons.calendar_month,
+                                  size: 18,
+                                  color: Color(0xFF1E293B),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                    color: AppTheme.borderColor,
                                   ),
                                 ),
-                              ],
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                    color: AppTheme.primaryColor,
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF1E293B),
+                              ),
                             ),
-                          ),
-                        ],
+                            if (_bookingDate != null) ...[
+                              const SizedBox(height: 24),
+                              _buildFieldLabel('Available Time Slots *'),
+                              const SizedBox(height: 8),
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 4,
+                                      childAspectRatio: 2.5,
+                                      crossAxisSpacing: 12,
+                                      mainAxisSpacing: 12,
+                                    ),
+                                itemCount: _availableSlots.length,
+                                itemBuilder: (context, index) {
+                                  final time = _availableSlots[index];
+                                  final isSelected = _selectedTime == time;
+                                  return InkWell(
+                                    onTap: () =>
+                                        setState(() => _selectedTime = time),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? const Color(0xFF3B82F6)
+                                            : Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? const Color(0xFF3B82F6)
+                                              : AppTheme.borderColor,
+                                        ),
+                                      ),
+                                      child: Center(
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.access_time,
+                                              size: 14,
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : const Color(0xFF94A3B8),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              time,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
+                                                color: isSelected
+                                                    ? Colors.white
+                                                    : const Color(0xFF1E293B),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 32),
+                // Right Column: Summary
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9).withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppTheme.borderColor.withOpacity(0.5),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Appointment Summary',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: AppTheme.textPrimaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            if (_selectedPatient != null)
+                              _buildSummaryItem(
+                                Icons.person_outline,
+                                'Patient',
+                                _selectedPatient!.name,
+                              ),
+
+                            if (_selectedDoctor != null)
+                              _buildSummaryItem(
+                                Icons.medical_services_outlined,
+                                'Doctor',
+                                _selectedDoctor!.fullname,
+                                subtitle: _selectedDept,
+                              ),
+
+                            if (_bookingDate != null)
+                              _buildSummaryItem(
+                                Icons.calendar_month_outlined,
+                                'Date',
+                                DateFormat(
+                                  'EEEE, MMMM d, yyyy',
+                                ).format(_bookingDate!),
+                              ),
+
+                            if (_selectedTime != null)
+                              _buildSummaryItem(
+                                Icons.access_time,
+                                'Time',
+                                _selectedTime!,
+                              ),
+
+                            const SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed:
+                                  (_selectedPatient != null &&
+                                      _selectedDoctor != null &&
+                                      _bookingDate != null &&
+                                      _selectedTime != null)
+                                  ? () async {
+                                      try {
+                                        final appointment = AppointmentModel(
+                                          patientId: _selectedPatient!.id!,
+                                          patientName: _selectedPatient!.name,
+                                          department: _selectedDept!,
+                                          doctorName: _selectedDoctor!.fullname,
+                                          appointmentDate: DateFormat(
+                                            'yyyy-MM-dd',
+                                          ).format(_bookingDate!),
+                                          appointmentTime: _selectedTime!,
+                                          bloodPressureSystolic: int.tryParse(
+                                            _bpSystolicController.text,
+                                          ),
+                                          bloodPressureDiastolic: int.tryParse(
+                                            _bpDiastolicController.text,
+                                          ),
+                                          sugarLevel: double.tryParse(
+                                            _sugarController.text,
+                                          ),
+                                          temperature: double.tryParse(
+                                            _tempController.text,
+                                          ),
+                                          reasonForVisit:
+                                              _reasonController.text,
+                                        );
+
+                                        await _appointmentController
+                                            .bookAppointment(appointment);
+
+                                        setState(
+                                          () => _isBookingAppointment = false,
+                                        );
+
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Appointment Booked Successfully!',
+                                            ),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                        _clearSelections();
+                                        _fetchData(); // Refresh the table
+                                      } catch (e) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Error: $e'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFE53E3E),
+                                disabledBackgroundColor: const Color(
+                                  0xFFE53E3E,
+                                ).withOpacity(0.5),
+                                minimumSize: const Size(double.infinity, 52),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.check,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'Confirm Appointment',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -1034,6 +1544,42 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   Widget _buildHeader(bool isMobile) {
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Appointments',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimaryColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Manage and schedule patient appointments',
+            style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () => setState(() => _isBookingAppointment = true),
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text('Books Appointment'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53E3E),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 0,
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1227,6 +1773,79 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   Widget _buildFilters(bool isMobile) {
+    if (isMobile) {
+      return Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.calendar_today_outlined,
+                  size: 18,
+                  color: Color(0xFF64748B),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  DateFormat('dd-MM-yyyy').format(_selectedTableDate),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const Spacer(),
+                const Icon(
+                  Icons.calendar_month,
+                  size: 18,
+                  color: Color(0xFF64748B),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: _selectedStatus,
+                items:
+                    [
+                          'All Status',
+                          'Confirmed',
+                          'Checked In',
+                          'Waiting',
+                          'Cancelled',
+                        ]
+                        .map(
+                          (e) => DropdownMenuItem(
+                            value: e,
+                            child: Text(
+                              e,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                onChanged: (val) => setState(() => _selectedStatus = val!),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       children: [
         Container(
@@ -1295,6 +1914,38 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   Widget _buildAppointmentsTable(bool isMobile) {
+    if (isMobile) {
+      final filteredAppts = _appointments.where((a) {
+        if (_selectedStatus != 'All Status' && a.status != _selectedStatus) {
+          return false;
+        }
+        return true;
+      }).toList();
+
+      if (filteredAppts.isEmpty) {
+        return const Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Center(
+            child: Text(
+              'No appointments scheduled for this date.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+        );
+      }
+
+      return ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: filteredAppts.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final appt = filteredAppts[index];
+          return _buildAppointmentCardMobile(appt);
+        },
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1377,6 +2028,192 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   ),
                 )
                 .toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppointmentCardMobile(AppointmentModel appt) {
+    final statusColor = appt.status == 'Confirmed'
+        ? const Color(0xFF3182CE)
+        : appt.status == 'Checked In'
+        ? const Color(0xFF38A169)
+        : const Color(0xFFE53E3E);
+    final statusBg = appt.status == 'Confirmed'
+        ? const Color(0xFFEBF8FF)
+        : appt.status == 'Checked In'
+        ? const Color(0xFFF0FFF4)
+        : const Color(0xFFFFF5F5);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: const Color(0xFF1E3A8A),
+                    child: Text(
+                      _getInitials(appt.patientName),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        appt.patientName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        _formatDate(appt.appointmentDate),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusBg,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  appt.status,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Icon(Icons.access_time, size: 14, color: Color(0xFF94A3B8)),
+              const SizedBox(width: 8),
+              Text(
+                appt.appointmentTime,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 24),
+              const Icon(
+                Icons.medical_services_outlined,
+                size: 14,
+                color: Color(0xFF94A3B8),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                appt.doctorName,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(
+                Icons.business_outlined,
+                size: 14,
+                color: Color(0xFF94A3B8),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                appt.department,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF3B82F6)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (appt.status == 'Confirmed')
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      await _appointmentController.updateStatus(
+                        appt.id!,
+                        'Checked In',
+                      );
+                      _fetchData();
+                    } catch (e) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF048434),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(0, 36),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  child: const Text(
+                    'Check In',
+                    style: TextStyle(fontSize: 12, color: Colors.white),
+                  ),
+                ),
+              const SizedBox(width: 12),
+              TextButton(
+                onPressed: () async {
+                  try {
+                    await _appointmentController.updateStatus(
+                      appt.id!,
+                      'Cancelled',
+                    );
+                    _fetchData();
+                  } catch (e) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                },
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Color(0xFFE53E3E),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

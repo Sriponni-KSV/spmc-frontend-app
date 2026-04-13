@@ -11,6 +11,9 @@ import 'login_page.dart';
 import 'new_patient_registration.dart';
 import 'patients_view.dart';
 import 'appointments_view.dart';
+import 'doctors_view.dart';
+import '../controllers/appointment_controller.dart';
+import '../models/appointment_model.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
   const NurseDashboardScreen({Key? key}) : super(key: key);
@@ -27,12 +30,34 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   List<PatientModel> _dbPatients = [];
   String? _patientError;
   final PatientController _patientController = PatientController();
+  final AppointmentController _appointmentController = AppointmentController();
   bool _isLoadingPatients = false;
+  List<AppointmentModel> _dbAppointments = [];
+  bool _isLoadingAppointments = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchPatients();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    await Future.wait([
+      _fetchPatients(),
+      _fetchAppointments(),
+    ]);
+  }
+
+  Future<void> _fetchAppointments() async {
+    setState(() => _isLoadingAppointments = true);
+    try {
+      final appointments = await _appointmentController.fetchAppointments();
+      if (mounted) setState(() => _dbAppointments = appointments);
+    } catch (e) {
+      debugPrint('Error fetching appointments: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingAppointments = false);
+    }
   }
 
   Future<void> _fetchPatients() async {
@@ -188,6 +213,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           key: showForm ? UniqueKey() : null,
           startWithBookingForm: showForm,
         );
+      case 3:
+        return const DoctorsView();
       default:
         return _buildDashboardView(isMobile);
     }
@@ -856,38 +883,29 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              TextButton(onPressed: () {}, child: const Text('View All')),
+              TextButton(
+                onPressed: () => setState(() => _selectedIndex = 1),
+                child: const Text('View All'),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildPatientItem(
-            'John Smith',
-            '45y • Male',
-            '10:30 AM',
-            'Checked In',
-            Colors.green,
-          ),
-          _buildPatientItem(
-            'Sarah Johnson',
-            '32y • Female',
-            '9:15 AM',
-            'Waiting',
-            Colors.orange,
-          ),
-          _buildPatientItem(
-            'Robert Brown',
-            '58y • Male',
-            'Yesterday',
-            'Completed',
-            Colors.grey,
-          ),
-          _buildPatientItem(
-            'Emily Davis',
-            '28y • Female',
-            '2 days ago',
-            'Completed',
-            Colors.grey,
-          ),
+          if (_isLoadingPatients)
+            const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+          else if (_dbPatients.isEmpty)
+            const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No patients found', style: TextStyle(color: Colors.grey))))
+          else
+            ..._dbPatients.take(4).map((p) {
+              final parts = p.name.trim().split(' ');
+              final initials = parts.isNotEmpty ? parts[0][0].toUpperCase() : '?';
+              return _buildPatientItem(
+                p.name,
+                '${p.age}y • ${p.gender}',
+                'Registered', // Database model doesn't have registration time yet easily available in this format, using a status
+                p.isQuickRegister ? 'Quick' : 'Standard',
+                p.isQuickRegister ? Colors.purple : Colors.blue,
+              );
+            }).toList(),
         ],
       ),
     );
@@ -992,28 +1010,46 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              TextButton(onPressed: () {}, child: const Text('View All')),
+              TextButton(
+                onPressed: () => setState(() => _selectedIndex = 2),
+                child: const Text('View All'),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildAppointmentItem(
-            'Michael Wilson',
-            'Dr. Amanda Lee',
-            '11:00 AM',
-            'Cardiology',
-          ),
-          _buildAppointmentItem(
-            'Jessica Taylor',
-            'Dr. Robert Chen',
-            '11:30 AM',
-            'General Medicine',
-          ),
-          _buildAppointmentItem(
-            'David Martinez',
-            'Dr. Sarah Kumar',
-            '12:00 PM',
-            'Orthopedics',
-          ),
+          if (_isLoadingAppointments)
+            const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+          else if (_dbAppointments.isEmpty)
+            const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No appointments found', style: TextStyle(color: Colors.grey))))
+          else () {
+            final String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+            final List<AppointmentModel> todaysAppts = _dbAppointments
+                .where((a) => a.appointmentDate == today || a.appointmentDate.startsWith(today))
+                .toList();
+                
+            // Sort by time
+            todaysAppts.sort((a, b) => a.appointmentTime.compareTo(b.appointmentTime));
+            
+            // Take last three
+            final displayAppts = todaysAppts.length > 3 
+                ? todaysAppts.sublist(todaysAppts.length - 3) 
+                : todaysAppts;
+
+            if (displayAppts.isEmpty) {
+              return const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No appointments for today', style: TextStyle(color: Colors.grey))));
+            }
+
+            return Column(
+              children: displayAppts.map((a) {
+                return _buildAppointmentItem(
+                  a.patientName,
+                  a.doctorName,
+                  a.appointmentTime,
+                  a.department,
+                );
+              }).toList(),
+            );
+          }(),
         ],
       ),
     );

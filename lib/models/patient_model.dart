@@ -116,7 +116,9 @@ class PatientModel {
       hobbies:         (json['hobbies']                                       ?? '').toString(),
       foodHabits:      (json['foodHabits']     ?? json['food_habits']         ?? '').toString(),
       physicalActivity:(json['physicalActivity']?? json['physical_activity']  ?? '').toString(),
-      isQuickRegister: json['isQuickRegister'] ?? json['is_quick_register'] ?? false,
+      isQuickRegister: (json['isQuickRegister'] ?? json['is_quick_register']) == true || 
+                       (json['isQuickRegister'] ?? json['is_quick_register']).toString() == '1' ||
+                       (json['isQuickRegister'] ?? json['is_quick_register']).toString().toLowerCase() == 'true',
     );
 
   }
