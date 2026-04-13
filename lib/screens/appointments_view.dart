@@ -102,8 +102,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       String cleanDate = dateStr.contains('T')
           ? dateStr.split('T')[0]
           : dateStr;
-      DateTime dt = DateFormat('yyyy-MM-dd').parse(cleanDate);
-      return DateFormat('dd/MM/yyyy').format(dt);
+      DateTime? dt;
+      try {
+        dt = DateFormat('dd-MM-yyyy').parse(cleanDate);
+      } catch (_) {
+        try {
+          dt = DateFormat('yyyy-MM-dd').parse(cleanDate);
+        } catch (_) {}
+      }
+      
+      if (dt == null) return dateStr;
+      return DateFormat('dd-MM-yyyy').format(dt);
     } catch (e) {
       return dateStr;
     }
@@ -674,7 +683,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     department: _selectedDept!,
                                     doctorName: _selectedDoctor!.fullname,
                                     appointmentDate: DateFormat(
-                                      'yyyy-MM-dd',
+                                      'dd-MM-yyyy',
                                     ).format(_bookingDate!),
                                     appointmentTime: _selectedTime!,
                                     bloodPressureSystolic: int.tryParse(
@@ -1244,7 +1253,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                           department: _selectedDept!,
                                           doctorName: _selectedDoctor!.fullname,
                                           appointmentDate: DateFormat(
-                                            'yyyy-MM-dd',
+                                            'dd-MM-yyyy',
                                           ).format(_bookingDate!),
                                           appointmentTime: _selectedTime!,
                                           bloodPressureSystolic: int.tryParse(
@@ -1623,7 +1632,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   Widget _buildStatCards(bool isMobile) {
-    String todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    String todayStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
 
     // Filter appointments for today
     final todayAppts = _appointments.where((a) {

@@ -627,6 +627,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Widget _buildStatsRow(bool isMobile) {
+    final int totalPatients = _dbPatients.length;
+    final String today = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    final int todaysApptsCount = _dbAppointments
+        .where((a) => a.appointmentDate == today || a.appointmentDate.startsWith(today))
+        .length;
+
     if (isMobile) {
       return Wrap(
         spacing: 16,
@@ -634,16 +640,16 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         children: [
           _buildStatCard(
             'Total Patients',
-            '1,248',
-            '+12%',
+            totalPatients.toString(),
+            '',
             Icons.people_outline,
             Colors.blue,
             isMobile,
           ),
           _buildStatCard(
             'Today\'s Appointments',
-            '32',
-            '+5',
+            todaysApptsCount.toString(),
+            '',
             Icons.calendar_today_outlined,
             Colors.indigo,
             isMobile,
@@ -651,7 +657,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           _buildStatCard(
             'Active Home Care',
             '48',
-            '+8%',
+            '',
             Icons.monitor_heart_outlined,
             Colors.green,
             isMobile,
@@ -659,7 +665,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           _buildStatCard(
             'Patient Visits',
             '156',
-            '+18%',
+            '',
             Icons.trending_up,
             Colors.cyan,
             isMobile,
@@ -672,8 +678,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         Expanded(
           child: _buildStatCard(
             'Total Patients',
-            '1,248',
-            '+12%',
+            totalPatients.toString(),
+            '',
             Icons.people_outline,
             Colors.blue,
             isMobile,
@@ -683,8 +689,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         Expanded(
           child: _buildStatCard(
             'Today\'s Appointments',
-            '32',
-            '+5',
+            todaysApptsCount.toString(),
+            '',
             Icons.calendar_today_outlined,
             Colors.indigo,
             isMobile,
@@ -695,7 +701,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           child: _buildStatCard(
             'Active Home Care',
             '48',
-            '+8%',
+            '',
             Icons.monitor_heart_outlined,
             Colors.green,
             isMobile,
@@ -706,7 +712,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           child: _buildStatCard(
             'Patient Visits',
             '156',
-            '+18%',
+            '',
             Icons.trending_up,
             Colors.cyan,
             isMobile,
@@ -1022,7 +1028,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           else if (_dbAppointments.isEmpty)
             const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No appointments found', style: TextStyle(color: Colors.grey))))
           else () {
-            final String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+            final String today = DateFormat('dd-MM-yyyy').format(DateTime.now());
             final List<AppointmentModel> todaysAppts = _dbAppointments
                 .where((a) => a.appointmentDate == today || a.appointmentDate.startsWith(today))
                 .toList();

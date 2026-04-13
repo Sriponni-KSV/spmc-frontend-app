@@ -16,12 +16,7 @@ class _DoctorsViewState extends State<DoctorsView> {
   String _searchQuery = '';
   String _selectedDepartment = 'All';
 
-  final List<Map<String, dynamic>> _departments = [
-    {'name': 'Cardiology', 'icon': Icons.favorite_outline, 'count': 2},
-    {'name': 'General Medicine', 'icon': Icons.medical_services_outlined, 'count': 2},
-    {'name': 'Endocrinology', 'icon': Icons.monitor_heart_outlined, 'count': 1},
-    {'name': 'Orthopedics', 'icon': Icons.airline_seat_legroom_extra_outlined, 'count': 1},
-  ];
+
 
   @override
   void initState() {
@@ -103,93 +98,124 @@ class _DoctorsViewState extends State<DoctorsView> {
 
         // Body Content
         Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Departments Section
-                const Text(
-                  'Departments',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildDepartmentList(isMobile),
+          child: FutureBuilder<List<UserModel>>(
+            future: _doctorsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: Padding(
+                  padding: EdgeInsets.all(40.0),
+                  child: CircularProgressIndicator(),
+                ));
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              }
 
-                const SizedBox(height: 32),
+              final doctors = snapshot.data ?? [];
+              
+              // Calculate dynamic departments from registered doctors
+              final Map<String, int> deptCounts = {};
+              for (var doc in doctors) {
+                final spec = doc.specialization ?? 'General Medicine';
+                deptCounts[spec] = (deptCounts[spec] ?? 0) + 1;
+              }
+              
+              final List<Map<String, dynamic>> dynamicDepartments = deptCounts.entries.map<Map<String, dynamic>>((e) {
+                IconData icon;
+                switch (e.key.toLowerCase()) {
+                  case 'cardiology': icon = Icons.favorite_outline; break;
+                  case 'endocrinology': icon = Icons.monitor_heart_outlined; break;
+                  case 'orthopedics': icon = Icons.airline_seat_legroom_extra_outlined; break;
+                  case 'pediatrics': icon = Icons.child_care; break;
+                  case 'neurology': icon = Icons.psychology_outlined; break;
+                  default: icon = Icons.medical_services_outlined; break;
+                }
+                return <String, dynamic>{'name': e.key, 'icon': icon, 'count': e.value};
+              }).toList();
 
-                // Doctors Grid
-                FutureBuilder<List<UserModel>>(
-                  future: _doctorsFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: Padding(
-                        padding: EdgeInsets.all(40.0),
-                        child: CircularProgressIndicator(),
-                      ));
-                    }
-                    if (snapshot.hasError) {
-                      return Center(child: Text('Error: ${snapshot.error}'));
-                    }
+              // Sort departments alphabetically
+              dynamicDepartments.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
 
-                    final doctors = snapshot.data ?? [];
-                    final filteredDoctors = doctors.where((doc) {
-                      final matchesSearch = doc.fullname.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                          (doc.specialization ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
-                      final matchesDept = _selectedDepartment == 'All' || doc.specialization == _selectedDepartment;
-                      return matchesSearch && matchesDept;
-                    }).toList();
+              // Add "All" option to the beginning
+              dynamicDepartments.insert(0, <String, dynamic>{
+                'name': 'All',
+                'icon': Icons.apps_outlined,
+                'count': doctors.length,
+              });
 
-                    if (filteredDoctors.isEmpty) {
-                      return const Center(
+              final filteredDoctors = doctors.where((doc) {
+                final matchesSearch = doc.fullname.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                    (doc.specialization ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
+                final matchesDept = _selectedDepartment == 'All' || doc.specialization == _selectedDepartment;
+                return matchesSearch && matchesDept;
+              }).toList();
+
+              return SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Departments Section
+                    if (dynamicDepartments.isNotEmpty) ...[
+                      const Text(
+                        'Departments',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildDepartmentList(isMobile, dynamicDepartments),
+                      const SizedBox(height: 32),
+                    ],
+
+                    // Doctors Grid
+                    if (filteredDoctors.isEmpty)
+                      const Center(
                         child: Padding(
                           padding: EdgeInsets.all(40.0),
                           child: Text('No doctors found matching your criteria.'),
                         ),
-                      );
-                    }
-
-                    return Wrap(
-                      spacing: 24,
-                      runSpacing: 24,
-                      children: filteredDoctors.map((doc) {
-                        double cardWidth;
-                        if (isMobile) {
-                          cardWidth = MediaQuery.of(context).size.width - (isMobile ? 32 : 48);
-                        } else {
-                          final screenWidth = MediaQuery.of(context).size.width - 260 - 48; // Sidebar + Screen Padding
-                          if (screenWidth > 1200) {
-                            cardWidth = (screenWidth - (2 * 24)) / 3;
+                      )
+                    else
+                      Wrap(
+                        spacing: 24,
+                        runSpacing: 24,
+                        children: filteredDoctors.map((doc) {
+                          double cardWidth;
+                          if (isMobile) {
+                            cardWidth = MediaQuery.of(context).size.width - (isMobile ? 32 : 48);
                           } else {
-                            cardWidth = (screenWidth - 24) / 2;
+                            final screenWidth = MediaQuery.of(context).size.width - 260 - 48; // Sidebar + Screen Padding
+                            if (screenWidth > 1200) {
+                              cardWidth = (screenWidth - (2 * 24)) / 3;
+                            } else {
+                              cardWidth = (screenWidth - 24) / 2;
+                            }
                           }
-                        }
-                        return SizedBox(
-                          width: cardWidth,
-                          child: _buildDoctorCard(doc, isMobile),
-                        );
-                      }).toList(),
-                    );
-                  },
+                          return SizedBox(
+                            width: cardWidth,
+                            child: _buildDoctorCard(doc, isMobile),
+                          );
+                        }).toList(),
+                      ),
+                    const SizedBox(height: 40),
+                  ],
                 ),
-                const SizedBox(height: 40),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDepartmentList(bool isMobile) {
+  Widget _buildDepartmentList(bool isMobile, List<Map<String, dynamic>> dynamicDepartments) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: _departments.map((dept) {
+        children: dynamicDepartments.map((dept) {
           final isSelected = _selectedDepartment == dept['name'];
           return Padding(
             padding: const EdgeInsets.only(right: 16),
@@ -218,7 +244,7 @@ class _DoctorsViewState extends State<DoctorsView> {
                         color: AppTheme.primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(dept['icon'], color: AppTheme.primaryColor, size: 24),
+                      child: Icon(dept['icon'] as IconData, color: AppTheme.primaryColor, size: 24),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -226,7 +252,7 @@ class _DoctorsViewState extends State<DoctorsView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            dept['name'],
+                            dept['name'] as String,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
@@ -234,7 +260,7 @@ class _DoctorsViewState extends State<DoctorsView> {
                             ),
                           ),
                           Text(
-                            '${dept['count']} doctors',
+                            '${dept['count']} doctor${dept['count'] == 1 ? '' : 's'}',
                             style: const TextStyle(
                               color: AppTheme.textSecondaryColor,
                               fontSize: 12,

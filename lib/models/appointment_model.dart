@@ -1,3 +1,5 @@
+import '../utils/date_formatter.dart';
+
 class AppointmentModel {
   final int? id;
   final int patientId;
@@ -36,7 +38,7 @@ class AppointmentModel {
       patientName: json['patient_name'] ?? '',
       department: json['department'] ?? '',
       doctorName: json['doctor_name'] ?? '',
-      appointmentDate: json['appointment_date'] ?? '',
+      appointmentDate: DateFormatter.toUi(json['appointment_date']),
       appointmentTime: json['appointment_time'] ?? '',
       bloodPressureSystolic: json['blood_pressure_systolic'] is int ? json['blood_pressure_systolic'] : int.tryParse(json['blood_pressure_systolic']?.toString() ?? ''),
       bloodPressureDiastolic: json['blood_pressure_diastolic'] is int ? json['blood_pressure_diastolic'] : int.tryParse(json['blood_pressure_diastolic']?.toString() ?? ''),
@@ -53,7 +55,7 @@ class AppointmentModel {
       'patient_name': patientName,
       'department': department,
       'doctor_name': doctorName,
-      'appointment_date': appointmentDate,
+      'appointment_date': DateFormatter.toDb(appointmentDate),
       'appointment_time': appointmentTime,
       'blood_pressure_systolic': bloodPressureSystolic,
       'blood_pressure_diastolic': bloodPressureDiastolic,
