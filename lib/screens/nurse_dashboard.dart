@@ -42,10 +42,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Future<void> _fetchData() async {
-    await Future.wait([
-      _fetchPatients(),
-      _fetchAppointments(),
-    ]);
+    await Future.wait([_fetchPatients(), _fetchAppointments()]);
   }
 
   Future<void> _fetchAppointments() async {
@@ -61,20 +58,20 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Future<void> _fetchPatients() async {
-  setState(() {
-    _isLoadingPatients = true;
-    _patientError = null;
-  });
-  try {
-    final patients = await _patientController.fetchPatients(); 
-    if (mounted) setState(() => _dbPatients = patients);
-  } catch (e) {
-    if (mounted) setState(() => _patientError = e.toString());
-    debugPrint('Error fetching patients: $e');
-  } finally {
-    if (mounted) setState(() => _isLoadingPatients = false);
+    setState(() {
+      _isLoadingPatients = true;
+      _patientError = null;
+    });
+    try {
+      final patients = await _patientController.fetchPatients();
+      if (mounted) setState(() => _dbPatients = patients);
+    } catch (e) {
+      if (mounted) setState(() => _patientError = e.toString());
+      debugPrint('Error fetching patients: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingPatients = false);
+    }
   }
-}
 
   @override
   void dispose() {
@@ -91,7 +88,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       transitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (context, anim1, anim2) {
         return SearchOverlay(
-         patients: _dbPatients.map((p) => p.toJson()).toList(),
+          patients: _dbPatients.map((p) => p.toJson()).toList(),
           onNewPatient: () {
             setState(() {
               _selectedIndex = 1;
@@ -303,7 +300,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Image.asset(
-                    'image/full_logo.png',
+                    'assets/image/full_logo.png',
                     width: 100,
                     height: 89,
                   ),
@@ -610,7 +607,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             Expanded(
               child: Text(
                 user != null ? 'Hello, ${user.fullname}' : 'Dashboard',
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
@@ -630,7 +630,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     final int totalPatients = _dbPatients.length;
     final String today = DateFormat('dd-MM-yyyy').format(DateTime.now());
     final int todaysApptsCount = _dbAppointments
-        .where((a) => a.appointmentDate == today || a.appointmentDate.startsWith(today))
+        .where(
+          (a) =>
+              a.appointmentDate == today || a.appointmentDate.startsWith(today),
+        )
         .length;
 
     if (isMobile) {
@@ -897,13 +900,28 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           ),
           const SizedBox(height: 16),
           if (_isLoadingPatients)
-            const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
+            )
           else if (_dbPatients.isEmpty)
-            const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No patients found', style: TextStyle(color: Colors.grey))))
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Text(
+                  'No patients found',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
           else
             ..._dbPatients.take(4).map((p) {
               final parts = p.name.trim().split(' ');
-              final initials = parts.isNotEmpty ? parts[0][0].toUpperCase() : '?';
+              final initials = parts.isNotEmpty
+                  ? parts[0][0].toUpperCase()
+                  : '?';
               return _buildPatientItem(
                 p.name,
                 '${p.age}y • ${p.gender}',
@@ -1024,38 +1042,68 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           ),
           const SizedBox(height: 16),
           if (_isLoadingAppointments)
-            const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
+            )
           else if (_dbAppointments.isEmpty)
-            const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No appointments found', style: TextStyle(color: Colors.grey))))
-          else () {
-            final String today = DateFormat('dd-MM-yyyy').format(DateTime.now());
-            final List<AppointmentModel> todaysAppts = _dbAppointments
-                .where((a) => a.appointmentDate == today || a.appointmentDate.startsWith(today))
-                .toList();
-                
-            // Sort by time
-            todaysAppts.sort((a, b) => a.appointmentTime.compareTo(b.appointmentTime));
-            
-            // Take last three
-            final displayAppts = todaysAppts.length > 3 
-                ? todaysAppts.sublist(todaysAppts.length - 3) 
-                : todaysAppts;
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Text(
+                  'No appointments found',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            () {
+              final String today = DateFormat(
+                'dd-MM-yyyy',
+              ).format(DateTime.now());
+              final List<AppointmentModel> todaysAppts = _dbAppointments
+                  .where(
+                    (a) =>
+                        a.appointmentDate == today ||
+                        a.appointmentDate.startsWith(today),
+                  )
+                  .toList();
 
-            if (displayAppts.isEmpty) {
-              return const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No appointments for today', style: TextStyle(color: Colors.grey))));
-            }
+              // Sort by time
+              todaysAppts.sort(
+                (a, b) => a.appointmentTime.compareTo(b.appointmentTime),
+              );
 
-            return Column(
-              children: displayAppts.map((a) {
-                return _buildAppointmentItem(
-                  a.patientName,
-                  a.doctorName,
-                  a.appointmentTime,
-                  a.department,
+              // Take last three
+              final displayAppts = todaysAppts.length > 3
+                  ? todaysAppts.sublist(todaysAppts.length - 3)
+                  : todaysAppts;
+
+              if (displayAppts.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      'No appointments for today',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
                 );
-              }).toList(),
-            );
-          }(),
+              }
+
+              return Column(
+                children: displayAppts.map((a) {
+                  return _buildAppointmentItem(
+                    a.patientName,
+                    a.doctorName,
+                    a.appointmentTime,
+                    a.department,
+                  );
+                }).toList(),
+              );
+            }(),
         ],
       ),
     );
@@ -1135,5 +1183,4 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       ),
     );
   }
-
-}
+}

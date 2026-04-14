@@ -99,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               shape: BoxShape.circle,
                             ),
                             child: Image.asset(
-                              'image/sriPonniLogo.png',
+                              'assets/image/sriPonniLogo.png',
                               width: 80,
                               height: 80,
                             ),
@@ -204,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 shape: BoxShape.circle,
               ),
               child: Image.asset(
-                'image/sriPonniLogo.png',
+                'assets/image/sriPonniLogo.png',
                 width: 48,
                 height: 48,
               ),

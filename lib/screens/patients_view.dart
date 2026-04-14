@@ -25,7 +25,6 @@ class PatientsView extends StatefulWidget {
     this.onRefresh,
   }) : super(key: key);
 
-
   @override
   State<PatientsView> createState() => _PatientsViewState();
 }
@@ -34,7 +33,7 @@ class _PatientsViewState extends State<PatientsView> {
   String _searchQuery = '';
   PatientModel? _selectedPatient;
   bool _isFilterVisible = false;
-  
+
   // Filter values
   String _selectedAgeRange = 'All Ages';
   String _selectedGender = 'All Genders';
@@ -64,7 +63,12 @@ class _PatientsViewState extends State<PatientsView> {
       debugPrint('Error fetching specializations in patients_view: $e');
       if (mounted) {
         setState(() {
-          _specializations = ['General Medicine', 'Cardiology', 'Pediatrics', 'Orthopedics'];
+          _specializations = [
+            'General Medicine',
+            'Cardiology',
+            'Pediatrics',
+            'Orthopedics',
+          ];
           _isLoadingSpecializations = false;
         });
       }
@@ -73,7 +77,7 @@ class _PatientsViewState extends State<PatientsView> {
 
   List<PatientModel> get _filteredPatients {
     List<PatientModel> filtered = widget.patients;
-    
+
     // Search query filter
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -97,17 +101,19 @@ class _PatientsViewState extends State<PatientsView> {
 
     // Gender filter
     if (_selectedGender != 'All Genders') {
-      filtered = filtered.where((p) => p.gender.toLowerCase() == _selectedGender.toLowerCase()).toList();
+      filtered = filtered
+          .where((p) => p.gender.toLowerCase() == _selectedGender.toLowerCase())
+          .toList();
     }
 
     // Status filter
     if (_selectedStatus != 'All Status') {
-       if (_selectedStatus == 'Active') {
-         // Assuming all currently fetched patients are active for now
-         return filtered; 
-       } else if (_selectedStatus == 'Inactive') {
-         return []; // No inactive patients in the current dataset
-       }
+      if (_selectedStatus == 'Active') {
+        // Assuming all currently fetched patients are active for now
+        return filtered;
+      } else if (_selectedStatus == 'Inactive') {
+        return []; // No inactive patients in the current dataset
+      }
     }
 
     return filtered;
@@ -123,49 +129,91 @@ class _PatientsViewState extends State<PatientsView> {
       );
     }
 
-    final bool isMobile = MediaQuery.of(context).size.width < 900;
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPatientsHeader(isMobile),
-          const SizedBox(height: 24),
-          _buildPatientsSearch(isMobile),
-          if (_isFilterVisible) ...[
+    final Size screenSize = MediaQuery.of(context).size;
+    final bool isMobile = screenSize.width < 850;
+    final bool isSmallMobile = screenSize.width < 400;
+    final bool isTablet = screenSize.width >= 850 && screenSize.width < 1200;
+    
+    EdgeInsets padding;
+    if (isMobile) {
+      padding = EdgeInsets.all(isSmallMobile ? 10.0 : 12.0);
+    } else if (isTablet) {
+      padding = const EdgeInsets.all(16.0);
+    } else {
+      padding = const EdgeInsets.all(24.0);
+    }
+    
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: padding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildPatientsHeader(isMobile, isTablet),
             const SizedBox(height: 16),
-            _buildFilterPanel(isMobile),
+            _buildPatientsSearch(isMobile, isTablet),
+            if (_isFilterVisible) ...[
+              const SizedBox(height: 16),
+              _buildFilterPanel(isMobile, isTablet),
+            ],
+            const SizedBox(height: 24),
+            _buildRecentPatientsHeader(isMobile),
+            const SizedBox(height: 12),
+            _buildRecentPatientsRow(isMobile, isTablet),
+            const SizedBox(height: 24),
+            _buildTableHeading(isMobile),
+            const SizedBox(height: 12),
+            _buildPatientsTable(isMobile, isTablet),
           ],
-          const SizedBox(height: 32),
-          const Text(
-            'Recent Patients',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimaryColor,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildRecentPatientsRow(isMobile),
-          const SizedBox(height: 32),
-          _buildPatientsTable(isMobile),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildPatientsHeader(bool isMobile) {
+  Widget _buildRecentPatientsHeader(bool isMobile) {
+    return Text(
+      'Recent Patients',
+      style: TextStyle(
+        fontSize: isMobile ? 18 : 20,
+        fontWeight: FontWeight.bold,
+        color: AppTheme.textPrimaryColor,
+        letterSpacing: -0.5,
+      ),
+    );
+  }
+
+  Widget _buildTableHeading(bool isMobile) {
+    return Text(
+      'Patient Records',
+      style: TextStyle(
+        fontSize: isMobile ? 18 : 20,
+        fontWeight: FontWeight.bold,
+        color: AppTheme.textPrimaryColor,
+        letterSpacing: -0.5,
+      ),
+    );
+  }
+
+  Widget _buildPatientsHeader(bool isMobile, bool isTablet) {
+    final double fontSize = isMobile ? 20 : (isTablet ? 24 : 28);
+    final double subtitleSize = isMobile ? 11 : (isTablet ? 12 : 14);
+    
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Patients',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
           Text(
-            'Manage patient records and information',
+            'Patients',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimaryColor,
+              letterSpacing: -1,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Manage patient records and hospital information',
             style: TextStyle(
               color: AppTheme.textSecondaryColor,
               fontSize: 13,
@@ -174,14 +222,15 @@ class _PatientsViewState extends State<PatientsView> {
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: widget.onRegisterPatient,
-            icon: const Icon(Icons.add, size: 20),
-            label: const Text('New Patient'),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('New Patient Registration', style: TextStyle(fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE53E3E),
               foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 48),
+              minimumSize: const Size(double.infinity, 54),
+              elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
@@ -192,22 +241,28 @@ class _PatientsViewState extends State<PatientsView> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Patients',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Manage patient records and information',
-              style: TextStyle(
-                color: AppTheme.textSecondaryColor,
-                fontSize: 14,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Patients',
+                style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                'Manage patient records and information',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: subtitleSize,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
         ElevatedButton.icon(
           onPressed: widget.onRegisterPatient,
@@ -216,8 +271,8 @@ class _PatientsViewState extends State<PatientsView> {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFE53E3E),
             foregroundColor: Colors.white,
-            minimumSize: const Size(120, 48),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            minimumSize: Size(isTablet ? 100 : 120, 48),
+            padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 24, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -227,29 +282,45 @@ class _PatientsViewState extends State<PatientsView> {
     );
   }
 
-  Widget _buildPatientsSearch(bool isMobile) {
+  Widget _buildPatientsSearch(bool isMobile, bool isTablet) {
     if (isMobile) {
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            height: 48,
+            height: 54,
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F4F8),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.borderColor),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                const Icon(Icons.search,
-                    color: AppTheme.textSecondaryColor, size: 20),
+                const Icon(
+                  Icons.search,
+                  color: AppTheme.primaryColor,
+                  size: 20,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     onChanged: (val) => setState(() => _searchQuery = val),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                     decoration: const InputDecoration(
-                      hintText: 'Search patients...',
+                      hintText: 'Search patients by name or phone...',
                       hintStyle: TextStyle(
-                          color: AppTheme.textSecondaryColor, fontSize: 13),
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.normal,
+                      ),
                       border: InputBorder.none,
                       isDense: true,
                     ),
@@ -259,38 +330,137 @@ class _PatientsViewState extends State<PatientsView> {
             ),
           ),
           const SizedBox(height: 12),
-          ElevatedButton.icon(
-            onPressed: () => _showQuickRegisterDialog(context),
-            icon: const Icon(Icons.flash_on, size: 18),
-            label: const Text(
-              'Quick Register',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D5D9A),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
             children: [
-              Expanded(
+              SizedBox(
+                width: MediaQuery.of(context).size.width < 450 ? double.infinity : (MediaQuery.of(context).size.width - 34) / 2,
                 child: ElevatedButton.icon(
-                  onPressed: () => setState(() => _isFilterVisible = !_isFilterVisible),
-                  icon: Icon(_isFilterVisible ? Icons.filter_list_off : Icons.filter_list, size: 18),
-                  label: const Text('Filter'),
+                  onPressed: () => _showQuickRegisterDialog(context),
+                  icon: const Icon(Icons.flash_on, size: 16),
+                  label: const Text(
+                    'Quick Register',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D5D9A),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: MediaQuery.of(context).size.width < 450 ? double.infinity : (MediaQuery.of(context).size.width - 34) / 2,
+                child: ElevatedButton.icon(
+                  onPressed: () =>
+                      setState(() => _isFilterVisible = !_isFilterVisible),
+                  icon: Icon(
+                    _isFilterVisible
+                        ? Icons.filter_list_off
+                        : Icons.filter_list,
+                    size: 16,
+                  ),
+                  label: const Text('Filter', style: TextStyle(fontSize: 13)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: AppTheme.textPrimaryColor,
-                    minimumSize: const Size(double.infinity, 48),
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     elevation: 0,
                     side: const BorderSide(color: AppTheme.borderColor),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    if (isTablet) {
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F4F8),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.search,
+                        color: AppTheme.textSecondaryColor,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          onChanged: (val) => setState(() => _searchQuery = val),
+                          decoration: const InputDecoration(
+                            hintText: 'Search by name, phone, department...',
+                            hintStyle: TextStyle(
+                              color: AppTheme.textSecondaryColor,
+                              fontSize: 13,
+                            ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                onPressed: () => _showQuickRegisterDialog(context),
+                icon: const Icon(Icons.flash_on, size: 16),
+                label: const Text('Quick Register', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D5D9A),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(130, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () => setState(() => _isFilterVisible = !_isFilterVisible),
+                icon: Icon(
+                  _isFilterVisible ? Icons.filter_list_off : Icons.filter_list,
+                  size: 16,
+                ),
+                label: const Text('Filter', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppTheme.textPrimaryColor,
+                  minimumSize: const Size(100, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: const BorderSide(color: AppTheme.borderColor),
+                  ),
+                  elevation: 0,
                 ),
               ),
             ],
@@ -312,14 +482,22 @@ class _PatientsViewState extends State<PatientsView> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                const Icon(Icons.search, color: AppTheme.textSecondaryColor, size: 20),
+                const Icon(
+                  Icons.search,
+                  color: AppTheme.textSecondaryColor,
+                  size: 20,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     onChanged: (val) => setState(() => _searchQuery = val),
                     decoration: const InputDecoration(
-                      hintText: 'Search by name, phone number, or department...',
-                      hintStyle: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+                      hintText:
+                          'Search by name, phone number, or department...',
+                      hintStyle: TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 14,
+                      ),
                       border: InputBorder.none,
                       isDense: true,
                     ),
@@ -342,15 +520,23 @@ class _PatientsViewState extends State<PatientsView> {
             foregroundColor: Colors.white,
             minimumSize: const Size(160, 52),
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             elevation: 0,
           ),
         ),
         const SizedBox(width: 12),
         ElevatedButton.icon(
           onPressed: () => setState(() => _isFilterVisible = !_isFilterVisible),
-          icon: Icon(_isFilterVisible ? Icons.filter_list_off : Icons.filter_list, size: 18),
-          label: const Text('Filter', style: TextStyle(fontWeight: FontWeight.bold)),
+          icon: Icon(
+            _isFilterVisible ? Icons.filter_list_off : Icons.filter_list,
+            size: 18,
+          ),
+          label: const Text(
+            'Filter',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white,
             foregroundColor: AppTheme.textPrimaryColor,
@@ -367,7 +553,7 @@ class _PatientsViewState extends State<PatientsView> {
     );
   }
 
-  Widget _buildRecentPatientsRow(bool isMobile) {
+  Widget _buildRecentPatientsRow(bool isMobile, bool isTablet) {
     if (widget.isLoading) {
       return const Padding(
         padding: EdgeInsets.all(24.0),
@@ -393,7 +579,12 @@ class _PatientsViewState extends State<PatientsView> {
 
       String initials = '?';
       if (name.trim().isNotEmpty) {
-        final parts = name.trim().split(' ').where((p) => p.isNotEmpty).take(2).toList();
+        final parts = name
+            .trim()
+            .split(' ')
+            .where((p) => p.isNotEmpty)
+            .take(2)
+            .toList();
         if (parts.isNotEmpty) {
           initials = parts.map((p) => p[0].toUpperCase()).join('');
         }
@@ -402,7 +593,7 @@ class _PatientsViewState extends State<PatientsView> {
       cards.add(
         isMobile
             ? SizedBox(
-                width: 280,
+                width: 240,
                 child: PatientInfoCard(
                   name: name,
                   info: '${age}y • $gender',
@@ -412,27 +603,41 @@ class _PatientsViewState extends State<PatientsView> {
                   onBook: widget.onBookAppointment,
                 ),
               )
-            : PatientInfoCard(
-                name: name,
-                info: '${age}y • $gender',
-                initials: initials,
-                tags: patient.isQuickRegister ? ['Quick'] : [],
-                onView: () => setState(() => _selectedPatient = patient),
-                onBook: widget.onBookAppointment,
-              ),
+            : isTablet
+                ? SizedBox(
+                    width: 280,
+                    child: PatientInfoCard(
+                      name: name,
+                      info: '${age}y • $gender',
+                      initials: initials,
+                      tags: patient.isQuickRegister ? ['Quick'] : [],
+                      onView: () => setState(() => _selectedPatient = patient),
+                      onBook: widget.onBookAppointment,
+                    ),
+                  )
+                : PatientInfoCard(
+                    name: name,
+                    info: '${age}y • $gender',
+                    initials: initials,
+                    tags: patient.isQuickRegister ? ['Quick'] : [],
+                    onView: () => setState(() => _selectedPatient = patient),
+                    onBook: widget.onBookAppointment,
+                  ),
       );
 
       if (i < recentPatients.length - 1) {
-        cards.add(const SizedBox(width: 16));
+        cards.add(SizedBox(width: isMobile ? 12 : 16));
       }
     }
 
-    if (isMobile) {
+    if (isMobile || isTablet) {
       return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(children: cards),
+          child: IntrinsicHeight(
+            child: Row(children: cards),
+          ),
         ),
       );
     }
@@ -446,10 +651,10 @@ class _PatientsViewState extends State<PatientsView> {
     );
   }
 
-  Widget _buildPatientsTable(bool isMobile) {
+  Widget _buildPatientsTable(bool isMobile, bool isTablet) {
     final patients = _filteredPatients;
 
-    if (isMobile) {
+    if (isMobile || isTablet) {
       if (widget.isLoading) {
         return const Padding(
           padding: EdgeInsets.all(32.0),
@@ -467,7 +672,7 @@ class _PatientsViewState extends State<PatientsView> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: patients.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, __) => SizedBox(height: isMobile ? 10 : 12),
         itemBuilder: (context, index) {
           return _buildPatientCardMobile(patients[index]);
         },
@@ -562,157 +767,165 @@ class _PatientsViewState extends State<PatientsView> {
     final String name = patient.name;
     final String ageStr = patient.age == 0 ? 'Not Prov.' : '${patient.age}y';
     final bool isQuick = patient.isQuickRegister;
-    
+
     final parts = name.trim().split(' ').where((p) => p.isNotEmpty).take(2).toList();
-    final String initials = parts.isNotEmpty
-        ? parts.map((p) => p[0].toUpperCase()).join('')
-        : '?';
+    final String initials = parts.isNotEmpty ? parts.map((p) => p[0].toUpperCase()).join('') : '?';
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: isQuick ? const Color(0xFFF9F5FF) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isQuick ? const Color(0xFFD6BCFA) : AppTheme.borderColor.withOpacity(0.5),
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: InkWell(
+        onTap: () => setState(() => _selectedPatient = patient),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: isQuick ? const Color(0xFF805AD5) : const Color(0xFF0D5D9A),
-                child: Text(
-                  initials,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: isQuick ? const Color(0xFFF3E8FF) : AppTheme.primaryColor.withOpacity(0.1),
+                    child: Text(
+                      initials,
+                      style: TextStyle(
+                        color: isQuick ? const Color(0xFF7C3AED) : AppTheme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Flexible(
-                          child: Text(
-                            name,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (isQuick) ...[
-                          const SizedBox(width: 6),
-                          const Icon(Icons.bolt, size: 14, color: Color(0xFF805AD5)),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$ageStr • ${patient.department}',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                    ),
-                    if (isQuick) ...[
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF805AD5).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0xFF805AD5).withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.bolt, size: 10, color: Color(0xFF805AD5)),
-                            SizedBox(width: 4),
-                            Text(
-                              'QUICK',
-                              style: TextStyle(
-                                color: Color(0xFF805AD5),
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 17,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            if (isQuick) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF3E8FF),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Text(
+                                  'QUICK',
+                                  style: TextStyle(
+                                    color: Color(0xFF7C3AED),
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$ageStr • ID: ${patient.id ?? "---"}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  StatusChip(status: 'Active'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.phone_outlined, size: 16, color: AppTheme.textSecondaryColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      patient.phone,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimaryColor,
                       ),
-                    ],
+                    ),
+                    const Spacer(),
+                    const Icon(Icons.medical_services_outlined, size: 16, color: AppTheme.textSecondaryColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      patient.department,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              StatusChip(status: 'Active'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => setState(() => _selectedPatient = patient),
-                  icon: const Icon(Icons.visibility_outlined, size: 16),
-                  label: const Text('View'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => setState(() => _selectedPatient = patient),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        side: const BorderSide(color: AppTheme.borderColor),
+                      ),
+                      child: const Text('View Details', style: TextStyle(color: AppTheme.textPrimaryColor)),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: widget.onBookAppointment,
-                  icon: const Icon(Icons.calendar_month_outlined, size: 16),
-                  label: const Text('Book'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF38A169),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    elevation: 0,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: widget.onBookAppointment,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Book Appt.'),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
-          if (isQuick) ...[
-             const SizedBox(height: 12),
-             Container(
-               width: double.infinity,
-               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-               decoration: BoxDecoration(
-                 color: const Color(0xFFFAF5FF),
-                 borderRadius: BorderRadius.circular(6),
-                 border: Border.all(color: const Color(0xFFD6BCFA).withOpacity(0.5)),
-               ),
-               child: Row(
-                 mainAxisAlignment: MainAxisAlignment.center,
-                 children: const [
-                   Icon(Icons.flash_on, size: 12, color: Color(0xFF805AD5)),
-                   SizedBox(width: 6),
-                   Text(
-                     'Quick Registered Patient',
-                     style: TextStyle(
-                       color: Color(0xFF805AD5),
-                       fontSize: 11,
-                       fontWeight: FontWeight.w600,
-                     ),
-                   ),
-                 ],
-               ),
-             ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -756,7 +969,9 @@ class _PatientsViewState extends State<PatientsView> {
               children: [
                 CircleAvatar(
                   radius: 16,
-                  backgroundColor: isQuick ? const Color(0xFF805AD5) : const Color(0xFF0D5D9A),
+                  backgroundColor: isQuick
+                      ? const Color(0xFF805AD5)
+                      : const Color(0xFF0D5D9A),
                   child: Text(
                     initials,
                     style: const TextStyle(
@@ -779,7 +994,9 @@ class _PatientsViewState extends State<PatientsView> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
-                                color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF2D3748),
+                                color: isQuick
+                                    ? const Color(0xFF553C9A)
+                                    : const Color(0xFF2D3748),
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -792,7 +1009,11 @@ class _PatientsViewState extends State<PatientsView> {
                                 color: Color(0xFF805AD5),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.flash_on, size: 10, color: Colors.white),
+                              child: const Icon(
+                                Icons.flash_on,
+                                size: 10,
+                                color: Colors.white,
+                              ),
                             ),
                           ],
                         ],
@@ -805,7 +1026,10 @@ class _PatientsViewState extends State<PatientsView> {
                             children: tags.map((t) {
                               if (t == 'Quick') {
                                 return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF805AD5),
                                     borderRadius: BorderRadius.circular(4),
@@ -813,7 +1037,11 @@ class _PatientsViewState extends State<PatientsView> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: const [
-                                      Icon(Icons.bolt, size: 10, color: Colors.white),
+                                      Icon(
+                                        Icons.bolt,
+                                        size: 10,
+                                        color: Colors.white,
+                                      ),
                                       SizedBox(width: 2),
                                       Text(
                                         'QUICK',
@@ -841,8 +1069,10 @@ class _PatientsViewState extends State<PatientsView> {
             child: Text(
               age,
               style: TextStyle(
-                fontSize: 13, 
-                color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF4A5568),
+                fontSize: 13,
+                color: isQuick
+                    ? const Color(0xFF553C9A)
+                    : const Color(0xFF4A5568),
                 fontWeight: isQuick ? FontWeight.w500 : FontWeight.normal,
               ),
             ),
@@ -852,29 +1082,35 @@ class _PatientsViewState extends State<PatientsView> {
               child: Text(
                 gender.isNotEmpty ? gender : 'Not Provided',
                 style: TextStyle(
-                  fontSize: 13, 
-                  color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF4A5568),
+                  fontSize: 13,
+                  color: isQuick
+                      ? const Color(0xFF553C9A)
+                      : const Color(0xFF4A5568),
                 ),
               ),
             ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                contact.isNotEmpty ? contact : 'Not Provided',
-                style: TextStyle(
-                  fontSize: 13, 
-                  color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF4A5568),
-                ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              contact.isNotEmpty ? contact : 'Not Provided',
+              style: TextStyle(
+                fontSize: 13,
+                color: isQuick
+                    ? const Color(0xFF553C9A)
+                    : const Color(0xFF4A5568),
               ),
             ),
+          ),
           if (!isMobile)
             Expanded(
               flex: 2,
               child: Text(
                 email.isNotEmpty ? email : 'Not Provided',
                 style: TextStyle(
-                  fontSize: 13, 
-                  color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF4A5568),
+                  fontSize: 13,
+                  color: isQuick
+                      ? const Color(0xFF553C9A)
+                      : const Color(0xFF4A5568),
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -885,8 +1121,10 @@ class _PatientsViewState extends State<PatientsView> {
               child: Text(
                 department.isNotEmpty ? department : 'Not Provided',
                 style: TextStyle(
-                  fontSize: 13, 
-                  color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF4A5568),
+                  fontSize: 13,
+                  color: isQuick
+                      ? const Color(0xFF553C9A)
+                      : const Color(0xFF4A5568),
                 ),
               ),
             ),
@@ -921,7 +1159,12 @@ class _PatientsViewState extends State<PatientsView> {
     );
   }
 
-  Widget _buildActionLabel(IconData icon, String label, Color color, {VoidCallback? onTap}) {
+  Widget _buildActionLabel(
+    IconData icon,
+    String label,
+    Color color, {
+    VoidCallback? onTap,
+  }) {
     return InkWell(
       onTap: onTap ?? () {},
       child: Row(
@@ -942,9 +1185,9 @@ class _PatientsViewState extends State<PatientsView> {
     );
   }
 
-  Widget _buildFilterPanel(bool isMobile) {
+  Widget _buildFilterPanel(bool isMobile, bool isTablet) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isMobile ? 14 : 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -957,39 +1200,144 @@ class _PatientsViewState extends State<PatientsView> {
           ),
         ],
       ),
-      child: isMobile 
-        ? Column(
-            children: [
-              _buildFilterDropdown('Age Range', _selectedAgeRange, ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'], (val) => setState(() => _selectedAgeRange = val!)),
-              const SizedBox(height: 16),
-              _buildFilterDropdown('Gender', _selectedGender, ['All Genders', 'Male', 'Female', 'Other'], (val) => setState(() => _selectedGender = val!)),
-              const SizedBox(height: 16),
-              _buildFilterDropdown('Last Visit', _selectedLastVisit, ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'], (val) => setState(() => _selectedLastVisit = val!)),
-              const SizedBox(height: 16),
-              _buildFilterDropdown('Status', _selectedStatus, ['All Status', 'Active', 'Inactive'], (val) => setState(() => _selectedStatus = val!)),
-            ],
-          )
-        : Row(
-            children: [
-              Expanded(child: _buildFilterDropdown('Age Range', _selectedAgeRange, ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'], (val) => setState(() => _selectedAgeRange = val!))),
-              const SizedBox(width: 16),
-              Expanded(child: _buildFilterDropdown('Gender', _selectedGender, ['All Genders', 'Male', 'Female', 'Other'], (val) => setState(() => _selectedGender = val!))),
-              const SizedBox(width: 16),
-              Expanded(child: _buildFilterDropdown('Last Visit', _selectedLastVisit, ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'], (val) => setState(() => _selectedLastVisit = val!))),
-              const SizedBox(width: 16),
-              Expanded(child: _buildFilterDropdown('Status', _selectedStatus, ['All Status', 'Active', 'Inactive'], (val) => setState(() => _selectedStatus = val!))),
-            ],
-          ),
+      child: isMobile
+          ? Column(
+              children: [
+                _buildFilterDropdown(
+                  'Age Range',
+                  _selectedAgeRange,
+                  ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'],
+                  (val) => setState(() => _selectedAgeRange = val!),
+                ),
+                const SizedBox(height: 14),
+                _buildFilterDropdown(
+                  'Gender',
+                  _selectedGender,
+                  ['All Genders', 'Male', 'Female', 'Other'],
+                  (val) => setState(() => _selectedGender = val!),
+                ),
+                const SizedBox(height: 14),
+                _buildFilterDropdown(
+                  'Last Visit',
+                  _selectedLastVisit,
+                  ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'],
+                  (val) => setState(() => _selectedLastVisit = val!),
+                ),
+                const SizedBox(height: 14),
+                _buildFilterDropdown(
+                  'Status',
+                  _selectedStatus,
+                  ['All Status', 'Active', 'Inactive'],
+                  (val) => setState(() => _selectedStatus = val!),
+                ),
+              ],
+            )
+          : isTablet
+              ? Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildFilterDropdown(
+                            'Age Range',
+                            _selectedAgeRange,
+                            ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'],
+                            (val) => setState(() => _selectedAgeRange = val!),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildFilterDropdown(
+                            'Gender',
+                            _selectedGender,
+                            ['All Genders', 'Male', 'Female', 'Other'],
+                            (val) => setState(() => _selectedGender = val!),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildFilterDropdown(
+                            'Last Visit',
+                            _selectedLastVisit,
+                            ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'],
+                            (val) => setState(() => _selectedLastVisit = val!),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildFilterDropdown(
+                            'Status',
+                            _selectedStatus,
+                            ['All Status', 'Active', 'Inactive'],
+                            (val) => setState(() => _selectedStatus = val!),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: _buildFilterDropdown(
+                        'Age Range',
+                        _selectedAgeRange,
+                        ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'],
+                        (val) => setState(() => _selectedAgeRange = val!),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildFilterDropdown(
+                        'Gender',
+                        _selectedGender,
+                        ['All Genders', 'Male', 'Female', 'Other'],
+                        (val) => setState(() => _selectedGender = val!),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildFilterDropdown(
+                        'Last Visit',
+                        _selectedLastVisit,
+                        ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'],
+                        (val) => setState(() => _selectedLastVisit = val!),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildFilterDropdown(
+                        'Status',
+                        _selectedStatus,
+                        ['All Status', 'Active', 'Inactive'],
+                        (val) => setState(() => _selectedStatus = val!),
+                      ),
+                    ),
+                  ],
+                ),
     );
   }
 
-  Widget _buildFilterDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged) {
+  Widget _buildFilterDropdown(
+    String label,
+    String value,
+    List<String> items,
+    ValueChanged<String?> onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimaryColor,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
@@ -1004,7 +1352,10 @@ class _PatientsViewState extends State<PatientsView> {
               isExpanded: true,
               value: value,
               icon: const Icon(Icons.keyboard_arrow_down, size: 20),
-              style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14),
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 14,
+              ),
               items: items.map((item) {
                 return DropdownMenuItem(value: item, child: Text(item));
               }).toList(),
@@ -1069,597 +1420,894 @@ class _PatientsViewState extends State<PatientsView> {
         return StatefulBuilder(
           builder: (context, setState) {
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Form(
                 key: _formKey,
                 autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Container(
-                width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.95,
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.9,
-                ),
-                padding: const EdgeInsets.all(0),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                    // Header
-                    Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Column(
+                  width: MediaQuery.of(context).size.width > 500
+                      ? 450
+                      : MediaQuery.of(context).size.width * 0.95,
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.9,
+                  ),
+                  padding: const EdgeInsets.all(0),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Header
+                        Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Quick Patient Registration',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimaryColor,
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Quick Patient Registration',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textPrimaryColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Fast check-in with minimal details',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Fast check-in with minimal details',
-                                style: TextStyle(
-                                  fontSize: 13,
+                              InkWell(
+                                onTap: () => Navigator.pop(context),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 20,
                                   color: AppTheme.textSecondaryColor,
                                 ),
                               ),
                             ],
                           ),
-                          InkWell(
-                            onTap: () => Navigator.pop(context),
-                            child: const Icon(Icons.close, size: 20, color: AppTheme.textSecondaryColor),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1, color: AppTheme.borderColor),
-                    // Form body
-                    Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (MediaQuery.of(context).size.width < 500) ...[
-                            _buildQuickFieldLabel('Full Name'),
-                            _buildQuickTextField(
-                              controller: nameCtrl, 
-                              hint: 'Enter patient\'s full name',
-                              validator: (val) => val == null || val.isEmpty ? 'Name is required' : null,
-                            ),
-                            const SizedBox(height: 16),
-                            _buildQuickFieldLabel('Email Address'),
-                            _buildQuickTextField(
-                              controller: emailCtrl, 
-                              hint: 'patient@example.com',
-                              keyboardType: TextInputType.emailAddress,
-                              validator: (val) {
-                                if (val == null || val.isEmpty) return 'Email is required';
-                                if (!val.contains('@')) return 'Invalid email';
-                                return null;
-                              },
-                            ),
-                          ] else 
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _buildQuickFieldLabel('Full Name'),
-                                      _buildQuickTextField(
-                                        controller: nameCtrl, 
-                                        hint: 'Enter patient\'s full name',
-                                        validator: (val) => val == null || val.isEmpty ? 'Name is required' : null,
-                                      ),
-                                    ],
-                                  ),
+                        ),
+                        const Divider(height: 1, color: AppTheme.borderColor),
+                        // Form body
+                        Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (MediaQuery.of(context).size.width < 500) ...[
+                                _buildQuickFieldLabel('Full Name'),
+                                _buildQuickTextField(
+                                  controller: nameCtrl,
+                                  hint: 'Enter patient\'s full name',
+                                  validator: (val) => val == null || val.isEmpty
+                                      ? 'Name is required'
+                                      : null,
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _buildQuickFieldLabel('Email Address'),
-                                      _buildQuickTextField(
-                                        controller: emailCtrl, 
-                                        hint: 'patient@example.com',
-                                        keyboardType: TextInputType.emailAddress,
-                                        validator: (val) {
-                                          if (val == null || val.isEmpty) return 'Email is required';
-                                          if (!val.contains('@')) return 'Invalid email';
-                                          return null;
-                                        },
-                                      ),
-                                    ],
-                                  ),
+                                const SizedBox(height: 16),
+                                _buildQuickFieldLabel('Email Address'),
+                                _buildQuickTextField(
+                                  controller: emailCtrl,
+                                  hint: 'patient@example.com',
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: (val) {
+                                    if (val == null || val.isEmpty)
+                                      return 'Email is required';
+                                    if (!val.contains('@'))
+                                      return 'Invalid email';
+                                    return null;
+                                  },
                                 ),
-                              ],
-                            ),
-                          const SizedBox(height: 16),
-                          if (MediaQuery.of(context).size.width < 500) ...[
-                            _buildQuickFieldLabel('Date of Birth'),
-                                    _buildQuickTextField(
-                                controller: dobCtrl, 
-                                hint: 'DD-MM-YYYY',
-                                icon: Icons.calendar_today_outlined,
-                                readOnly: true,
-                                validator: (val) => val == null || val.isEmpty ? 'DOB required' : null,
-                                onTap: () async {
-                                  DateTime? pickedDate = await showDatePicker(
-                                    context: context,
-                                    initialDate: DateTime.now().subtract(const Duration(days: 365 * 30)),
-                                    firstDate: DateTime(1900),
-                                    lastDate: DateTime.now(),
-                                  );
-                                  if (pickedDate != null) {
-                                    setState(() {
-                                      dobCtrl.text = DateFormat('dd-MM-yyyy').format(pickedDate);
-                                    });
-                                  }
-                                },
-                              ),
-                            const SizedBox(height: 16),
-                            _buildQuickFieldLabel('Phone Number'),
-                            _buildQuickTextField(
-                              controller: phoneCtrl, 
-                              hint: '98765 43210',
-                              keyboardType: TextInputType.phone,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(10),
-                              ],
-                              onChanged: (val) {
-                                setState(() {
-                                  if (val.isEmpty) {
-                                    phoneError = 'Phone number is required';
-                                  } else if (val.length < 10) {
-                                    phoneError = 'Enter 10-digit number (${val.length}/10)';
-                                  } else {
-                                    phoneError = null;
-                                  }
-                                });
-                              },
-                              errorText: phoneError,
-                              validator: (val) => val == null || val.length != 10 ? 'Enter 10-digit number' : null,
-                            ),
-                          ] else
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _buildQuickFieldLabel('Date of Birth'),
-                                      _buildQuickTextField(
-                                        controller: dobCtrl, 
-                                        hint: 'DD-MM-YYYY',
-                                        icon: Icons.calendar_today_outlined,
-                                        readOnly: true,
-                                        validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                                        onTap: () async {
-                                          DateTime? pickedDate = await showDatePicker(
-                                            context: context,
-                                            initialDate: DateTime.now().subtract(const Duration(days: 365 * 30)),
-                                            firstDate: DateTime(1900),
-                                            lastDate: DateTime.now(),
-                                          );
-                                          if (pickedDate != null) {
-                                            setState(() {
-                                              dobCtrl.text = DateFormat('dd-MM-yyyy').format(pickedDate);
-                                            });
-                                          }
-                                        },
-                                      ),
-
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _buildQuickFieldLabel('Phone Number'),
-                                      _buildQuickTextField(
-                                        controller: phoneCtrl, 
-                                        hint: '98765 43210',
-                                        keyboardType: TextInputType.phone,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter.digitsOnly,
-                                          LengthLimitingTextInputFormatter(10),
-                                        ],
-                                        onChanged: (val) {
-                                          setState(() {
-                                            if (val.isEmpty) {
-                                              phoneError = 'Phone number is required';
-                                            } else if (val.length < 10) {
-                                              phoneError = 'Enter 10-digit number (${val.length}/10)';
-                                            } else {
-                                              phoneError = null;
-                                            }
-                                          });
-                                        },
-                                        errorText: phoneError,
-                                        validator: (val) => val == null || val.length != 10 ? 'Enter 10-digit number' : null,
-                                      ),
-
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-
-
-                          const SizedBox(height: 16),
-                          if (MediaQuery.of(context).size.width < 500) ...[
-                            _buildQuickFieldLabel('Department'),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  height: 48,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: deptError != null ? const Color(0xFFE53E3E) : AppTheme.borderColor),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<String>(
-                                      isExpanded: true,
-                                      value: selectedDepartment,
-                                      hint: Text(_isLoadingSpecializations ? 'Loading...' : 'Select', style: const TextStyle(fontSize: 14)),
-                                      items: _specializations.map((String value) {
-                                        return DropdownMenuItem<String>(
-                                          value: value,
-                                          child: Text(value, style: const TextStyle(fontSize: 14)),
-                                        );
-                                      }).toList(),
-                                      onChanged: (val) {
-                                        setState(() {
-                                          selectedDepartment = val;
-                                          deptError = null;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                ),
-                                if (deptError != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4, left: 4),
-                                    child: Text(deptError!, style: const TextStyle(color: Color(0xFFE53E3E), fontSize: 11)),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            _buildQuickFieldLabel('Gender'),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  height: 48,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: genderError != null ? const Color(0xFFE53E3E) : AppTheme.borderColor),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<String>(
-                                      isExpanded: true,
-                                      value: selectedGender,
-                                      hint: const Text('Select', style: TextStyle(fontSize: 14)),
-                                      items: const [
-                                        DropdownMenuItem(value: 'Male', child: Text('Male', style: TextStyle(fontSize: 14))),
-                                        DropdownMenuItem(value: 'Female', child: Text('Female', style: TextStyle(fontSize: 14))),
-                                        DropdownMenuItem(value: 'Other', child: Text('Other', style: TextStyle(fontSize: 14))),
-                                      ],
-                                      onChanged: (val) {
-                                        setState(() {
-                                          selectedGender = val;
-                                          genderError = null;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                ),
-                                if (genderError != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4, left: 4),
-                                    child: Text(genderError!, style: const TextStyle(color: Color(0xFFE53E3E), fontSize: 11)),
-                                  ),
-                              ],
-                            ),
-                          ] else
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _buildQuickFieldLabel('Department'),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                              ] else
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Container(
-                                            height: 48,
-                                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                                            decoration: BoxDecoration(
-                                              border: Border.all(color: deptError != null ? const Color(0xFFE53E3E) : AppTheme.borderColor),
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: DropdownButtonHideUnderline(
-                                              child: DropdownButton<String>(
-                                                isExpanded: true,
-                                                value: selectedDepartment,
-                                                hint: Text(_isLoadingSpecializations ? 'Loading...' : 'Select', style: const TextStyle(fontSize: 14)),
-                                                items: _specializations.map((String value) {
-                                                  return DropdownMenuItem<String>(
-                                                    value: value,
-                                                    child: Text(value, style: const TextStyle(fontSize: 14)),
-                                                  );
-                                                }).toList(),
-                                                onChanged: (val) {
-                                                  setState(() {
-                                                    selectedDepartment = val;
-                                                    deptError = null;
-                                                  });
-                                                },
-                                              ),
-                                            ),
+                                          _buildQuickFieldLabel('Full Name'),
+                                          _buildQuickTextField(
+                                            controller: nameCtrl,
+                                            hint: 'Enter patient\'s full name',
+                                            validator: (val) =>
+                                                val == null || val.isEmpty
+                                                ? 'Name is required'
+                                                : null,
                                           ),
-                                          if (deptError != null)
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 4, left: 4),
-                                              child: Text(deptError!, style: const TextStyle(color: Color(0xFFE53E3E), fontSize: 11)),
-                                            ),
                                         ],
                                       ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _buildQuickFieldLabel('Gender'),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Container(
-                                            height: 48,
-                                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                                            decoration: BoxDecoration(
-                                              border: Border.all(color: genderError != null ? const Color(0xFFE53E3E) : AppTheme.borderColor),
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: DropdownButtonHideUnderline(
-                                              child: DropdownButton<String>(
-                                                isExpanded: true,
-                                                value: selectedGender,
-                                                hint: const Text('Select', style: TextStyle(fontSize: 14)),
-                                                items: const [
-                                                  DropdownMenuItem(value: 'Male', child: Text('Male', style: TextStyle(fontSize: 14))),
-                                                  DropdownMenuItem(value: 'Female', child: Text('Female', style: TextStyle(fontSize: 14))),
-                                                  DropdownMenuItem(value: 'Other', child: Text('Other', style: TextStyle(fontSize: 14))),
-                                                ],
-                                                onChanged: (val) {
-                                                  setState(() {
-                                                    selectedGender = val;
-                                                    genderError = null;
-                                                  });
-                                                },
-                                              ),
-                                            ),
+                                          _buildQuickFieldLabel(
+                                            'Email Address',
                                           ),
-                                          if (genderError != null)
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 4, left: 4),
-                                              child: Text(genderError!, style: const TextStyle(color: Color(0xFFE53E3E), fontSize: 11)),
-                                            ),
+                                          _buildQuickTextField(
+                                            controller: emailCtrl,
+                                            hint: 'patient@example.com',
+                                            keyboardType:
+                                                TextInputType.emailAddress,
+                                            validator: (val) {
+                                              if (val == null || val.isEmpty)
+                                                return 'Email is required';
+                                              if (!val.contains('@'))
+                                                return 'Invalid email';
+                                              return null;
+                                            },
+                                          ),
                                         ],
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                      const SizedBox(height: 16),
-                      _buildQuickFieldLabel('Reason for Visit (Optional)'),
-                      _buildQuickTextField(
-                        controller: reasonCtrl, 
-                        hint: 'Brief description of symptoms or reason...', 
-                        maxLines: 3,
-                      ),
-
-                      const SizedBox(height: 24),
-                      // Actions
-                      Row(
-                        children: [
-                           Expanded(
-                            child: SizedBox(
-                              height: 48,
-                              child: OutlinedButton(
-                               onPressed: () => Navigator.pop(context),
-                               style: OutlinedButton.styleFrom(
-                                 padding: EdgeInsets.zero,
-                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                 side: const BorderSide(color: AppTheme.borderColor),
-                               ),
-                               child: const Text('Cancel', style: TextStyle(color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold)),
-                             ),
-                            ),
-                           ),
-                           const SizedBox(width: 12),
-                           Expanded(
-                            child: SizedBox(
-                              height: 48,
-                              child: ElevatedButton(
-                              onPressed: isSaving ? null : () async {
-                                // Validate text fields
-                                if (!_formKey.currentState!.validate()) {
-                                  // Also set dropdown errors
-                                  setState(() {
-                                    if (selectedGender == null) genderError = 'Please select gender';
-                                    if (selectedDepartment == null) deptError = 'Please select department';
-                                  });
-                                  return;
-                                }
-                                // Validate dropdowns
-                                if (selectedGender == null || selectedDepartment == null) {
-                                  setState(() {
-                                    if (selectedGender == null) genderError = 'Please select gender';
-                                    if (selectedDepartment == null) deptError = 'Please select department';
-                                  });
-                                  return;
-                                }
-
-                                setState(() => isSaving = true);
-
-                                try {
-                                  int calculatedAge = 0;
-                                  if (dobCtrl.text.isNotEmpty) {
-                                    try {
-                                      // Use DateFormat to parse precisely
-                                      final dob = DateFormat('dd-MM-yyyy').parse(dobCtrl.text);
-                                      final now = DateTime.now();
-                                      calculatedAge = now.year - dob.year;
-                                      if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
-                                        calculatedAge--;
-                                      }
-                                    } catch (e) {
-                                      debugPrint('Error parsing DOB for age: $e');
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Invalid Date Format: ${dobCtrl.text}')),
-                                        );
-                                      }
-                                      setState(() => isSaving = false);
-                                      return;
+                              const SizedBox(height: 16),
+                              if (MediaQuery.of(context).size.width < 500) ...[
+                                _buildQuickFieldLabel('Date of Birth'),
+                                _buildQuickTextField(
+                                  controller: dobCtrl,
+                                  hint: 'DD-MM-YYYY',
+                                  icon: Icons.calendar_today_outlined,
+                                  readOnly: true,
+                                  validator: (val) => val == null || val.isEmpty
+                                      ? 'DOB required'
+                                      : null,
+                                  onTap: () async {
+                                    DateTime? pickedDate = await showDatePicker(
+                                      context: context,
+                                      initialDate: DateTime.now().subtract(
+                                        const Duration(days: 365 * 30),
+                                      ),
+                                      firstDate: DateTime(1900),
+                                      lastDate: DateTime.now(),
+                                    );
+                                    if (pickedDate != null) {
+                                      setState(() {
+                                        dobCtrl.text = DateFormat(
+                                          'dd-MM-yyyy',
+                                        ).format(pickedDate);
+                                      });
                                     }
-                                  }
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                _buildQuickFieldLabel('Phone Number'),
+                                _buildQuickTextField(
+                                  controller: phoneCtrl,
+                                  hint: '98765 43210',
+                                  keyboardType: TextInputType.phone,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(10),
+                                  ],
+                                  onChanged: (val) {
+                                    setState(() {
+                                      if (val.isEmpty) {
+                                        phoneError = 'Phone number is required';
+                                      } else if (val.length < 10) {
+                                        phoneError =
+                                            'Enter 10-digit number (${val.length}/10)';
+                                      } else {
+                                        phoneError = null;
+                                      }
+                                    });
+                                  },
+                                  errorText: phoneError,
+                                  validator: (val) =>
+                                      val == null || val.length != 10
+                                      ? 'Enter 10-digit number'
+                                      : null,
+                                ),
+                              ] else
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _buildQuickFieldLabel(
+                                            'Date of Birth',
+                                          ),
+                                          _buildQuickTextField(
+                                            controller: dobCtrl,
+                                            hint: 'DD-MM-YYYY',
+                                            icon: Icons.calendar_today_outlined,
+                                            readOnly: true,
+                                            validator: (val) =>
+                                                val == null || val.isEmpty
+                                                ? 'Required'
+                                                : null,
+                                            onTap: () async {
+                                              DateTime? pickedDate =
+                                                  await showDatePicker(
+                                                    context: context,
+                                                    initialDate: DateTime.now()
+                                                        .subtract(
+                                                          const Duration(
+                                                            days: 365 * 30,
+                                                          ),
+                                                        ),
+                                                    firstDate: DateTime(1900),
+                                                    lastDate: DateTime.now(),
+                                                  );
+                                              if (pickedDate != null) {
+                                                setState(() {
+                                                  dobCtrl.text = DateFormat(
+                                                    'dd-MM-yyyy',
+                                                  ).format(pickedDate);
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _buildQuickFieldLabel('Phone Number'),
+                                          _buildQuickTextField(
+                                            controller: phoneCtrl,
+                                            hint: '98765 43210',
+                                            keyboardType: TextInputType.phone,
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly,
+                                              LengthLimitingTextInputFormatter(
+                                                10,
+                                              ),
+                                            ],
+                                            onChanged: (val) {
+                                              setState(() {
+                                                if (val.isEmpty) {
+                                                  phoneError =
+                                                      'Phone number is required';
+                                                } else if (val.length < 10) {
+                                                  phoneError =
+                                                      'Enter 10-digit number (${val.length}/10)';
+                                                } else {
+                                                  phoneError = null;
+                                                }
+                                              });
+                                            },
+                                            errorText: phoneError,
+                                            validator: (val) =>
+                                                val == null || val.length != 10
+                                                ? 'Enter 10-digit number'
+                                                : null,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
 
-                                  final newPatient = PatientModel(
-                                    name: nameCtrl.text.trim(),
-                                    dob: dobCtrl.text.trim(),
-                                    age: calculatedAge,
-                                    gender: selectedGender ?? 'Other',
-                                    phone: phoneCtrl.text.trim(),
-                                    email: emailCtrl.text.trim(),
-                                    department: selectedDepartment ?? 'General',
-                                    address: '',
-                                    height: 0.0,
-                                    weight: 0.0,
-                                    bpSystolic: 0,
-                                    bpDiastolic: 0,
-                                    sugar: 0.0,
-                                    temp: 0.0,
-                                    complaints: reasonCtrl.text.trim(),
-                                    history: '',
-                                    smokingStatus: 'No',
-                                    alcoholStatus: 'No',
-                                    occupation: '',
-                                    hobbies: '',
-                                    foodHabits: '',
-                                    physicalActivity: '',
-                                    isQuickRegister: true,
-                                  );
-
-
-                                  await patientController.registerPatient(newPatient);
-
-                                  setState(() => isSaving = false);
-                                  Navigator.pop(context);
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Patient Registered Successfully!',
+                              const SizedBox(height: 16),
+                              if (MediaQuery.of(context).size.width < 500) ...[
+                                _buildQuickFieldLabel('Department'),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      height: 48,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: deptError != null
+                                              ? const Color(0xFFE53E3E)
+                                              : AppTheme.borderColor,
                                         ),
-                                        backgroundColor: Colors.green,
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
-                                    );
-                                  }
-                                  if (widget.onRefresh != null) {
-                                    widget.onRefresh!();
-                                  }
-                                } catch (e) {
-                                  setState(() => isSaving = false);
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Error: $e'),
-                                        backgroundColor: Colors.redAccent,
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButton<String>(
+                                          isExpanded: true,
+                                          value: selectedDepartment,
+                                          hint: Text(
+                                            _isLoadingSpecializations
+                                                ? 'Loading...'
+                                                : 'Select',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          items: _specializations.map((
+                                            String value,
+                                          ) {
+                                            return DropdownMenuItem<String>(
+                                              value: value,
+                                              child: Text(
+                                                value,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                          onChanged: (val) {
+                                            setState(() {
+                                              selectedDepartment = val;
+                                              deptError = null;
+                                            });
+                                          },
+                                        ),
                                       ),
-                                    );
-                                  }
-                                }
+                                    ),
+                                    if (deptError != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 4,
+                                          left: 4,
+                                        ),
+                                        child: Text(
+                                          deptError!,
+                                          style: const TextStyle(
+                                            color: Color(0xFFE53E3E),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                _buildQuickFieldLabel('Gender'),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      height: 48,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: genderError != null
+                                              ? const Color(0xFFE53E3E)
+                                              : AppTheme.borderColor,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButton<String>(
+                                          isExpanded: true,
+                                          value: selectedGender,
+                                          hint: const Text(
+                                            'Select',
+                                            style: TextStyle(fontSize: 14),
+                                          ),
+                                          items: const [
+                                            DropdownMenuItem(
+                                              value: 'Male',
+                                              child: Text(
+                                                'Male',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'Female',
+                                              child: Text(
+                                                'Female',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'Other',
+                                              child: Text(
+                                                'Other',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
+                                            ),
+                                          ],
+                                          onChanged: (val) {
+                                            setState(() {
+                                              selectedGender = val;
+                                              genderError = null;
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    if (genderError != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 4,
+                                          left: 4,
+                                        ),
+                                        child: Text(
+                                          genderError!,
+                                          style: const TextStyle(
+                                            color: Color(0xFFE53E3E),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ] else
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _buildQuickFieldLabel('Department'),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Container(
+                                                height: 48,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(
+                                                    color: deptError != null
+                                                        ? const Color(
+                                                            0xFFE53E3E,
+                                                          )
+                                                        : AppTheme.borderColor,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: DropdownButtonHideUnderline(
+                                                  child: DropdownButton<String>(
+                                                    isExpanded: true,
+                                                    value: selectedDepartment,
+                                                    hint: Text(
+                                                      _isLoadingSpecializations
+                                                          ? 'Loading...'
+                                                          : 'Select',
+                                                      style: const TextStyle(
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                    items: _specializations.map(
+                                                      (String value) {
+                                                        return DropdownMenuItem<
+                                                          String
+                                                        >(
+                                                          value: value,
+                                                          child: Text(
+                                                            value,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 14,
+                                                                ),
+                                                          ),
+                                                        );
+                                                      },
+                                                    ).toList(),
+                                                    onChanged: (val) {
+                                                      setState(() {
+                                                        selectedDepartment =
+                                                            val;
+                                                        deptError = null;
+                                                      });
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                              if (deptError != null)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        top: 4,
+                                                        left: 4,
+                                                      ),
+                                                  child: Text(
+                                                    deptError!,
+                                                    style: const TextStyle(
+                                                      color: Color(0xFFE53E3E),
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _buildQuickFieldLabel('Gender'),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Container(
+                                                height: 48,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(
+                                                    color: genderError != null
+                                                        ? const Color(
+                                                            0xFFE53E3E,
+                                                          )
+                                                        : AppTheme.borderColor,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: DropdownButtonHideUnderline(
+                                                  child: DropdownButton<String>(
+                                                    isExpanded: true,
+                                                    value: selectedGender,
+                                                    hint: const Text(
+                                                      'Select',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                    items: const [
+                                                      DropdownMenuItem(
+                                                        value: 'Male',
+                                                        child: Text(
+                                                          'Male',
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      DropdownMenuItem(
+                                                        value: 'Female',
+                                                        child: Text(
+                                                          'Female',
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      DropdownMenuItem(
+                                                        value: 'Other',
+                                                        child: Text(
+                                                          'Other',
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                    onChanged: (val) {
+                                                      setState(() {
+                                                        selectedGender = val;
+                                                        genderError = null;
+                                                      });
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                              if (genderError != null)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        top: 4,
+                                                        left: 4,
+                                                      ),
+                                                  child: Text(
+                                                    genderError!,
+                                                    style: const TextStyle(
+                                                      color: Color(0xFFE53E3E),
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              const SizedBox(height: 16),
+                              _buildQuickFieldLabel(
+                                'Reason for Visit (Optional)',
+                              ),
+                              _buildQuickTextField(
+                                controller: reasonCtrl,
+                                hint:
+                                    'Brief description of symptoms or reason...',
+                                maxLines: 3,
+                              ),
+
+                              const SizedBox(height: 24),
+                              // Actions
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 48,
+                                      child: OutlinedButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        style: OutlinedButton.styleFrom(
+                                          padding: EdgeInsets.zero,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          side: const BorderSide(
+                                            color: AppTheme.borderColor,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'Cancel',
+                                          style: TextStyle(
+                                            color: AppTheme.textPrimaryColor,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 48,
+                                      child: ElevatedButton(
+                                        onPressed: isSaving
+                                            ? null
+                                            : () async {
+                                                // Validate text fields
+                                                if (!_formKey.currentState!
+                                                    .validate()) {
+                                                  // Also set dropdown errors
+                                                  setState(() {
+                                                    if (selectedGender == null)
+                                                      genderError =
+                                                          'Please select gender';
+                                                    if (selectedDepartment ==
+                                                        null)
+                                                      deptError =
+                                                          'Please select department';
+                                                  });
+                                                  return;
+                                                }
+                                                // Validate dropdowns
+                                                if (selectedGender == null ||
+                                                    selectedDepartment ==
+                                                        null) {
+                                                  setState(() {
+                                                    if (selectedGender == null)
+                                                      genderError =
+                                                          'Please select gender';
+                                                    if (selectedDepartment ==
+                                                        null)
+                                                      deptError =
+                                                          'Please select department';
+                                                  });
+                                                  return;
+                                                }
+
+                                                setState(() => isSaving = true);
+
+                                                try {
+                                                  int calculatedAge = 0;
+                                                  if (dobCtrl.text.isNotEmpty) {
+                                                    try {
+                                                      // Use DateFormat to parse precisely
+                                                      final dob = DateFormat(
+                                                        'dd-MM-yyyy',
+                                                      ).parse(dobCtrl.text);
+                                                      final now =
+                                                          DateTime.now();
+                                                      calculatedAge =
+                                                          now.year - dob.year;
+                                                      if (now.month <
+                                                              dob.month ||
+                                                          (now.month ==
+                                                                  dob.month &&
+                                                              now.day <
+                                                                  dob.day)) {
+                                                        calculatedAge--;
+                                                      }
+                                                    } catch (e) {
+                                                      debugPrint(
+                                                        'Error parsing DOB for age: $e',
+                                                      );
+                                                      if (context.mounted) {
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(
+                                                              'Invalid Date Format: ${dobCtrl.text}',
+                                                            ),
+                                                          ),
+                                                        );
+                                                      }
+                                                      setState(
+                                                        () => isSaving = false,
+                                                      );
+                                                      return;
+                                                    }
+                                                  }
+
+                                                  final newPatient =
+                                                      PatientModel(
+                                                        name: nameCtrl.text
+                                                            .trim(),
+                                                        dob: dobCtrl.text
+                                                            .trim(),
+                                                        age: calculatedAge,
+                                                        gender:
+                                                            selectedGender ??
+                                                            'Other',
+                                                        phone: phoneCtrl.text
+                                                            .trim(),
+                                                        email: emailCtrl.text
+                                                            .trim(),
+                                                        department:
+                                                            selectedDepartment ??
+                                                            'General',
+                                                        address: '',
+                                                        height: 0.0,
+                                                        weight: 0.0,
+                                                        bpSystolic: 0,
+                                                        bpDiastolic: 0,
+                                                        sugar: 0.0,
+                                                        temp: 0.0,
+                                                        complaints: reasonCtrl
+                                                            .text
+                                                            .trim(),
+                                                        history: '',
+                                                        smokingStatus: 'No',
+                                                        alcoholStatus: 'No',
+                                                        occupation: '',
+                                                        hobbies: '',
+                                                        foodHabits: '',
+                                                        physicalActivity: '',
+                                                        isQuickRegister: true,
+                                                      );
+
+                                                  await patientController
+                                                      .registerPatient(
+                                                        newPatient,
+                                                      );
+
+                                                  setState(
+                                                    () => isSaving = false,
+                                                  );
+                                                  Navigator.pop(context);
+                                                  if (context.mounted) {
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text(
+                                                          'Patient Registered Successfully!',
+                                                        ),
+                                                        backgroundColor:
+                                                            Colors.green,
+                                                      ),
+                                                    );
+                                                  }
+                                                  if (widget.onRefresh !=
+                                                      null) {
+                                                    widget.onRefresh!();
+                                                  }
+                                                } catch (e) {
+                                                  setState(
+                                                    () => isSaving = false,
+                                                  );
+                                                  if (context.mounted) {
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      SnackBar(
+                                                        content: Text(
+                                                          'Error: $e',
+                                                        ),
+                                                        backgroundColor:
+                                                            Colors.redAccent,
+                                                      ),
+                                                    );
+                                                  }
+                                                }
+                                              },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(
+                                            0xFF0D5D9A,
+                                          ),
+                                          foregroundColor: Colors.white,
+                                          padding: EdgeInsets.zero,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          elevation: 0,
+                                        ),
+                                        child: isSaving
+                                            ? const SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
+                                              )
+                                            : const Text(
+                                                'Register',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Footer link moved inside the scroll view or as a separate column item
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppTheme.borderColor.withOpacity(0.5),
+                            ),
+                          ),
+                          child: Center(
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.pop(context);
+                                widget.onRegisterPatient();
                               },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0D5D9A),
-                                foregroundColor: Colors.white,
-                                padding: EdgeInsets.zero,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                elevation: 0,
-                              ),
-                              child: isSaving
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Text('Register', style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                    const SizedBox(height: 16),
-                      // Footer link moved inside the scroll view or as a separate column item
-                      Container(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-                        ),
-                        child: Center(
-                          child: InkWell(
-                            onTap: () {
-                              Navigator.pop(context);
-                              widget.onRegisterPatient();
-                            },
-                            child: const Text(
-                              'Need full registration with complete details?',
-                              style: TextStyle(
-                                color: Color(0xFF3182CE),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                decoration: TextDecoration.underline,
+                              child: const Text(
+                                'Need full registration with complete details?',
+                                style: TextStyle(
+                                  color: Color(0xFF3182CE),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  decoration: TextDecoration.underline,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
         );
       },
     );
@@ -1671,9 +2319,16 @@ class _PatientsViewState extends State<PatientsView> {
       child: RichText(
         text: TextSpan(
           text: text,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryColor),
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: AppTheme.textPrimaryColor,
+          ),
           children: const [
-            TextSpan(text: ' *', style: TextStyle(color: Color(0xFFE53E3E))),
+            TextSpan(
+              text: ' *',
+              style: TextStyle(color: Color(0xFFE53E3E)),
+            ),
           ],
         ),
       ),
@@ -1694,34 +2349,56 @@ class _PatientsViewState extends State<PatientsView> {
     String? errorText,
   }) {
     return TextFormField(
-        controller: controller,
-        maxLines: maxLines,
-        readOnly: readOnly,
-        onTap: onTap,
-        onChanged: onChanged,
-        keyboardType: keyboardType,
-        inputFormatters: inputFormatters,
-        validator: validator,
-        style: const TextStyle(fontSize: 14),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
-          errorText: errorText,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.borderColor)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.borderColor)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.primaryColor)),
-          errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE53E3E))),
-          focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE53E3E))),
-          errorStyle: const TextStyle(fontSize: 11),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          suffixIcon: icon != null ? Icon(icon, size: 18, color: AppTheme.textSecondaryColor) : null,
-          isDense: true,
+      controller: controller,
+      maxLines: maxLines,
+      readOnly: readOnly,
+      onTap: onTap,
+      onChanged: onChanged,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      validator: validator,
+      style: const TextStyle(fontSize: 14),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(
+          color: AppTheme.textSecondaryColor,
+          fontSize: 14,
         ),
-      );
+        errorText: errorText,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppTheme.borderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppTheme.borderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppTheme.primaryColor),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE53E3E)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE53E3E)),
+        ),
+        errorStyle: const TextStyle(fontSize: 11),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 14,
+        ),
+        suffixIcon: icon != null
+            ? Icon(icon, size: 18, color: AppTheme.textSecondaryColor)
+            : null,
+        isDense: true,
+      ),
+    );
   }
-
-
 }
+
 class PatientDetailView extends StatefulWidget {
   final PatientModel patient;
   final VoidCallback onBack;
@@ -1766,69 +2443,75 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
   @override
   Widget build(BuildContext context) {
-    final bool isMobile = MediaQuery.of(context).size.width < 900;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isMobile = screenWidth < 850;
+    final bool isTablet = screenWidth >= 850 && screenWidth < 1200;
     final p = widget.patient;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Back button
-          InkWell(
-            onTap: widget.onBack,
-            borderRadius: BorderRadius.circular(8),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 4, horizontal: 0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_back, size: 18, color: AppTheme.primaryColor),
-                  SizedBox(width: 8),
-                  Text(
-                    'Back to Patients',
-                    style: TextStyle(
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.all(isMobile ? 12.0 : (isTablet ? 16.0 : 24.0)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Back button
+            InkWell(
+              onTap: widget.onBack,
+              borderRadius: BorderRadius.circular(8),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.arrow_back,
+                      size: 18,
                       color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
                     ),
-                  ),
-                ],
+                    SizedBox(width: 8),
+                    Text(
+                      'Back to Patients',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 20),
+            SizedBox(height: isMobile ? 14 : 20),
 
-          // Patient Header Card
-          _buildHeaderCard(p, isMobile),
-          const SizedBox(height: 20),
+            // Patient Header Card
+            _buildHeaderCard(p, isMobile, isTablet),
+            SizedBox(height: isMobile ? 14 : 20),
 
-          // Current Vitals
-          _buildVitalsCard(p, isMobile),
-          const SizedBox(height: 20),
+            // Current Vitals
+            _buildVitalsCard(p, isMobile),
+            SizedBox(height: isMobile ? 14 : 20),
 
-          // Tabs Section
-          _buildTabsSection(p, isMobile),
-        ],
+            // Tabs Section
+            _buildTabsSection(p, isMobile),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildHeaderCard(PatientModel p, bool isMobile) {
+  Widget _buildHeaderCard(PatientModel p, bool isMobile, bool isTablet) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(isMobile ? 20 : 28),
+      padding: EdgeInsets.all(isMobile ? 16 : (isTablet ? 20 : 28)),
       decoration: BoxDecoration(
         color: const Color(0xFF0D5D9A),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: isMobile
-          ? _buildHeaderMobile(p)
-          : _buildHeaderDesktop(p),
+      child: isMobile ? _buildHeaderMobile(p) : _buildHeaderDesktop(p, isTablet),
     );
   }
 
-  Widget _buildHeaderDesktop(PatientModel p) {
+  Widget _buildHeaderDesktop(PatientModel p, bool isTablet) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1837,18 +2520,18 @@ class _PatientDetailViewState extends State<PatientDetailView>
           children: [
             // Avatar
             CircleAvatar(
-              radius: 36,
+              radius: isTablet ? 32 : 36,
               backgroundColor: Colors.white.withOpacity(0.2),
               child: Text(
                 _initials,
-                style: const TextStyle(
-                  fontSize: 24,
+                style: TextStyle(
+                  fontSize: isTablet ? 20 : 24,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
             ),
-            const SizedBox(width: 20),
+            SizedBox(width: isTablet ? 14 : 20),
             // Name + Tags
             Expanded(
               child: Column(
@@ -1856,79 +2539,125 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 children: [
                   Text(
                     p.name,
-                    style: const TextStyle(
-                      fontSize: 24,
+                    style: TextStyle(
+                      fontSize: isTablet ? 20 : 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Text(
-                        '${p.age} years • ${p.gender}',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.85),
-                          fontSize: 14,
+                      Expanded(
+                        child: Text(
+                          '${p.age} years • ${p.gender}',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.85),
+                            fontSize: isTablet ? 13 : 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (p.department.isNotEmpty) ...[
                         Text(
                           ' • ',
-                          style: TextStyle(color: Colors.white.withOpacity(0.6)),
-                        ),
-                        Text(
-                          p.department,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.85),
-                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.6),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            p.department,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.85),
+                              fontSize: isTablet ? 13 : 14,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    children: _buildHealthTags(p),
-                  ),
+                  Wrap(spacing: 6, runSpacing: 4, children: _buildHealthTags(p)),
                 ],
               ),
             ),
             // Action Buttons
-            Row(
-              children: [
-                _buildHeaderButton(Icons.calendar_month_outlined, 'Book Appointment'),
-                const SizedBox(width: 12),
-                _buildHeaderButton(Icons.note_add_outlined, 'Add Notes'),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        const Divider(color: Colors.white24, height: 1),
-        const SizedBox(height: 16),
-        // Contact Info Row
-        Row(
-          children: [
-            if (p.phone.isNotEmpty) ...[
-              _buildContactItem(Icons.phone_outlined, p.phone),
-            ] else ...[
-              _buildContactItem(Icons.phone_outlined, 'Not Provided'),
-            ],
-            const SizedBox(width: 32),
-            if (p.dob.isNotEmpty) ...[
-              _buildContactItem(Icons.cake_outlined, 'DOB: ${p.dob}'),
-            ] else ...[
-              _buildContactItem(Icons.cake_outlined, 'DOB: Not Provided'),
-            ],
-            const SizedBox(width: 32),
-            if (p.address.isNotEmpty)
-              Flexible(child: _buildContactItem(Icons.location_on_outlined, p.address))
+            if (!isTablet)
+              Row(
+                children: [
+                  _buildHeaderButton(
+                    Icons.calendar_month_outlined,
+                    'Book Appointment',
+                  ),
+                  const SizedBox(width: 12),
+                  _buildHeaderButton(Icons.note_add_outlined, 'Add Notes'),
+                ],
+              )
             else
-              Flexible(child: _buildContactItem(Icons.location_on_outlined, 'Address: Not Provided')),
+              Column(
+                children: [
+                  _buildHeaderButton(
+                    Icons.calendar_month_outlined,
+                    'Book Appt.',
+                  ),
+                  const SizedBox(height: 8),
+                  _buildHeaderButton(Icons.note_add_outlined, 'Add Notes'),
+                ],
+              ),
           ],
         ),
+        const SizedBox(height: 16),
+        const Divider(color: Colors.white24, height: 1),
+        const SizedBox(height: 12),
+        // Contact Info Row
+        if (isTablet)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (p.phone.isNotEmpty)
+                _buildContactItem(Icons.phone_outlined, p.phone),
+              if (p.dob.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                _buildContactItem(Icons.cake_outlined, 'DOB: ${p.dob}'),
+              ],
+              if (p.address.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                _buildContactItem(Icons.location_on_outlined, p.address),
+              ],
+            ],
+          )
+        else
+          Row(
+            children: [
+              if (p.phone.isNotEmpty) ...[
+                _buildContactItem(Icons.phone_outlined, p.phone),
+              ] else ...[
+                _buildContactItem(Icons.phone_outlined, 'Not Provided'),
+              ],
+              const SizedBox(width: 24),
+              if (p.dob.isNotEmpty) ...[
+                _buildContactItem(Icons.cake_outlined, 'DOB: ${p.dob}'),
+              ] else ...[
+                _buildContactItem(Icons.cake_outlined, 'DOB: Not Provided'),
+              ],
+              const SizedBox(width: 24),
+              if (p.address.isNotEmpty)
+                Flexible(
+                  child: _buildContactItem(Icons.location_on_outlined, p.address),
+                )
+              else
+                Flexible(
+                  child: _buildContactItem(
+                    Icons.location_on_outlined,
+                    'Address: Not Provided',
+                  ),
+                ),
+            ],
+          ),
       ],
     );
   }
@@ -1963,6 +2692,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1971,6 +2702,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
                       color: Colors.white.withOpacity(0.85),
                       fontSize: 13,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -1983,18 +2716,22 @@ class _PatientDetailViewState extends State<PatientDetailView>
         Row(
           children: [
             Expanded(
-              child: _buildHeaderButton(Icons.calendar_month_outlined, 'Book Appt.'),
+              child: _buildHeaderButton(
+                Icons.calendar_month_outlined,
+                p.age < 18 ? 'Book Pediatric' : 'Book Appt.',
+              ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
-              child: _buildHeaderButton(Icons.note_add_outlined, 'Add Notes'),
+              child: _buildHeaderButton(Icons.note_add_outlined, 'Notes'),
             ),
           ],
         ),
         const SizedBox(height: 16),
         const Divider(color: Colors.white24, height: 1),
         const SizedBox(height: 12),
-        if (p.phone.isNotEmpty) _buildContactItem(Icons.phone_outlined, p.phone),
+        if (p.phone.isNotEmpty)
+          _buildContactItem(Icons.phone_outlined, p.phone),
         if (p.address.isNotEmpty) ...[
           const SizedBox(height: 8),
           _buildContactItem(Icons.location_on_outlined, p.address),
@@ -2054,7 +2791,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
       ),
       style: OutlinedButton.styleFrom(
         side: BorderSide(color: Colors.white.withOpacity(0.5)),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
@@ -2078,6 +2815,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
   }
 
   Widget _buildVitalsCard(PatientModel p, bool isMobile) {
+    final bool isTablet = MediaQuery.of(context).size.width >= 600 && 
+                          MediaQuery.of(context).size.width < 1000;
     final vitals = [
       _VitalItem(
         label: 'Blood Pressure',
@@ -2116,7 +2855,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -2129,24 +2868,44 @@ class _PatientDetailViewState extends State<PatientDetailView>
             'Current Vitals',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: isMobile ? 14 : 20),
           if (isMobile)
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: vitals
-                  .map((v) => SizedBox(width: 150, child: _buildVitalBox(v)))
-                  .toList(),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final double itemWidth = (constraints.maxWidth - 10) / 2;
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: vitals
+                      .map((v) => SizedBox(width: itemWidth.floorToDouble(), child: _buildVitalBox(v)))
+                      .toList(),
+                );
+              }
+            )
+          else if (isTablet)
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final double itemWidth = (constraints.maxWidth - 24) / 3;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: vitals
+                      .map((v) => SizedBox(width: itemWidth.floorToDouble(), child: _buildVitalBox(v)))
+                      .toList(),
+                );
+              }
             )
           else
             Row(
               children: vitals
-                  .map((v) => Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: _buildVitalBox(v),
-                        ),
-                      ))
+                  .map(
+                    (v) => Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: _buildVitalBox(v),
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
         ],
@@ -2209,9 +2968,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
           // Tab Bar
           Container(
             decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppTheme.borderColor),
-              ),
+              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
             child: TabBar(
               controller: _tabController,
@@ -2259,8 +3016,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
             ),
           ),
           // Tab Content
-          SizedBox(
-            height: 380,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 200, maxHeight: 500),
             child: TabBarView(
               controller: _tabController,
               children: [
@@ -2327,20 +3084,26 @@ class _PatientDetailViewState extends State<PatientDetailView>
             ...p.history
                 .split('\n')
                 .where((l) => l.trim().isNotEmpty)
-                .map((line) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _buildHistoryItem(
-                        icon: Icons.info_outline,
-                        iconColor: const Color(0xFFE53E3E),
-                        title: line.trim(),
-                        subtitle: 'Past record',
-                        status: 'Managed',
-                        statusColor: const Color(0xFF38A169),
-                        statusBg: const Color(0xFFF0FFF4),
-                      ),
-                    ))
+                .map(
+                  (line) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildHistoryItem(
+                      icon: Icons.info_outline,
+                      iconColor: const Color(0xFFE53E3E),
+                      title: line.trim(),
+                      subtitle: 'Past record',
+                      status: 'Managed',
+                      statusColor: const Color(0xFF38A169),
+                      statusBg: const Color(0xFFF0FFF4),
+                    ),
+                  ),
+                )
                 .toList(),
-            if (p.history.split('\n').where((l) => l.trim().isNotEmpty).length == 1 &&
+            if (p.history
+                        .split('\n')
+                        .where((l) => l.trim().isNotEmpty)
+                        .length ==
+                    1 &&
                 !p.history.contains('\n'))
               _buildHistoryItem(
                 icon: Icons.info_outline,
@@ -2477,13 +3240,18 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      date,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                    Expanded(
+                      child: Text(
+                        date,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       time,
                       style: const TextStyle(
@@ -2496,7 +3264,10 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 ),
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.backgroundColor,
                     borderRadius: BorderRadius.circular(4),
@@ -2528,7 +3299,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
   Widget _buildLifestyleTab(PatientModel p) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
-    
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -2598,7 +3369,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 Expanded(
                   child: _buildLifestyleCard(
                     'Smoking',
-                    p.smokingStatus.isNotEmpty ? p.smokingStatus : 'Not Provided',
+                    p.smokingStatus.isNotEmpty
+                        ? p.smokingStatus
+                        : 'Not Provided',
                     const Color(0xFFFFF7ED),
                     const Color(0xFF9A3412),
                   ),
@@ -2607,7 +3380,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 Expanded(
                   child: _buildLifestyleCard(
                     'Alcohol Usage',
-                    p.alcoholStatus.isNotEmpty ? p.alcoholStatus : 'Not Provided',
+                    p.alcoholStatus.isNotEmpty
+                        ? p.alcoholStatus
+                        : 'Not Provided',
                     const Color(0xFFFEFCE8),
                     const Color(0xFF713F12),
                   ),
@@ -2680,4 +3455,3 @@ class _VitalItem {
     required this.textColor,
   });
 }
-
