@@ -771,7 +771,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     color: AppTheme.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Image.asset('image/sriPonniLogo.png', width: 32, height: 32),
+                  child: Image.asset('assets/image/sriPonniLogo.png', width: 32, height: 32),
                 ),
                 const SizedBox(width: 12),
                 const Column(

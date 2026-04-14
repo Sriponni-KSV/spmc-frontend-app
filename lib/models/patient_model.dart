@@ -1,3 +1,5 @@
+import '../utils/date_formatter.dart';
+
 class PatientModel {
   final int? id;
   final String name;
@@ -5,6 +7,7 @@ class PatientModel {
   final int age;
   final String gender;
   final String phone;
+  final String email;
   final String department;
   final String address;
 
@@ -35,6 +38,7 @@ class PatientModel {
     required this.age,
     required this.gender,
     required this.phone,
+    required this.email,
     required this.department,
     required this.address,
     required this.height,
@@ -55,14 +59,14 @@ class PatientModel {
   });
 
 
-  /// Convert model → JSON to send to backend
   Map<String, dynamic> toJson() {
     return {
       'name': name,
-      'dob': dob,
+      'dob': DateFormatter.toDb(dob),
       'age': age,
       'gender': gender,
       'phone': phone,
+      'email': email,
       'department': department,
       'address': address,
       'height': height,
@@ -96,10 +100,11 @@ class PatientModel {
     return PatientModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()),
       name:       (json['name']       ?? '').toString(),
-      dob:        (json['dob']        ?? '').toString(),
+      dob:        DateFormatter.toUi(json['dob']),
       age:        json['age'] is int  ? json['age'] : int.tryParse(json['age'].toString()) ?? 0,
       gender:     (json['gender']     ?? '').toString(),
       phone:      (json['phone']      ?? '').toString(),
+      email:      (json['email']      ?? '').toString(),
       department: (json['department'] ?? '').toString(),
       address:    (json['address']    ?? '').toString(),
       height:     heightV == null ? 0.0 : (heightV is double ? heightV : double.tryParse(heightV.toString()) ?? 0.0),
@@ -116,7 +121,9 @@ class PatientModel {
       hobbies:         (json['hobbies']                                       ?? '').toString(),
       foodHabits:      (json['foodHabits']     ?? json['food_habits']         ?? '').toString(),
       physicalActivity:(json['physicalActivity']?? json['physical_activity']  ?? '').toString(),
-      isQuickRegister: json['isQuickRegister'] ?? json['is_quick_register'] ?? false,
+      isQuickRegister: (json['isQuickRegister'] ?? json['is_quick_register']) == true || 
+                       (json['isQuickRegister'] ?? json['is_quick_register']).toString() == '1' ||
+                       (json['isQuickRegister'] ?? json['is_quick_register']).toString().toLowerCase() == 'true',
     );
 
   }

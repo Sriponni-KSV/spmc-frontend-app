@@ -11,6 +11,9 @@ import 'login_page.dart';
 import 'new_patient_registration.dart';
 import 'patients_view.dart';
 import 'appointments_view.dart';
+import 'doctors_view.dart';
+import '../controllers/appointment_controller.dart';
+import '../models/appointment_model.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
   const NurseDashboardScreen({Key? key}) : super(key: key);
@@ -22,33 +25,53 @@ class NurseDashboardScreen extends StatefulWidget {
 class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   int _selectedIndex = 0;
   bool _isRegisteringPatient = false;
+  bool _forceBookingForm = false;
   final FocusNode _mainFocusNode = FocusNode();
   List<PatientModel> _dbPatients = [];
   String? _patientError;
   final PatientController _patientController = PatientController();
+  final AppointmentController _appointmentController = AppointmentController();
   bool _isLoadingPatients = false;
+  List<AppointmentModel> _dbAppointments = [];
+  bool _isLoadingAppointments = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchPatients();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    await Future.wait([_fetchPatients(), _fetchAppointments()]);
+  }
+
+  Future<void> _fetchAppointments() async {
+    setState(() => _isLoadingAppointments = true);
+    try {
+      final appointments = await _appointmentController.fetchAppointments();
+      if (mounted) setState(() => _dbAppointments = appointments);
+    } catch (e) {
+      debugPrint('Error fetching appointments: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingAppointments = false);
+    }
   }
 
   Future<void> _fetchPatients() async {
-  setState(() {
-    _isLoadingPatients = true;
-    _patientError = null;
-  });
-  try {
-    final patients = await _patientController.fetchPatients(); 
-    if (mounted) setState(() => _dbPatients = patients);
-  } catch (e) {
-    if (mounted) setState(() => _patientError = e.toString());
-    debugPrint('Error fetching patients: $e');
-  } finally {
-    if (mounted) setState(() => _isLoadingPatients = false);
+    setState(() {
+      _isLoadingPatients = true;
+      _patientError = null;
+    });
+    try {
+      final patients = await _patientController.fetchPatients();
+      if (mounted) setState(() => _dbPatients = patients);
+    } catch (e) {
+      if (mounted) setState(() => _patientError = e.toString());
+      debugPrint('Error fetching patients: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingPatients = false);
+    }
   }
-}
 
   @override
   void dispose() {
@@ -65,11 +88,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       transitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (context, anim1, anim2) {
         return SearchOverlay(
-         patients: _dbPatients.map((p) => p.toJson()).toList(),
+          patients: _dbPatients.map((p) => p.toJson()).toList(),
           onNewPatient: () {
             setState(() {
               _selectedIndex = 1;
               _isRegisteringPatient = true;
+            });
+          },
+          onBookAppointment: () {
+            setState(() {
+              _selectedIndex = 2;
+              _isRegisteringPatient = false;
+              _forceBookingForm = true;
             });
           },
         );
@@ -119,7 +149,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               label: 'Book Appointment',
               icon: Icons.calendar_month_outlined,
               color: const Color(0xFF0D5D9A),
-              onTap: () {},
+              onTap: () => setState(() {
+                _selectedIndex = 2;
+                _isRegisteringPatient = false;
+                _forceBookingForm = true;
+              }),
             ),
           ],
         ),
@@ -162,10 +196,22 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           isLoading: _isLoadingPatients,
           error: _patientError,
           onRegisterPatient: () => setState(() => _isRegisteringPatient = true),
+          onBookAppointment: () => setState(() {
+            _selectedIndex = 2;
+            _isRegisteringPatient = false;
+            _forceBookingForm = true;
+          }),
           onRefresh: _fetchPatients,
         );
       case 2:
-        return const AppointmentsView();
+        final showForm = _forceBookingForm;
+        _forceBookingForm = false; // Reset for next time
+        return AppointmentsView(
+          key: showForm ? UniqueKey() : null,
+          startWithBookingForm: showForm,
+        );
+      case 3:
+        return const DoctorsView();
       default:
         return _buildDashboardView(isMobile);
     }
@@ -254,7 +300,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Image.asset(
-                    'image/full_logo.png',
+                    'assets/image/full_logo.png',
                     width: 100,
                     height: 89,
                   ),
@@ -561,7 +607,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             Expanded(
               child: Text(
                 user != null ? 'Hello, ${user.fullname}' : 'Dashboard',
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
@@ -578,6 +627,15 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Widget _buildStatsRow(bool isMobile) {
+    final int totalPatients = _dbPatients.length;
+    final String today = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    final int todaysApptsCount = _dbAppointments
+        .where(
+          (a) =>
+              a.appointmentDate == today || a.appointmentDate.startsWith(today),
+        )
+        .length;
+
     if (isMobile) {
       return Wrap(
         spacing: 16,
@@ -585,16 +643,16 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         children: [
           _buildStatCard(
             'Total Patients',
-            '1,248',
-            '+12%',
+            totalPatients.toString(),
+            '',
             Icons.people_outline,
             Colors.blue,
             isMobile,
           ),
           _buildStatCard(
             'Today\'s Appointments',
-            '32',
-            '+5',
+            todaysApptsCount.toString(),
+            '',
             Icons.calendar_today_outlined,
             Colors.indigo,
             isMobile,
@@ -602,7 +660,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           _buildStatCard(
             'Active Home Care',
             '48',
-            '+8%',
+            '',
             Icons.monitor_heart_outlined,
             Colors.green,
             isMobile,
@@ -610,7 +668,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           _buildStatCard(
             'Patient Visits',
             '156',
-            '+18%',
+            '',
             Icons.trending_up,
             Colors.cyan,
             isMobile,
@@ -623,8 +681,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         Expanded(
           child: _buildStatCard(
             'Total Patients',
-            '1,248',
-            '+12%',
+            totalPatients.toString(),
+            '',
             Icons.people_outline,
             Colors.blue,
             isMobile,
@@ -634,8 +692,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         Expanded(
           child: _buildStatCard(
             'Today\'s Appointments',
-            '32',
-            '+5',
+            todaysApptsCount.toString(),
+            '',
             Icons.calendar_today_outlined,
             Colors.indigo,
             isMobile,
@@ -646,7 +704,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           child: _buildStatCard(
             'Active Home Care',
             '48',
-            '+8%',
+            '',
             Icons.monitor_heart_outlined,
             Colors.green,
             isMobile,
@@ -657,7 +715,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           child: _buildStatCard(
             'Patient Visits',
             '156',
-            '+18%',
+            '',
             Icons.trending_up,
             Colors.cyan,
             isMobile,
@@ -795,7 +853,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           _buildActionButton(
             Icons.calendar_month_outlined,
             'Book Appointment',
-            () {},
+            () => setState(() {
+              _selectedIndex = 2;
+              _isRegisteringPatient = false;
+              _forceBookingForm = true;
+            }),
           ),
           _buildActionButton(
             Icons.medical_services_outlined,
@@ -830,38 +892,44 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              TextButton(onPressed: () {}, child: const Text('View All')),
+              TextButton(
+                onPressed: () => setState(() => _selectedIndex = 1),
+                child: const Text('View All'),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildPatientItem(
-            'John Smith',
-            '45y • Male',
-            '10:30 AM',
-            'Checked In',
-            Colors.green,
-          ),
-          _buildPatientItem(
-            'Sarah Johnson',
-            '32y • Female',
-            '9:15 AM',
-            'Waiting',
-            Colors.orange,
-          ),
-          _buildPatientItem(
-            'Robert Brown',
-            '58y • Male',
-            'Yesterday',
-            'Completed',
-            Colors.grey,
-          ),
-          _buildPatientItem(
-            'Emily Davis',
-            '28y • Female',
-            '2 days ago',
-            'Completed',
-            Colors.grey,
-          ),
+          if (_isLoadingPatients)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_dbPatients.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Text(
+                  'No patients found',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            ..._dbPatients.take(4).map((p) {
+              final parts = p.name.trim().split(' ');
+              final initials = parts.isNotEmpty
+                  ? parts[0][0].toUpperCase()
+                  : '?';
+              return _buildPatientItem(
+                p.name,
+                '${p.age}y • ${p.gender}',
+                'Registered', // Database model doesn't have registration time yet easily available in this format, using a status
+                p.isQuickRegister ? 'Quick' : 'Standard',
+                p.isQuickRegister ? Colors.purple : Colors.blue,
+              );
+            }).toList(),
         ],
       ),
     );
@@ -966,28 +1034,76 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              TextButton(onPressed: () {}, child: const Text('View All')),
+              TextButton(
+                onPressed: () => setState(() => _selectedIndex = 2),
+                child: const Text('View All'),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildAppointmentItem(
-            'Michael Wilson',
-            'Dr. Amanda Lee',
-            '11:00 AM',
-            'Cardiology',
-          ),
-          _buildAppointmentItem(
-            'Jessica Taylor',
-            'Dr. Robert Chen',
-            '11:30 AM',
-            'General Medicine',
-          ),
-          _buildAppointmentItem(
-            'David Martinez',
-            'Dr. Sarah Kumar',
-            '12:00 PM',
-            'Orthopedics',
-          ),
+          if (_isLoadingAppointments)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_dbAppointments.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Text(
+                  'No appointments found',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            () {
+              final String today = DateFormat(
+                'dd-MM-yyyy',
+              ).format(DateTime.now());
+              final List<AppointmentModel> todaysAppts = _dbAppointments
+                  .where(
+                    (a) =>
+                        a.appointmentDate == today ||
+                        a.appointmentDate.startsWith(today),
+                  )
+                  .toList();
+
+              // Sort by time
+              todaysAppts.sort(
+                (a, b) => a.appointmentTime.compareTo(b.appointmentTime),
+              );
+
+              // Take last three
+              final displayAppts = todaysAppts.length > 3
+                  ? todaysAppts.sublist(todaysAppts.length - 3)
+                  : todaysAppts;
+
+              if (displayAppts.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      'No appointments for today',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                );
+              }
+
+              return Column(
+                children: displayAppts.map((a) {
+                  return _buildAppointmentItem(
+                    a.patientName,
+                    a.doctorName,
+                    a.appointmentTime,
+                    a.department,
+                  );
+                }).toList(),
+              );
+            }(),
         ],
       ),
     );
@@ -1067,5 +1183,4 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       ),
     );
   }
-
-}
+}

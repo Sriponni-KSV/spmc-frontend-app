@@ -441,8 +441,9 @@ class _CustomSpeedDialState extends State<CustomSpeedDial>
 class SearchOverlay extends StatefulWidget {
   final List<dynamic>? patients;
   final VoidCallback? onNewPatient;
+  final VoidCallback? onBookAppointment;
 
-  const SearchOverlay({Key? key, this.patients, this.onNewPatient}) : super(key: key);
+  const SearchOverlay({Key? key, this.patients, this.onNewPatient, this.onBookAppointment}) : super(key: key);
 
   @override
   _SearchOverlayState createState() => _SearchOverlayState();
@@ -585,6 +586,12 @@ class _SearchOverlayState extends State<SearchOverlay> {
                           icon: Icons.calendar_month_outlined,
                           label: 'Book Appointment',
                           color: AppTheme.primaryColor,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            if (widget.onBookAppointment != null) {
+                              widget.onBookAppointment!();
+                            }
+                          },
                         ),
 
                         const SizedBox(height: 32),
@@ -734,7 +741,12 @@ class _SearchOverlayState extends State<SearchOverlay> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.of(context).pop();
+              if (widget.onBookAppointment != null) {
+                widget.onBookAppointment!();
+              }
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
@@ -808,6 +820,9 @@ class PatientInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasQuickTag = tags.any((t) => t.toLowerCase() == 'quick');
+    final List<String> otherTags = tags.where((t) => t.toLowerCase() != 'quick').toList();
+
     return Container(
       constraints: const BoxConstraints(minWidth: 200),
       padding: const EdgeInsets.all(16),
@@ -820,6 +835,7 @@ class PatientInfoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
                 radius: 22,
@@ -861,17 +877,20 @@ class PatientInfoCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (hasQuickTag) 
+                const HealthTag(label: 'Quick'),
             ],
           ),
           const SizedBox(height: 16),
-          if (tags.isNotEmpty) ...[
+          if (otherTags.isNotEmpty) ...[
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: tags.map((tag) => HealthTag(label: tag)).toList(),
+              children: otherTags.map((tag) => HealthTag(label: tag)).toList(),
             ),
             const SizedBox(height: 16),
           ],
+          const Spacer(),
           Row(
             children: [
               Expanded(
@@ -1013,10 +1032,10 @@ class StatusChip extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         status,

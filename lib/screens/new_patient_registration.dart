@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../controllers/patient_controller.dart'; 
+import '../controllers/admin_controller.dart';
 import '../models/patient_model.dart';  
 
 class NewPatientRegistrationView extends StatefulWidget {
@@ -22,8 +23,13 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   final TextEditingController _dobController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final PatientController _patientController = PatientController();
+  final AdminController _adminController = AdminController();
+  
+  List<String> _specializations = [];
+  bool _isLoadingSpecializations = true;
   
   // Step 2 Controllers
   final TextEditingController _bpSystolicController = TextEditingController();
@@ -52,11 +58,34 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   final _formKeyStep3 = GlobalKey<FormState>();
 
   @override
+  void initState() {
+    super.initState();
+    _fetchSpecializations();
+  }
+
+  Future<void> _fetchSpecializations() async {
+    try {
+      final specs = await _adminController.fetchSpecializations();
+      setState(() {
+        _specializations = specs.map((e) => e['name'].toString()).toList();
+        _isLoadingSpecializations = false;
+      });
+    } catch (e) {
+      debugPrint('Error fetching specializations: $e');
+      setState(() {
+        _specializations = ['General Medicine', 'Cardiology', 'Pediatrics', 'Orthopedics'];
+        _isLoadingSpecializations = false;
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _dobController.dispose();
     _ageController.dispose();
     _phoneController.dispose();
+    _emailController.dispose();
     _addressController.dispose();
     _bpSystolicController.dispose();
     _bpDiastolicController.dispose();
@@ -252,13 +281,45 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
             ),
             const SizedBox(height: 32),
 
-            // Full Name
-            _buildLabel('Full Name *'),
-            _buildTextField(
-              controller: _nameController,
-              hint: 'Enter patient\'s full name',
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]'))],
-              validator: (val) => val == null || val.isEmpty ? 'Full name is required' : null,
+            // Full Name & Email
+            Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Full Name *'),
+                      _buildTextField(
+                        controller: _nameController,
+                        hint: 'Enter patient\'s full name',
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]'))],
+                        validator: (val) => val == null || val.isEmpty ? 'Full name is required' : null,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Email Address *'),
+                      _buildTextField(
+                        controller: _emailController,
+                        hint: 'patient@example.com',
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return 'Email is required';
+                          if (!val.contains('@')) return 'Enter a valid email address';
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
 
@@ -305,6 +366,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
             Row(
               children: [
                 Expanded(
+                  flex: 1,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -328,14 +390,15 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                 ),
                 const SizedBox(width: 24),
                 Expanded(
+                  flex: 1,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildLabel('Department *'),
                       _buildDropdownField(
                         value: _selectedDepartment,
-                        hint: 'Select department',
-                        items: ['General Medicine', 'Cardiology', 'Pediatrics', 'Orthopedics'],
+                        hint: _isLoadingSpecializations ? 'Loading...' : 'Select department',
+                        items: _specializations.isEmpty ? ['Loading...'] : _specializations,
                         onChanged: (val) => setState(() => _selectedDepartment = val),
                         validator: (val) => val == null || val.isEmpty ? 'Department is required' : null,
                       ),
@@ -1072,6 +1135,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildReviewField('Name', _val(_nameController.text)),
+                      _buildReviewField('Email', _val(_emailController.text)),
                       _buildReviewField('Age / DOB', '${_val(_ageController.text)} / ${_val(_dobController.text)}'),
                       _buildReviewField('Gender', _val(_selectedGender ?? '')),
                       _buildReviewField('Phone', _val(_phoneController.text)),
@@ -1085,17 +1149,23 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(child: _buildReviewField('Name', _val(_nameController.text))),
-                          Expanded(child: _buildReviewField('Age / DOB', '${_val(_ageController.text)} / ${_val(_dobController.text)}')),
+                          Expanded(child: _buildReviewField('Email', _val(_emailController.text))),
                         ],
                       ),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Expanded(child: _buildReviewField('Age / DOB', '${_val(_ageController.text)} / ${_val(_dobController.text)}')),
                           Expanded(child: _buildReviewField('Gender', _val(_selectedGender ?? ''))),
-                          Expanded(child: _buildReviewField('Phone', _val(_phoneController.text))),
                         ],
                       ),
-                      _buildReviewField('Department', _val(_selectedDepartment ?? '')),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildReviewField('Phone', _val(_phoneController.text))),
+                          Expanded(child: _buildReviewField('Department', _val(_selectedDepartment ?? ''))),
+                        ],
+                      ),
                     ],
                   ),
           ),
@@ -1483,8 +1553,9 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   try {
     if (_nameController.text.trim().isEmpty ||
         _dobController.text.trim().isEmpty ||
-        _phoneController.text.trim().isEmpty) {
-      throw Exception('Please fill in name, date of birth and phone number before submitting.');
+        _phoneController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty) {
+      throw Exception('Please fill in name, date of birth, phone, and email before submitting.');
     }
  
     final patient = PatientModel(
@@ -1493,6 +1564,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
       age:              int.tryParse(_ageController.text.trim()) ?? 0,
       gender:           _selectedGender ?? 'Unknown',
       phone:            _phoneController.text.trim(),
+      email:            _emailController.text.trim(),
       department:       _selectedDepartment ?? 'General',
       address:          _addressController.text.trim(),
       height:           double.tryParse(_heightController.text.trim()) ?? 0.0,
@@ -1539,7 +1611,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     );
     if (picked != null) {
       setState(() {
-        _dobController.text = DateFormat('yyyy-MM-dd').format(picked);
+        _dobController.text = DateFormat('dd-MM-yyyy').format(picked);
         
         // Accurate age calculation including month/day check
         final now = DateTime.now();
