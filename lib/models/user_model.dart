@@ -7,6 +7,7 @@ class UserModel {
   final String? medicalLicense;
   final int? specializationId;
   final String? specialization;
+  final String? staffUniqueId;
   final String? token;
 
   UserModel({
@@ -18,6 +19,7 @@ class UserModel {
     this.medicalLicense,
     this.specializationId,
     this.specialization,
+    this.staffUniqueId,
     this.token,
   });
 
@@ -31,6 +33,7 @@ class UserModel {
       medicalLicense: json['medical_license'],
       specializationId: json['specialization_id'],
       specialization: json['specialization'],
+      staffUniqueId: json['staff_unique_id'],
       token: json['token'],
     );
   }

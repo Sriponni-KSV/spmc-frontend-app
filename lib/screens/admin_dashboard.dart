@@ -87,6 +87,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (user.staffUniqueId != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: TextFormField(
+                        initialValue: user.staffUniqueId,
+                        readOnly: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Staff ID',
+                          prefixIcon: Icon(Icons.pin_outlined),
+                          fillColor: Color(0xFFF3F4F6),
+                          filled: true,
+                          helperText: 'Auto-generated ID',
+                        ),
+                      ),
+                    ),
                   TextFormField(
                     controller: nameCtrl,
                     decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
@@ -527,8 +542,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
                 headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13),
                 columns: const [
+                  DataColumn(label: Text('Staff ID')),
                   DataColumn(label: Text('Name')),
-                  DataColumn(label: Text('Email')),
                   DataColumn(label: Text('Role')),
                   DataColumn(label: Text('Specialization')),
                   DataColumn(label: Text('License')),
@@ -539,6 +554,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   final roleColor = user.role == 'Doctor' ? const Color(0xFF6366F1) : const Color(0xFF14B8A6);
                   return DataRow(
                     cells: [
+                      DataCell(Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(user.staffUniqueId ?? '\u2014', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13, fontFamily: 'monospace')),
+                      )),
                       DataCell(Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -551,10 +574,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
+                            ],
+                          ),
                         ],
                       )),
-                      DataCell(Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13))),
                       DataCell(Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
@@ -633,7 +662,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    Row(
+                      children: [
+                        Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        const Spacer(),
+                        if (user.staffUniqueId != null)
+                          Text(user.staffUniqueId!, style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace')),
+                      ],
+                    ),
                     const SizedBox(height: 2),
                     Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
                     const SizedBox(height: 8),
@@ -735,7 +771,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     color: AppTheme.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Image.asset('image/sriPonniLogo.png', width: 32, height: 32),
+                  child: Image.asset('assets/image/sriPonniLogo.png', width: 32, height: 32),
                 ),
                 const SizedBox(width: 12),
                 const Column(
@@ -1146,7 +1182,7 @@ final AdminController _adminController = AdminController();
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Register New User', style: TextStyle(fontFamily: AppTheme.fontFamily, fontWeight: FontWeight.bold)),
+      title: const Text('Register New Staff', style: TextStyle(fontFamily: AppTheme.fontFamily, fontWeight: FontWeight.bold)),
       content: SizedBox(
         width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.9,
         child: SingleChildScrollView(
@@ -1233,7 +1269,7 @@ final AdminController _adminController = AdminController();
           style: ElevatedButton.styleFrom(minimumSize: const Size(120, 48)),
           child: _isLoading 
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : const Text('Create User'),
+              : const Text('Create Staff'),
         ),
       ],
     );
