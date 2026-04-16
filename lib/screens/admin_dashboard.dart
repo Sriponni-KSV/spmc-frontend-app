@@ -65,7 +65,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final currentUserRole = Provider.of<AuthProvider>(context, listen: false).user?.role;
     List<String> availableRoles = ['Doctor', 'Nurse'];
     if (currentUserRole == 'Super Admin') {
-      availableRoles.addAll(['Admin', 'Super Admin']);
+      availableRoles = ['Doctor', 'Nurse', 'Admin', 'Super Admin'];
     }
     
     // Ensure selectedRole is in the list
@@ -412,7 +412,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     final currentUserRole = Provider.of<AuthProvider>(context, listen: false).user?.role;
                     List<String> filterRoles = ['All', 'Doctor', 'Nurse'];
                     if (currentUserRole == 'Super Admin') {
-                      filterRoles.addAll(['Admin', 'Super Admin']);
+                      filterRoles = ['All', 'Super Admin', 'Admin', 'Doctor', 'Nurse'];
                     }
                     return filterRoles.map((role) {
                     final isActive = _selectedRoleFilter == role;
@@ -569,7 +569,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   DataColumn(label: Text('Actions')),
                 ],
                 rows: staff.map((user) {
-                  final roleColor = user.role == 'Doctor' ? const Color(0xFF6366F1) : const Color(0xFF14B8A6);
+                  Color roleColor;
+                  switch (user.role) {
+                    case 'Doctor': roleColor = const Color(0xFF6366F1); break;
+                    case 'Nurse': roleColor = const Color(0xFF14B8A6); break;
+                    case 'Admin': roleColor = const Color(0xFFF59E0B); break;
+                    case 'Super Admin': roleColor = const Color(0xFFEC4899); break;
+                    default: roleColor = Colors.grey; break;
+                  }
                   return DataRow(
                     cells: [
                       DataCell(Container(
@@ -656,7 +663,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       itemCount: staff.length,
       itemBuilder: (context, index) {
         final user = staff[index];
-        final roleColor = user.role == 'Doctor' ? const Color(0xFF6366F1) : const Color(0xFF14B8A6);
+        Color roleColor;
+        switch (user.role) {
+          case 'Doctor': roleColor = const Color(0xFF6366F1); break;
+          case 'Nurse': roleColor = const Color(0xFF14B8A6); break;
+          case 'Admin': roleColor = const Color(0xFFF59E0B); break;
+          case 'Super Admin': roleColor = const Color(0xFFEC4899); break;
+          default: roleColor = Colors.grey; break;
+        }
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
@@ -1145,6 +1159,13 @@ final AdminController _adminController = AdminController();
       if (currentUserRole == 'Super Admin') {
         setState(() {
           _roles = ['Doctor', 'Nurse', 'Admin', 'Super Admin'];
+        });
+      } else {
+        setState(() {
+          _roles = ['Doctor', 'Nurse'];
+          if (!_roles.contains(_selectedRole)) {
+             _selectedRole = _roles.first;
+          }
         });
       }
     });
