@@ -62,6 +62,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     bool isSaving = false;
     bool isLoadingSpecializations = false;
 
+    final currentUserRole = Provider.of<AuthProvider>(context, listen: false).user?.role;
+    List<String> availableRoles = ['Doctor', 'Nurse'];
+    if (currentUserRole == 'Super Admin') {
+      availableRoles.addAll(['Admin', 'Super Admin']);
+    }
+    
+    // Ensure selectedRole is in the list
+    if (!availableRoles.contains(selectedRole)) {
+      availableRoles.add(selectedRole);
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -115,7 +126,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   DropdownButtonFormField<String>(
                     value: selectedRole,
                     decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.badge_outlined)),
-                    items: ['Doctor', 'Nurse'].map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                    items: availableRoles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setDialogState(() {
@@ -397,7 +408,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: ['All', 'Doctor', 'Nurse'].map((role) {
+                  children: (() {
+                    final currentUserRole = Provider.of<AuthProvider>(context, listen: false).user?.role;
+                    List<String> filterRoles = ['All', 'Doctor', 'Nurse'];
+                    if (currentUserRole == 'Super Admin') {
+                      filterRoles.addAll(['Admin', 'Super Admin']);
+                    }
+                    return filterRoles.map((role) {
                     final isActive = _selectedRoleFilter == role;
                     final count = role == 'All'
                         ? allStaff.length
@@ -447,7 +464,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                       ),
                     );
-                  }).toList(),
+                  }).toList();
+                  })(),
                 ),
               ),
             ),
@@ -1112,7 +1130,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
 final AdminController _adminController = AdminController();
 
   String _selectedRole = 'Doctor';
-  final List<String> _roles = ['Doctor', 'Nurse'];
+  List<String> _roles = ['Doctor', 'Nurse'];
   int? _selectedSpecializationId;
   List<Map<String, dynamic>> _specializations = [];
   bool _isLoading = false;
@@ -1122,6 +1140,14 @@ final AdminController _adminController = AdminController();
   void initState() {
     super.initState();
     _loadSpecializations();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final currentUserRole = Provider.of<AuthProvider>(context, listen: false).user?.role;
+      if (currentUserRole == 'Super Admin') {
+        setState(() {
+          _roles = ['Doctor', 'Nurse', 'Admin', 'Super Admin'];
+        });
+      }
+    });
   }
 
   Future<void> _loadSpecializations() async {
