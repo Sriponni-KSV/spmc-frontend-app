@@ -559,14 +559,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 dataRowMaxHeight: 68,
                 headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
                 headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13),
-                columns: const [
-                  DataColumn(label: Text('Staff ID')),
-                  DataColumn(label: Text('Name')),
-                  DataColumn(label: Text('Role')),
-                  DataColumn(label: Text('Specialization')),
-                  DataColumn(label: Text('License')),
-                  DataColumn(label: Text('Status')),
-                  DataColumn(label: Text('Actions')),
+                columns: [
+                  const DataColumn(label: Text('Staff ID')),
+                  const DataColumn(label: Text('Name')),
+                  const DataColumn(label: Text('Role')),
+                  if (_selectedRoleFilter == 'Doctor')
+                    const DataColumn(label: Text('Specialization')),
+                  const DataColumn(label: Text('Status')),
+                  const DataColumn(label: Text('Actions')),
                 ],
                 rows: staff.map((user) {
                   Color roleColor;
@@ -617,8 +617,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                         child: Text(user.role, style: TextStyle(color: roleColor, fontSize: 12, fontWeight: FontWeight.w600)),
                       )),
-                      DataCell(Text(user.specialization ?? '\u2014', style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13))),
-                      DataCell(Text(user.medicalLicense ?? '\u2014', style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13))),
+                      if (_selectedRoleFilter == 'Doctor')
+                        DataCell(Text(user.specialization ?? '\u2014', style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13))),
                       DataCell(Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
@@ -715,7 +715,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           child: Text(user.role, style: TextStyle(color: roleColor, fontSize: 11, fontWeight: FontWeight.w600)),
                         ),
-                        if (user.specialization != null) ...[
+                        if (_selectedRoleFilter == 'Doctor' && user.specialization != null) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
