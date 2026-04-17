@@ -55,7 +55,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void _showEditDialog(BuildContext context, UserModel user) {
     final nameCtrl = TextEditingController(text: user.fullname);
     final emailCtrl = TextEditingController(text: user.email);
-    final licenseCtrl = TextEditingController(text: user.medicalLicense ?? '');
+    final editFormKey = GlobalKey<FormState>();
     String selectedRole = user.role;
     int? selectedSpecializationId = user.specializationId;
     List<Map<String, dynamic>> specializations = [];
@@ -95,67 +95,69 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           content: SizedBox(
             width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.9,
             child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (user.staffUniqueId != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: TextFormField(
-                        initialValue: user.staffUniqueId,
-                        readOnly: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Staff ID',
-                          prefixIcon: Icon(Icons.pin_outlined),
-                          fillColor: Color(0xFFF3F4F6),
-                          filled: true,
-                          helperText: 'Auto-generated ID',
+              child: Form(
+                key: editFormKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (user.staffUniqueId != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: TextFormField(
+                          initialValue: user.staffUniqueId,
+                          readOnly: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Staff ID',
+                            prefixIcon: Icon(Icons.pin_outlined),
+                            fillColor: Color(0xFFF3F4F6),
+                            filled: true,
+                            helperText: 'Auto-generated ID',
+                          ),
                         ),
                       ),
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
+                      validator: (val) => val == null || val.trim().isEmpty ? 'Please enter a name' : null,
                     ),
-                  TextFormField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: emailCtrl,
-                    decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: selectedRole,
-                    decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.badge_outlined)),
-                    items: availableRoles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() {
-                          selectedRole = val;
-                          if (selectedRole != 'Doctor') {
-                            selectedSpecializationId = null;
-                          }
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  if (selectedRole == 'Doctor') ...[
-                    if (isLoadingSpecializations)
-                      const Center(child: CircularProgressIndicator())
-                    else
-                      DropdownButtonFormField<int>(
-                        value: selectedSpecializationId,
-                        decoration: const InputDecoration(labelText: 'Specialization', prefixIcon: Icon(Icons.star_outline)),
-                        items: specializations.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['name']))).toList(),
-                        onChanged: (val) { if (val != null) setDialogState(() => selectedSpecializationId = val); },
-                      ),
                     const SizedBox(height: 16),
+                    TextFormField(
+                      controller: emailCtrl,
+                      decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (val) => val == null || val.trim().isEmpty || !val.contains('@') ? 'Please enter a valid email' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedRole,
+                      decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.badge_outlined)),
+                      items: availableRoles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            selectedRole = val;
+                            if (selectedRole != 'Doctor') {
+                              selectedSpecializationId = null;
+                            }
+                          });
+                        }
+                      },
+                    ),
+                    if (selectedRole == 'Doctor') ...[
+                      const SizedBox(height: 16),
+                      if (isLoadingSpecializations)
+                        const Center(child: CircularProgressIndicator())
+                      else
+                        DropdownButtonFormField<int>(
+                          value: selectedSpecializationId,
+                          decoration: const InputDecoration(labelText: 'Specialization', prefixIcon: Icon(Icons.star_outline)),
+                          items: specializations.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['name']))).toList(),
+                          onChanged: (val) { if (val != null) setDialogState(() => selectedSpecializationId = val); },
+                          validator: (val) => selectedRole == 'Doctor' && val == null ? 'Please select a specialization' : null,
+                        ),
+                    ],
                   ],
-                  TextFormField(
-                    controller: licenseCtrl,
-                    decoration: const InputDecoration(labelText: 'Medical License (Optional)', prefixIcon: Icon(Icons.medical_services_outlined)),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -166,6 +168,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
             ElevatedButton(
               onPressed: isSaving ? null : () async {
+                if (!editFormKey.currentState!.validate()) return;
                 setDialogState(() => isSaving = true);
                 try {
                   await _adminController.updateStaff(
@@ -173,7 +176,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     fullname: nameCtrl.text.trim(),
                     email: emailCtrl.text.trim(),
                     role: selectedRole,
-                    medicalLicense: licenseCtrl.text.trim().isNotEmpty ? licenseCtrl.text.trim() : null,
+                    medicalLicense: null,
                     specializationId: selectedRole == 'Doctor' ? selectedSpecializationId : null,
                   );
                   if (mounted) {
@@ -1280,7 +1283,6 @@ final AdminController _adminController = AdminController();
                     }
                   },
                 ),
-                const SizedBox(height: 16),
                 if (_selectedRole == 'Doctor') ...[
                   const SizedBox(height: 16),
                   _isLoadingSpecializations
