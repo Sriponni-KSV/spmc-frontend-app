@@ -9,6 +9,12 @@ class UserModel {
   final String? specialization;
   final String? staffUniqueId;
   final String? token;
+  
+  // Profile Fields
+  final String? experience;
+  final int? numberPatientsAttended;
+  final String? qualification;
+  final String? bio;
 
   UserModel({
     required this.id,
@@ -21,6 +27,10 @@ class UserModel {
     this.specialization,
     this.staffUniqueId,
     this.token,
+    this.experience,
+    this.numberPatientsAttended,
+    this.qualification,
+    this.bio,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -35,6 +45,12 @@ class UserModel {
       specialization: json['specialization'],
       staffUniqueId: json['staff_unique_id'],
       token: json['token'],
+      experience: json['experience'],
+      numberPatientsAttended: json['number_patients_attended'] != null 
+          ? int.tryParse(json['number_patients_attended'].toString()) 
+          : null,
+      qualification: json['qualification'],
+      bio: json['bio'],
     );
   }
 }
