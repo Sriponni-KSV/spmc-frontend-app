@@ -25,7 +25,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     'Routine',
     'Follow Up',
     'New Visit',
-    'Consultation'
+    'Scheduled',
+    'Emergency',
   ];
   bool _isBookingAppointment = false;
 
@@ -2281,10 +2282,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               const Spacer(),
               Text(
                 appt.appointmentType,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.w600,
+                  color: appt.appointmentType == 'Emergency' ? Colors.red : const Color(0xFF64748B),
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -2489,10 +2490,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               padding: const EdgeInsets.only(right: 12.0),
               child: Text(
                 type,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.w500,
+                  color: type == 'Emergency' ? Colors.red : const Color(0xFF64748B),
+                  fontWeight: type == 'Emergency' ? FontWeight.bold : FontWeight.w500,
                 ),
               ),
             ),

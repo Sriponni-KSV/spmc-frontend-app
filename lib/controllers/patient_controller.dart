@@ -60,8 +60,24 @@ class PatientController {
 
     throw Exception('Unexpected response format');
 
-  } catch (e) {
-    rethrow;
+    } catch (e) {
+      rethrow;
+    }
   }
-}
+
+  /// Fetch latest vitals for a patient
+  Future<Map<String, dynamic>?> fetchLatestVitals(int patientId) async {
+    try {
+      final response = await ApiService.get('$baseUrl/patients/$patientId/vitals');
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        return body['data'];
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching latest vitals: $e');
+      return null;
+    }
+  }
 }

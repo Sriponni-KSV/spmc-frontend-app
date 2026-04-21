@@ -700,6 +700,7 @@ class _PatientsViewState extends State<PatientsView> {
             ),
             child: Row(
               children: [
+                Expanded(flex: 2, child: _buildTableHeaderText('Patient ID')),
                 Expanded(flex: 3, child: _buildTableHeaderText('Name')),
                 Expanded(child: _buildTableHeaderText('Age')),
                 if (!isMobile) Expanded(child: _buildTableHeaderText('Gender')),
@@ -963,6 +964,17 @@ class _PatientsViewState extends State<PatientsView> {
       ),
       child: Row(
         children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              patient.patientId ?? 'N/A',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ),
           Expanded(
             flex: 3,
             child: Row(

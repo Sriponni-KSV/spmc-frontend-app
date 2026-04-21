@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart';
+import '../controllers/appointment_controller.dart';
+import '../models/appointment_model.dart';
 import 'login_page.dart';
+import 'new_consultation.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -15,58 +20,126 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+  final AppointmentController _appointmentController = AppointmentController();
+  List<AppointmentModel> _doctorAppointments = [];
+  bool _isLoading = true;
+  DateTime? _selectedDate = DateTime.now();
+  final FocusNode _mainFocusNode = FocusNode();
+  AppointmentModel? _activeAppointment;
 
-  // Mock data for the doctor dashboard
-  final List<Map<String, dynamic>> _recentPatients = [
-    {'id': 'SP-2024-001', 'name': 'Rajesh Kumar', 'age': '40 yrs', 'gender': 'Male', 'time': '10:30 AM', 'status': 'Checked In', 'color': Colors.green},
-    {'id': 'SP-2024-002', 'name': 'Anita Singh', 'age': '35 yrs', 'gender': 'Female', 'time': '09:15 AM', 'status': 'Waiting', 'color': Colors.orange},
-    {'id': 'SP-2024-003', 'name': 'Vikram Mehta', 'age': '29 yrs', 'gender': 'Male', 'time': 'Yesterday', 'status': 'Completed', 'color': Colors.grey},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchDoctorData();
+  }
+
+  @override
+  void dispose() {
+    _mainFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _showSearchOverlay() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Search',
+      barrierColor: Colors.black.withOpacity(0.4),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (context, anim1, anim2) {
+        return SearchOverlay(
+          patients: _doctorAppointments.map((e) => {'name': e.patientName, 'phone': '', 'age': '24'}).toList(),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return FadeTransition(opacity: anim1, child: ScaleTransition(scale: Tween<double>(begin: 0.95, end: 1.0).animate(anim1), child: child));
+      },
+    );
+  }
+
+  Future<void> _fetchDoctorData() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    
+    try {
+      final user = Provider.of<AuthProvider>(context, listen: false).user;
+      final allAppointments = await _appointmentController.fetchAppointments();
+      
+      if (mounted) {
+        setState(() {
+          _doctorAppointments = allAppointments.where((appt) {
+            return appt.doctorName.toLowerCase() == user?.fullname.toLowerCase();
+          }).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching doctor appointments: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
-    
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
-      floatingActionButton: CustomSpeedDial(
-        children: [
-          SpeedDialChild(
-            label: 'New Prescription',
-            icon: Icons.add_task,
-            color: Colors.indigo,
-            onTap: () {},
-          ),
-          SpeedDialChild(
-            label: 'Adjust Schedule',
-            icon: Icons.calendar_month_outlined,
-            color: AppTheme.primaryColor,
-            onTap: () {},
-          ),
-        ],
-      ),
-      body: Row(
-        children: [
-          // Sidebar (only on desktop)
-          if (!isMobile) _buildSidebar(context),
-          
-          // Main Content Area
-          Expanded(
-            child: Column(
-              children: [
-                _buildHeader(context, isMobile),
-                Expanded(
-                  child: _selectedIndex == 0 
-                      ? _buildDashboardView(isMobile) 
-                      : _buildProfileView(isMobile),
-                ),
-              ],
+    final user = Provider.of<AuthProvider>(context).user;
+
+    return Focus(
+      focusNode: _mainFocusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.slash) {
+          _showSearchOverlay();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        drawer: isMobile ? Drawer(child: _buildSidebar(isMobile)) : null,
+        floatingActionButton: CustomSpeedDial(
+          children: [
+            SpeedDialChild(
+              label: 'New Appointment',
+              icon: Icons.calendar_month_outlined,
+              color: AppTheme.primaryColor,
+              onTap: () {},
             ),
-          ),
-        ],
+          ],
+        ),
+        body: Row(
+          children: [
+            if (!isMobile) _buildSidebar(isMobile),
+            Expanded(
+              child: Column(
+                children: [
+                  _buildHeader(isMobile, user?.fullname ?? 'Doctor'),
+                  Expanded(child: _buildMainContent(isMobile)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildMainContent(bool isMobile) {
+    if (_activeAppointment != null) {
+      return NewConsultationView(
+        appointment: _activeAppointment!,
+        onBack: () => setState(() => _activeAppointment = null),
+      );
+    }
+
+    switch (_selectedIndex) {
+      case 0:
+        return _buildDashboardView(isMobile);
+      case 1:
+        return _buildProfileView(isMobile);
+      default:
+        return _buildDashboardView(isMobile);
+    }
   }
 
   Widget _buildProfileView(bool isMobile) {
@@ -113,7 +186,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.backgroundColor,
                         foregroundColor: AppTheme.primaryColor,
-                        minimumSize: const Size(0, 48), // Overrides global double.infinity
+                        minimumSize: const Size(0, 48),
                         elevation: 0,
                       ),
                     ),
@@ -121,7 +194,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 32),
                 
-                // Form Fields
                 Row(
                   children: [
                     Expanded(child: _buildProfileTextField('Full Name', user?.fullname ?? '', Icons.person_outline)),
@@ -175,7 +247,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () {
-                      // Call backend API to save the changes
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Profile changes synced to DB!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),
                       );
@@ -223,47 +294,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 24),
           _buildStatsRow(isMobile),
           const SizedBox(height: 24),
-          if (isMobile) ...[
-            _buildNotificationBanner(isMobile),
-            const SizedBox(height: 24),
-            _buildQuickActions(),
-            const SizedBox(height: 24),
-            _buildPatientsTable(),
-            const SizedBox(height: 24),
-            _buildUpcomingSchedule(),
-          ] else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    children: [
-                      _buildNotificationBanner(isMobile),
-                      const SizedBox(height: 24),
-                      _buildPatientsTable(),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    children: [
-                      _buildQuickActions(),
-                      const SizedBox(height: 24),
-                      _buildUpcomingSchedule(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          _buildPatientsTable(),
         ],
       ),
     );
   }
 
-  Widget _buildSidebar(BuildContext context) {
+  Widget _buildSidebar(bool isMobile) {
     return Container(
       width: 260,
       decoration: const BoxDecoration(
@@ -272,47 +309,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: Column(
         children: [
-          // Logo Section
           Container(
-            padding: const EdgeInsets.only(left: 24, top: 0, bottom: 0, right: 24),
+            height: 90,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1)),
             ),
             child: Row(
               children: [
-                Container(
-                  padding: EdgeInsets.zero,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Image.asset(
-                    'assets/image/full_logo.png',
-                    width: 100,
-                    height: 89,
-                  ),
-                ),
+                Image.asset('assets/image/full_logo.png', width: 100, height: 89),
               ],
             ),
           ),
           
-          // Navigation Items (Scrollable Area)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Column(
                 children: [
-                  _buildSidebarItem(0, Icons.dashboard_outlined, 'My Dashboard'),
+                  _buildSidebarItem(0, Icons.grid_view_outlined, 'Dashboard'),
                   _buildSidebarItem(1, Icons.person_outline, 'My Profile'),
                 ],
               ),
             ),
           ),
           
-          // Bottom Area (Fixed)
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Bottom Quick Actions Area
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Container(
@@ -324,14 +348,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Quick Actions',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textSecondaryColor,
-                        ),
-                      ),
+                      const Text('Quick Actions', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
                       const SizedBox(height: 8),
                       _buildSmallAction('Quick Search', '/'),
                       _buildSmallAction('New Prescription', 'Alt+N'),
@@ -341,7 +358,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
 
-              // User Profile Area
               Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Consumer<AuthProvider>(
@@ -350,11 +366,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (user == null) return const SizedBox.shrink();
                     return Row(
                       children: [
-                        const CircleAvatar(
-                          backgroundColor: AppTheme.primaryColor,
-                          radius: 18,
-                          child: Icon(Icons.person, color: Colors.white, size: 20),
-                        ),
+                        const CircleAvatar(backgroundColor: AppTheme.primaryColor, radius: 18, child: Icon(Icons.person, color: Colors.white, size: 20)),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -369,11 +381,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
                           onPressed: () {
                             auth.logout();
-                             Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(builder: (context) => const LoginScreen()),
-                              (route) => false,
-                            );
+                             Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const LoginScreen()), (route) => false);
                           },
                         ),
                       ],
@@ -391,11 +399,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSidebarItem(int index, IconData icon, String label) {
     bool isSelected = _selectedIndex == index;
     return InkWell(
-      onTap: () => setState(() {
-        _selectedIndex = index;
-      }),
+      onTap: () => setState(() => _selectedIndex = index),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        margin: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.primaryColor.withOpacity(0.1) : Colors.transparent,
@@ -418,57 +424,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-           Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppTheme.textSecondaryColor,
-            ),
-          ),
+           Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Text(
-              shortcut,
-              style: const TextStyle(
-                fontSize: 9,
-                color: AppTheme.textSecondaryColor,
-              ),
-            ),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.borderColor)),
+            child: Text(shortcut, style: const TextStyle(fontSize: 9, color: AppTheme.textSecondaryColor)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isMobile) {
+  Widget _buildHeader(bool isMobile, String name) {
     return Container(
-      height: isMobile ? 80 : 90,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1)),
-      ),
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+      height: 70,
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
+      decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1))),
       child: Row(
         children: [
-          if (isMobile) ...[
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu, color: AppTheme.textSecondaryColor),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
+          if (isMobile)
+            Builder(builder: (context) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(context).openDrawer())),
           
           Expanded(
-            child: SizedBox(
-              height: 40,
-              child: TextFormField(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: TextField(
                 decoration: InputDecoration(
                   hintText: isMobile ? 'Search...' : 'Quick search...',
                   prefixIcon: const Icon(Icons.search, size: 20),
@@ -510,52 +490,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildGreeting() {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
+    // Determine greeting based on time of day
+    final hour = DateTime.now().hour;
+    String greeting = 'Good Morning';
+    if (hour >= 12 && hour < 17) greeting = 'Good Afternoon';
+    if (hour >= 17) greeting = 'Good Evening';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-           children: [
-             Expanded(
-               child: Text(
-                 user != null ? 'Hello, ${user.fullname}' : 'Dashboard',
-                 style: const TextStyle(
-                   fontSize: 28,
-                   fontWeight: FontWeight.bold,
-                 ),
-                 overflow: TextOverflow.ellipsis,
-                 maxLines: 1,
-               ),
-             ),
-           ],
+        Text(
+          '$greeting, ${user?.fullname ?? 'Doctor'}',
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 4),
-        const Text('Welcome back! Here\'s your schedule overview today.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14)),
+        const Text('Here\'s a quick look at your patient appointments today.', 
+          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14)),
       ],
     );
   }
 
   Widget _buildStatsRow(bool isMobile) {
+    // Calculate real stats
+    final now = DateTime.now();
+    final todayStr = DateFormat('dd-MM-yyyy').format(now);
+    
+    final int todayCount = _doctorAppointments.where((a) => a.appointmentDate == todayStr).length;
+    final int confirmedCount = _doctorAppointments.where((a) => a.status == 'Confirmed').length;
+    final int totalPatients = _doctorAppointments.length;
+
     if (isMobile) {
       return Wrap(
         spacing: 16,
         runSpacing: 16,
         children: [
-          _buildStatCard('Active Cases', '12', '+1', Icons.pending_actions, Colors.blue, isMobile),
-          _buildStatCard('Total Consultations', '342', '+15%', Icons.assignment_outlined, Colors.indigo, isMobile),
+          _buildStatCard('Total Patients', totalPatients.toString(), 'All time', Icons.people_outline, Colors.blue, isMobile),
+          _buildStatCard('Today\'s Appointments', todayCount.toString(), 'Scheduled', Icons.calendar_today_outlined, Colors.indigo, isMobile),
+          _buildStatCard('Confirmed Cases', confirmedCount.toString(), 'Ready', Icons.check_circle_outline, Colors.green, isMobile),
           _buildStatCard('Average Rating', '4.9', 'Excellent', Icons.star_outline, Colors.orange, isMobile),
-          _buildStatCard('New Reviews', '8', '+2', Icons.rate_review_outlined, Colors.purple, isMobile),
         ],
       );
     }
     return Row(
       children: [
-        Expanded(child: _buildStatCard('Active Cases', '12', '+1', Icons.pending_actions, Colors.blue, isMobile)),
+        Expanded(child: _buildStatCard('Total Patients', totalPatients.toString(), 'All time', Icons.people_outline, Colors.blue, isMobile)),
         const SizedBox(width: 16),
-        Expanded(child: _buildStatCard('Total Consultations', '342', '+15%', Icons.assignment_outlined, Colors.indigo, isMobile)),
+        Expanded(child: _buildStatCard('Today\'s Appointments', todayCount.toString(), 'Scheduled', Icons.calendar_today_outlined, Colors.indigo, isMobile)),
+        const SizedBox(width: 16),
+        Expanded(child: _buildStatCard('Confirmed Cases', confirmedCount.toString(), 'Ready', Icons.check_circle_outline, Colors.green, isMobile)),
         const SizedBox(width: 16),
         Expanded(child: _buildStatCard('Average Rating', '4.9', 'Excellent', Icons.star_outline, Colors.orange, isMobile)),
-        const SizedBox(width: 16),
-        Expanded(child: _buildStatCard('New Reviews', '8', '+2', Icons.rate_review_outlined, Colors.purple, isMobile)),
       ],
     );
   }
@@ -571,238 +558,265 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildNotificationBanner(bool isMobile) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppTheme.infoBgColor, borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.info_outline, color: AppTheme.infoColor),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Record Review Required',
-                  style: TextStyle(color: AppTheme.infoColor, fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-              ),
-              if (!isMobile) TextButton(onPressed: () {}, child: const Text('Review Now')),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'You have 3 patient records waiting for review and 1 pending lab report.',
-            style: TextStyle(color: AppTheme.infoColor, fontWeight: FontWeight.w500, fontSize: 13),
-          ),
-          if (isMobile) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.infoColor),
-                child: const Text('Review Now', style: TextStyle(color: Colors.white)),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryColor,
-        borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppTheme.primaryColor, Color(0xFF0D4D7A)]),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Doctor Actions', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 20),
-          _buildActionButton(Icons.add_task, 'New Prescription', () {}),
-          _buildActionButton(Icons.calendar_month_outlined, 'Adjust Schedule', () {}),
-          _buildActionButton(Icons.folder_shared_outlined, 'Access Medical Records', () {}),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, String label, VoidCallback onTap) {
-    return QuickActionButton(
-      icon: icon,
-      label: label,
-      onTap: onTap,
-    );
-  }
 
   Widget _buildPatientsTable() {
+    final filteredAppts = _doctorAppointments.where((a) {
+      if (a.status != 'Confirmed') return false;
+      if (_selectedDate == null) return true;
+      
+      final String todayStr = DateFormat('dd-MM-yyyy').format(_selectedDate!);
+      return a.appointmentDate == todayStr;
+    }).toList();
+
     return Container(
-      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
       ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Expanded(
-                child: Text(
-                  'Active Patients',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              TextButton(
-                onPressed: () {},
-                child: const Text('View All'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ..._recentPatients.map((p) => _buildPatientTile(p)).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPatientTile(Map<String, dynamic> p) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: AppTheme.backgroundColor,
-            child: Text(
-              p['name'].substring(0, 1),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  p['name'],
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-                Text(
-                  '${p['id']}  •  ${p['age']} ${p['gender']}',
-                  style: const TextStyle(
-                    color: AppTheme.textSecondaryColor,
-                    fontSize: 12,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                p['time'],
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.textSecondaryColor,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: p['color'].withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  p['status'],
-                  style: TextStyle(
-                    color: p['color'],
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 16),
-          IconButton(icon: const Icon(Icons.chevron_right, size: 20), onPressed: () {}),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUpcomingSchedule() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Expanded(
-                child: Text(
-                  'Today\'s Schedule',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  overflow: TextOverflow.ellipsis,
+          // Table Card Header
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Appointments',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    ),
+                    if (_selectedDate != null)
+                      Text(
+                        DateFormat('EEEE, MMM d, yyyy').format(_selectedDate!),
+                        style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                      )
+                    else
+                      const Text(
+                        'All Records',
+                        style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                      ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    // Date Filter Button
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate ?? DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2101),
+                        );
+                        if (picked != null) {
+                          setState(() => _selectedDate = picked);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.backgroundColor,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.borderColor),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 14, color: AppTheme.primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              _selectedDate == null ? 'Filter Date' : DateFormat('dd-MM-yyyy').format(_selectedDate!),
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            if (_selectedDate != null) ...[
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: () => setState(() => _selectedDate = null),
+                                child: const Icon(Icons.close, size: 14, color: AppTheme.textSecondaryColor),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: _fetchDoctorData,
+                      child: const Text('Refresh'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Table Rows Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            color: const Color(0xFFF7FAFC),
+            child: Row(
+              children: [
+                Expanded(flex: 3, child: _buildTableHeaderText('PATIENT')),
+                Expanded(flex: 2, child: _buildTableHeaderText('TYPE')),
+                Expanded(flex: 2, child: _buildTableHeaderText('TIME')),
+                Expanded(flex: 2, child: _buildTableHeaderText('STATUS')),
+                const SizedBox(width: 40), // Space for action (chevron)
+              ],
+            ),
+          ),
+
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.all(32.0),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (filteredAppts.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(48.0),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.event_busy, size: 48, color: Colors.grey.withOpacity(0.3)),
+                    const SizedBox(height: 16),
+                    Text(
+                      _selectedDate == null ? 'No records found' : 'No appointments for this date',
+                      style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+                    ),
+                    if (_selectedDate != null)
+                      TextButton(
+                        onPressed: () => setState(() => _selectedDate = null),
+                        child: const Text('View All Records'),
+                      ),
+                  ],
                 ),
               ),
-              TextButton(
-                onPressed: () {},
-                child: const Text('View All'),
+            )
+          else
+            ...filteredAppts.take(10).map((appt) {
+              return Column(
+                children: [
+                  _buildPatientTableRow(appt),
+                  const Divider(height: 1),
+                ],
+              );
+            }).toList(),
+            
+          if (filteredAppts.length > 10)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: TextButton(
+                  onPressed: () {},
+                  child: Text('View All ${filteredAppts.length} Appointments'),
+                ),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildScheduleItem('Morning Rounds', 'Ward A, B', '08:30 AM', Colors.blue),
-          _buildScheduleItem('Patient Consultations', 'OPD Room 4', '10:00 AM', Colors.indigo),
-          _buildScheduleItem('Surgery: Minor', 'OT 1', '01:30 PM', Colors.red),
-          _buildScheduleItem('Evening Review', 'General Ward', '04:00 PM', Colors.teal),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildScheduleItem(String title, String location, String time, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
-      child: Row(
-        children: [
-          Container(width: 4, height: 40, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(location, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
-              ],
-            ),
-          ),
-          Text(time, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-        ],
+  Widget _buildTableHeaderText(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: AppTheme.textSecondaryColor,
+        fontWeight: FontWeight.bold,
+        fontSize: 11,
+        letterSpacing: 0.5,
       ),
     );
   }
+
+  Widget _buildPatientTableRow(AppointmentModel appt) {
+    Color statusColor = AppTheme.primaryColor;
+    if (appt.status == 'Confirmed') statusColor = AppTheme.successColor;
+    if (appt.status == 'Waiting') statusColor = Colors.orange;
+    if (appt.status == 'Completed') statusColor = Colors.grey;
+    if (appt.status == 'Cancelled') statusColor = Colors.red;
+    if (appt.status == 'Checked In') statusColor = Colors.blue;
+
+    return InkWell(
+      onTap: () => setState(() => _activeAppointment = appt),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Row(
+          children: [
+            // Patient Column
+            Expanded(
+              flex: 3,
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                    radius: 16,
+                    child: Text(
+                      appt.patientName.isNotEmpty ? appt.patientName[0].toUpperCase() : 'P',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      appt.patientName,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Type Column
+            Expanded(
+              flex: 2,
+              child: Text(
+                appt.appointmentType,
+                style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+              ),
+            ),
+            
+            // Time Column
+            Expanded(
+              flex: 2,
+              child: Text(
+                appt.appointmentTime,
+                style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+              ),
+            ),
+            
+            // Status Column
+            Expanded(
+              flex: 2,
+              child: UnconstrainedBox(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    appt.status,
+                    style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
+            
+            // Action Column
+            const SizedBox(
+              width: 40,
+              child: Icon(Icons.chevron_right, size: 18, color: AppTheme.iconColor),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 }
