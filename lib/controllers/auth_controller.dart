@@ -28,4 +28,15 @@ class AuthController {
       throw Exception(data['error'] ?? 'Login failed');
     }
   }
+
+  Future<List<String>> fetchLivePermissions() async {
+    final response = await ApiService.get('$baseUrl/auth/permissions');
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200 && data['success'] == true) {
+      return List<String>.from(data['permissions']);
+    } else {
+      throw Exception(data['error'] ?? 'Failed to fetch permissions');
+    }
+  }
 }

@@ -122,4 +122,61 @@ Future<void> createStaff({
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
-}
+
+  Future<Map<String, dynamic>> fetchRbacData() async {
+    try {
+      final response = await ApiService.get('$baseUrl/admin/rbac');
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        return body['data'];
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch RBAC data');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> createRoleRbac(String roleName, String description, List<int> permissionIds) async {
+    try {
+      final response = await ApiService.post('$baseUrl/admin/rbac/roles', {
+        'role_name': roleName,
+        'description': description,
+        'permission_ids': permissionIds,
+      });
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 201 || body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to create role');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> updateRolePermissions(int roleId, List<int> permissionIds) async {
+    try {
+      final response = await ApiService.put('$baseUrl/admin/rbac/roles/$roleId', {
+        'permission_ids': permissionIds,
+      });
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 200 || body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to update role permissions');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> deleteRole(int roleId) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/admin/rbac/roles/$roleId');
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 200 || body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to delete role');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+}

@@ -9,6 +9,8 @@ import '../widgets/nurse_widgets.dart';
 import 'login_page.dart';
 import 'package:http/http.dart' as http;  
 import 'dart:convert';                     
+import '../widgets/rbac_management.dart';
+import '../widgets/access_denied_widget.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -22,6 +24,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String _selectedRoleFilter = 'All';
   final AdminController _adminController = AdminController();
   Future<List<UserModel>>? _staffFuture;
+  Future<Map<String, dynamic>>? _rbacFuture;
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
 
@@ -36,11 +39,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     _loadStaff();
+    _loadRbacData();
   }
 
   void _loadStaff() {
     setState(() {
       _staffFuture = _adminController.fetchStaff();
+    });
+  }
+
+  void _loadRbacData() {
+    setState(() {
+      _rbacFuture = _adminController.fetchRbacData();
     });
   }
 
@@ -62,13 +72,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     bool isSaving = false;
     bool isLoadingSpecializations = false;
 
-    final currentUserRole = Provider.of<AuthProvider>(context, listen: false).user?.role;
-    List<String> availableRoles = ['Doctor', 'Nurse'];
-    if (currentUserRole == 'Super Admin') {
-      availableRoles = ['Doctor', 'Nurse', 'Admin', 'Super Admin'];
-    }
+    List<String> availableRoles = [];
+    bool isLoadingRoles = false;
     
-    // Ensure selectedRole is in the list
+    // Initial sync
     if (!availableRoles.contains(selectedRole)) {
       availableRoles.add(selectedRole);
     }
@@ -88,6 +95,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               });
             }).catchError((e) {
               setDialogState(() => isLoadingSpecializations = false);
+            });
+          }
+
+          // Initialize roles dynamically
+          if (availableRoles.length <= 1 && !isLoadingRoles) {
+            setDialogState(() => isLoadingRoles = true);
+            _adminController.fetchRbacData().then((rbacData) {
+              setDialogState(() {
+                final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
+                final currentUserRole = Provider.of<AuthProvider>(ctx, listen: false).user?.role;
+                
+                // Allow Super Admin to assign any role. Admin can only assign Doctor/Nurse
+                availableRoles = rolesList.map((r) => r['role_name'].toString()).where((r) {
+                   if (currentUserRole == 'Super Admin') return true;
+                   return r == 'Doctor' || r == 'Nurse' || r == selectedRole;
+                }).toList();
+                
+                if (!availableRoles.contains(selectedRole)) {
+                  availableRoles.add(selectedRole);
+                }
+                isLoadingRoles = false;
+              });
+            }).catchError((e) {
+              setDialogState(() => isLoadingRoles = false);
             });
           }
           return AlertDialog(
@@ -128,21 +159,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       validator: (val) => val == null || val.trim().isEmpty || !val.contains('@') ? 'Please enter a valid email' : null,
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: selectedRole,
-                      decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.badge_outlined)),
-                      items: availableRoles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setDialogState(() {
-                            selectedRole = val;
-                            if (selectedRole != 'Doctor') {
-                              selectedSpecializationId = null;
-                            }
-                          });
-                        }
-                      },
-                    ),
+                    if (isLoadingRoles)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      DropdownButtonFormField<String>(
+                        value: selectedRole,
+                        decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.badge_outlined)),
+                        items: availableRoles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() {
+                              selectedRole = val;
+                              if (selectedRole != 'Doctor') {
+                                selectedSpecializationId = null;
+                              }
+                            });
+                          }
+                        },
+                      ),
                     if (selectedRole == 'Doctor') ...[
                       const SizedBox(height: 16),
                       if (isLoadingSpecializations)
@@ -297,11 +331,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildBodyContent(bool isMobile) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    
     switch (_selectedIndex) {
       case 0:
         return _buildControlPanel(isMobile);
       case 1:
-        return _buildStaffManagement(isMobile);
+        if (user?.hasPermission('manage_users') ?? false) {
+          return _buildStaffManagement(isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 2:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return RbacManagementWidget(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
       default:
         return _buildControlPanel(isMobile);
     }
@@ -384,20 +428,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: () => _showAddUserDialog(context),
-                    icon: const Icon(Icons.person_add_outlined, size: 18),
-                    label: Text(isMobile ? 'Add' : 'Register Staff', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      minimumSize: const Size(0, 44),
-                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('manage_users') ?? false) ...[
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _showAddUserDialog(context),
+                      icon: const Icon(Icons.person_add_outlined, size: 18),
+                      label: Text(isMobile ? 'Add' : 'Register Staff', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        minimumSize: const Size(0, 44),
+                        padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -408,68 +454,77 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Container(
               padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
               alignment: Alignment.centerLeft,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: (() {
-                    final currentUserRole = Provider.of<AuthProvider>(context, listen: false).user?.role;
-                    List<String> filterRoles = ['All', 'Doctor', 'Nurse'];
-                    if (currentUserRole == 'Super Admin') {
-                      filterRoles = ['All', 'Super Admin', 'Admin', 'Doctor', 'Nurse'];
-                    }
-                    return filterRoles.map((role) {
-                    final isActive = _selectedRoleFilter == role;
-                    final count = role == 'All'
-                        ? allStaff.length
-                        : allStaff.where((u) => u.role == role).length;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(20),
-                        onTap: () => setState(() => _selectedRoleFilter = role),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isActive ? AppTheme.primaryColor : Colors.white,
+              child: FutureBuilder<Map<String, dynamic>>(
+                future: _rbacFuture,
+                builder: (context, rbacSnapshot) {
+                  if (rbacSnapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()));
+                  }
+                  
+                  List<String> filterRoles = ['All'];
+                  if (rbacSnapshot.hasData) {
+                    final rolesList = rbacSnapshot.data!['roles'] as List<dynamic>? ?? [];
+                    final dbRoles = rolesList.map((r) => r['role_name'].toString()).toList();
+                    filterRoles.addAll(dbRoles);
+                  }
+
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: filterRoles.map((role) {
+                        final isActive = _selectedRoleFilter == role;
+                        final count = role == 'All'
+                            ? allStaff.length
+                            : allStaff.where((u) => u.role == role).length;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: InkWell(
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: isActive ? AppTheme.primaryColor : AppTheme.borderColor),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                role,
-                                style: TextStyle(
-                                  color: isActive ? Colors.white : AppTheme.textSecondaryColor,
-                                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                                  fontSize: 13,
-                                ),
+                            onTap: () => setState(() => _selectedRoleFilter = role),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isActive ? AppTheme.primaryColor : Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: isActive ? AppTheme.primaryColor : AppTheme.borderColor),
                               ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: isActive ? Colors.white.withOpacity(0.2) : AppTheme.backgroundColor,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  '$count',
-                                  style: TextStyle(
-                                    color: isActive ? Colors.white : AppTheme.textSecondaryColor,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    role,
+                                    style: TextStyle(
+                                      color: isActive ? Colors.white : AppTheme.textSecondaryColor,
+                                      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                      fontSize: 13,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: isActive ? Colors.white.withOpacity(0.2) : AppTheme.backgroundColor,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '$count',
+                                      style: TextStyle(
+                                        color: isActive ? Colors.white : AppTheme.textSecondaryColor,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
-                    );
-                  }).toList();
-                  })(),
-                ),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                }
               ),
             ),
 
@@ -832,8 +887,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           // Navigation Items
           _buildSidebarItem(0, Icons.admin_panel_settings_outlined, 'Control Panel'),
           _buildSidebarItem(1, Icons.people_outline, 'Staff Management'),
-          _buildSidebarItem(2, Icons.analytics_outlined, 'System Analytics'),
-          _buildSidebarItem(3, Icons.settings_outlined, 'Settings'),
+          _buildSidebarItem(2, Icons.security_outlined, 'Access Control'),
+          _buildSidebarItem(3, Icons.analytics_outlined, 'System Analytics'),
+          _buildSidebarItem(4, Icons.settings_outlined, 'Settings'),
           
           const Spacer(),
           
@@ -1158,27 +1214,44 @@ final AdminController _adminController = AdminController();
   int? _selectedSpecializationId;
   List<Map<String, dynamic>> _specializations = [];
   bool _isLoading = false;
+  bool _isLoadingRoles = false;
   bool _isLoadingSpecializations = false;
 
   @override
   void initState() {
     super.initState();
     _loadSpecializations();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final currentUserRole = Provider.of<AuthProvider>(context, listen: false).user?.role;
-      if (currentUserRole == 'Super Admin') {
+    _loadRoles();
+  }
+
+  Future<void> _loadRoles() async {
+    setState(() => _isLoadingRoles = true);
+    try {
+      final rbacData = await _adminController.fetchRbacData();
+      final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
+      
+      if (mounted) {
+        final currentUserRole = Provider.of<AuthProvider>(context, listen: false).user?.role;
         setState(() {
-          _roles = ['Doctor', 'Nurse', 'Admin', 'Super Admin'];
-        });
-      } else {
-        setState(() {
-          _roles = ['Doctor', 'Nurse'];
-          if (!_roles.contains(_selectedRole)) {
+          _roles = rolesList.map((r) => r['role_name'].toString()).where((r) {
+             if (currentUserRole == 'Super Admin') return true;
+             return r == 'Doctor' || r == 'Nurse';
+          }).toList();
+          
+          if (!_roles.contains(_selectedRole) && _roles.isNotEmpty) {
              _selectedRole = _roles.first;
           }
+          _isLoadingRoles = false;
         });
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingRoles = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading roles: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Future<void> _loadSpecializations() async {
@@ -1268,7 +1341,9 @@ final AdminController _adminController = AdminController();
                   validator: (val) => val == null || val.length < 6 ? 'Password must be at least 6 characters' : null,
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
+                _isLoadingRoles 
+                  ? const Center(child: CircularProgressIndicator()) 
+                  : DropdownButtonFormField<String>(
                   value: _selectedRole,
                   decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.badge_outlined)),
                   items: _roles.map((role) => DropdownMenuItem(value: role, child: Text(role))).toList(),

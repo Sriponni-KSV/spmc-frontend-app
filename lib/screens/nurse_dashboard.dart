@@ -12,6 +12,7 @@ import 'new_patient_registration.dart';
 import 'patients_view.dart';
 import 'appointments_view.dart';
 import 'doctors_view.dart';
+import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
 
@@ -136,25 +137,27 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
         floatingActionButton: CustomSpeedDial(
           children: [
-            SpeedDialChild(
-              label: 'New Patient',
-              icon: Icons.person_add_alt_1_outlined,
-              color: const Color(0xFF7FB547),
-              onTap: () => setState(() {
-                _selectedIndex = 1;
-                _isRegisteringPatient = true;
-              }),
-            ),
-            SpeedDialChild(
-              label: 'Book Appointment',
-              icon: Icons.calendar_month_outlined,
-              color: const Color(0xFF0D5D9A),
-              onTap: () => setState(() {
-                _selectedIndex = 2;
-                _isRegisteringPatient = false;
-                _forceBookingForm = true;
-              }),
-            ),
+            if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('add_patient') ?? false)
+              SpeedDialChild(
+                label: 'New Patient',
+                icon: Icons.person_add_alt_1_outlined,
+                color: const Color(0xFF7FB547),
+                onTap: () => setState(() {
+                  _selectedIndex = 1;
+                  _isRegisteringPatient = true;
+                }),
+              ),
+            if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('book_appointment') ?? false)
+              SpeedDialChild(
+                label: 'Book Appointment',
+                icon: Icons.calendar_month_outlined,
+                color: const Color(0xFF0D5D9A),
+                onTap: () => setState(() {
+                  _selectedIndex = 2;
+                  _isRegisteringPatient = false;
+                  _forceBookingForm = true;
+                }),
+              ),
           ],
         ),
         body: Row(
@@ -178,38 +181,49 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Widget _buildMainContent(bool isMobile) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    
     if (_isRegisteringPatient) {
-      return NewPatientRegistrationView(
-        key: UniqueKey(),
-        onBack: () {
-          setState(() => _isRegisteringPatient = false);
-          _fetchPatients();
-        },
-      );
+      if (user?.hasPermission('add_patient') ?? false) {
+        return NewPatientRegistrationView(
+          key: UniqueKey(),
+          onBack: () {
+            setState(() => _isRegisteringPatient = false);
+            _fetchPatients();
+          },
+        );
+      }
+      return const AccessDeniedWidget();
     }
     switch (_selectedIndex) {
       case 0:
         return _buildDashboardView(isMobile);
       case 1:
-        return PatientsView(
-          patients: _dbPatients,
-          isLoading: _isLoadingPatients,
-          error: _patientError,
-          onRegisterPatient: () => setState(() => _isRegisteringPatient = true),
-          onBookAppointment: () => setState(() {
-            _selectedIndex = 2;
-            _isRegisteringPatient = false;
-            _forceBookingForm = true;
-          }),
-          onRefresh: _fetchPatients,
-        );
+        if (user?.hasPermission('view_patients') ?? false) {
+          return PatientsView(
+            patients: _dbPatients,
+            isLoading: _isLoadingPatients,
+            error: _patientError,
+            onRegisterPatient: () => setState(() => _isRegisteringPatient = true),
+            onBookAppointment: () => setState(() {
+              _selectedIndex = 2;
+              _isRegisteringPatient = false;
+              _forceBookingForm = true;
+            }),
+            onRefresh: _fetchPatients,
+          );
+        }
+        return const AccessDeniedWidget();
       case 2:
-        final showForm = _forceBookingForm;
-        _forceBookingForm = false; // Reset for next time
-        return AppointmentsView(
-          key: showForm ? UniqueKey() : null,
-          startWithBookingForm: showForm,
-        );
+        if (user?.hasPermission('book_appointment') ?? false) {
+          final showForm = _forceBookingForm;
+          _forceBookingForm = false; // Reset for next time
+          return AppointmentsView(
+            key: showForm ? UniqueKey() : null,
+            startWithBookingForm: showForm,
+          );
+        }
+        return const AccessDeniedWidget();
       case 3:
         return const DoctorsView();
       default:
@@ -268,178 +282,181 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Widget _buildSidebar(BuildContext context) {
-    return Container(
-      width: 260,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          right: BorderSide(color: AppTheme.borderColor, width: 1),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Logo Section
-          Container(
-            padding: const EdgeInsets.only(
-              left: 24,
-              top: 0,
-              bottom: 0,
-              right: 24,
+    return Consumer<AuthProvider>(
+      builder: (context, auth, _) {
+        final user = auth.user;
+        return Container(
+          width: 260,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              right: BorderSide(color: AppTheme.borderColor, width: 1),
             ),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppTheme.borderColor, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.zero,
-                  decoration: BoxDecoration(
-                    // color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Image.asset(
-                    'assets/image/full_logo.png',
-                    width: 100,
-                    height: 89,
+          ),
+          child: Column(
+            children: [
+              // Logo Section
+              Container(
+                padding: const EdgeInsets.only(
+                  left: 24,
+                  top: 0,
+                  bottom: 0,
+                  right: 24,
+                ),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: AppTheme.borderColor, width: 1),
                   ),
                 ),
-              ],
-            ),
-          ),
-
-          // Navigation Items (Scrollable Area)
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Column(
-                children: [
-                  _buildSidebarItem(0, Icons.dashboard_outlined, 'Dashboard'),
-                  _buildSidebarItem(1, Icons.people_outline, 'Patients'),
-                  _buildSidebarItem(
-                    2,
-                    Icons.calendar_today_outlined,
-                    'Appointments',
-                  ),
-                  _buildSidebarItem(
-                    3,
-                    Icons.medical_services_outlined,
-                    'Doctors',
-                  ),
-                  _buildSidebarItem(4, Icons.home_outlined, 'Home Care'),
-                  _buildSidebarItem(5, Icons.inventory_2_outlined, 'Inventory'),
-                  _buildSidebarItem(6, Icons.bar_chart_outlined, 'Reports'),
-                  _buildSidebarItem(
-                    7,
-                    Icons.psychology_outlined,
-                    'AI Insights',
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Bottom Area (Fixed)
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Bottom Quick Actions Area
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.backgroundColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Quick Actions',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textSecondaryColor,
-                        ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.zero,
+                      decoration: BoxDecoration(
+                        // color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(height: 8),
-                      _buildSmallAction('Quick Search', '/'),
-                      _buildSmallAction('New Patient', 'Alt+N'),
-                      _buildSmallAction('Book Appl.', 'Alt+B'),
+                      child: Image.asset(
+                        'assets/image/full_logo.png',
+                        width: 100,
+                        height: 89,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Navigation Items (Scrollable Area)
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Column(
+                    children: [
+                      _buildSidebarItem(0, Icons.dashboard_outlined, 'Dashboard'),
+                      if (user?.hasPermission('view_patients') ?? false)
+                        _buildSidebarItem(1, Icons.people_outline, 'Patients'),
+                      if (user?.hasPermission('book_appointment') ?? false)
+                        _buildSidebarItem(
+                          2,
+                          Icons.calendar_today_outlined,
+                          'Appointments',
+                        ),
+                      _buildSidebarItem(
+                        3,
+                        Icons.medical_services_outlined,
+                        'Doctors',
+                      ),
+                      _buildSidebarItem(4, Icons.home_outlined, 'Home Care'),
+                      _buildSidebarItem(5, Icons.inventory_2_outlined, 'Inventory'),
+                      _buildSidebarItem(6, Icons.bar_chart_outlined, 'Reports'),
+                      _buildSidebarItem(
+                        7,
+                        Icons.psychology_outlined,
+                        'AI Insights',
+                      ),
                     ],
                   ),
                 ),
               ),
 
-              // User Profile Area
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Consumer<AuthProvider>(
-                  builder: (context, auth, _) {
-                    final user = auth.user;
-                    if (user == null) return const SizedBox.shrink();
-                    return Row(
-                      children: [
-                        const CircleAvatar(
-                          backgroundColor: AppTheme.primaryColor,
-                          radius: 18,
-                          child: Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 20,
+              // Bottom Area (Fixed)
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Bottom Quick Actions Area
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.backgroundColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Quick Actions',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textSecondaryColor,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user.fullname,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                          const SizedBox(height: 8),
+                          _buildSmallAction('Quick Search', '/'),
+                          if (user?.hasPermission('add_patient') ?? false)
+                            _buildSmallAction('New Patient', 'Alt+N'),
+                          if (user?.hasPermission('book_appointment') ?? false)
+                            _buildSmallAction('Book Appl.', 'Alt+B'),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // User Profile Area
+                  Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: user == null ? const SizedBox.shrink() : Row(
+                          children: [
+                            const CircleAvatar(
+                              backgroundColor: AppTheme.primaryColor,
+                              radius: 18,
+                              child: Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 20,
                               ),
-                              Text(
-                                user.role,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.textSecondaryColor,
-                                ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    user.fullname,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    user.role,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.logout,
-                            size: 18,
-                            color: AppTheme.textSecondaryColor,
-                          ),
-                          onPressed: () {
-                            auth.logout();
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const LoginScreen(),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.logout,
+                                size: 18,
+                                color: AppTheme.textSecondaryColor,
                               ),
-                              (route) => false,
-                            );
-                          },
+                              onPressed: () {
+                                auth.logout();
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const LoginScreen(),
+                                  ),
+                                  (route) => false,
+                                );
+                              },
+                            ),
+                          ],
                         ),
-                      ],
-                    );
-                  },
-                ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
