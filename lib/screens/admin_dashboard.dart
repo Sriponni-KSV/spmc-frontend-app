@@ -107,10 +107,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 final currentUserRole = Provider.of<AuthProvider>(ctx, listen: false).user?.role;
                 
                 // Allow Super Admin to assign any role. Admin can only assign Doctor/Nurse
+                final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse'];
                 availableRoles = rolesList.map((r) => r['role_name'].toString()).where((r) {
                    if (currentUserRole == 'Super Admin') return true;
                    return r == 'Doctor' || r == 'Nurse' || r == selectedRole;
                 }).toList();
+                availableRoles.sort((a, b) {
+                  int indexA = orderedRoles.indexOf(a);
+                  int indexB = orderedRoles.indexOf(b);
+                  if (indexA == -1 && indexB == -1) return a.compareTo(b);
+                  if (indexA == -1) return 1;
+                  if (indexB == -1) return -1;
+                  return indexA.compareTo(indexB);
+                });
                 
                 if (!availableRoles.contains(selectedRole)) {
                   availableRoles.add(selectedRole);
@@ -465,6 +474,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   if (rbacSnapshot.hasData) {
                     final rolesList = rbacSnapshot.data!['roles'] as List<dynamic>? ?? [];
                     final dbRoles = rolesList.map((r) => r['role_name'].toString()).toList();
+                    final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse'];
+                    dbRoles.sort((a, b) {
+                      int indexA = orderedRoles.indexOf(a);
+                      int indexB = orderedRoles.indexOf(b);
+                      if (indexA == -1 && indexB == -1) return a.compareTo(b);
+                      if (indexA == -1) return 1;
+                      if (indexB == -1) return -1;
+                      return indexA.compareTo(indexB);
+                    });
                     filterRoles.addAll(dbRoles);
                   }
 
@@ -699,14 +717,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       DataCell(Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
-                            onPressed: () => _showEditDialog(context, user),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
-                            onPressed: () => _showDeleteConfirmation(context, user),
-                          ),
+                          if (user.role != 'Super Admin') ...[
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
+                              onPressed: () => _showEditDialog(context, user),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                              onPressed: () => _showDeleteConfirmation(context, user),
+                            ),
+                          ],
                         ],
                       )),
                     ],
@@ -1237,6 +1257,16 @@ final AdminController _adminController = AdminController();
              if (currentUserRole == 'Super Admin') return true;
              return r == 'Doctor' || r == 'Nurse';
           }).toList();
+          
+          final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse'];
+          _roles.sort((a, b) {
+            int indexA = orderedRoles.indexOf(a);
+            int indexB = orderedRoles.indexOf(b);
+            if (indexA == -1 && indexB == -1) return a.compareTo(b);
+            if (indexA == -1) return 1;
+            if (indexB == -1) return -1;
+            return indexA.compareTo(indexB);
+          });
           
           if (!_roles.contains(_selectedRole) && _roles.isNotEmpty) {
              _selectedRole = _roles.first;
