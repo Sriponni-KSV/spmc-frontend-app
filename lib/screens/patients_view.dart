@@ -43,36 +43,38 @@ class _PatientsViewState extends State<PatientsView> {
   String _selectedLastVisit = 'Any Time';
   String _selectedStatus = 'All Status';
 
-  List<String> _specializations = [];
-  bool _isLoadingSpecializations = true;
+  List<String> _departments = [];
+  bool _isLoadingDepartments = true;
   final AdminController _adminController = AdminController();
 
   @override
   void initState() {
     super.initState();
-    _fetchSpecializations();
+    _fetchDepartments();
   }
 
-  Future<void> _fetchSpecializations() async {
+  Future<void> _fetchDepartments() async {
     try {
-      final specs = await _adminController.fetchSpecializations();
+      final specializations = await _adminController.fetchSpecializations();
       if (mounted) {
         setState(() {
-          _specializations = specs.map((e) => e['name'].toString()).toList();
-          _isLoadingSpecializations = false;
+          _departments = specializations
+              .map((e) => e['name'].toString())
+              .toList();
+          _isLoadingDepartments = false;
         });
       }
     } catch (e) {
-      debugPrint('Error fetching specializations in patients_view: $e');
+      debugPrint('Error fetching departments in patients_view: $e');
       if (mounted) {
         setState(() {
-          _specializations = [
+          _departments = [
             'General Medicine',
             'Cardiology',
             'Pediatrics',
             'Orthopedics',
           ];
-          _isLoadingSpecializations = false;
+          _isLoadingDepartments = false;
         });
       }
     }
@@ -1286,7 +1288,6 @@ class _PatientsViewState extends State<PatientsView> {
                             (val) => setState(() => _selectedLastVisit = val!),
                           ),
                         ),
-                        const SizedBox(width: 12),
                         Expanded(
                           child: _buildFilterDropdown(
                             'Status',
@@ -1419,7 +1420,7 @@ class _PatientsViewState extends State<PatientsView> {
   void _showQuickRegisterDialog(BuildContext context) {
     final PatientController patientController = PatientController();
     String? selectedGender;
-    String? selectedDepartment;
+    String? _selectedDeptQuick;
     final TextEditingController nameCtrl = TextEditingController();
     final TextEditingController dobCtrl = TextEditingController();
     final TextEditingController phoneCtrl = TextEditingController();
@@ -1741,16 +1742,16 @@ class _PatientsViewState extends State<PatientsView> {
                                       child: DropdownButtonHideUnderline(
                                         child: DropdownButton<String>(
                                           isExpanded: true,
-                                          value: selectedDepartment,
+                                          value: _selectedDeptQuick,
                                           hint: Text(
-                                            _isLoadingSpecializations
+                                            _isLoadingDepartments
                                                 ? 'Loading...'
-                                                : 'Select',
+                                                : 'Select Department',
                                             style: const TextStyle(
                                               fontSize: 14,
                                             ),
                                           ),
-                                          items: _specializations.map((
+                                          items: _departments.map((
                                             String value,
                                           ) {
                                             return DropdownMenuItem<String>(
@@ -1765,7 +1766,7 @@ class _PatientsViewState extends State<PatientsView> {
                                           }).toList(),
                                           onChanged: (val) {
                                             setState(() {
-                                              selectedDepartment = val;
+                                              _selectedDeptQuick = val;
                                               deptError = null;
                                             });
                                           },
@@ -1895,16 +1896,16 @@ class _PatientsViewState extends State<PatientsView> {
                                                 child: DropdownButtonHideUnderline(
                                                   child: DropdownButton<String>(
                                                     isExpanded: true,
-                                                    value: selectedDepartment,
+                                                    value: _selectedDeptQuick,
                                                     hint: Text(
-                                                      _isLoadingSpecializations
+                                                      _isLoadingDepartments
                                                           ? 'Loading...'
                                                           : 'Select',
                                                       style: const TextStyle(
                                                         fontSize: 14,
                                                       ),
                                                     ),
-                                                    items: _specializations.map(
+                                                    items: _departments.map(
                                                       (String value) {
                                                         return DropdownMenuItem<
                                                           String
@@ -1922,7 +1923,7 @@ class _PatientsViewState extends State<PatientsView> {
                                                     ).toList(),
                                                     onChanged: (val) {
                                                       setState(() {
-                                                        selectedDepartment =
+                                                        _selectedDeptQuick =
                                                             val;
                                                         deptError = null;
                                                       });
@@ -2105,7 +2106,7 @@ class _PatientsViewState extends State<PatientsView> {
                                                     if (selectedGender == null)
                                                       genderError =
                                                           'Please select gender';
-                                                    if (selectedDepartment ==
+                                                    if (_selectedDeptQuick ==
                                                         null)
                                                       deptError =
                                                           'Please select department';
@@ -2114,13 +2115,13 @@ class _PatientsViewState extends State<PatientsView> {
                                                 }
                                                 // Validate dropdowns
                                                 if (selectedGender == null ||
-                                                    selectedDepartment ==
+                                                    _selectedDeptQuick ==
                                                         null) {
                                                   setState(() {
                                                     if (selectedGender == null)
                                                       genderError =
                                                           'Please select gender';
-                                                    if (selectedDepartment ==
+                                                    if (_selectedDeptQuick ==
                                                         null)
                                                       deptError =
                                                           'Please select department';
@@ -2187,7 +2188,7 @@ class _PatientsViewState extends State<PatientsView> {
                                                         email: emailCtrl.text
                                                             .trim(),
                                                         department:
-                                                            selectedDepartment ??
+                                                            _selectedDeptQuick ??
                                                             'General',
                                                         address: '',
                                                         height: 0.0,
