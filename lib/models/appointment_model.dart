@@ -14,6 +14,7 @@ class AppointmentModel {
   final double? temperature;
   final String? reasonForVisit;
   final String status;
+  final String appointmentType;
 
   AppointmentModel({
     this.id,
@@ -29,6 +30,7 @@ class AppointmentModel {
     this.temperature,
     this.reasonForVisit,
     this.status = 'Confirmed',
+    this.appointmentType = 'Routine',
   });
 
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
@@ -46,6 +48,7 @@ class AppointmentModel {
       temperature: json['temperature'] != null ? double.tryParse(json['temperature'].toString()) : null,
       reasonForVisit: json['reason_for_visit'],
       status: json['status'] ?? 'Confirmed',
+      appointmentType: json['appointment_type'] ?? 'Routine',
     );
   }
 
@@ -63,6 +66,7 @@ class AppointmentModel {
       'temperature': temperature,
       'reason_for_visit': reasonForVisit,
       'status': status,
+      'appointment_type': appointmentType,
     };
   }
 
@@ -80,6 +84,7 @@ class AppointmentModel {
     double? temperature,
     String? reasonForVisit,
     String? status,
+    String? appointmentType,
   }) {
     return AppointmentModel(
       id: id ?? this.id,
@@ -96,6 +101,7 @@ class AppointmentModel {
       temperature: temperature ?? this.temperature,
       reasonForVisit: reasonForVisit ?? this.reasonForVisit,
       status: status ?? this.status,
+      appointmentType: appointmentType ?? this.appointmentType,
     );
   }
 }

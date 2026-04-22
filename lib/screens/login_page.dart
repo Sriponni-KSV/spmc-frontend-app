@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import 'dashboard_page.dart';
 import 'nurse_dashboard.dart';
 import 'admin_dashboard.dart';
+import 'forgot_password_page.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -18,6 +19,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
 
   bool _obscurePassword = true;
 
@@ -29,15 +31,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleLogin() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter email and password.'), backgroundColor: Colors.redAccent),
-      );
+    if (!_formKey.currentState!.validate()) {
       return;
     }
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final success = await authProvider.login(email: email, password: password);
@@ -191,10 +190,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildForm(BuildContext context, {required bool showMobileHeader, bool isLoading = false}) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
+    return Form(
+      key: _formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
         if (showMobileHeader) ...[
           Center(
             child: Container(
@@ -236,6 +237,15 @@ class _LoginScreenState extends State<LoginScreen> {
           label: 'Email Address',
           hint: 'name@example.com',
           icon: Icons.email_outlined,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Please enter your email address';
+            }
+            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
+              return 'Please enter a valid email address';
+            }
+            return null;
+          },
         ),
         const SizedBox(height: 24),
 
@@ -252,13 +262,39 @@ class _LoginScreenState extends State<LoginScreen> {
               _obscurePassword = !_obscurePassword;
             });
           },
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter your password';
+            }
+            if (value.length < 8) {
+              return 'Password must be at least 8 characters long';
+            }
+            if (!RegExp(r'(?=.*[a-z])').hasMatch(value)) {
+              return 'Must contain at least one lowercase letter';
+            }
+            if (!RegExp(r'(?=.*[A-Z])').hasMatch(value)) {
+              return 'Must contain at least one uppercase letter';
+            }
+            if (!RegExp(r'(?=.*\d)').hasMatch(value)) {
+              return 'Must contain at least one number';
+            }
+            if (!RegExp(r'(?=.*[\W_])').hasMatch(value)) {
+              return 'Must contain at least one special character';
+            }
+            return null;
+          },
         ),
         const SizedBox(height: 8),
 
         Align(
           alignment: Alignment.centerRight,
           child: TextButton(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+              );
+            },
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.primaryColor,
               textStyle: const TextStyle(
@@ -283,6 +319,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 32),
 
       ],
+      ),
     );
   }
 
@@ -295,6 +332,7 @@ class _LoginScreenState extends State<LoginScreen> {
     bool isPassword = false,
     bool obscureText = false,
     VoidCallback? onToggleVisibility,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,7 +345,9 @@ class _LoginScreenState extends State<LoginScreen> {
         TextFormField(
           controller: controller,
           obscureText: obscureText,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           style: Theme.of(context).textTheme.bodyLarge,
+          validator: validator,
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, size: 22),

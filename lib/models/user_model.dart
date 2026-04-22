@@ -9,6 +9,12 @@ class UserModel {
   final String? specialization;
   final String? staffUniqueId;
   final String? token;
+  
+  // Profile Fields
+  final String? experience;
+  final int? numberPatientsAttended;
+  final String? qualification;
+  final String? bio;
   final List<String> permissions;
   final Map<String, String> permissionDisplayMap;
 
@@ -23,6 +29,10 @@ class UserModel {
     this.specialization,
     this.staffUniqueId,
     this.token,
+    this.experience,
+    this.numberPatientsAttended,
+    this.qualification,
+    this.bio,
     this.permissions = const [],
     this.permissionDisplayMap = const {},
   });
@@ -59,8 +69,9 @@ class UserModel {
       specialization: json['specialization'],
       staffUniqueId: json['staff_unique_id'],
       token: json['token'],
-      permissions: perms,
-      permissionDisplayMap: displays,
+      permissions: json['permissions'] != null 
+          ? List<String>.from(json['permissions']) 
+          : [],
     );
   }
 
