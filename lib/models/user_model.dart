@@ -9,6 +9,12 @@ class UserModel {
   final String? specialization;
   final String? staffUniqueId;
   final String? token;
+  
+  // Profile Fields
+  final String? experience;
+  final int? numberPatientsAttended;
+  final String? qualification;
+  final String? bio;
   final List<String> permissions;
 
   UserModel({
@@ -22,6 +28,10 @@ class UserModel {
     this.specialization,
     this.staffUniqueId,
     this.token,
+    this.experience,
+    this.numberPatientsAttended,
+    this.qualification,
+    this.bio,
     this.permissions = const [],
   });
 
@@ -37,6 +47,12 @@ class UserModel {
       specialization: json['specialization'],
       staffUniqueId: json['staff_unique_id'],
       token: json['token'],
+      experience: json['experience'],
+      numberPatientsAttended: json['number_patients_attended'] != null 
+          ? int.tryParse(json['number_patients_attended'].toString()) 
+          : null,
+      qualification: json['qualification'],
+      bio: json['bio'],
       permissions: json['permissions'] != null 
           ? List<String>.from(json['permissions']) 
           : [],

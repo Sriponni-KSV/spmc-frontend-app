@@ -29,6 +29,21 @@ class AuthController {
     }
   }
 
+  Future<void> resetPassword({
+    required String email,
+    required String newPassword,
+  }) async {
+    final response = await ApiService.post(
+      '$baseUrl/auth/reset-password',
+      {
+        'email': email,
+        'newPassword': newPassword,
+      },
+    );
+
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['error'] ?? 'Failed to reset password');
   Future<List<String>> fetchLivePermissions() async {
     final response = await ApiService.get('$baseUrl/auth/permissions');
     final data = jsonDecode(response.body);
