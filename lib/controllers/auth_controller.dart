@@ -29,12 +29,12 @@ class AuthController {
     }
   }
 
-  Future<List<String>> fetchLivePermissions() async {
+  Future<List<dynamic>> fetchLivePermissions() async {
     final response = await ApiService.get('$baseUrl/auth/permissions');
     final data = jsonDecode(response.body);
 
     if (response.statusCode == 200 && data['success'] == true) {
-      return List<String>.from(data['permissions']);
+      return data['permissions'] as List<dynamic>;
     } else {
       throw Exception(data['error'] ?? 'Failed to fetch permissions');
     }

@@ -69,7 +69,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                         children: permissions.map((p) {
                           final isSelected = selectedPermissions.contains(p['id']);
                           return FilterChip(
-                            label: Text(p['permission_name']),
+                            label: Text(p['display_name'] ?? p['permission_name']),
                             selected: isSelected,
                             onSelected: (selected) {
                               setDialogState(() {
@@ -159,7 +159,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                       children: permissions.map((p) {
                         final isSelected = selectedPermissions.contains(p['id']);
                         return FilterChip(
-                          label: Text(p['permission_name']),
+                          label: Text(p['display_name'] ?? p['permission_name']),
                           selected: isSelected,
                           onSelected: (selected) {
                             setDialogState(() {
@@ -395,7 +395,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(color: Colors.purple.withOpacity(0.3)),
                                     ),
-                                    child: Text(p['permission_name'], style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
+                                    child: Text(p['display_name'] ?? p['permission_name'], style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
                                   )).toList(),
                           ),
                         ],
