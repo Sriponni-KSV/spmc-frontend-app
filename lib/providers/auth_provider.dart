@@ -15,6 +15,17 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  Future<void> refreshPermissions() async {
+    if (_user == null) return;
+    try {
+      final permissions = await _authController.fetchLivePermissions();
+      _user = _user!.copyWith(permissions: permissions);
+      notifyListeners();
+    } catch (e) {
+      print('Failed to refresh permissions: $e');
+    }
+  }
+
   Future<bool> login({
     required String email,
     required String password,

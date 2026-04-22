@@ -2,6 +2,7 @@ import '../utils/date_formatter.dart';
 
 class PatientModel {
   final int? id;
+  final String? patientId;
   final String name;
   final String dob;
   final int age;
@@ -56,6 +57,7 @@ class PatientModel {
     required this.foodHabits,
     required this.physicalActivity,
     this.isQuickRegister = false,
+    this.patientId,
   });
 
 
@@ -124,6 +126,7 @@ class PatientModel {
       isQuickRegister: (json['isQuickRegister'] ?? json['is_quick_register']) == true || 
                        (json['isQuickRegister'] ?? json['is_quick_register']).toString() == '1' ||
                        (json['isQuickRegister'] ?? json['is_quick_register']).toString().toLowerCase() == 'true',
+      patientId: json['patientId']?.toString() ?? json['patient_id']?.toString(),
     );
 
   }

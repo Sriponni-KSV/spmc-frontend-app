@@ -6,6 +6,10 @@ import '../models/patient_model.dart';
 import '../widgets/nurse_widgets.dart' hide PatientModel;
 import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
+import '../controllers/appointment_controller.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../widgets/access_denied_widget.dart';
 
 class PatientsView extends StatefulWidget {
   final List<PatientModel> patients;
@@ -40,36 +44,38 @@ class _PatientsViewState extends State<PatientsView> {
   String _selectedLastVisit = 'Any Time';
   String _selectedStatus = 'All Status';
 
-  List<String> _specializations = [];
-  bool _isLoadingSpecializations = true;
+  List<String> _departments = [];
+  bool _isLoadingDepartments = true;
   final AdminController _adminController = AdminController();
 
   @override
   void initState() {
     super.initState();
-    _fetchSpecializations();
+    _fetchDepartments();
   }
 
-  Future<void> _fetchSpecializations() async {
+  Future<void> _fetchDepartments() async {
     try {
-      final specs = await _adminController.fetchSpecializations();
+      final specializations = await _adminController.fetchSpecializations();
       if (mounted) {
         setState(() {
-          _specializations = specs.map((e) => e['name'].toString()).toList();
-          _isLoadingSpecializations = false;
+          _departments = specializations
+              .map((e) => e['name'].toString())
+              .toList();
+          _isLoadingDepartments = false;
         });
       }
     } catch (e) {
-      debugPrint('Error fetching specializations in patients_view: $e');
+      debugPrint('Error fetching departments in patients_view: $e');
       if (mounted) {
         setState(() {
-          _specializations = [
+          _departments = [
             'General Medicine',
             'Cardiology',
             'Pediatrics',
             'Orthopedics',
           ];
-          _isLoadingSpecializations = false;
+          _isLoadingDepartments = false;
         });
       }
     }
@@ -143,6 +149,15 @@ class _PatientsViewState extends State<PatientsView> {
       padding = const EdgeInsets.all(24.0);
     }
     
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final user = auth.user;
+
+    if (widget.error == 'Exception: Access Denied' || (user != null && !user.hasPermission('view_patients'))) {
+      return const AccessDeniedWidget(
+        message: 'Access Denied: You do not have permission to view patient records.',
+      );
+    }
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: padding,
@@ -195,6 +210,7 @@ class _PatientsViewState extends State<PatientsView> {
   }
 
   Widget _buildPatientsHeader(bool isMobile, bool isTablet) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
     final double fontSize = isMobile ? 20 : (isTablet ? 24 : 28);
     final double subtitleSize = isMobile ? 11 : (isTablet ? 12 : 14);
     
@@ -220,20 +236,21 @@ class _PatientsViewState extends State<PatientsView> {
             ),
           ),
           const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: widget.onRegisterPatient,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('New Patient Registration', style: TextStyle(fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE53E3E),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 54),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          if (user?.hasPermission('add_patient') ?? false)
+            ElevatedButton.icon(
+              onPressed: widget.onRegisterPatient,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('New Patient Registration', style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE53E3E),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 54),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
-          ),
         ],
       );
     }
@@ -264,25 +281,27 @@ class _PatientsViewState extends State<PatientsView> {
             ],
           ),
         ),
-        ElevatedButton.icon(
-          onPressed: widget.onRegisterPatient,
-          icon: const Icon(Icons.add, size: 20),
-          label: const Text('New Patient'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFE53E3E),
-            foregroundColor: Colors.white,
-            minimumSize: Size(isTablet ? 100 : 120, 48),
-            padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 24, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+        if (user?.hasPermission('add_patient') ?? false)
+          ElevatedButton.icon(
+            onPressed: widget.onRegisterPatient,
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text('New Patient'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53E3E),
+              foregroundColor: Colors.white,
+              minimumSize: Size(isTablet ? 100 : 120, 48),
+              padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
-        ),
       ],
     );
   }
 
   Widget _buildPatientsSearch(bool isMobile, bool isTablet) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -334,27 +353,28 @@ class _PatientsViewState extends State<PatientsView> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              SizedBox(
-                width: MediaQuery.of(context).size.width < 450 ? double.infinity : (MediaQuery.of(context).size.width - 34) / 2,
-                child: ElevatedButton.icon(
-                  onPressed: () => _showQuickRegisterDialog(context),
-                  icon: const Icon(Icons.flash_on, size: 16),
-                  label: const Text(
-                    'Quick Register',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D5D9A),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(0, 48),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              if (user?.hasPermission('add_patient') ?? false)
+                SizedBox(
+                  width: MediaQuery.of(context).size.width < 450 ? double.infinity : (MediaQuery.of(context).size.width - 34) / 2,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showQuickRegisterDialog(context),
+                    icon: const Icon(Icons.flash_on, size: 16),
+                    label: const Text(
+                      'Quick Register',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                     ),
-                    elevation: 0,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D5D9A),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
                   ),
                 ),
-              ),
               SizedBox(
                 width: MediaQuery.of(context).size.width < 450 ? double.infinity : (MediaQuery.of(context).size.width - 34) / 2,
                 child: ElevatedButton.icon(
@@ -428,21 +448,22 @@ class _PatientsViewState extends State<PatientsView> {
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: () => _showQuickRegisterDialog(context),
-                icon: const Icon(Icons.flash_on, size: 16),
-                label: const Text('Quick Register', style: TextStyle(fontSize: 12)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D5D9A),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(130, 48),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              if (user?.hasPermission('add_patient') ?? false)
+                ElevatedButton.icon(
+                  onPressed: () => _showQuickRegisterDialog(context),
+                  icon: const Icon(Icons.flash_on, size: 16),
+                  label: const Text('Quick Register', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D5D9A),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(130, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
                   ),
-                  elevation: 0,
                 ),
-              ),
               const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: () => setState(() => _isFilterVisible = !_isFilterVisible),
@@ -508,24 +529,25 @@ class _PatientsViewState extends State<PatientsView> {
           ),
         ),
         const SizedBox(width: 16),
-        ElevatedButton.icon(
-          onPressed: () => _showQuickRegisterDialog(context),
-          icon: const Icon(Icons.flash_on, size: 18),
-          label: const Text(
-            'Quick Register',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0D5D9A),
-            foregroundColor: Colors.white,
-            minimumSize: const Size(160, 52),
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+        if (user?.hasPermission('add_patient') ?? false)
+          ElevatedButton.icon(
+            onPressed: () => _showQuickRegisterDialog(context),
+            icon: const Icon(Icons.flash_on, size: 18),
+            label: const Text(
+              'Quick Register',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
-            elevation: 0,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D5D9A),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(160, 52),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
           ),
-        ),
         const SizedBox(width: 12),
         ElevatedButton.icon(
           onPressed: () => setState(() => _isFilterVisible = !_isFilterVisible),
@@ -700,6 +722,7 @@ class _PatientsViewState extends State<PatientsView> {
             ),
             child: Row(
               children: [
+                Expanded(flex: 2, child: _buildTableHeaderText('Patient ID')),
                 Expanded(flex: 3, child: _buildTableHeaderText('Name')),
                 Expanded(child: _buildTableHeaderText('Age')),
                 if (!isMobile) Expanded(child: _buildTableHeaderText('Gender')),
@@ -963,6 +986,17 @@ class _PatientsViewState extends State<PatientsView> {
       ),
       child: Row(
         children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              patient.patientId ?? 'N/A',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ),
           Expanded(
             flex: 3,
             child: Row(
@@ -1267,7 +1301,6 @@ class _PatientsViewState extends State<PatientsView> {
                             (val) => setState(() => _selectedLastVisit = val!),
                           ),
                         ),
-                        const SizedBox(width: 12),
                         Expanded(
                           child: _buildFilterDropdown(
                             'Status',
@@ -1400,7 +1433,7 @@ class _PatientsViewState extends State<PatientsView> {
   void _showQuickRegisterDialog(BuildContext context) {
     final PatientController patientController = PatientController();
     String? selectedGender;
-    String? selectedDepartment;
+    String? _selectedDeptQuick;
     final TextEditingController nameCtrl = TextEditingController();
     final TextEditingController dobCtrl = TextEditingController();
     final TextEditingController phoneCtrl = TextEditingController();
@@ -1722,16 +1755,16 @@ class _PatientsViewState extends State<PatientsView> {
                                       child: DropdownButtonHideUnderline(
                                         child: DropdownButton<String>(
                                           isExpanded: true,
-                                          value: selectedDepartment,
+                                          value: _selectedDeptQuick,
                                           hint: Text(
-                                            _isLoadingSpecializations
+                                            _isLoadingDepartments
                                                 ? 'Loading...'
-                                                : 'Select',
+                                                : 'Select Department',
                                             style: const TextStyle(
                                               fontSize: 14,
                                             ),
                                           ),
-                                          items: _specializations.map((
+                                          items: _departments.map((
                                             String value,
                                           ) {
                                             return DropdownMenuItem<String>(
@@ -1746,7 +1779,7 @@ class _PatientsViewState extends State<PatientsView> {
                                           }).toList(),
                                           onChanged: (val) {
                                             setState(() {
-                                              selectedDepartment = val;
+                                              _selectedDeptQuick = val;
                                               deptError = null;
                                             });
                                           },
@@ -1876,16 +1909,16 @@ class _PatientsViewState extends State<PatientsView> {
                                                 child: DropdownButtonHideUnderline(
                                                   child: DropdownButton<String>(
                                                     isExpanded: true,
-                                                    value: selectedDepartment,
+                                                    value: _selectedDeptQuick,
                                                     hint: Text(
-                                                      _isLoadingSpecializations
+                                                      _isLoadingDepartments
                                                           ? 'Loading...'
                                                           : 'Select',
                                                       style: const TextStyle(
                                                         fontSize: 14,
                                                       ),
                                                     ),
-                                                    items: _specializations.map(
+                                                    items: _departments.map(
                                                       (String value) {
                                                         return DropdownMenuItem<
                                                           String
@@ -1903,7 +1936,7 @@ class _PatientsViewState extends State<PatientsView> {
                                                     ).toList(),
                                                     onChanged: (val) {
                                                       setState(() {
-                                                        selectedDepartment =
+                                                        _selectedDeptQuick =
                                                             val;
                                                         deptError = null;
                                                       });
@@ -2086,7 +2119,7 @@ class _PatientsViewState extends State<PatientsView> {
                                                     if (selectedGender == null)
                                                       genderError =
                                                           'Please select gender';
-                                                    if (selectedDepartment ==
+                                                    if (_selectedDeptQuick ==
                                                         null)
                                                       deptError =
                                                           'Please select department';
@@ -2095,13 +2128,13 @@ class _PatientsViewState extends State<PatientsView> {
                                                 }
                                                 // Validate dropdowns
                                                 if (selectedGender == null ||
-                                                    selectedDepartment ==
+                                                    _selectedDeptQuick ==
                                                         null) {
                                                   setState(() {
                                                     if (selectedGender == null)
                                                       genderError =
                                                           'Please select gender';
-                                                    if (selectedDepartment ==
+                                                    if (_selectedDeptQuick ==
                                                         null)
                                                       deptError =
                                                           'Please select department';
@@ -2168,7 +2201,7 @@ class _PatientsViewState extends State<PatientsView> {
                                                         email: emailCtrl.text
                                                             .trim(),
                                                         department:
-                                                            selectedDepartment ??
+                                                            _selectedDeptQuick ??
                                                             'General',
                                                         address: '',
                                                         height: 0.0,
@@ -2416,11 +2449,36 @@ class PatientDetailView extends StatefulWidget {
 class _PatientDetailViewState extends State<PatientDetailView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final AppointmentController _appointmentController = AppointmentController();
+  List<Map<String, dynamic>> _consultations = [];
+  bool _isLoadingConsultations = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _fetchConsultations();
+  }
+
+  Future<void> _fetchConsultations() async {
+    try {
+      if (widget.patient.id == null) {
+        setState(() => _isLoadingConsultations = false);
+        return;
+      }
+      final consultations = await _appointmentController.fetchConsultationsByPatient(widget.patient.id!);
+      if (mounted) {
+        setState(() {
+          _consultations = consultations;
+          _isLoadingConsultations = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching consultations: $e');
+      if (mounted) {
+        setState(() => _isLoadingConsultations = false);
+      }
+    }
   }
 
   @override
@@ -3183,20 +3241,39 @@ class _PatientDetailViewState extends State<PatientDetailView>
   }
 
   Widget _buildVisitsTimelineTab(PatientModel p) {
+    if (_isLoadingConsultations) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildTimelineItem(
-            date: p.dob.isNotEmpty ? 'Registration Visit' : 'Initial Visit',
-            time: p.dob.isNotEmpty ? p.dob : '—',
-            dept: p.department,
-            description: p.complaints.isNotEmpty
-                ? p.complaints
-                : 'General consultation',
-            isFirst: true,
-          ),
+          if (_consultations.isEmpty)
+            _buildTimelineItem(
+              date: p.dob.isNotEmpty ? 'Registration Visit' : 'Initial Visit',
+              time: p.dob.isNotEmpty ? p.dob : '—',
+              dept: p.department,
+              description: p.complaints.isNotEmpty
+                  ? p.complaints
+                  : 'General consultation',
+              isFirst: true,
+            )
+          else
+            ..._consultations.asMap().entries.map((entry) {
+              final index = entry.key;
+              final c = entry.value;
+              final meds = (c['medications'] as List?)?.map((m) => '${m['name']} (${m['dosage']})').join(', ') ?? 'No medications';
+              
+              return _buildTimelineItem(
+                date: c['appointment_date'] ?? 'Consultation',
+                time: c['appointment_time'] ?? '—',
+                dept: c['department'] ?? 'General',
+                description: 'Symptoms: ${c['symptoms'] ?? 'None'}\nDiagnosis: ${c['diagnosis'] ?? 'None'}\nMeds: $meds',
+                isFirst: index == 0,
+              );
+            }).toList(),
         ],
       ),
     );

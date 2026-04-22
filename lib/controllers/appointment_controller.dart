@@ -53,4 +53,52 @@ class AppointmentController {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
+
+  Future<void> saveConsultation(Map<String, dynamic> consultationData) async {
+    try {
+      final response = await ApiService.post(
+        '$baseUrl/appointments/consultation',
+        consultationData,
+      );
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode != 201) {
+        throw Exception(body['message'] ?? 'Failed to save consultation');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchConsultationsByPatient(int patientId) async {
+    try {
+      final response = await ApiService.get('$baseUrl/appointments/consultation/patient/$patientId');
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch consultations');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+  Future<List<Map<String, dynamic>>> fetchConsultationsByDoctor(String doctorName) async {
+    try {
+      final encodedName = Uri.encodeComponent(doctorName);
+      final response = await ApiService.get('$baseUrl/appointments/consultation/doctor/$encodedName');
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch doctor consultations');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
 }

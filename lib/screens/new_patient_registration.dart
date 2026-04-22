@@ -28,8 +28,8 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   final PatientController _patientController = PatientController();
   final AdminController _adminController = AdminController();
   
-  List<String> _specializations = [];
-  bool _isLoadingSpecializations = true;
+  List<String> _departments = [];
+  bool _isLoadingDepartments = true;
   
   // Step 2 Controllers
   final TextEditingController _bpSystolicController = TextEditingController();
@@ -60,21 +60,21 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   @override
   void initState() {
     super.initState();
-    _fetchSpecializations();
+    _fetchDepartments();
   }
 
-  Future<void> _fetchSpecializations() async {
+  Future<void> _fetchDepartments() async {
     try {
       final specs = await _adminController.fetchSpecializations();
       setState(() {
-        _specializations = specs.map((e) => e['name'].toString()).toList();
-        _isLoadingSpecializations = false;
+        _departments = specs.map((e) => e['name'].toString()).toList();
+        _isLoadingDepartments = false;
       });
     } catch (e) {
-      debugPrint('Error fetching specializations: $e');
+      debugPrint('Error fetching departments: $e');
       setState(() {
-        _specializations = ['General Medicine', 'Cardiology', 'Pediatrics', 'Orthopedics'];
-        _isLoadingSpecializations = false;
+        _departments = ['General Medicine', 'Cardiology', 'Pediatrics', 'Orthopedics'];
+        _isLoadingDepartments = false;
       });
     }
   }
@@ -397,8 +397,8 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                       _buildLabel('Department *'),
                       _buildDropdownField(
                         value: _selectedDepartment,
-                        hint: _isLoadingSpecializations ? 'Loading...' : 'Select department',
-                        items: _specializations.isEmpty ? ['Loading...'] : _specializations,
+                        hint: _isLoadingDepartments ? 'Loading...' : 'Select department',
+                        items: _departments.isEmpty ? ['Loading...'] : _departments,
                         onChanged: (val) => setState(() => _selectedDepartment = val),
                         validator: (val) => val == null || val.isEmpty ? 'Department is required' : null,
                       ),
