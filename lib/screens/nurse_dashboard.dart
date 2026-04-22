@@ -294,33 +294,6 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             ),
           ),
 
-          // Navigation Items (Scrollable Area)
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Column(
-                children: [
-                  _buildSidebarItem(0, Icons.dashboard_outlined, 'Dashboard'),
-                  _buildSidebarItem(1, Icons.people_outline, 'Patients'),
-                  _buildSidebarItem(
-                    2,
-                    Icons.calendar_today_outlined,
-                    'Appointments',
-                  ),
-                  _buildSidebarItem(
-                    3,
-                    Icons.medical_services_outlined,
-                    'Doctors',
-                  ),
-                  // _buildSidebarItem(4, Icons.home_outlined, 'Home Care'),
-                  // _buildSidebarItem(5, Icons.inventory_2_outlined, 'Inventory'),
-                  // _buildSidebarItem(6, Icons.bar_chart_outlined, 'Reports'),
-                  // _buildSidebarItem(
-                  //   7,
-                  //   Icons.psychology_outlined,
-                  //   'AI Insights',
-                  // ),
-                ],
           child: Column(
             children: [
               // Logo Section

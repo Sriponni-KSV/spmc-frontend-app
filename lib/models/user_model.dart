@@ -69,9 +69,8 @@ class UserModel {
       specialization: json['specialization'],
       staffUniqueId: json['staff_unique_id'],
       token: json['token'],
-      permissions: json['permissions'] != null 
-          ? List<String>.from(json['permissions']) 
-          : [],
+      permissions: perms,
+      permissionDisplayMap: displays,
     );
   }
 
