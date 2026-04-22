@@ -16,6 +16,7 @@ class UserModel {
   final String? qualification;
   final String? bio;
   final List<String> permissions;
+  final Map<String, String> permissionDisplayMap;
 
   UserModel({
     required this.id,
@@ -33,9 +34,30 @@ class UserModel {
     this.qualification,
     this.bio,
     this.permissions = const [],
+    this.permissionDisplayMap = const {},
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    List<String> perms = [];
+    Map<String, String> displays = {};
+
+    if (json['permissions'] != null && json['permissions'] is List) {
+      for (var p in json['permissions']) {
+        if (p is String) {
+          perms.add(p);
+        } else if (p is Map) {
+          final name = p['permission_name']?.toString();
+          final display = p['display_name']?.toString();
+          if (name != null) {
+            perms.add(name);
+            if (display != null) {
+              displays[name] = display;
+            }
+          }
+        }
+      }
+    }
+
     return UserModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
       fullname: json['fullname'] ?? '',
@@ -47,12 +69,6 @@ class UserModel {
       specialization: json['specialization'],
       staffUniqueId: json['staff_unique_id'],
       token: json['token'],
-      experience: json['experience'],
-      numberPatientsAttended: json['number_patients_attended'] != null 
-          ? int.tryParse(json['number_patients_attended'].toString()) 
-          : null,
-      qualification: json['qualification'],
-      bio: json['bio'],
       permissions: json['permissions'] != null 
           ? List<String>.from(json['permissions']) 
           : [],
@@ -71,6 +87,7 @@ class UserModel {
     String? staffUniqueId,
     String? token,
     List<String>? permissions,
+    Map<String, String>? permissionDisplayMap,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -84,6 +101,32 @@ class UserModel {
       staffUniqueId: staffUniqueId ?? this.staffUniqueId,
       token: token ?? this.token,
       permissions: permissions ?? this.permissions,
+      permissionDisplayMap: permissionDisplayMap ?? this.permissionDisplayMap,
+    );
+  }
+
+  UserModel updateFromPermissions(List<dynamic> jsonList) {
+    List<String> perms = [];
+    Map<String, String> displays = {};
+
+    for (var p in jsonList) {
+      if (p is String) {
+        perms.add(p);
+      } else if (p is Map) {
+        final name = p['permission_name']?.toString();
+        final display = p['display_name']?.toString();
+        if (name != null) {
+          perms.add(name);
+          if (display != null) {
+            displays[name] = display;
+          }
+        }
+      }
+    }
+
+    return copyWith(
+      permissions: perms,
+      permissionDisplayMap: displays,
     );
   }
 

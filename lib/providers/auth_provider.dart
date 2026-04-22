@@ -18,8 +18,8 @@ class AuthProvider extends ChangeNotifier {
   Future<void> refreshPermissions() async {
     if (_user == null) return;
     try {
-      final permissions = await _authController.fetchLivePermissions();
-      _user = _user!.copyWith(permissions: permissions);
+      final permissionsJson = await _authController.fetchLivePermissions();
+      _user = _user!.updateFromPermissions(permissionsJson);
       notifyListeners();
     } catch (e) {
       print('Failed to refresh permissions: $e');

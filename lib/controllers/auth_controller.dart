@@ -29,6 +29,7 @@ class AuthController {
     }
   }
 
+  // ✅ Reset Password
   Future<void> resetPassword({
     required String email,
     required String newPassword,
@@ -44,6 +45,10 @@ class AuthController {
     if (response.statusCode != 200) {
       final data = jsonDecode(response.body);
       throw Exception(data['error'] ?? 'Failed to reset password');
+    }
+  }
+
+  // ✅ Fetch Permissions
   Future<List<String>> fetchLivePermissions() async {
     final response = await ApiService.get('$baseUrl/auth/permissions');
     final data = jsonDecode(response.body);
