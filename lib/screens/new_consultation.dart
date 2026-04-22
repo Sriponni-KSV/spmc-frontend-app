@@ -4,6 +4,7 @@ import '../utils/app_theme.dart';
 import '../models/appointment_model.dart';
 import '../widgets/nurse_widgets.dart';
 import '../controllers/patient_controller.dart';
+import '../controllers/appointment_controller.dart';
 
 
 class NewConsultationView extends StatefulWidget {
@@ -31,6 +32,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   final TextEditingController _freqController = TextEditingController();
 
   final PatientController _patientController = PatientController();
+  final AppointmentController _appointmentController = AppointmentController();
   late AppointmentModel _currentAppointment;
   bool _isLoadingVitals = true;
 
@@ -213,18 +215,48 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: () {
-                // Future: API Call to save consultation
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Consultation Saved Successfully!'), backgroundColor: Colors.green),
-                );
-                widget.onBack();
+              onPressed: () async {
+                if (_symptomsController.text.isEmpty && _diagnosisController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter symptoms or diagnosis'), backgroundColor: Colors.orange),
+                  );
+                  return;
+                }
+
+                setState(() => _isLoadingVitals = true);
+                try {
+                  await _appointmentController.saveConsultation({
+                    'appointment_id': widget.appointment.id,
+                    'patient_id': widget.appointment.patientId,
+                    'symptoms': _symptomsController.text,
+                    'diagnosis': _diagnosisController.text,
+                    'medications': _medications,
+                    'notes': _notesController.text,
+                  });
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Consultation Saved Successfully!'), backgroundColor: Colors.green),
+                    );
+                    widget.onBack();
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                } finally {
+                  if (mounted) setState(() => _isLoadingVitals = false);
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Complete Consultation & Save', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              child: _isLoadingVitals 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text('Complete Consultation & Save', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ),
         ],

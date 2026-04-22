@@ -6,6 +6,7 @@ import '../models/patient_model.dart';
 import '../widgets/nurse_widgets.dart' hide PatientModel;
 import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
+import '../controllers/appointment_controller.dart';
 
 class PatientsView extends StatefulWidget {
   final List<PatientModel> patients;
@@ -2428,11 +2429,36 @@ class PatientDetailView extends StatefulWidget {
 class _PatientDetailViewState extends State<PatientDetailView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final AppointmentController _appointmentController = AppointmentController();
+  List<Map<String, dynamic>> _consultations = [];
+  bool _isLoadingConsultations = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _fetchConsultations();
+  }
+
+  Future<void> _fetchConsultations() async {
+    try {
+      if (widget.patient.id == null) {
+        setState(() => _isLoadingConsultations = false);
+        return;
+      }
+      final consultations = await _appointmentController.fetchConsultationsByPatient(widget.patient.id!);
+      if (mounted) {
+        setState(() {
+          _consultations = consultations;
+          _isLoadingConsultations = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching consultations: $e');
+      if (mounted) {
+        setState(() => _isLoadingConsultations = false);
+      }
+    }
   }
 
   @override
@@ -3195,20 +3221,39 @@ class _PatientDetailViewState extends State<PatientDetailView>
   }
 
   Widget _buildVisitsTimelineTab(PatientModel p) {
+    if (_isLoadingConsultations) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildTimelineItem(
-            date: p.dob.isNotEmpty ? 'Registration Visit' : 'Initial Visit',
-            time: p.dob.isNotEmpty ? p.dob : '—',
-            dept: p.department,
-            description: p.complaints.isNotEmpty
-                ? p.complaints
-                : 'General consultation',
-            isFirst: true,
-          ),
+          if (_consultations.isEmpty)
+            _buildTimelineItem(
+              date: p.dob.isNotEmpty ? 'Registration Visit' : 'Initial Visit',
+              time: p.dob.isNotEmpty ? p.dob : '—',
+              dept: p.department,
+              description: p.complaints.isNotEmpty
+                  ? p.complaints
+                  : 'General consultation',
+              isFirst: true,
+            )
+          else
+            ..._consultations.asMap().entries.map((entry) {
+              final index = entry.key;
+              final c = entry.value;
+              final meds = (c['medications'] as List?)?.map((m) => '${m['name']} (${m['dosage']})').join(', ') ?? 'No medications';
+              
+              return _buildTimelineItem(
+                date: c['appointment_date'] ?? 'Consultation',
+                time: c['appointment_time'] ?? '—',
+                dept: c['department'] ?? 'General',
+                description: 'Symptoms: ${c['symptoms'] ?? 'None'}\nDiagnosis: ${c['diagnosis'] ?? 'None'}\nMeds: $meds',
+                isFirst: index == 0,
+              );
+            }).toList(),
         ],
       ),
     );

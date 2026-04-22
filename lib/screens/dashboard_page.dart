@@ -22,7 +22,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
   final AppointmentController _appointmentController = AppointmentController();
   List<AppointmentModel> _doctorAppointments = [];
+  List<Map<String, dynamic>> _consultations = [];
   bool _isLoading = true;
+  bool _isLoadingConsultations = false;
   DateTime? _selectedDate = DateTime.now();
   final FocusNode _mainFocusNode = FocusNode();
   AppointmentModel? _activeAppointment;
@@ -73,9 +75,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _isLoading = false;
         });
       }
+      
+      // Also fetch consultations
+      _fetchConsultations();
     } catch (e) {
-      debugPrint('Error fetching doctor appointments: $e');
+      debugPrint('Error fetching doctor data: $e');
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchConsultations() async {
+    if (!mounted) return;
+    setState(() => _isLoadingConsultations = true);
+    try {
+      final user = Provider.of<AuthProvider>(context, listen: false).user;
+      if (user != null) {
+        final consultations = await _appointmentController.fetchConsultationsByDoctor(user.fullname);
+        if (mounted) {
+          setState(() {
+            _consultations = consultations;
+            _isLoadingConsultations = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching doctor consultations: $e');
+      if (mounted) setState(() => _isLoadingConsultations = false);
     }
   }
 
@@ -140,6 +165,166 @@ class _DashboardScreenState extends State<DashboardScreen> {
       default:
         return _buildDashboardView(isMobile);
     }
+  }
+
+  Future<void> _fetchAndViewConsultation(AppointmentModel appt) async {
+    setState(() => _isLoading = true);
+    try {
+      final consultations = await _appointmentController.fetchConsultationsByPatient(appt.patientId);
+      final consul = consultations.firstWhere(
+        (c) => c['appointment_id'] == appt.id,
+        orElse: () => {},
+      );
+
+      if (consul.isNotEmpty) {
+        if (mounted) _showConsultationDetail(consul);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Consultation details not found')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching consultation: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Widget _buildConsultationsView(bool isMobile) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('My Consultations', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          const Text('History of all consultations performed by you.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14)),
+          const SizedBox(height: 24),
+          
+          if (_isLoadingConsultations)
+            const Center(child: Padding(padding: EdgeInsets.all(40.0), child: CircularProgressIndicator()))
+          else if (_consultations.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(40.0),
+                child: Column(
+                  children: [
+                    Icon(Icons.history_edu_outlined, size: 64, color: Colors.grey.withOpacity(0.3)),
+                    const SizedBox(height: 16),
+                    const Text('No consultations found', style: TextStyle(color: AppTheme.textSecondaryColor)),
+                  ],
+                ),
+              ),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _consultations.length,
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final c = _consultations[index];
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    title: Row(
+                      children: [
+                        Text(c['patient_name'] ?? 'Unknown Patient', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                          child: Text(c['appointment_type'] ?? 'Consultation', style: const TextStyle(color: AppTheme.primaryColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 12, color: AppTheme.textSecondaryColor),
+                            const SizedBox(width: 4),
+                            Text('${c['appointment_date']} at ${c['appointment_time']}', style: const TextStyle(fontSize: 12)),
+                            const SizedBox(width: 16),
+                            const Icon(Icons.medical_services_outlined, size: 12, color: AppTheme.textSecondaryColor),
+                            const SizedBox(width: 4),
+                            Text(c['diagnosis'] ?? 'No diagnosis', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+                          ],
+                        ),
+                      ],
+                    ),
+                    trailing: const Icon(Icons.chevron_right, color: AppTheme.textSecondaryColor),
+                    onTap: () => _showConsultationDetail(c),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showConsultationDetail(Map<String, dynamic> consultation) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Consultation: ${consultation['patient_name']}'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDetailRow('Symptoms', consultation['symptoms'] ?? 'None recorded'),
+              _buildDetailRow('Diagnosis', consultation['diagnosis'] ?? 'None recorded'),
+              _buildDetailRow('Notes', consultation['notes'] ?? 'None recorded'),
+              const SizedBox(height: 16),
+              const Text('Medications:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              if (consultation['medications'] != null)
+                ...(consultation['medications'] as List).map((m) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.circle, size: 6, color: AppTheme.primaryColor),
+                      const SizedBox(width: 8),
+                      Text('${m['name']} - ${m['dosage']} (${m['frequency']})'),
+                    ],
+                  ),
+                )).toList()
+              else
+                const Text('No medications prescribed'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textSecondaryColor)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
   }
 
   Widget _buildProfileView(bool isMobile) {
@@ -561,7 +746,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildPatientsTable() {
     final filteredAppts = _doctorAppointments.where((a) {
-      if (a.status != 'Confirmed') return false;
+      if (a.status != 'Confirmed' && a.status != 'Completed') return false;
       if (_selectedDate == null) return true;
       
       final String todayStr = DateFormat('dd-MM-yyyy').format(_selectedDate!);
@@ -792,19 +977,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // Status Column
             Expanded(
               flex: 2,
-              child: UnconstrainedBox(
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
+              child: Row(
+                children: [
+                  UnconstrainedBox(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        appt.status,
+                        style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    appt.status,
-                    style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
-                ),
+                  if (appt.status == 'Completed') ...[
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.visibility_outlined, size: 18, color: AppTheme.primaryColor),
+                      onPressed: () => _fetchAndViewConsultation(appt),
+                      tooltip: 'View Consultation',
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ],
+                ],
               ),
             ),
             
