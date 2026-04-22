@@ -470,10 +470,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     return const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()));
                   }
                   
-                  List<String> filterRoles = ['All'];
+                  final filterRoles = ['All'];
                   if (rbacSnapshot.hasData) {
                     final rolesList = rbacSnapshot.data!['roles'] as List<dynamic>? ?? [];
-                    final dbRoles = rolesList.map((r) => r['role_name'].toString()).toList();
+                    final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+                    
+                    List<String> dbRoles = rolesList.map((r) => r['role_name'].toString()).toList();
+                    
+                    // Filter roles based on requester's role
+                    if (currentUser?.role == 'Admin') {
+                      dbRoles = dbRoles.where((r) => r != 'Super Admin').toList();
+                    }
+
                     final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse'];
                     dbRoles.sort((a, b) {
                       int indexA = orderedRoles.indexOf(a);
@@ -486,60 +494,65 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     filterRoles.addAll(dbRoles);
                   }
 
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: filterRoles.map((role) {
-                        final isActive = _selectedRoleFilter == role;
-                        final count = role == 'All'
-                            ? allStaff.length
-                            : allStaff.where((u) => u.role == role).length;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(20),
-                            onTap: () => setState(() => _selectedRoleFilter = role),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isActive ? AppTheme.primaryColor : Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: isActive ? AppTheme.primaryColor : AppTheme.borderColor),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    role,
-                                    style: TextStyle(
-                                      color: isActive ? Colors.white : AppTheme.textSecondaryColor,
-                                      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: isActive ? Colors.white.withOpacity(0.2) : AppTheme.backgroundColor,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      '$count',
+                  return SizedBox(
+                    height: 44,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: filterRoles.map((role) {
+                          final isActive = _selectedRoleFilter == role;
+                          final count = role == 'All'
+                              ? allStaff.length
+                              : allStaff.where((u) => u.role == role).length;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(20),
+                              onTap: () => setState(() => _selectedRoleFilter = role),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 18, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: isActive ? AppTheme.primaryColor : Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: isActive ? AppTheme.primaryColor : AppTheme.borderColor),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      role,
                                       style: TextStyle(
                                         color: isActive ? Colors.white : AppTheme.textSecondaryColor,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
+                                        fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                        fontSize: 13,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: isActive ? Colors.white.withOpacity(0.2) : AppTheme.backgroundColor,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '$count',
+                                        style: TextStyle(
+                                          color: isActive ? Colors.white : AppTheme.textSecondaryColor,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }).toList(),
+                          );
+                        }).toList(),
+                      ),
                     ),
                   );
                 }
