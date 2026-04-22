@@ -51,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Widget nextScreen;
         if (user.role == 'Nurse' || user.role == 'Head Nurse') {
           nextScreen = const NurseDashboardScreen();
-        } else if (user.role == 'Admin' || user.role == 'Supervisor') {
+        } else if (user.role == 'Admin' || user.role == 'Supervisor' || user.role == 'Super Admin') {
           nextScreen = const AdminDashboardScreen();
         } else {
           nextScreen = const DashboardScreen(); // Doctor dashboard
