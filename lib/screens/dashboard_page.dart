@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
+import '../controllers/auth_controller.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../widgets/nurse_widgets.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
@@ -28,16 +30,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
   DateTime? _selectedDate = DateTime.now();
   final FocusNode _mainFocusNode = FocusNode();
   AppointmentModel? _activeAppointment;
+  final AuthController _authController = AuthController();
+  
+  // Profile Controllers
+  late TextEditingController _nameController;
+  late TextEditingController _specController;
+  late TextEditingController _emailController;
+  late TextEditingController _licenseController;
+  late TextEditingController _qualController;
+  late TextEditingController _expController;
+  late TextEditingController _patientsController;
+  late TextEditingController _bioController;
 
   @override
   void initState() {
     super.initState();
+    _initControllers();
     _fetchDoctorData();
+  }
+
+  void _initControllers() {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    _nameController = TextEditingController(text: user?.fullname ?? '');
+    _specController = TextEditingController(text: user?.specialization ?? '');
+    _emailController = TextEditingController(text: user?.email ?? '');
+    _licenseController = TextEditingController(text: user?.medicalLicense ?? '');
+    _qualController = TextEditingController(text: user?.qualification ?? '');
+    _expController = TextEditingController(text: user?.experience ?? '');
+    _patientsController = TextEditingController(text: user?.numberPatientsAttended?.toString() ?? '0');
+    _bioController = TextEditingController(text: user?.bio ?? '');
   }
 
   @override
   void dispose() {
     _mainFocusNode.dispose();
+    _nameController.dispose();
+    _specController.dispose();
+    _emailController.dispose();
+    _licenseController.dispose();
+    _qualController.dispose();
+    _expController.dispose();
+    _patientsController.dispose();
+    _bioController.dispose();
     super.dispose();
   }
 
@@ -327,6 +361,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+
+
+  Future<void> _saveProfile() async {
+    setState(() => _isLoading = true);
+    try {
+      final updatedUser = await _authController.updateProfile(
+        fullname: _nameController.text,
+        medicalLicense: _licenseController.text,
+        qualification: _qualController.text,
+        experience: _expController.text,
+        bio: _bioController.text,
+        patientsAttended: _patientsController.text,
+      );
+
+      if (mounted) {
+        Provider.of<AuthProvider>(context, listen: false).updateUser(updatedUser);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving profile: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Widget _buildProfileView(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     
@@ -357,55 +423,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         color: AppTheme.primaryColor,
                         shape: BoxShape.circle,
                       ),
-                      child: Text(
-                        user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'D', 
-                        style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white)
-                      ),
-                      alignment: Alignment.center,
-                    ),
-                    const SizedBox(width: 24),
-                    ElevatedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text('Change Photo'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.backgroundColor,
-                        foregroundColor: AppTheme.primaryColor,
-                        minimumSize: const Size(0, 48),
-                        elevation: 0,
+                      child: Center(
+                        child: Text(
+                          user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'D', 
+                          style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white)
+                        ),
                       ),
                     ),
+                    // const SizedBox(width: 24),
+                    // ElevatedButton.icon(
+                    //   onPressed: () {},
+                    //   icon: const Icon(Icons.upload_file),
+                    //   label: const Text('Change Photo'),
+                    //   style: ElevatedButton.styleFrom(
+                    //     backgroundColor: AppTheme.backgroundColor,
+                    //     foregroundColor: AppTheme.primaryColor,
+                    //     minimumSize: const Size(0, 48),
+                    //     elevation: 0,
+                    //   ),
+                    // ),
                   ],
                 ),
                 const SizedBox(height: 32),
                 
                 Row(
                   children: [
-                    Expanded(child: _buildProfileTextField('Full Name', user?.fullname ?? '', Icons.person_outline)),
+                    Expanded(child: _buildProfileTextField('Full Name', _nameController, Icons.person_outline)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildProfileTextField('Specialization', user?.specialization ?? 'General Physician', Icons.medical_services_outlined)),
+                    Expanded(child: _buildProfileTextField('Specialization', _specController, Icons.medical_services_outlined, isReadOnly: true)),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildProfileTextField('Email Address', user?.email ?? '', Icons.email_outlined)),
+                    Expanded(child: _buildProfileTextField('Email Address', _emailController, Icons.email_outlined, isReadOnly: true)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildProfileTextField('Medical License Number', user?.medicalLicense ?? '', Icons.badge_outlined)),
+                    Expanded(child: _buildProfileTextField('Medical License Number', _licenseController, Icons.badge_outlined)),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildProfileTextField('Qualification', user?.qualification ?? '', Icons.school_outlined)),
+                    Expanded(child: _buildProfileTextField('Qualification', _qualController, Icons.school_outlined)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildProfileTextField('Experience', user?.experience ?? '', Icons.work_outline)),
+                    Expanded(child: _buildProfileTextField('Experience', _expController, Icons.work_outline)),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildProfileTextField('Patients Attended', user?.numberPatientsAttended?.toString() ?? '0', Icons.people_outline, isNumeric: true)),
+                    Expanded(child: _buildProfileTextField('Patients Attended', _patientsController, Icons.people_outline, isNumeric: true)),
                     const SizedBox(width: 16),
                     const Spacer(),
                   ],
@@ -415,8 +482,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const Text('Bio / Professional Summary', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
                 const SizedBox(height: 8),
                 TextFormField(
-                  key: Key(user?.bio ?? 'bio_empty'),
-                  initialValue: user?.bio ?? '',
+                  controller: _bioController,
                   maxLines: 4,
                   decoration: InputDecoration(
                     hintText: 'Share a brief summary of your expertise...',
@@ -431,13 +497,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Profile changes synced to DB!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),
-                      );
-                    },
+                    onPressed: _isLoading ? null : _saveProfile,
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                    child: const Text('Save Profile Changes', style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                    child: _isLoading 
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Save Profile Changes', style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -448,19 +512,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildProfileTextField(String label, String value, IconData icon, {bool isNumeric = false}) {
+  Widget _buildProfileTextField(String label, TextEditingController controller, IconData icon, {bool isNumeric = false, bool isReadOnly = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
          Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
          const SizedBox(height: 8),
          TextFormField(
-            key: Key(value),
-            initialValue: value,
+            controller: controller,
             keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+            readOnly: isReadOnly,
             decoration: InputDecoration(
               prefixIcon: Icon(icon, size: 20),
-              fillColor: AppTheme.backgroundColor,
+              fillColor: isReadOnly ? AppTheme.backgroundColor.withOpacity(0.5) : AppTheme.backgroundColor,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             ),

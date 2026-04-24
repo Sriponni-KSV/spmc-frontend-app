@@ -69,6 +69,10 @@ class UserModel {
       specialization: json['specialization'],
       staffUniqueId: json['staff_unique_id'],
       token: json['token'],
+      experience: json['experience'],
+      numberPatientsAttended: json['patients_attended'] != null ? (json['patients_attended'] is int ? json['patients_attended'] : int.tryParse(json['patients_attended'].toString())) : null,
+      qualification: json['qualification'],
+      bio: json['bio'],
       permissions: perms,
       permissionDisplayMap: displays,
     );
@@ -85,6 +89,10 @@ class UserModel {
     String? specialization,
     String? staffUniqueId,
     String? token,
+    String? experience,
+    int? numberPatientsAttended,
+    String? qualification,
+    String? bio,
     List<String>? permissions,
     Map<String, String>? permissionDisplayMap,
   }) {
@@ -99,6 +107,10 @@ class UserModel {
       specialization: specialization ?? this.specialization,
       staffUniqueId: staffUniqueId ?? this.staffUniqueId,
       token: token ?? this.token,
+      experience: experience ?? this.experience,
+      numberPatientsAttended: numberPatientsAttended ?? this.numberPatientsAttended,
+      qualification: qualification ?? this.qualification,
+      bio: bio ?? this.bio,
       permissions: permissions ?? this.permissions,
       permissionDisplayMap: permissionDisplayMap ?? this.permissionDisplayMap,
     );
