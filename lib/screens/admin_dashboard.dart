@@ -5,12 +5,16 @@ import '../utils/app_theme.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../controllers/admin_controller.dart';
-import '../widgets/nurse_widgets.dart';
+import '../widgets/nurse_widgets.dart' hide PatientModel;
 import 'login_page.dart';
 import 'package:http/http.dart' as http;  
 import 'dart:convert';                     
 import '../widgets/rbac_management.dart';
 import '../widgets/access_denied_widget.dart';
+import '../models/patient_model.dart';
+import '../controllers/patient_controller.dart';
+import 'new_patient_registration.dart';
+import 'patients_view.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -351,6 +355,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 2:
+        if (user?.hasPermission('view_patients') ?? false) {
+          return const AdminPatientManagementWrapper();
+        }
+        return const AccessDeniedWidget();
+      case 3:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return RbacManagementWidget(isMobile: isMobile);
         }
@@ -920,9 +929,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           // Navigation Items
           _buildSidebarItem(0, Icons.admin_panel_settings_outlined, 'Control Panel'),
           _buildSidebarItem(1, Icons.people_outline, 'Staff Management'),
-          _buildSidebarItem(2, Icons.security_outlined, 'Access Control'),
-          _buildSidebarItem(3, Icons.analytics_outlined, 'System Analytics'),
-          _buildSidebarItem(4, Icons.settings_outlined, 'Settings'),
+          _buildSidebarItem(2, Icons.sick_outlined, 'Patient Management'),
+          _buildSidebarItem(3, Icons.security_outlined, 'Access Control'),
+          _buildSidebarItem(4, Icons.analytics_outlined, 'System Analytics'),
+          _buildSidebarItem(5, Icons.settings_outlined, 'Settings'),
           
           const Spacer(),
           
@@ -1446,6 +1456,77 @@ final AdminController _adminController = AdminController();
               : const Text('Create Staff'),
         ),
       ],
+    );
+  }
+}
+
+class AdminPatientManagementWrapper extends StatefulWidget {
+  const AdminPatientManagementWrapper({Key? key}) : super(key: key);
+
+  @override
+  State<AdminPatientManagementWrapper> createState() => _AdminPatientManagementWrapperState();
+}
+
+class _AdminPatientManagementWrapperState extends State<AdminPatientManagementWrapper> {
+  List<PatientModel> _dbPatients = [];
+  bool _isLoading = false;
+  String? _error;
+  final PatientController _patientController = PatientController();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPatients();
+  }
+
+  Future<void> _fetchPatients() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final patients = await _patientController.fetchPatients();
+      if (mounted) setState(() => _dbPatients = patients);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PatientsView(
+      patients: _dbPatients,
+      isLoading: _isLoading,
+      error: _error,
+      onRefresh: _fetchPatients,
+      onRegisterPatient: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: const Text('Register Patient', style: TextStyle(color: Colors.black87)),
+                backgroundColor: Colors.white,
+                iconTheme: const IconThemeData(color: Colors.black87),
+                elevation: 1,
+              ),
+              body: NewPatientRegistrationView(
+                onBack: () {
+                  Navigator.pop(context);
+                  _fetchPatients();
+                },
+              ),
+            ),
+          ),
+        );
+      },
+      onBookAppointment: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Booking appointments from Admin Dashboard is currently not supported.')),
+        );
+      },
     );
   }
 }

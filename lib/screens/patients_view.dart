@@ -151,6 +151,7 @@ class _PatientsViewState extends State<PatientsView> {
     
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final user = auth.user;
+    final bool hideRecentAndQuick = ['Admin', 'Super Admin'].contains(user?.role);
 
     if (widget.error == 'Exception: Access Denied' || (user != null && !user.hasPermission('view_patients'))) {
       return const AccessDeniedWidget(
@@ -171,10 +172,12 @@ class _PatientsViewState extends State<PatientsView> {
               const SizedBox(height: 16),
               _buildFilterPanel(isMobile, isTablet),
             ],
-            const SizedBox(height: 24),
-            _buildRecentPatientsHeader(isMobile),
-            const SizedBox(height: 12),
-            _buildRecentPatientsRow(isMobile, isTablet),
+            if (!hideRecentAndQuick) ...[
+              const SizedBox(height: 24),
+              _buildRecentPatientsHeader(isMobile),
+              const SizedBox(height: 12),
+              _buildRecentPatientsRow(isMobile, isTablet),
+            ],
             const SizedBox(height: 24),
             _buildTableHeading(isMobile),
             const SizedBox(height: 12),
@@ -302,6 +305,7 @@ class _PatientsViewState extends State<PatientsView> {
 
   Widget _buildPatientsSearch(bool isMobile, bool isTablet) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final bool hideRecentAndQuick = ['Admin', 'Super Admin'].contains(user?.role);
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -353,7 +357,7 @@ class _PatientsViewState extends State<PatientsView> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              if (user?.hasPermission('add_patient') ?? false)
+              if (!hideRecentAndQuick && (user?.hasPermission('add_patient') ?? false))
                 SizedBox(
                   width: MediaQuery.of(context).size.width < 450 ? double.infinity : (MediaQuery.of(context).size.width - 34) / 2,
                   child: ElevatedButton.icon(
@@ -448,7 +452,7 @@ class _PatientsViewState extends State<PatientsView> {
                 ),
               ),
               const SizedBox(width: 12),
-              if (user?.hasPermission('add_patient') ?? false)
+              if (!hideRecentAndQuick && (user?.hasPermission('add_patient') ?? false))
                 ElevatedButton.icon(
                   onPressed: () => _showQuickRegisterDialog(context),
                   icon: const Icon(Icons.flash_on, size: 16),
@@ -529,7 +533,7 @@ class _PatientsViewState extends State<PatientsView> {
           ),
         ),
         const SizedBox(width: 16),
-        if (user?.hasPermission('add_patient') ?? false)
+        if (!hideRecentAndQuick && (user?.hasPermission('add_patient') ?? false))
           ElevatedButton.icon(
             onPressed: () => _showQuickRegisterDialog(context),
             icon: const Icon(Icons.flash_on, size: 18),
@@ -881,6 +885,13 @@ class _PatientsViewState extends State<PatientsView> {
                     ),
                   ),
                   StatusChip(status: 'Active'),
+                  if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('delete_patient') ?? false)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                      padding: const EdgeInsets.only(left: 8),
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _showDeletePatientConfirmation(patient),
+                    ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -930,20 +941,22 @@ class _PatientsViewState extends State<PatientsView> {
                       child: const Text('View Details', style: TextStyle(color: AppTheme.textPrimaryColor)),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: widget.onBookAppointment,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  if (!['Admin', 'Super Admin'].contains(Provider.of<AuthProvider>(context, listen: false).user?.role)) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: widget.onBookAppointment,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Book Appt.'),
                       ),
-                      child: const Text('Book Appt.'),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ],
@@ -1170,7 +1183,9 @@ class _PatientsViewState extends State<PatientsView> {
           ),
           Expanded(
             flex: 2,
-            child: Row(
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 4,
               children: [
                 _buildActionLabel(
                   Icons.visibility_outlined,
@@ -1178,18 +1193,82 @@ class _PatientsViewState extends State<PatientsView> {
                   isQuick ? const Color(0xFF805AD5) : const Color(0xFF3182CE),
                   onTap: () => setState(() => _selectedPatient = patient),
                 ),
-                const SizedBox(width: 12),
-                _buildActionLabel(
-                  Icons.calendar_month_outlined,
-                  'Book',
-                  const Color(0xFF38A169),
-                  onTap: widget.onBookAppointment,
-                ),
+                if (!['Admin', 'Super Admin'].contains(Provider.of<AuthProvider>(context, listen: false).user?.role))
+                  _buildActionLabel(
+                    Icons.calendar_month_outlined,
+                    'Book',
+                    const Color(0xFF38A169),
+                    onTap: widget.onBookAppointment,
+                  ),
+                if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('delete_patient') ?? false)
+                  _buildActionLabel(
+                    Icons.delete_outline,
+                    'Delete',
+                    Colors.redAccent,
+                    onTap: () => _showDeletePatientConfirmation(patient),
+                  ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  void _showDeletePatientConfirmation(PatientModel patient) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            title: const Text('Delete Patient', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: RichText(
+              text: TextSpan(
+                style: const TextStyle(color: Colors.black87, fontSize: 15),
+                children: [
+                  const TextSpan(text: 'Are you sure you want to delete '),
+                  TextSpan(text: patient.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const TextSpan(text: '? This action cannot be undone.'),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isDeleting ? null : () async {
+                  setDialogState(() => isDeleting = true);
+                  try {
+                    await PatientController().deletePatient(patient.id!);
+                    if (mounted) {
+                      Navigator.pop(ctx);
+                      widget.onRefresh?.call();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${patient.name} deleted.'), backgroundColor: Colors.green.shade600),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
+                      );
+                    }
+                  } finally {
+                    if (mounted) setDialogState(() => isDeleting = false);
+                  }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                child: isDeleting
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Delete'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
