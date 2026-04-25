@@ -10,6 +10,7 @@ import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
 import 'login_page.dart';
 import 'new_consultation.dart';
+import '../utils/logout_helper.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -564,10 +565,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
-                          onPressed: () {
-                            auth.logout();
-                             Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const LoginScreen()), (route) => false);
-                          },
+                          onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
                         ),
                       ],
                     );

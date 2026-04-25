@@ -15,6 +15,7 @@ import '../models/patient_model.dart';
 import '../controllers/patient_controller.dart';
 import 'new_patient_registration.dart';
 import 'patients_view.dart';
+import '../utils/logout_helper.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -962,14 +963,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
-                      onPressed: () {
-                        auth.logout();
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (context) => const LoginScreen()),
-                          (route) => false,
-                        );
-                      },
+                      onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
                     ),
                   ],
                 );

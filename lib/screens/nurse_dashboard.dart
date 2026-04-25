@@ -15,6 +15,7 @@ import 'doctors_view.dart';
 import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
+import '../utils/logout_helper.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
   const NurseDashboardScreen({Key? key}) : super(key: key);
@@ -438,16 +439,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                                 size: 18,
                                 color: AppTheme.textSecondaryColor,
                               ),
-                              onPressed: () {
-                                auth.logout();
-                                Navigator.pushAndRemoveUntil(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const LoginScreen(),
-                                  ),
-                                  (route) => false,
-                                );
-                              },
+                              onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
                             ),
                           ],
                         ),
