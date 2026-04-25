@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,9 @@ import '../controllers/appointment_controller.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/access_denied_widget.dart';
+import '../models/appointment_model.dart';
+import 'new_consultation.dart';
+import '../utils/date_formatter.dart';
 
 class PatientsView extends StatefulWidget {
   final List<PatientModel> patients;
@@ -1593,7 +1597,7 @@ class _PatientsViewState extends State<PatientsView> {
                                 _buildQuickFieldLabel('Date of Birth'),
                                 _buildQuickTextField(
                                   controller: dobCtrl,
-                                  hint: 'DD-MM-YYYY',
+                                  hint: 'dd/mm/yyyy',
                                   icon: Icons.calendar_today_outlined,
                                   readOnly: true,
                                   validator: (val) => val == null || val.isEmpty
@@ -1611,7 +1615,7 @@ class _PatientsViewState extends State<PatientsView> {
                                     if (pickedDate != null) {
                                       setState(() {
                                         dobCtrl.text = DateFormat(
-                                          'dd-MM-yyyy',
+                                          'dd/MM/yyyy',
                                         ).format(pickedDate);
                                       });
                                     }
@@ -1658,7 +1662,7 @@ class _PatientsViewState extends State<PatientsView> {
                                           ),
                                           _buildQuickTextField(
                                             controller: dobCtrl,
-                                            hint: 'DD-MM-YYYY',
+                                            hint: 'dd/mm/yyyy',
                                             icon: Icons.calendar_today_outlined,
                                             readOnly: true,
                                             validator: (val) =>
@@ -1681,7 +1685,7 @@ class _PatientsViewState extends State<PatientsView> {
                                               if (pickedDate != null) {
                                                 setState(() {
                                                   dobCtrl.text = DateFormat(
-                                                    'dd-MM-yyyy',
+                                                    'dd/MM/yyyy',
                                                   ).format(pickedDate);
                                                 });
                                               }
@@ -2150,7 +2154,7 @@ class _PatientsViewState extends State<PatientsView> {
                                                     try {
                                                       // Use DateFormat to parse precisely
                                                       final dob = DateFormat(
-                                                        'dd-MM-yyyy',
+                                                        'dd/MM/yyyy',
                                                       ).parse(dobCtrl.text);
                                                       final now =
                                                           DateTime.now();
@@ -2451,13 +2455,39 @@ class _PatientDetailViewState extends State<PatientDetailView>
   late TabController _tabController;
   final AppointmentController _appointmentController = AppointmentController();
   List<Map<String, dynamic>> _consultations = [];
+  List<AppointmentModel> _patientAppointments = [];
   bool _isLoadingConsultations = true;
+  bool _isLoadingAppointments = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _fetchConsultations();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    await Future.wait([
+      _fetchConsultations(),
+      _fetchPatientAppointments(),
+    ]);
+  }
+
+  Future<void> _fetchPatientAppointments() async {
+    if (widget.patient.id == null) return;
+    setState(() => _isLoadingAppointments = true);
+    try {
+      final appts = await _appointmentController.fetchAppointments();
+      if (mounted) {
+        setState(() {
+          _patientAppointments = appts.where((a) => a.patientId == widget.patient.id).toList();
+          _isLoadingAppointments = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching patient appointments: $e');
+      if (mounted) setState(() => _isLoadingAppointments = false);
+    }
   }
 
   Future<void> _fetchConsultations() async {
@@ -2551,9 +2581,63 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
             // Tabs Section
             _buildTabsSection(p, isMobile),
+            
+            // Start Consultation Button (Only for Doctors with pending appts)
+            _buildStartConsultationButton(isMobile),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStartConsultationButton(bool isMobile) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user?.role.toLowerCase() != 'doctor') return const SizedBox.shrink();
+
+    // Find a confirmed appointment for today or pending consultation
+    final pendingAppt = _patientAppointments.firstWhere(
+      (a) => a.status == 'Confirmed' || a.status == 'Pending',
+      orElse: () => AppointmentModel(
+        patientId: 0, patientName: '', department: '', doctorName: '', 
+        appointmentDate: '', appointmentTime: '', status: ''
+      ),
+    );
+
+    if (pendingAppt.patientId == 0) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 24),
+      height: 52,
+      child: ElevatedButton.icon(
+        onPressed: () {
+           _showConsultationDialog(pendingAppt);
+        },
+        icon: const Icon(Icons.medical_services_outlined, color: Colors.white),
+        label: const Text('Start New Consultation', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF38A169),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  void _showConsultationDialog(AppointmentModel appt) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      pageBuilder: (context, anim1, anim2) {
+        return Scaffold(
+          body: NewConsultationView(
+            appointment: appt,
+            onBack: () {
+              Navigator.pop(context);
+              _fetchData(); // REFRESH DATA when coming back
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -3242,40 +3326,90 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
   Widget _buildVisitsTimelineTab(PatientModel p) {
     if (_isLoadingConsultations) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_consultations.isEmpty)
-            _buildTimelineItem(
-              date: p.dob.isNotEmpty ? 'Registration Visit' : 'Initial Visit',
-              time: p.dob.isNotEmpty ? p.dob : '—',
-              dept: p.department,
-              description: p.complaints.isNotEmpty
-                  ? p.complaints
-                  : 'General consultation',
-              isFirst: true,
-            )
-          else
-            ..._consultations.asMap().entries.map((entry) {
-              final index = entry.key;
-              final c = entry.value;
-              final meds = (c['medications'] as List?)?.map((m) => '${m['name']} (${m['dosage']})').join(', ') ?? 'No medications';
-              
-              return _buildTimelineItem(
-                date: c['appointment_date'] ?? 'Consultation',
-                time: c['appointment_time'] ?? '—',
-                dept: c['department'] ?? 'General',
-                description: 'Symptoms: ${c['symptoms'] ?? 'None'}\nDiagnosis: ${c['diagnosis'] ?? 'None'}\nMeds: $meds',
-                isFirst: index == 0,
-              );
-            }).toList(),
-        ],
-      ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${_consultations.length + 1} Total Records',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor, fontSize: 13),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 20, color: AppTheme.primaryColor),
+                onPressed: _fetchData,
+                tooltip: 'Refresh Timeline',
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Consultations
+                ..._consultations.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final c = entry.value;
+                  
+                  // Safe parsing of medications
+                  List medsList = [];
+                  if (c['medications'] != null) {
+                    if (c['medications'] is String) {
+                      try {
+                        medsList = jsonDecode(c['medications']);
+                      } catch (e) {
+                        medsList = [];
+                      }
+                    } else if (c['medications'] is List) {
+                      medsList = c['medications'];
+                    }
+                  }
+                  
+                  final meds = medsList.isNotEmpty 
+                      ? medsList.map((m) => '${m['name']} (${m['dosage']})').join(', ') 
+                      : 'No medications';
+                  
+                  final doctor = c['doctor_name'] ?? 'Doctor';
+                  final symptoms = c['symptoms'] ?? 'None';
+                  final diagnosis = c['diagnosis'] ?? 'None';
+                  
+                  return _buildTimelineItem(
+                    date: c['appointment_date'] ?? 'Consultation',
+                    time: c['appointment_time'] ?? '—',
+                    dept: c['department'] ?? 'General',
+                    doctor: doctor,
+                    complaint: symptoms,
+                    diagnosis: diagnosis,
+                    prescription: meds,
+                    isFirst: index == 0,
+                  );
+                }).toList(),
+                
+                // Registration Visit (Always show at the end)
+                _buildTimelineItem(
+                  date: p.createdAt ?? 'Registration Visit',
+                  time: 'Initial Entry',
+                  dept: p.department,
+                  doctor: 'Staff',
+                  complaint: p.complaints.isNotEmpty ? p.complaints : 'Initial registration',
+                  diagnosis: 'General Health Check',
+                  prescription: 'N/A',
+                  isFirst: _consultations.isEmpty,
+                  isLast: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -3283,33 +3417,52 @@ class _PatientDetailViewState extends State<PatientDetailView>
     required String date,
     required String time,
     required String dept,
-    required String description,
+    String? doctor,
+    String? complaint,
+    String? diagnosis,
+    String? prescription,
     bool isFirst = false,
+    bool isLast = false,
   }) {
+    String formattedDate = date;
+    final dt = DateFormatter.toDateTime(date);
+    if (dt != null) {
+      formattedDate = DateFormat('MMM dd, yyyy').format(dt);
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Column(
           children: [
+            const SizedBox(height: 5),
             Container(
               width: 12,
               height: 12,
               decoration: BoxDecoration(
                 color: isFirst ? AppTheme.primaryColor : AppTheme.borderColor,
                 shape: BoxShape.circle,
+                border: isFirst ? Border.all(color: Colors.white, width: 2) : null,
+                boxShadow: isFirst ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 4, spreadRadius: 1)] : null,
               ),
             ),
-            Container(width: 2, height: 80, color: AppTheme.borderColor),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 250,
+                color: AppTheme.borderColor.withOpacity(0.3),
+              ),
           ],
         ),
         const SizedBox(width: 16),
         Expanded(
           child: Container(
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(20),
+            margin: const EdgeInsets.only(bottom: 24),
             decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-              borderRadius: BorderRadius.circular(10),
+              color: const Color(0xFFF8FAFC),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3317,57 +3470,79 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Text(
-                        date,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          formattedDate,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Color(0xFF1E293B),
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        Text(
+                          time,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      time,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.primaryColor,
-                        fontWeight: FontWeight.w600,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEBF8FF),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        dept,
+                        style: const TextStyle(
+                          color: Color(0xFF3182CE),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.backgroundColor,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    dept,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                ),
+                const SizedBox(height: 20),
+                _buildTimelineDetail('Doctor', doctor ?? 'Not specified'),
+                const SizedBox(height: 12),
+                _buildTimelineDetail('Complaint', complaint ?? 'None'),
+                const SizedBox(height: 12),
+                _buildTimelineDetail('Diagnosis', diagnosis ?? 'None'),
+                const SizedBox(height: 12),
+                _buildTimelineDetail('Prescription', prescription ?? 'None'),
               ],
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimelineDetail(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: Color(0xFF334155),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Color(0xFF475569),
+            height: 1.4,
           ),
         ),
       ],

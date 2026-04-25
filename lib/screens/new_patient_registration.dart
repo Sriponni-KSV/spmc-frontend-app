@@ -333,7 +333,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                       _buildLabel('Date of Birth *'),
                       _buildTextField(
                         controller: _dobController,
-                        hint: 'dd-mm-yyyy',
+                        hint: 'dd/mm/yyyy',
                         icon: Icons.calendar_today_outlined,
                         onTap: () => _selectDate(context),
                         readOnly: true,
@@ -1611,7 +1611,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     );
     if (picked != null) {
       setState(() {
-        _dobController.text = DateFormat('dd-MM-yyyy').format(picked);
+        _dobController.text = DateFormat('dd/MM/yyyy').format(picked);
         
         // Accurate age calculation including month/day check
         final now = DateTime.now();

@@ -117,7 +117,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           : dateStr;
       DateTime? dt;
       try {
-        dt = DateFormat('dd-MM-yyyy').parse(cleanDate);
+        dt = DateFormat('dd/MM/yyyy').parse(cleanDate);
       } catch (_) {
         try {
           dt = DateFormat('yyyy-MM-dd').parse(cleanDate);
@@ -125,7 +125,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       }
       
       if (dt == null) return dateStr;
-      return DateFormat('dd-MM-yyyy').format(dt);
+      return DateFormat('dd/MM/yyyy').format(dt);
     } catch (e) {
       return dateStr;
     }
@@ -569,14 +569,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             setState(() {
                               _bookingDate = picked;
                               _dateController.text = DateFormat(
-                                'dd-MM-yyyy',
+                                'dd/MM/yyyy',
                               ).format(picked);
                               _selectedTime = null; // Reset time
                             });
                           }
                         },
                         decoration: InputDecoration(
-                          hintText: 'dd-mm-yyyy',
+                          hintText: 'dd/mm/yyyy',
                           filled: true,
                           fillColor: Colors.white,
                           prefixIcon: const Icon(
@@ -751,7 +751,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     department: _selectedDept!,
                                     doctorName: _selectedDoctor!.fullname,
                                     appointmentDate: DateFormat(
-                                      'dd-MM-yyyy',
+                                      'dd/MM/yyyy',
                                     ).format(_bookingDate!),
                                     appointmentTime: _selectedTime!,
                                     appointmentType: _selectedApptType,
@@ -1143,14 +1143,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   setState(() {
                                     _bookingDate = picked;
                                     _dateController.text = DateFormat(
-                                      'dd-MM-yyyy',
+                                      'dd/MM/yyyy',
                                     ).format(picked);
                                     _selectedTime = null; // Reset time
                                   });
                                 }
                               },
                               decoration: InputDecoration(
-                                hintText: 'dd-mm-yyyy',
+                                hintText: 'dd/mm/yyyy',
                                 filled: true,
                                 fillColor: Colors.white,
                                 prefixIcon: const Icon(
@@ -1355,7 +1355,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                           department: _selectedDept!,
                                           doctorName: _selectedDoctor!.fullname,
                                           appointmentDate: DateFormat(
-                                            'dd-MM-yyyy',
+                                            'dd/MM/yyyy',
                                           ).format(_bookingDate!),
                                           appointmentTime: _selectedTime!,
                                           appointmentType: _selectedApptType,
@@ -1737,7 +1737,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
   Widget _buildStatCards(bool isMobile) {
     DateTime displayDate = _filterDate ?? DateTime.now();
-    String dateStr1 = DateFormat('dd-MM-yyyy').format(displayDate);
+    String dateStr1 = DateFormat('dd/MM/yyyy').format(displayDate);
     String dateStr2 = DateFormat('yyyy-MM-dd').format(displayDate);
 
     // Filter appointments for the selected/today date
@@ -1928,7 +1928,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       child: Text(
                         _filterDate == null
                             ? 'Select Date'
-                            : DateFormat('dd-MM-yyyy').format(_filterDate!),
+                            : DateFormat('dd/MM/yyyy').format(_filterDate!),
                         style: const TextStyle(fontSize: 14),
                       ),
                     ),
@@ -2005,7 +2005,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   child: Text(
                     _filterDate == null
                         ? 'Select Date'
-                        : DateFormat('dd-MM-yyyy').format(_filterDate!),
+                        : DateFormat('dd/MM/yyyy').format(_filterDate!),
                     style: const TextStyle(fontSize: 14),
                   ),
                 ),
@@ -2033,7 +2033,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           apptDate = apptDate.split('T')[0];
         }
         String filterFormat1 = DateFormat('yyyy-MM-dd').format(_filterDate!);
-        String filterFormat2 = DateFormat('dd-MM-yyyy').format(_filterDate!);
+        String filterFormat2 = DateFormat('dd/MM/yyyy').format(_filterDate!);
         if (apptDate != filterFormat1 && apptDate != filterFormat2) {
           return false;
         }

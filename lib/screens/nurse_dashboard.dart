@@ -646,7 +646,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   Widget _buildStatsRow(bool isMobile) {
     final int totalPatients = _dbPatients.length;
-    final String today = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    final String today = DateFormat('dd/MM/yyyy').format(DateTime.now());
     final int todaysApptsCount = _dbAppointments
         .where(
           (a) =>
@@ -1079,7 +1079,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           else
             () {
               final String today = DateFormat(
-                'dd-MM-yyyy',
+                'dd/MM/yyyy',
               ).format(DateTime.now());
               final List<AppointmentModel> todaysAppts = _dbAppointments
                   .where(

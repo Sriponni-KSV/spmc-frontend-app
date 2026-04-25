@@ -7,11 +7,12 @@ import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../controllers/auth_controller.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import '../widgets/nurse_widgets.dart';
+import '../widgets/nurse_widgets.dart' hide PatientModel;
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
 import 'login_page.dart';
 import 'new_consultation.dart';
+import '../utils/date_formatter.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -31,7 +32,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final FocusNode _mainFocusNode = FocusNode();
   AppointmentModel? _activeAppointment;
   final AuthController _authController = AuthController();
-  
   // Profile Controllers
   late TextEditingController _nameController;
   late TextEditingController _specController;
@@ -287,7 +287,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             const Icon(Icons.calendar_today, size: 12, color: AppTheme.textSecondaryColor),
                             const SizedBox(width: 4),
-                            Text('${c['appointment_date']} at ${c['appointment_time']}', style: const TextStyle(fontSize: 12)),
+                            Text('${DateFormatter.toUi(c['appointment_date'])} at ${c['appointment_time']}', style: const TextStyle(fontSize: 12)),
                             const SizedBox(width: 16),
                             const Icon(Icons.medical_services_outlined, size: 12, color: AppTheme.textSecondaryColor),
                             const SizedBox(width: 4),
@@ -756,7 +756,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         const SizedBox(height: 4),
-        const Text('Here\'s a quick look at your patient appointments today.', 
+        const Text('Here\'s a quick look at your scheduled appointments today.', 
           style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14)),
       ],
     );
@@ -765,7 +765,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildStatsRow(bool isMobile) {
     // Calculate real stats
     final now = DateTime.now();
-    final todayStr = DateFormat('dd-MM-yyyy').format(now);
+    final todayStr = DateFormat('dd/MM/yyyy').format(now);
     
     final int todayCount = _doctorAppointments.where((a) => a.appointmentDate == todayStr).length;
     final int confirmedCount = _doctorAppointments.where((a) => a.status == 'Confirmed').length;
@@ -776,8 +776,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         spacing: 16,
         runSpacing: 16,
         children: [
-          _buildStatCard('Total Patients', totalPatients.toString(), 'All time', Icons.people_outline, Colors.blue, isMobile),
-          _buildStatCard('Today\'s Appointments', todayCount.toString(), 'Scheduled', Icons.calendar_today_outlined, Colors.indigo, isMobile),
+          _buildStatCard('Total Appointments', totalPatients.toString(), 'All time', Icons.calendar_today_outlined, Colors.blue, isMobile),
+          _buildStatCard('Today\'s Appointments', todayCount.toString(), 'Scheduled', Icons.calendar_month_outlined, Colors.indigo, isMobile),
           _buildStatCard('Confirmed Cases', confirmedCount.toString(), 'Ready', Icons.check_circle_outline, Colors.green, isMobile),
           _buildStatCard('Average Rating', '4.9', 'Excellent', Icons.star_outline, Colors.orange, isMobile),
         ],
@@ -785,9 +785,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
     return Row(
       children: [
-        Expanded(child: _buildStatCard('Total Patients', totalPatients.toString(), 'All time', Icons.people_outline, Colors.blue, isMobile)),
+        Expanded(child: _buildStatCard('Total Appointments', totalPatients.toString(), 'All time', Icons.calendar_today_outlined, Colors.blue, isMobile)),
         const SizedBox(width: 16),
-        Expanded(child: _buildStatCard('Today\'s Appointments', todayCount.toString(), 'Scheduled', Icons.calendar_today_outlined, Colors.indigo, isMobile)),
+        Expanded(child: _buildStatCard('Today\'s Appointments', todayCount.toString(), 'Scheduled', Icons.calendar_month_outlined, Colors.indigo, isMobile)),
         const SizedBox(width: 16),
         Expanded(child: _buildStatCard('Confirmed Cases', confirmedCount.toString(), 'Ready', Icons.check_circle_outline, Colors.green, isMobile)),
         const SizedBox(width: 16),
@@ -813,7 +813,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (a.status != 'Confirmed' && a.status != 'Completed') return false;
       if (_selectedDate == null) return true;
       
-      final String todayStr = DateFormat('dd-MM-yyyy').format(_selectedDate!);
+      final String todayStr = DateFormat('dd/MM/yyyy').format(_selectedDate!);
       return a.appointmentDate == todayStr;
     }).toList();
 
@@ -878,7 +878,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             const Icon(Icons.calendar_today, size: 14, color: AppTheme.primaryColor),
                             const SizedBox(width: 8),
                             Text(
-                              _selectedDate == null ? 'Filter Date' : DateFormat('dd-MM-yyyy').format(_selectedDate!),
+                              _selectedDate == null ? 'Filter Date' : DateFormat('dd/MM/yyyy').format(_selectedDate!),
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                             if (_selectedDate != null) ...[
