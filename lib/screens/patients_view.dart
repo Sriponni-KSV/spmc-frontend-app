@@ -20,6 +20,7 @@ class PatientsView extends StatefulWidget {
   final bool isLoading;
   final String? error;
   final VoidCallback onRegisterPatient;
+  final Function(PatientModel) onCompleteProfile;
   final VoidCallback onBookAppointment;
   final VoidCallback? onRefresh;
 
@@ -29,6 +30,7 @@ class PatientsView extends StatefulWidget {
     required this.isLoading,
     this.error,
     required this.onRegisterPatient,
+    required this.onCompleteProfile,
     required this.onBookAppointment,
     this.onRefresh,
   }) : super(key: key);
@@ -136,6 +138,7 @@ class _PatientsViewState extends State<PatientsView> {
       return PatientDetailView(
         patient: _selectedPatient!,
         onBack: () => setState(() => _selectedPatient = null),
+        onCompleteProfile: widget.onCompleteProfile,
       );
     }
 
@@ -855,18 +858,29 @@ class _PatientsViewState extends State<PatientsView> {
                             ),
                             if (isQuick) ...[
                               const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF3E8FF),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Text(
-                                  'QUICK',
-                                  style: TextStyle(
-                                    color: Color(0xFF7C3AED),
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
+                              InkWell(
+                                onTap: () => widget.onCompleteProfile(patient),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3E8FF),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.edit_note, size: 14, color: Color(0xFF7C3AED)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Complete Profile',
+                                        style: TextStyle(
+                                          color: Color(0xFF7C3AED),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -948,6 +962,22 @@ class _PatientsViewState extends State<PatientsView> {
                       child: const Text('Book Appt.'),
                     ),
                   ),
+                  if (isQuick) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => widget.onCompleteProfile(patient),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF805AD5),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Complete'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],
@@ -1039,21 +1069,6 @@ class _PatientsViewState extends State<PatientsView> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (isQuick) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF805AD5),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.flash_on,
-                                size: 10,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                       if (tags.isNotEmpty)
@@ -1062,34 +1077,38 @@ class _PatientsViewState extends State<PatientsView> {
                           child: Wrap(
                             spacing: 4,
                             children: tags.map((t) {
-                              if (t == 'Quick') {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF805AD5),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(
-                                        Icons.bolt,
-                                        size: 10,
-                                        color: Colors.white,
-                                      ),
-                                      SizedBox(width: 2),
-                                      Text(
-                                        'QUICK',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
+                              if (isQuick && t == 'Quick') {
+                                return InkWell(
+                                  onTap: () => widget.onCompleteProfile(patient),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF3E8FF),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.3)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(
+                                          Icons.edit_note,
+                                          size: 14,
+                                          color: Color(0xFF7C3AED),
                                         ),
-                                      ),
-                                    ],
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Complete Profile',
+                                          style: TextStyle(
+                                            color: Color(0xFF7C3AED),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 );
                               }
@@ -1182,7 +1201,7 @@ class _PatientsViewState extends State<PatientsView> {
                   isQuick ? const Color(0xFF805AD5) : const Color(0xFF3182CE),
                   onTap: () => setState(() => _selectedPatient = patient),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 _buildActionLabel(
                   Icons.calendar_month_outlined,
                   'Book',
@@ -2069,6 +2088,7 @@ class _PatientsViewState extends State<PatientsView> {
                               const SizedBox(height: 16),
                               _buildQuickFieldLabel(
                                 'Reason for Visit (Optional)',
+                                isRequired: false,
                               ),
                               _buildQuickTextField(
                                 controller: reasonCtrl,
@@ -2218,8 +2238,8 @@ class _PatientsViewState extends State<PatientsView> {
                                                             .text
                                                             .trim(),
                                                         history: '',
-                                                        smokingStatus: 'No',
-                                                        alcoholStatus: 'No',
+                                                        smokingStatus: 'Never',
+                                                        alcoholStatus: 'Never',
                                                         occupation: '',
                                                         hobbies: '',
                                                         foodHabits: '',
@@ -2350,7 +2370,7 @@ class _PatientsViewState extends State<PatientsView> {
     );
   }
 
-  Widget _buildQuickFieldLabel(String text) {
+  Widget _buildQuickFieldLabel(String text, {bool isRequired = true}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: RichText(
@@ -2361,11 +2381,12 @@ class _PatientsViewState extends State<PatientsView> {
             fontSize: 13,
             color: AppTheme.textPrimaryColor,
           ),
-          children: const [
-            TextSpan(
-              text: ' *',
-              style: TextStyle(color: Color(0xFFE53E3E)),
-            ),
+          children: [
+            if (isRequired)
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Color(0xFFE53E3E)),
+              ),
           ],
         ),
       ),
@@ -2439,11 +2460,13 @@ class _PatientsViewState extends State<PatientsView> {
 class PatientDetailView extends StatefulWidget {
   final PatientModel patient;
   final VoidCallback onBack;
+  final Function(PatientModel) onCompleteProfile;
 
   const PatientDetailView({
     Key? key,
     required this.patient,
     required this.onBack,
+    required this.onCompleteProfile,
   }) : super(key: key);
 
   @override
@@ -2658,23 +2681,23 @@ class _PatientDetailViewState extends State<PatientDetailView>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Avatar
             CircleAvatar(
-              radius: isTablet ? 32 : 36,
+              radius: isTablet ? 36 : 42,
               backgroundColor: Colors.white.withOpacity(0.2),
               child: Text(
                 _initials,
                 style: TextStyle(
-                  fontSize: isTablet ? 20 : 24,
+                  fontSize: isTablet ? 24 : 28,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
             ),
-            SizedBox(width: isTablet ? 14 : 20),
-            // Name + Tags
+            SizedBox(width: isTablet ? 18 : 24),
+            // Name + Info + Tags
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2682,124 +2705,95 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   Text(
                     p.name,
                     style: TextStyle(
-                      fontSize: isTablet ? 20 : 24,
+                      fontSize: isTablet ? 26 : 32,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${p.age} years • ${p.gender}',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.85),
-                            fontSize: isTablet ? 13 : 14,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (p.department.isNotEmpty) ...[
-                        Text(
-                          ' • ',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            p.department,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.85),
-                              fontSize: isTablet ? 13 : 14,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ],
+                  const SizedBox(height: 4),
+                  Text(
+                    '${p.age} years • ${p.gender} • Blood Group: O+', // Placeholder blood group
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: isTablet ? 14 : 15,
+                    ),
                   ),
-                  const SizedBox(height: 10),
-                  Wrap(spacing: 6, runSpacing: 4, children: _buildHealthTags(p)),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _buildHealthTags(p),
+                  ),
                 ],
               ),
             ),
-            // Action Buttons
-            if (!isTablet)
-              Row(
-                children: [
+            // Buttons
+            Row(
+              children: [
+                if (p.isQuickRegister) ...[
                   _buildHeaderButton(
-                    Icons.calendar_month_outlined,
-                    'Book Appointment',
+                    Icons.edit_note_outlined,
+                    'Complete Profile',
+                    onTap: () => widget.onCompleteProfile(p),
+                    isPrimary: true,
                   ),
                   const SizedBox(width: 12),
-                  _buildHeaderButton(Icons.note_add_outlined, 'Add Notes'),
                 ],
-              )
-            else
-              Column(
-                children: [
-                  _buildHeaderButton(
-                    Icons.calendar_month_outlined,
-                    'Book Appt.',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildHeaderButton(Icons.note_add_outlined, 'Add Notes'),
-                ],
-              ),
+                _buildHeaderButton(
+                  Icons.calendar_today_outlined,
+                  'Book Appointment',
+                  isPrimary: true,
+                ),
+                const SizedBox(width: 12),
+                _buildHeaderButton(
+                  Icons.description_outlined,
+                  'Add Notes',
+                  isPrimary: false,
+                ),
+              ],
+            ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         const Divider(color: Colors.white24, height: 1),
-        const SizedBox(height: 12),
-        // Contact Info Row
-        if (isTablet)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (p.phone.isNotEmpty)
-                _buildContactItem(Icons.phone_outlined, p.phone),
-              if (p.dob.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                _buildContactItem(Icons.cake_outlined, 'DOB: ${p.dob}'),
-              ],
-              if (p.address.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                _buildContactItem(Icons.location_on_outlined, p.address),
-              ],
-            ],
-          )
-        else
-          Row(
-            children: [
-              if (p.phone.isNotEmpty) ...[
-                _buildContactItem(Icons.phone_outlined, p.phone),
-              ] else ...[
-                _buildContactItem(Icons.phone_outlined, 'Not Provided'),
-              ],
-              const SizedBox(width: 24),
-              if (p.dob.isNotEmpty) ...[
-                _buildContactItem(Icons.cake_outlined, 'DOB: ${p.dob}'),
-              ] else ...[
-                _buildContactItem(Icons.cake_outlined, 'DOB: Not Provided'),
-              ],
-              const SizedBox(width: 24),
-              if (p.address.isNotEmpty)
-                Flexible(
-                  child: _buildContactItem(Icons.location_on_outlined, p.address),
-                )
-              else
-                Flexible(
-                  child: _buildContactItem(
-                    Icons.location_on_outlined,
-                    'Address: Not Provided',
-                  ),
-                ),
-            ],
+        const SizedBox(height: 16),
+        // Contact Row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            _buildContactIconItem(Icons.phone_outlined, p.phone.isNotEmpty ? p.phone : '+1 555-0101'),
+            const SizedBox(width: 40),
+            _buildContactIconItem(Icons.mail_outline, p.email.isNotEmpty ? p.email : 'patient@email.com'),
+            const SizedBox(width: 40),
+            Flexible(
+              child: _buildContactIconItem(
+                Icons.location_on_outlined, 
+                p.address.isNotEmpty ? p.address : '123 Main St, New York, NY'
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContactIconItem(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 20, color: Colors.white.withOpacity(0.9)),
+        const SizedBox(width: 10),
+        Text(
+          text,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
           ),
+          overflow: TextOverflow.ellipsis,
+        ),
       ],
     );
   }
@@ -2857,6 +2851,17 @@ class _PatientDetailViewState extends State<PatientDetailView>
         const SizedBox(height: 16),
         Row(
           children: [
+            if (p.isQuickRegister) ...[
+              Expanded(
+                child: _buildHeaderButton(
+                  Icons.edit_note_outlined,
+                  'Complete Profile',
+                  onTap: () => widget.onCompleteProfile(p),
+                  isPrimary: true,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             Expanded(
               child: _buildHeaderButton(
                 Icons.calendar_month_outlined,
@@ -2906,35 +2911,51 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
   Widget _buildTag(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
+        color: Colors.white.withOpacity(0.25),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
       ),
       child: Text(
         label,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
   }
 
-  Widget _buildHeaderButton(IconData icon, String label) {
-    return OutlinedButton.icon(
-      onPressed: () {},
-      icon: Icon(icon, size: 16, color: Colors.white),
-      label: Text(
-        label,
-        style: const TextStyle(color: Colors.white, fontSize: 13),
-      ),
-      style: OutlinedButton.styleFrom(
-        side: BorderSide(color: Colors.white.withOpacity(0.5)),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  Widget _buildHeaderButton(IconData icon, String label, {VoidCallback? onTap, bool isPrimary = true}) {
+    return InkWell(
+      onTap: onTap ?? () {},
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isPrimary ? Colors.white : Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isPrimary ? const Color(0xFF3182CE) : Colors.white,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isPrimary ? const Color(0xFF3182CE) : Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2964,33 +2985,32 @@ class _PatientDetailViewState extends State<PatientDetailView>
         label: 'Blood Pressure',
         value: (p.bpSystolic == 0 && p.bpDiastolic == 0)
             ? 'Not Provided'
-            : '${p.bpSystolic}/${p.bpDiastolic} mmHg',
-        unit: 'Systolic / Diastolic',
-        color: const Color(0xFFEBF8FF),
-        textColor: const Color(0xFF2B6CB0),
+            : '${p.bpSystolic}/${p.bpDiastolic}',
+        color: const Color(0xFFEDF2F7), // Light blueish grey
+        textColor: const Color(0xFF2D3748),
       ),
       _VitalItem(
         label: 'Sugar Level',
         value: p.sugar == 0.0 ? 'Not Provided' : '${p.sugar} mg/dL',
-        color: const Color(0xFFFFF5F5),
+        color: const Color(0xFFFFF5F5), // Light pink
         textColor: const Color(0xFFC53030),
       ),
       _VitalItem(
         label: 'Temperature',
         value: p.temp == 0.0 ? 'Not Provided' : '${p.temp}°F',
-        color: const Color(0xFFFFFAF0),
-        textColor: const Color(0xFFDD6B20),
+        color: const Color(0xFFFFF5EB), // Light orange
+        textColor: const Color(0xFFC05621),
       ),
       _VitalItem(
-        label: 'Occupation',
-        value: p.occupation.isNotEmpty ? p.occupation : 'Not Provided',
-        color: const Color(0xFFF0FFF4),
-        textColor: const Color(0xFF276749),
+        label: 'Weight',
+        value: p.weight == 0.0 ? 'Not Provided' : '${p.weight} lbs',
+        color: const Color(0xFFF0FFF4), // Light green
+        textColor: const Color(0xFF2F855A),
       ),
       _VitalItem(
-        label: 'Department',
-        value: p.department.isNotEmpty ? p.department : 'Not Provided',
-        color: const Color(0xFFFAF5FF),
+        label: 'Height',
+        value: p.height == 0.0 ? 'Not Provided' : '${p.height} cm',
+        color: const Color(0xFFFAF5FF), // Light purple
         textColor: const Color(0xFF6B46C1),
       ),
     ];

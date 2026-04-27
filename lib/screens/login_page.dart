@@ -237,6 +237,7 @@ class _LoginScreenState extends State<LoginScreen> {
           label: 'Email Address',
           hint: 'name@example.com',
           icon: Icons.email_outlined,
+          onSubmitted: (_) => _handleLogin(),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'Please enter your email address';
@@ -262,6 +263,7 @@ class _LoginScreenState extends State<LoginScreen> {
               _obscurePassword = !_obscurePassword;
             });
           },
+          onSubmitted: (_) => _handleLogin(),
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter your password';
@@ -333,6 +335,7 @@ class _LoginScreenState extends State<LoginScreen> {
     bool obscureText = false,
     VoidCallback? onToggleVisibility,
     String? Function(String?)? validator,
+    void Function(String)? onSubmitted,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,6 +348,7 @@ class _LoginScreenState extends State<LoginScreen> {
         TextFormField(
           controller: controller,
           obscureText: obscureText,
+          onFieldSubmitted: onSubmitted,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           style: Theme.of(context).textTheme.bodyLarge,
           validator: validator,
