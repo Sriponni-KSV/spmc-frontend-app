@@ -925,15 +925,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          const SizedBox(height: 48),
           
           // Navigation Items
           _buildSidebarItem(0, Icons.admin_panel_settings_outlined, 'Control Panel'),
           _buildSidebarItem(1, Icons.people_outline, 'Staff Management'),
           _buildSidebarItem(2, Icons.sick_outlined, 'Patient Management'),
           _buildSidebarItem(3, Icons.security_outlined, 'Access Control'),
-          _buildSidebarItem(4, Icons.analytics_outlined, 'System Analytics'),
-          _buildSidebarItem(5, Icons.settings_outlined, 'Settings'),
           
           const Spacer(),
           
