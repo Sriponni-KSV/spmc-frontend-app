@@ -98,7 +98,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             .map((e) => e['name'].toString())
             .where((name) => activeDoctorSpecializations.contains(name))
             .toList();
-        _availableSlots = _generateAllTimeSlots();
+        _availableSlots = [];
         _isLoadingData = false;
       });
     } catch (e) {
@@ -146,14 +146,50 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   // Dynamic Time Slots Generator
   List<String> _generateAllTimeSlots() {
     List<String> slots = [];
-
+    // Fallback default slots if no doctor is selected or profile is incomplete
     // Morning Session: 09:00 AM - 01:00 PM
-    slots.addAll(_generateSlotsForSession(9, 0, 13, 0));
-
+    slots.addAll(_generateSlotsForSession(9, 0, 13, 0, 30));
     // Afternoon Session: 02:00 PM - 05:00 PM
-    slots.addAll(_generateSlotsForSession(14, 0, 17, 0));
-
+    slots.addAll(_generateSlotsForSession(14, 0, 17, 0, 30));
     return slots;
+  }
+
+  List<String> _generateSlotsForDoctor(UserModel doctor) {
+    if (doctor.slotStartTime == null || doctor.slotEndTime == null) {
+      return _generateAllTimeSlots();
+    }
+
+    int duration = _intervalMinutes;
+    if (doctor.slotDuration != null) {
+      duration = int.tryParse(doctor.slotDuration!.split(' ')[0]) ?? _intervalMinutes;
+    }
+
+    try {
+      DateTime start = _parseTime(doctor.slotStartTime!);
+      DateTime end = _parseTime(doctor.slotEndTime!);
+      
+      List<String> slots = [];
+      DateTime current = start;
+      while (current.isBefore(end)) {
+        slots.add(DateFormat('hh:mm a').format(current));
+        current = current.add(Duration(minutes: duration));
+      }
+      return slots;
+    } catch (e) {
+      return _generateAllTimeSlots();
+    }
+  }
+
+  DateTime _parseTime(String timeStr) {
+    final timeParts = timeStr.split(' ');
+    final hms = timeParts[0].split(':');
+    int hour = int.parse(hms[0]);
+    int minute = hms.length > 1 ? int.parse(hms[1]) : 0;
+    if (timeParts.length > 1) {
+      if (timeParts[1].toUpperCase() == 'PM' && hour < 12) hour += 12;
+      if (timeParts[1].toUpperCase() == 'AM' && hour == 12) hour = 0;
+    }
+    return DateTime(2026, 1, 1, hour, minute);
   }
 
   List<String> _generateSlotsForSession(
@@ -161,6 +197,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     int startMin,
     int endHour,
     int endMin,
+    int interval,
   ) {
     List<String> sessionSlots = [];
     DateTime start = DateTime(2026, 1, 1, startHour, startMin);
@@ -168,36 +205,84 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
     while (start.isBefore(end)) {
       sessionSlots.add(DateFormat('hh:mm a').format(start));
-      start = start.add(Duration(minutes: _intervalMinutes));
+      start = start.add(Duration(minutes: interval));
     }
     return sessionSlots;
   }
 
+  void _updateAvailableSlots() {
+    if (_selectedDoctor == null || _bookingDate == null) {
+      setState(() {
+        _availableSlots = [];
+      });
+      return;
+    }
+
+    final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final dayName = weekDays[_bookingDate!.weekday - 1];
+    
+    // 1. Check if day is available
+    if (_selectedDoctor!.availableDays != null && !_selectedDoctor!.availableDays!.contains(dayName)) {
+      setState(() => _availableSlots = []);
+      return;
+    }
+
+    // 2. Check for weekly off
+    if (_selectedDoctor!.weeklyOffDays != null && _selectedDoctor!.weeklyOffDays!.contains(dayName)) {
+      setState(() => _availableSlots = []);
+      return;
+    }
+
+    // 3. Check for specific leave
+    final dateStr = DateFormat('dd/MM/yyyy').format(_bookingDate!);
+    if (_selectedDoctor!.specificLeaveDates != null && _selectedDoctor!.specificLeaveDates!.contains(dateStr)) {
+      setState(() => _availableSlots = []);
+      return;
+    }
+
+    setState(() {
+      _availableSlots = _generateSlotsForDoctor(_selectedDoctor!);
+    });
+  }
+
   List<String> _getFilteredTimeSlots() {
-    if (_bookingDate == null) return [];
+    if (_bookingDate == null || _selectedDoctor == null) return [];
 
     DateTime now = DateTime.now();
     bool isToday = _bookingDate!.year == now.year &&
         _bookingDate!.month == now.month &&
         _bookingDate!.day == now.day;
 
-    if (!isToday) return _availableSlots;
+    final dateStr = DateFormat('dd/MM/yyyy').format(_bookingDate!);
 
-    // If today, filter out slots that have already passed
     return _availableSlots.where((slot) {
-      try {
-        DateTime slotTime = DateFormat('hh:mm a').parse(slot);
-        DateTime fullSlotTime = DateTime(
-          _bookingDate!.year,
-          _bookingDate!.month,
-          _bookingDate!.day,
-          slotTime.hour,
-          slotTime.minute,
-        );
-        return fullSlotTime.isAfter(now);
-      } catch (e) {
-        return true;
+      // 1. Check if already booked
+      bool isBooked = _appointments.any((a) =>
+          a.doctorName == _selectedDoctor!.fullname &&
+          a.appointmentDate == dateStr &&
+          a.appointmentTime == slot &&
+          a.status != 'Cancelled');
+
+      if (isBooked) return false;
+
+      // 2. If today, filter out past slots
+      if (isToday) {
+        try {
+          DateTime slotTime = DateFormat('hh:mm a').parse(slot);
+          DateTime fullSlotTime = DateTime(
+            _bookingDate!.year,
+            _bookingDate!.month,
+            _bookingDate!.day,
+            slotTime.hour,
+            slotTime.minute,
+          );
+          return fullSlotTime.isAfter(now);
+        } catch (e) {
+          return true;
+        }
       }
+
+      return true;
     }).toList();
   }
 
@@ -310,6 +395,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _buildFieldLabel('Patient *'),
                       _buildDropdown<PatientModel>(
                         hint: 'Select a patient',
                         value: _selectedPatient,
@@ -481,8 +567,13 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                         _selectedDoctor?.fullname ==
                                         doc.fullname;
                                     return InkWell(
-                                      onTap: () =>
-                                          setState(() => _selectedDoctor = doc),
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedDoctor = doc;
+                                          _selectedTime = null;
+                                        });
+                                        _updateAvailableSlots();
+                                      },
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 12,
@@ -573,6 +664,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               ).format(picked);
                               _selectedTime = null; // Reset time
                             });
+                            _updateAvailableSlots();
                           }
                         },
                         decoration: InputDecoration(
@@ -1023,9 +1115,13 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                               _selectedDoctor?.fullname ==
                                               doc.fullname;
                                           return InkWell(
-                                            onTap: () => setState(
-                                              () => _selectedDoctor = doc,
-                                            ),
+                                            onTap: () {
+                                              setState(() {
+                                                _selectedDoctor = doc;
+                                                _selectedTime = null;
+                                              });
+                                              _updateAvailableSlots();
+                                            },
                                             child: Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -1147,6 +1243,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     ).format(picked);
                                     _selectedTime = null; // Reset time
                                   });
+                                  _updateAvailableSlots();
                                 }
                               },
                               decoration: InputDecoration(
@@ -1451,14 +1548,55 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   Widget _buildFieldLabel(String label) {
+    if (!label.contains('*')) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF4A5568),
+          ),
+        ),
+      );
+    }
+
+    final parts = label.split('*');
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF4A5568),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: parts[0],
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF4A5568),
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            const TextSpan(
+              text: '*',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.red,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            if (parts.length > 1 && parts[1].isNotEmpty)
+              TextSpan(
+                text: parts[1],
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF4A5568),
+                  fontFamily: AppTheme.fontFamily,
+                ),
+              ),
+          ],
         ),
       ),
     );

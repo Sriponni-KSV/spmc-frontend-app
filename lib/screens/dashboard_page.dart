@@ -1828,6 +1828,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           initialDate: _selectedDate ?? DateTime.now(),
                           firstDate: DateTime(2020),
                           lastDate: DateTime(2101),
+                          selectableDayPredicate: (DateTime date) {
+                            final dateStr = DateFormat('dd/MM/yyyy').format(date);
+                            final isBooked = _doctorAppointments.any((a) => a.appointmentDate == dateStr);
+                            
+                            // Essential: initialDate MUST satisfy the predicate or the picker won't open.
+                            // We allow today's date and the currently selected date regardless of appointments.
+                            final isToday = date.day == DateTime.now().day && 
+                                           date.month == DateTime.now().month && 
+                                           date.year == DateTime.now().year;
+                            final isCurrentSelection = _selectedDate != null && 
+                                                      date.day == _selectedDate!.day && 
+                                                      date.month == _selectedDate!.month && 
+                                                      date.year == _selectedDate!.year;
+                                                      
+                            return isBooked || isToday || isCurrentSelection;
+                          },
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: const ColorScheme.light(
+                                  primary: AppTheme.primaryColor,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
                         );
                         if (picked != null) {
                           setState(() => _selectedDate = picked);

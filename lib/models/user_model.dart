@@ -57,6 +57,19 @@ class UserModel {
     this.permissionDisplayMap = const {},
   });
 
+  static List<String>? _parseList(dynamic val) {
+    if (val == null) return null;
+    if (val is List) return val.map((e) => e.toString()).toList();
+    if (val is String) {
+      if (val.startsWith('{') && val.endsWith('}')) {
+        return val.substring(1, val.length - 1).split(',').where((e) => e.isNotEmpty).map((e) => e.trim()).toList();
+      }
+      if (val.isEmpty) return [];
+      return [val];
+    }
+    return null;
+  }
+
   factory UserModel.fromJson(Map<String, dynamic> json) {
     List<String> perms = [];
     Map<String, String> displays = {};
@@ -80,29 +93,31 @@ class UserModel {
 
     return UserModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
-      fullname: json['fullname'] ?? '',
+      fullname: json['fullname'] ?? json['fullName'] ?? '',
       email: json['email'] ?? '',
       role: json['role'] ?? '',
       status: json['status'] ?? 'active',
-      medicalLicense: json['medical_license'],
-      specializationId: json['specialization_id'],
+      medicalLicense: json['medical_license'] ?? json['medicalLicense'],
+      specializationId: json['specialization_id'] ?? json['specializationId'],
       specialization: json['specialization'],
-      staffUniqueId: json['staff_unique_id'],
+      staffUniqueId: json['staff_unique_id'] ?? json['staffUniqueId'],
       token: json['token'],
-      experience: json['experience'],
-      numberPatientsAttended: json['patients_attended'] != null ? (json['patients_attended'] is int ? json['patients_attended'] : int.tryParse(json['patients_attended'].toString())) : null,
-      qualification: json['qualification'],
-      bio: json['bio'],
-      availableDays: json['available_days'] != null ? List<String>.from(json['available_days']) : null,
-      slotStartTime: json['slot_start_time'],
-      slotEndTime: json['slot_end_time'],
-      slotDuration: json['slot_duration'],
-      weeklyOffDays: json['weekly_off_days'] != null ? List<String>.from(json['weekly_off_days']) : null,
-      specificLeaveDates: json['specific_leave_dates'] != null ? List<String>.from(json['specific_leave_dates']) : null,
-      clinicName: json['clinic_name'],
-      clinicLocation: json['clinic_location'],
-      consultationFee: json['consultation_fee']?.toString(),
-      areasOfExpertise: json['areas_of_expertise'],
+      experience: (json['experience'] ?? json['Experience'])?.toString(),
+      numberPatientsAttended: (json['patients_attended'] ?? json['patientsAttended']) != null 
+          ? int.tryParse((json['patients_attended'] ?? json['patientsAttended']).toString())
+          : null,
+      qualification: json['qualification'] ?? json['Qualification'],
+      bio: json['bio'] ?? json['Bio'],
+      availableDays: _parseList(json['available_days'] ?? json['availableDays']),
+      slotStartTime: json['slot_start_time'] ?? json['slotStartTime'],
+      slotEndTime: json['slot_end_time'] ?? json['slotEndTime'],
+      slotDuration: json['slot_duration'] ?? json['slotDuration'],
+      weeklyOffDays: _parseList(json['weekly_off_days'] ?? json['weeklyOffDays']),
+      specificLeaveDates: _parseList(json['specific_leave_dates'] ?? json['specificLeaveDates']),
+      clinicName: json['clinic_name'] ?? json['clinicName'],
+      clinicLocation: json['clinic_location'] ?? json['clinicLocation'],
+      consultationFee: (json['consultation_fee'] ?? json['consultationFee'])?.toString(),
+      areasOfExpertise: json['areas_of_expertise'] ?? json['areasOfExpertise'],
       permissions: perms,
       permissionDisplayMap: displays,
     );
