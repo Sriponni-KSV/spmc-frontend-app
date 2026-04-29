@@ -3,6 +3,7 @@ import '../utils/date_formatter.dart';
 class AppointmentModel {
   final int? id;
   final int patientId;
+  final String? patientDisplayId;
   final String patientName;
   final String department;
   final String doctorName;
@@ -15,10 +16,14 @@ class AppointmentModel {
   final String? reasonForVisit;
   final String status;
   final String appointmentType;
+  final String? overrideReason;
+  final String? overrideByName;
+  final dynamic changesLog;
 
   AppointmentModel({
     this.id,
     required this.patientId,
+    this.patientDisplayId,
     required this.patientName,
     required this.department,
     required this.doctorName,
@@ -31,12 +36,16 @@ class AppointmentModel {
     this.reasonForVisit,
     this.status = 'Confirmed',
     this.appointmentType = 'Routine',
+    this.overrideReason,
+    this.overrideByName,
+    this.changesLog,
   });
 
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
     return AppointmentModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? ''),
       patientId: json['patient_id'] is int ? json['patient_id'] : int.tryParse(json['patient_id']?.toString() ?? '') ?? 0,
+      patientDisplayId: json['patient_display_id']?.toString(),
       patientName: json['patient_name'] ?? '',
       department: json['department'] ?? '',
       doctorName: json['doctor_name'] ?? '',
@@ -49,6 +58,9 @@ class AppointmentModel {
       reasonForVisit: json['reason_for_visit'],
       status: json['status'] ?? 'Confirmed',
       appointmentType: json['appointment_type'] ?? 'Routine',
+      overrideReason: json['override_reason'],
+      overrideByName: json['override_by_name'],
+      changesLog: json['changes_log'],
     );
   }
 

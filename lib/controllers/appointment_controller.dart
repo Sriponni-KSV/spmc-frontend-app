@@ -141,6 +141,9 @@ class AppointmentController {
     String? doctorName,
     String? appointmentDate,
     String? appointmentTime,
+    String? patientName,
+    String? department,
+    String? appointmentType,
     required String overrideReason,
   }) async {
     try {
@@ -151,6 +154,9 @@ class AppointmentController {
       if (doctorName != null) body['doctor_name'] = doctorName;
       if (appointmentDate != null) body['appointment_date'] = appointmentDate;
       if (appointmentTime != null) body['appointment_time'] = appointmentTime;
+      if (patientName != null) body['patient_name'] = patientName;
+      if (department != null) body['department'] = department;
+      if (appointmentType != null) body['appointment_type'] = appointmentType;
 
       final response = await ApiService.patch(
         '$baseUrl/admin-appointments/$id/override',

@@ -38,6 +38,41 @@ class _AdminAppointmentManagementState
   final ScrollController _vScroll = ScrollController();
   final ScrollController _hScroll = ScrollController();
 
+  List<String> _generateSlotsForSession(int startHour, int startMin, int endHour, int endMin) {
+    List<String> sessionSlots = [];
+    DateTime start = DateTime(2026, 1, 1, startHour, startMin);
+    DateTime end = DateTime(2026, 1, 1, endHour, endMin);
+    while (start.isBefore(end)) {
+      sessionSlots.add(DateFormat('hh:mm a').format(start));
+      start = start.add(const Duration(minutes: 30));
+    }
+    return sessionSlots;
+  }
+
+  List<String> _getAllSlots() {
+    List<String> slots = [];
+    slots.addAll(_generateSlotsForSession(9, 0, 13, 0));
+    slots.addAll(_generateSlotsForSession(14, 0, 17, 0));
+    return slots;
+  }
+
+  List<String> _getFilteredTimeSlots(DateTime? date) {
+    if (date == null) return [];
+    List<String> slots = _getAllSlots();
+    DateTime now = DateTime.now();
+    bool isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+    if (!isToday) return slots;
+    return slots.where((slot) {
+      try {
+        DateTime slotTime = DateFormat('hh:mm a').parse(slot);
+        DateTime fullSlotTime = DateTime(date.year, date.month, date.day, slotTime.hour, slotTime.minute);
+        return fullSlotTime.isAfter(now);
+      } catch (e) {
+        return true;
+      }
+    }).toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -87,16 +122,28 @@ class _AdminAppointmentManagementState
   }
 
   void _showOverrideDialog(AppointmentModel appt, {required String mode}) {
-    // mode: 'edit' | 'cancel' | 'reschedule' | 'view'
+    // mode: 'edit' | 'cancel' | 'reschedule' | 'view' | 'reopen'
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final reasonCtrl = TextEditingController();
     String? selectedStatus = appt.status;
     String? selectedDoctor = appt.doctorName;
     DateTime? newDate;
+    try { newDate = DateFormat('dd-MM-yyyy').parse(appt.appointmentDate); } catch(e){}
     String? newTime = appt.appointmentTime;
+    String? patientName = appt.patientName;
+    String? department = appt.department;
+    String? appointmentType = appt.appointmentType;
     bool isSaving = false;
 
-    final List<String> availableStatuses = ['Confirmed', 'Completed', 'Cancelled', 'No-Show', 'Rescheduled'];
+    List<String> availableStatuses = ['Confirmed', 'Completed', 'Cancelled', 'No-Show', 'Rescheduled'];
+    if (appt.status == 'Completed') {
+      availableStatuses = ['Confirmed', 'Completed', 'No-Show'];
+    } else if (appt.status == 'Cancelled') {
+      availableStatuses = ['Confirmed', 'Cancelled'];
+    } else if (appt.status == 'No-Show') {
+      availableStatuses = ['Confirmed', 'Completed', 'No-Show'];
+    }
+    
     final doctorNames = _doctors.map((d) => d.fullname).toList();
 
     showDialog(
@@ -124,6 +171,7 @@ class _AdminAppointmentManagementState
                 mode == 'view' ? Icons.visibility_outlined :
                 mode == 'cancel' ? Icons.cancel_outlined :
                 mode == 'reschedule' ? Icons.schedule_outlined :
+                mode == 'reopen' ? Icons.restore_outlined :
                 Icons.edit_outlined,
                 color: AppTheme.primaryColor, size: 20,
               ),
@@ -133,6 +181,7 @@ class _AdminAppointmentManagementState
               mode == 'view' ? 'Appointment Detail' :
               mode == 'cancel' ? 'Cancel Appointment' :
               mode == 'reschedule' ? 'Reschedule Appointment' :
+              mode == 'reopen' ? 'Change Status' :
               'Edit Appointment',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
@@ -161,15 +210,32 @@ class _AdminAppointmentManagementState
                   ]),
                 ),
 
+                if (mode == 'view' && appt.overrideReason != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFFDBA74))),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        const Icon(Icons.shield_outlined, size: 14, color: Color(0xFFF97316)),
+                        const SizedBox(width: 8),
+                        Text('Admin Correction by ${appt.overrideByName ?? "Unknown"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF92400E))),
+                      ]),
+                      const SizedBox(height: 8),
+                      Text('Reason: ${appt.overrideReason}', style: const TextStyle(fontSize: 12, color: Color(0xFF92400E))),
+                    ]),
+                  ),
+                ],
+
                 if (mode != 'view') ...[
                   const SizedBox(height: 20),
                   const Divider(),
                   const SizedBox(height: 12),
-                  Text('Admin Override', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 15)),
+                  Text('Admin Correction', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 15)),
                   const SizedBox(height: 14),
 
-                  // Status field (edit/cancel)
-                  if (mode == 'edit' || mode == 'cancel')
+                  // Status field (edit/cancel/reopen)
+                  if (mode == 'edit' || mode == 'cancel' || mode == 'reopen')
                     buildField('Force Status Change', DropdownButtonFormField<String>(
                       value: selectedStatus,
                       decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
@@ -177,8 +243,23 @@ class _AdminAppointmentManagementState
                       onChanged: mode == 'view' ? null : (v) => setS(() => selectedStatus = v),
                     )),
 
-                  // Doctor reassign (edit)
-                  if (mode == 'edit')
+                  // Edit Fields
+                  if (mode == 'edit') ...[
+                    buildField('Patient Name', TextFormField(
+                      initialValue: patientName,
+                      decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                      onChanged: (v) => patientName = v,
+                    )),
+                    buildField('Department', TextFormField(
+                      initialValue: department,
+                      decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                      onChanged: (v) => department = v,
+                    )),
+                    buildField('Appointment Type', TextFormField(
+                      initialValue: appointmentType,
+                      decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                      onChanged: (v) => appointmentType = v,
+                    )),
                     buildField('Reassign Doctor', DropdownButtonFormField<String>(
                       value: doctorNames.contains(selectedDoctor) ? selectedDoctor : null,
                       decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
@@ -186,15 +267,21 @@ class _AdminAppointmentManagementState
                       items: doctorNames.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
                       onChanged: (v) => setS(() => selectedDoctor = v),
                     )),
+                  ],
 
-                  // Date/time (reschedule)
-                  if (mode == 'reschedule') ...[
+                  // Date/time (edit/reschedule)
+                  if (mode == 'edit' || mode == 'reschedule') ...[
                     buildField('New Date', InkWell(
                       onTap: () async {
+                        DateTime initDate = newDate ?? DateTime.now();
+                        final now = DateTime.now();
+                        final today = DateTime(now.year, now.month, now.day);
+                        if (initDate.isBefore(today)) initDate = today;
+
                         final d = await showDatePicker(
                           context: ctx,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                          initialDate: initDate,
+                          firstDate: today,
                           lastDate: DateTime.now().add(const Duration(days: 365)),
                         );
                         if (d != null) setS(() => newDate = d);
@@ -214,10 +301,24 @@ class _AdminAppointmentManagementState
                         ]),
                       ),
                     )),
-                    buildField('New Time', TextFormField(
-                      initialValue: newTime,
-                      decoration: const InputDecoration(hintText: 'e.g. 10:00 AM', contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                      onChanged: (v) => newTime = v,
+                    buildField('New Time Slot', Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _getFilteredTimeSlots(newDate).map((slot) {
+                        final isSelected = newTime == slot;
+                        return InkWell(
+                          onTap: () => setS(() => newTime = slot),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppTheme.primaryColor : Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor),
+                            ),
+                            child: Text(slot, style: TextStyle(color: isSelected ? Colors.white : AppTheme.textPrimaryColor, fontSize: 13)),
+                          ),
+                        );
+                      }).toList(),
                     )),
                   ],
 
@@ -278,11 +379,14 @@ class _AdminAppointmentManagementState
                     await _apptCtrl.adminOverrideAppointment(
                       id: appt.id!,
                       status: mode == 'cancel' ? 'Cancelled' : selectedStatus,
-                      doctorName: mode == 'edit' ? selectedDoctor : null,
-                      appointmentDate: mode == 'reschedule' && newDate != null
+                      doctorName: (mode == 'edit' || mode == 'reschedule') ? selectedDoctor : null,
+                      appointmentDate: (mode == 'reschedule' || mode == 'edit') && newDate != null
                           ? DateFormat('dd-MM-yyyy').format(newDate!)
                           : null,
-                      appointmentTime: mode == 'reschedule' ? newTime : null,
+                      appointmentTime: (mode == 'reschedule' || mode == 'edit') ? newTime : null,
+                      patientName: mode == 'edit' ? patientName : null,
+                      department: mode == 'edit' ? department : null,
+                      appointmentType: mode == 'edit' ? appointmentType : null,
                       overrideReason: reasonCtrl.text.trim(),
                     );
                     if (mounted) {
@@ -306,7 +410,7 @@ class _AdminAppointmentManagementState
                 },
                 child: isSaving
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text(mode == 'cancel' ? 'Confirm Cancel' : mode == 'reschedule' ? 'Reschedule' : 'Save Override'),
+                    : Text(mode == 'cancel' ? 'Confirm Cancel' : mode == 'reschedule' ? 'Reschedule' : mode == 'reopen' ? 'Confirm Change' : 'Save Override'),
               ),
           ],
         );
@@ -554,13 +658,12 @@ class _AdminAppointmentManagementState
                   ],
                   rows: _appointments.map((appt) {
                     final sc = _statusColor(appt.status);
-                    final hasOverride = (appt.reasonForVisit != null && appt.status == 'Cancelled') ||
-                        appt.status == 'Rescheduled';
+                    final hasOverride = appt.overrideReason != null && appt.overrideReason!.isNotEmpty;
                     return DataRow(cells: [
-                      DataCell(Text('#${appt.id}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primaryColor))),
+                      DataCell(Text('${appt.id}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primaryColor))),
                       DataCell(Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(appt.patientName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        Text('ID: ${appt.patientId}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                        Text('ID: ${appt.patientDisplayId ?? appt.patientId}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
                       ])),
                       DataCell(Text(appt.doctorName, style: const TextStyle(fontSize: 13))),
                       DataCell(Text(appt.department, style: const TextStyle(fontSize: 13))),
@@ -584,7 +687,7 @@ class _AdminAppointmentManagementState
                       )),
                       DataCell(hasOverride
                           ? Tooltip(
-                              message: 'Override applied',
+                              message: 'Correction applied: ${appt.overrideReason ?? ""}',
                               child: Icon(Icons.admin_panel_settings_outlined, size: 16, color: const Color(0xFFF97316)),
                             )
                           : const Text('—', style: TextStyle(color: AppTheme.textSecondaryColor))),
@@ -592,12 +695,17 @@ class _AdminAppointmentManagementState
                         // View
                         _actionBtn(Icons.visibility_outlined, 'View', const Color(0xFF6366F1), () => _showOverrideDialog(appt, mode: 'view')),
                         // Edit
-                        _actionBtn(Icons.edit_outlined, 'Edit', AppTheme.primaryColor, () => _showOverrideDialog(appt, mode: 'edit')),
+                        if (appt.status == 'Confirmed' || appt.status == 'Completed')
+                          _actionBtn(Icons.edit_outlined, 'Edit', AppTheme.primaryColor, () => _showOverrideDialog(appt, mode: 'edit')),
                         // Reschedule
-                        _actionBtn(Icons.schedule_outlined, 'Reschedule', const Color(0xFF8B5CF6), () => _showOverrideDialog(appt, mode: 'reschedule')),
+                        if (appt.status == 'Confirmed')
+                          _actionBtn(Icons.schedule_outlined, 'Reschedule', const Color(0xFF8B5CF6), () => _showOverrideDialog(appt, mode: 'reschedule')),
                         // Cancel
-                        if (appt.status != 'Cancelled')
+                        if (appt.status == 'Confirmed')
                           _actionBtn(Icons.cancel_outlined, 'Cancel', Colors.redAccent, () => _showOverrideDialog(appt, mode: 'cancel')),
+                        // Reopen
+                        if (appt.status == 'Cancelled' || appt.status == 'No-Show')
+                          _actionBtn(Icons.restore_outlined, 'Change Status', const Color(0xFF22C55E), () => _showOverrideDialog(appt, mode: 'reopen')),
                       ])),
                     ]);
                   }).toList(),
