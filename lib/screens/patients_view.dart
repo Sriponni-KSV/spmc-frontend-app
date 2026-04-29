@@ -2628,6 +2628,11 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
     if (pendingAppt.patientId == 0) return const SizedBox.shrink();
 
+    final existingConsul = _consultations.firstWhere(
+      (c) => c['appointment_id'] == pendingAppt.id,
+      orElse: () => {},
+    );
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 24),
@@ -2637,7 +2642,10 @@ class _PatientDetailViewState extends State<PatientDetailView>
            _showConsultationDialog(pendingAppt);
         },
         icon: const Icon(Icons.medical_services_outlined, color: Colors.white),
-        label: const Text('Start New Consultation', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: Text(
+          existingConsul.isNotEmpty ? 'Edit Consultation' : 'Start New Consultation', 
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+        ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF38A169),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -2647,6 +2655,11 @@ class _PatientDetailViewState extends State<PatientDetailView>
   }
 
   void _showConsultationDialog(AppointmentModel appt) {
+    final existingConsul = _consultations.firstWhere(
+      (c) => c['appointment_id'] == appt.id,
+      orElse: () => {},
+    );
+
     showGeneralDialog(
       context: context,
       barrierDismissible: false,
@@ -2654,6 +2667,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
         return Scaffold(
           body: NewConsultationView(
             appointment: appt,
+            initialConsultation: existingConsul.isNotEmpty ? existingConsul : null,
             onBack: () {
               Navigator.pop(context);
               _fetchData(); // REFRESH DATA when coming back

@@ -70,6 +70,22 @@ class AppointmentController {
     }
   }
 
+  Future<void> updateConsultation(int consultationId, Map<String, dynamic> consultationData) async {
+    try {
+      final response = await ApiService.put(
+        '$baseUrl/appointments/consultation/$consultationId',
+        consultationData,
+      );
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode != 200) {
+        throw Exception(body['message'] ?? 'Failed to update consultation');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   Future<List<Map<String, dynamic>>> fetchConsultationsByPatient(int patientId) async {
     try {
       final response = await ApiService.get('$baseUrl/appointments/consultation/patient/$patientId');
