@@ -23,6 +23,7 @@ class _AdminAppointmentManagementState
 
   List<AppointmentModel> _appointments = [];
   List<UserModel> _doctors = [];
+  List<String> _departments = [];
   bool _isLoading = false;
   String? _errorMsg;
 
@@ -99,10 +100,13 @@ class _AdminAppointmentManagementState
           status: _filterStatus == 'All' ? null : _filterStatus,
         ),
         _adminCtrl.fetchStaff(role: 'Doctor'),
+        _adminCtrl.fetchSpecializations(),
       ]);
       setState(() {
         _appointments = results[0] as List<AppointmentModel>;
         _doctors = results[1] as List<UserModel>;
+        final specs = results[2] as List<dynamic>;
+        _departments = specs.map((e) => e['name'].toString()).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -144,7 +148,16 @@ class _AdminAppointmentManagementState
       availableStatuses = ['Confirmed', 'Completed', 'No-Show'];
     }
     
-    final doctorNames = _doctors.map((d) => d.fullname).toList();
+    final List<String> apptTypes = ['Routine', 'Follow Up', 'New Visit', 'Scheduled', 'Emergency'];
+    
+    // Initial doctor filtering
+    List<String> filteredDoctors = _doctors
+        .where((d) => d.specialization == department)
+        .map((d) => d.fullname)
+        .toList();
+    if (!filteredDoctors.contains(selectedDoctor)) {
+      filteredDoctors.insert(0, selectedDoctor);
+    }
 
     showDialog(
       context: context,
@@ -250,21 +263,37 @@ class _AdminAppointmentManagementState
                       decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
                       onChanged: (v) => patientName = v,
                     )),
-                    buildField('Department', TextFormField(
-                      initialValue: department,
+                    buildField('Department', DropdownButtonFormField<String>(
+                      value: _departments.contains(department) ? department : null,
                       decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                      onChanged: (v) => department = v,
+                      hint: const Text('Select department'),
+                      items: _departments.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+                      onChanged: (v) {
+                        setS(() {
+                          department = v;
+                          filteredDoctors = _doctors
+                              .where((d) => d.specialization == v)
+                              .map((d) => d.fullname)
+                              .toList();
+                          if (filteredDoctors.isNotEmpty) {
+                            selectedDoctor = filteredDoctors[0];
+                          } else {
+                            selectedDoctor = null;
+                          }
+                        });
+                      },
                     )),
-                    buildField('Appointment Type', TextFormField(
-                      initialValue: appointmentType,
+                    buildField('Appointment Type', DropdownButtonFormField<String>(
+                      value: apptTypes.contains(appointmentType) ? appointmentType : null,
                       decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                      onChanged: (v) => appointmentType = v,
+                      items: apptTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                      onChanged: (v) => setS(() => appointmentType = v),
                     )),
                     buildField('Reassign Doctor', DropdownButtonFormField<String>(
-                      value: doctorNames.contains(selectedDoctor) ? selectedDoctor : null,
+                      value: filteredDoctors.contains(selectedDoctor) ? selectedDoctor : null,
                       decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
                       hint: const Text('Select doctor'),
-                      items: doctorNames.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+                      items: filteredDoctors.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
                       onChanged: (v) => setS(() => selectedDoctor = v),
                     )),
                   ],
