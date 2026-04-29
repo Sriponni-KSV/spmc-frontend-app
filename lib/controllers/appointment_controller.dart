@@ -101,4 +101,86 @@ class AppointmentController {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
+
+  // ─── Admin-only Methods ───────────────────────────────────────────────────
+
+  /// Fetch appointments with optional filters (Admin/Super Admin only)
+  Future<List<AppointmentModel>> fetchAdminAppointments({
+    String? date,
+    String? doctor,
+    String? status,
+  }) async {
+    try {
+      final params = <String, String>{};
+      if (date != null && date.isNotEmpty) params['date'] = date;
+      if (doctor != null && doctor.isNotEmpty) params['doctor'] = doctor;
+      if (status != null && status != 'All') params['status'] = status;
+
+      final uri = Uri.parse('$baseUrl/admin-appointments')
+          .replace(queryParameters: params.isEmpty ? null : params);
+
+      final response = await ApiService.get(uri.toString());
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map((e) => AppointmentModel.fromJson(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch appointments');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Admin override: update status, reassign doctor, reschedule
+  /// [overrideReason] is mandatory
+  Future<void> adminOverrideAppointment({
+    required int id,
+    String? status,
+    String? doctorName,
+    String? appointmentDate,
+    String? appointmentTime,
+    required String overrideReason,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'override_reason': overrideReason,
+      };
+      if (status != null) body['status'] = status;
+      if (doctorName != null) body['doctor_name'] = doctorName;
+      if (appointmentDate != null) body['appointment_date'] = appointmentDate;
+      if (appointmentTime != null) body['appointment_time'] = appointmentTime;
+
+      final response = await ApiService.patch(
+        '$baseUrl/admin-appointments/$id/override',
+        body,
+      );
+      final responseBody = jsonDecode(response.body);
+
+      if (response.statusCode != 200) {
+        throw Exception(
+            responseBody['message'] ?? 'Failed to apply admin override');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch a single appointment by ID with audit fields (Admin/Super Admin only)
+  Future<AppointmentModel> fetchAdminAppointmentById(int id) async {
+    try {
+      final response =
+          await ApiService.get('$baseUrl/admin-appointments/$id');
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        return AppointmentModel.fromJson(body['data']);
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch appointment');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
 }

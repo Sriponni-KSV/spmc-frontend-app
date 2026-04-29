@@ -16,6 +16,7 @@ import '../controllers/patient_controller.dart';
 import 'new_patient_registration.dart';
 import 'patients_view.dart';
 import '../utils/logout_helper.dart';
+import 'admin_appointment_management.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -363,6 +364,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 3:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return RbacManagementWidget(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 4:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return const AdminAppointmentManagement();
         }
         return const AccessDeniedWidget();
       default:
@@ -931,6 +937,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _buildSidebarItem(1, Icons.people_outline, 'Staff Management'),
           _buildSidebarItem(2, Icons.sick_outlined, 'Patient Management'),
           _buildSidebarItem(3, Icons.security_outlined, 'Access Control'),
+          _buildSidebarItem(4, Icons.calendar_month_outlined, 'Appointment Management'),
           
           const Spacer(),
           
@@ -987,7 +994,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             Icon(icon, color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor, size: 22),
             const SizedBox(width: 16),
-            Text(label, style: TextStyle(color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+            Expanded(
+              child: Text(
+                label, 
+                style: TextStyle(color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
