@@ -61,53 +61,5 @@ class AuthController {
     }
   }
 
-  // ✅ Update Profile
-  Future<UserModel> updateProfile({
-    required String fullname,
-    String? medicalLicense,
-    String? qualification,
-    String? experience,
-    String? bio,
-    String? patientsAttended,
-    List<String>? availableDays,
-    String? slotStartTime,
-    String? slotEndTime,
-    String? slotDuration,
-    List<String>? weeklyOffDays,
-    List<String>? specificLeaveDates,
-    String? clinicName,
-    String? clinicLocation,
-    String? consultationFee,
-    String? areasOfExpertise,
-  }) async {
-    final response = await ApiService.post(
-      '$baseUrl/auth/update-profile',
-      {
-        'fullname': fullname,
-        'medical_license': medicalLicense ?? '',
-        'qualification': qualification ?? '',
-        'experience': experience ?? '',
-        'bio': bio ?? '',
-        'patients_attended': patientsAttended ?? '',
-        'available_days': availableDays,
-        'slot_start_time': slotStartTime ?? '',
-        'slot_end_time': slotEndTime ?? '',
-        'slot_duration': slotDuration ?? '',
-        'weekly_off_days': weeklyOffDays,
-        'specific_leave_dates': specificLeaveDates,
-        'clinic_name': clinicName ?? '',
-        'clinic_location': clinicLocation ?? '',
-        'consultation_fee': consultationFee ?? '',
-        'areas_of_expertise': areasOfExpertise ?? '',
-      },
-    );
 
-    final data = jsonDecode(response.body);
-
-    if (response.statusCode == 200) {
-      return UserModel.fromJson(data['user']);
-    } else {
-      throw Exception(data['error'] ?? 'Failed to update profile');
-    }
-  }
 }

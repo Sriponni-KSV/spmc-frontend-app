@@ -6,6 +6,7 @@ import '../utils/app_theme.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../controllers/auth_controller.dart';
+import '../controllers/doctor/doctor_controller.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../widgets/nurse_widgets.dart' hide PatientModel;
 import '../controllers/appointment_controller.dart';
@@ -32,7 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   DateTime? _selectedDate = DateTime.now();
   final FocusNode _mainFocusNode = FocusNode();
   AppointmentModel? _activeAppointment;
-  final AuthController _authController = AuthController();
+  DoctorController get _doctorController => DoctorController();
   // Profile Controllers — Basic
   late TextEditingController _nameController;
   late TextEditingController _specController;
@@ -69,31 +70,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _nameController = TextEditingController(text: user?.fullname ?? '');
     _specController = TextEditingController(text: user?.specialization ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
-    _licenseController = TextEditingController(text: user?.medicalLicense ?? '');
+    _licenseController = TextEditingController(
+      text: user?.medicalLicense ?? '',
+    );
     _qualController = TextEditingController(text: user?.qualification ?? '');
     _expController = TextEditingController(text: user?.experience ?? '');
-    _patientsController = TextEditingController(text: user?.numberPatientsAttended?.toString() ?? '0');
+    _patientsController = TextEditingController(
+      text: user?.numberPatientsAttended?.toString() ?? '0',
+    );
     _bioController = TextEditingController(text: user?.bio ?? '');
-    
-    _areasOfExpertiseController = TextEditingController(text: user?.areasOfExpertise ?? '');
-    
+
+    _areasOfExpertiseController = TextEditingController(
+      text: user?.areasOfExpertise ?? '',
+    );
+
     _availableDays = [];
-    if (user?.availableDays != null) _availableDays!.addAll(user!.availableDays!);
-    
-    _slotStartController = TextEditingController(text: user?.slotStartTime ?? '');
+    if (user?.availableDays != null)
+      _availableDays!.addAll(user!.availableDays!);
+
+    _slotStartController = TextEditingController(
+      text: user?.slotStartTime ?? '',
+    );
     _slotEndController = TextEditingController(text: user?.slotEndTime ?? '');
-    _slotDurationController = TextEditingController(text: user?.slotDuration ?? '');
+    _slotDurationController = TextEditingController(
+      text: user?.slotDuration ?? '',
+    );
     _leaveBlockDatesController = TextEditingController();
-    
+
     _weeklyOffDays = [];
-    if (user?.weeklyOffDays != null) _weeklyOffDays!.addAll(user!.weeklyOffDays!);
-    
+    if (user?.weeklyOffDays != null)
+      _weeklyOffDays!.addAll(user!.weeklyOffDays!);
+
     _specificLeaveDates = [];
-    if (user?.specificLeaveDates != null) _specificLeaveDates!.addAll(user!.specificLeaveDates!);
-    
+    if (user?.specificLeaveDates != null)
+      _specificLeaveDates!.addAll(user!.specificLeaveDates!);
+
     _clinicNameController = TextEditingController(text: user?.clinicName ?? '');
-    _clinicLocationController = TextEditingController(text: user?.clinicLocation ?? '');
-    _consultationFeeController = TextEditingController(text: user?.consultationFee ?? '');
+    _clinicLocationController = TextEditingController(
+      text: user?.clinicLocation ?? '',
+    );
+    _consultationFeeController = TextEditingController(
+      text: user?.consultationFee ?? '',
+    );
   }
 
   @override
@@ -521,7 +539,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _saveProfile() async {
     setState(() => _isLoading = true);
     try {
-      final updatedUser = await _authController.updateProfile(
+      final updatedUser = await _doctorController.updateProfile(
         fullname: _nameController.text,
         medicalLicense: _licenseController.text,
         qualification: _qualController.text,
@@ -710,11 +728,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             const SizedBox(height: 2),
                             Text(
-                              (user?.role != null && user!.role.isNotEmpty) 
-                                  ? user.role 
+                              (user?.role != null && user!.role.isNotEmpty)
+                                  ? user.role
                                   : 'Doctor',
                               style: TextStyle(
-                                color: AppTheme.textSecondaryColor.withOpacity(0.8),
+                                color: AppTheme.textSecondaryColor.withOpacity(
+                                  0.8,
+                                ),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -881,47 +901,93 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
-                    final selected = _availableDays?.contains(day) ?? false;
-                    return GestureDetector(
-                      onTap: () => setLocalState(() {
-                        if (selected) _availableDays?.remove(day); else _availableDays?.add(day);
-                      }),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: selected ? const Color(0xFF38A169) : AppTheme.backgroundColor,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: selected ? const Color(0xFF38A169) : AppTheme.borderColor),
-                        ),
-                        child: Text(
-                          day,
-                          style: TextStyle(
-                            color: selected ? Colors.white : AppTheme.textSecondaryColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                  children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                      .map((day) {
+                        final selected = _availableDays?.contains(day) ?? false;
+                        return GestureDetector(
+                          onTap: () => setLocalState(() {
+                            if (selected)
+                              _availableDays?.remove(day);
+                            else
+                              _availableDays?.add(day);
+                          }),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? const Color(0xFF38A169)
+                                  : AppTheme.backgroundColor,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: selected
+                                    ? const Color(0xFF38A169)
+                                    : AppTheme.borderColor,
+                              ),
+                            ),
+                            child: Text(
+                              day,
+                              style: TextStyle(
+                                color: selected
+                                    ? Colors.white
+                                    : AppTheme.textSecondaryColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      })
+                      .toList(),
                 ),
                 fieldSpacing,
                 if (isMobile) ...[
-                  _buildTimePickerField('Slot Start Time', _slotStartController, Icons.access_time_outlined),
+                  _buildTimePickerField(
+                    'Slot Start Time',
+                    _slotStartController,
+                    Icons.access_time_outlined,
+                  ),
                   fieldSpacing,
-                  _buildTimePickerField('Slot End Time', _slotEndController, Icons.access_time_filled),
+                  _buildTimePickerField(
+                    'Slot End Time',
+                    _slotEndController,
+                    Icons.access_time_filled,
+                  ),
                   fieldSpacing,
-                  _buildProfileTextField('Slot Duration (e.g. 15 min)', _slotDurationController, Icons.timelapse_outlined),
+                  _buildProfileTextField(
+                    'Slot Duration (e.g. 15 min)',
+                    _slotDurationController,
+                    Icons.timelapse_outlined,
+                  ),
                 ] else
                   Row(
                     children: [
-                      Expanded(child: _buildTimePickerField('Slot Start Time', _slotStartController, Icons.access_time_outlined)),
+                      Expanded(
+                        child: _buildTimePickerField(
+                          'Slot Start Time',
+                          _slotStartController,
+                          Icons.access_time_outlined,
+                        ),
+                      ),
                       const SizedBox(width: 16),
-                      Expanded(child: _buildTimePickerField('Slot End Time', _slotEndController, Icons.access_time_filled)),
+                      Expanded(
+                        child: _buildTimePickerField(
+                          'Slot End Time',
+                          _slotEndController,
+                          Icons.access_time_filled,
+                        ),
+                      ),
                       const SizedBox(width: 16),
-                      Expanded(child: _buildProfileTextField('Slot Duration (e.g. 15 min)', _slotDurationController, Icons.timelapse_outlined)),
+                      Expanded(
+                        child: _buildProfileTextField(
+                          'Slot Duration (e.g. 15 min)',
+                          _slotDurationController,
+                          Icons.timelapse_outlined,
+                        ),
+                      ),
                     ],
                   ),
                 fieldSpacing,
@@ -929,82 +995,138 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // ── Leave / Block Dates ────────────────────────
                 const Text(
                   'Leave / Block Days',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textSecondaryColor,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 const Text(
                   'Weekly Off — select days that repeat every week.',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondaryColor,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
-                  spacing: 8, runSpacing: 8,
-                  children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
-                    final selected = _weeklyOffDays?.contains(day) ?? false;
-                    return GestureDetector(
-                      onTap: () => setLocalState(() {
-                        if (selected) _weeklyOffDays?.remove(day); else _weeklyOffDays?.add(day);
-                      }),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: selected ? Colors.red.shade400 : AppTheme.backgroundColor,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: selected ? Colors.red.shade400 : AppTheme.borderColor),
-                        ),
-                        child: Text(day, style: TextStyle(
-                          color: selected ? Colors.white : AppTheme.textSecondaryColor,
-                          fontWeight: FontWeight.bold, fontSize: 13,
-                        )),
-                      ),
-                    );
-                  }).toList(),
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                      .map((day) {
+                        final selected = _weeklyOffDays?.contains(day) ?? false;
+                        return GestureDetector(
+                          onTap: () => setLocalState(() {
+                            if (selected)
+                              _weeklyOffDays?.remove(day);
+                            else
+                              _weeklyOffDays?.add(day);
+                          }),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? Colors.red.shade400
+                                  : AppTheme.backgroundColor,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: selected
+                                    ? Colors.red.shade400
+                                    : AppTheme.borderColor,
+                              ),
+                            ),
+                            child: Text(
+                              day,
+                              style: TextStyle(
+                                color: selected
+                                    ? Colors.white
+                                    : AppTheme.textSecondaryColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        );
+                      })
+                      .toList(),
                 ),
                 const SizedBox(height: 16),
                 const Text(
                   'Specific Leave Dates — pick individual dates.',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondaryColor,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
-                  spacing: 8, runSpacing: 8,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    ...(_specificLeaveDates ?? []).map((d) => Chip(
-                      label: Text(d, style: const TextStyle(fontSize: 12)),
-                      backgroundColor: Colors.orange.shade50,
-                      side: BorderSide(color: Colors.orange.shade200),
-                      deleteIcon: const Icon(Icons.close, size: 14),
-                      onDeleted: () => setLocalState(() => _specificLeaveDates?.remove(d)),
-                    )),
+                    ...(_specificLeaveDates ?? []).map(
+                      (d) => Chip(
+                        label: Text(d, style: const TextStyle(fontSize: 12)),
+                        backgroundColor: Colors.orange.shade50,
+                        side: BorderSide(color: Colors.orange.shade200),
+                        deleteIcon: const Icon(Icons.close, size: 14),
+                        onDeleted: () =>
+                            setLocalState(() => _specificLeaveDates?.remove(d)),
+                      ),
+                    ),
                     GestureDetector(
                       onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
                           initialDate: DateTime.now(),
                           firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 730)),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 730),
+                          ),
                         );
                         if (picked != null) {
-                          final f = '${picked.day.toString().padLeft(2,'0')}/${picked.month.toString().padLeft(2,'0')}/${picked.year}';
+                          final f =
+                              '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
                           if (_specificLeaveDates?.contains(f) == false) {
-                            setLocalState(() => (_specificLeaveDates ??= []).add(f));
+                            setLocalState(
+                              () => (_specificLeaveDates ??= []).add(f),
+                            );
                           }
                         }
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.backgroundColor,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppTheme.primaryColor.withOpacity(0.5)),
+                          border: Border.all(
+                            color: AppTheme.primaryColor.withOpacity(0.5),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.add, size: 15, color: AppTheme.primaryColor),
+                            Icon(
+                              Icons.add,
+                              size: 15,
+                              color: AppTheme.primaryColor,
+                            ),
                             const SizedBox(width: 4),
-                            Text('Add Date', style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                            Text(
+                              'Add Date',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -1255,11 +1377,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildTimePickerField(String label, TextEditingController controller, IconData icon) {
+  Widget _buildTimePickerField(
+    String label,
+    TextEditingController controller,
+    IconData icon,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textSecondaryColor,
+          ),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
@@ -1277,19 +1410,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
             prefixIcon: Icon(icon, size: 20),
             hintText: 'Tap to pick time',
             fillColor: AppTheme.backgroundColor,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDatePickerField(String label, TextEditingController controller, IconData icon) {
+  Widget _buildDatePickerField(
+    String label,
+    TextEditingController controller,
+    IconData icon,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textSecondaryColor,
+          ),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
@@ -1302,7 +1452,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               lastDate: DateTime.now().add(const Duration(days: 365)),
             );
             if (picked != null) {
-              final formatted = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+              final formatted =
+                  '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
               if (controller.text.isEmpty) {
                 controller.text = formatted;
               } else {
@@ -1314,8 +1465,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             prefixIcon: Icon(icon, size: 20),
             hintText: 'Tap to pick date(s)',
             fillColor: AppTheme.backgroundColor,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
           ),
         ),
       ],
@@ -1452,8 +1609,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
-                          onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
+                          icon: const Icon(
+                            Icons.logout,
+                            size: 18,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                          onPressed: () => LogoutHelper.showLogoutConfirmation(
+                            context,
+                            auth,
+                          ),
                         ),
                       ],
                     );
@@ -1817,19 +1981,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           firstDate: DateTime(2020),
                           lastDate: DateTime(2101),
                           selectableDayPredicate: (DateTime date) {
-                            final dateStr = DateFormat('dd/MM/yyyy').format(date);
-                            final isBooked = _doctorAppointments.any((a) => a.appointmentDate == dateStr);
-                            
+                            final dateStr = DateFormat(
+                              'dd/MM/yyyy',
+                            ).format(date);
+                            final isBooked = _doctorAppointments.any(
+                              (a) => a.appointmentDate == dateStr,
+                            );
+
                             // Essential: initialDate MUST satisfy the predicate or the picker won't open.
                             // We allow today's date and the currently selected date regardless of appointments.
-                            final isToday = date.day == DateTime.now().day && 
-                                           date.month == DateTime.now().month && 
-                                           date.year == DateTime.now().year;
-                            final isCurrentSelection = _selectedDate != null && 
-                                                      date.day == _selectedDate!.day && 
-                                                      date.month == _selectedDate!.month && 
-                                                      date.year == _selectedDate!.year;
-                                                      
+                            final isToday =
+                                date.day == DateTime.now().day &&
+                                date.month == DateTime.now().month &&
+                                date.year == DateTime.now().year;
+                            final isCurrentSelection =
+                                _selectedDate != null &&
+                                date.day == _selectedDate!.day &&
+                                date.month == _selectedDate!.month &&
+                                date.year == _selectedDate!.year;
+
                             return isBooked || isToday || isCurrentSelection;
                           },
                           builder: (context, child) {
