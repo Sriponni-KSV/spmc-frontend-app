@@ -5,12 +5,18 @@ import '../utils/app_theme.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../controllers/admin_controller.dart';
-import '../widgets/nurse_widgets.dart';
+import '../widgets/nurse_widgets.dart' hide PatientModel;
 import 'login_page.dart';
 import 'package:http/http.dart' as http;  
 import 'dart:convert';                     
 import '../widgets/rbac_management.dart';
 import '../widgets/access_denied_widget.dart';
+import '../models/patient_model.dart';
+import '../controllers/patient_controller.dart';
+import 'new_patient_registration.dart';
+import 'patients_view.dart';
+import '../utils/logout_helper.dart';
+import 'admin_appointment_management.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -351,8 +357,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 2:
+        if (user?.hasPermission('view_patients') ?? false) {
+          return const AdminPatientManagementWrapper();
+        }
+        return const AccessDeniedWidget();
+      case 3:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return RbacManagementWidget(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 4:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return const AdminAppointmentManagement();
         }
         return const AccessDeniedWidget();
       default:
@@ -470,10 +486,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     return const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()));
                   }
                   
-                  List<String> filterRoles = ['All'];
+                  final filterRoles = ['All'];
                   if (rbacSnapshot.hasData) {
                     final rolesList = rbacSnapshot.data!['roles'] as List<dynamic>? ?? [];
-                    final dbRoles = rolesList.map((r) => r['role_name'].toString()).toList();
+                    final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+                    
+                    List<String> dbRoles = rolesList.map((r) => r['role_name'].toString()).toList();
+                    
+                    // Filter roles based on requester's role
+                    if (currentUser?.role == 'Admin') {
+                      dbRoles = dbRoles.where((r) => r != 'Super Admin').toList();
+                    }
+
                     final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse'];
                     dbRoles.sort((a, b) {
                       int indexA = orderedRoles.indexOf(a);
@@ -486,60 +510,65 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     filterRoles.addAll(dbRoles);
                   }
 
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: filterRoles.map((role) {
-                        final isActive = _selectedRoleFilter == role;
-                        final count = role == 'All'
-                            ? allStaff.length
-                            : allStaff.where((u) => u.role == role).length;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(20),
-                            onTap: () => setState(() => _selectedRoleFilter = role),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isActive ? AppTheme.primaryColor : Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: isActive ? AppTheme.primaryColor : AppTheme.borderColor),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    role,
-                                    style: TextStyle(
-                                      color: isActive ? Colors.white : AppTheme.textSecondaryColor,
-                                      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: isActive ? Colors.white.withOpacity(0.2) : AppTheme.backgroundColor,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      '$count',
+                  return SizedBox(
+                    height: 44,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: filterRoles.map((role) {
+                          final isActive = _selectedRoleFilter == role;
+                          final count = role == 'All'
+                              ? allStaff.length
+                              : allStaff.where((u) => u.role == role).length;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(20),
+                              onTap: () => setState(() => _selectedRoleFilter = role),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 18, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: isActive ? AppTheme.primaryColor : Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: isActive ? AppTheme.primaryColor : AppTheme.borderColor),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      role,
                                       style: TextStyle(
                                         color: isActive ? Colors.white : AppTheme.textSecondaryColor,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
+                                        fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                        fontSize: 13,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: isActive ? Colors.white.withOpacity(0.2) : AppTheme.backgroundColor,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '$count',
+                                        style: TextStyle(
+                                          color: isActive ? Colors.white : AppTheme.textSecondaryColor,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }).toList(),
+                          );
+                        }).toList(),
+                      ),
                     ),
                   );
                 }
@@ -902,14 +931,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          const SizedBox(height: 48),
           
           // Navigation Items
           _buildSidebarItem(0, Icons.admin_panel_settings_outlined, 'Control Panel'),
           _buildSidebarItem(1, Icons.people_outline, 'Staff Management'),
-          _buildSidebarItem(2, Icons.security_outlined, 'Access Control'),
-          _buildSidebarItem(3, Icons.analytics_outlined, 'System Analytics'),
-          _buildSidebarItem(4, Icons.settings_outlined, 'Settings'),
+          _buildSidebarItem(2, Icons.sick_outlined, 'Patient Management'),
+          _buildSidebarItem(3, Icons.security_outlined, 'Access Control'),
+          _buildSidebarItem(4, Icons.calendar_month_outlined, 'Appointment Management'),
           
           const Spacer(),
           
@@ -939,14 +967,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
-                      onPressed: () {
-                        auth.logout();
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (context) => const LoginScreen()),
-                          (route) => false,
-                        );
-                      },
+                      onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
                     ),
                   ],
                 );
@@ -973,7 +994,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             Icon(icon, color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor, size: 22),
             const SizedBox(width: 16),
-            Text(label, style: TextStyle(color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+            Expanded(
+              child: Text(
+                label, 
+                style: TextStyle(color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -1433,6 +1460,77 @@ final AdminController _adminController = AdminController();
               : const Text('Create Staff'),
         ),
       ],
+    );
+  }
+}
+
+class AdminPatientManagementWrapper extends StatefulWidget {
+  const AdminPatientManagementWrapper({Key? key}) : super(key: key);
+
+  @override
+  State<AdminPatientManagementWrapper> createState() => _AdminPatientManagementWrapperState();
+}
+
+class _AdminPatientManagementWrapperState extends State<AdminPatientManagementWrapper> {
+  List<PatientModel> _dbPatients = [];
+  bool _isLoading = false;
+  String? _error;
+  final PatientController _patientController = PatientController();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPatients();
+  }
+
+  Future<void> _fetchPatients() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final patients = await _patientController.fetchPatients();
+      if (mounted) setState(() => _dbPatients = patients);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PatientsView(
+      patients: _dbPatients,
+      isLoading: _isLoading,
+      error: _error,
+      onRefresh: _fetchPatients,
+      onRegisterPatient: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: const Text('Register Patient', style: TextStyle(color: Colors.black87)),
+                backgroundColor: Colors.white,
+                iconTheme: const IconThemeData(color: Colors.black87),
+                elevation: 1,
+              ),
+              body: NewPatientRegistrationView(
+                onBack: () {
+                  Navigator.pop(context);
+                  _fetchPatients();
+                },
+              ),
+            ),
+          ),
+        );
+      },
+      onBookAppointment: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Booking appointments from Admin Dashboard is currently not supported.')),
+        );
+      },
     );
   }
 }

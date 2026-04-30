@@ -102,4 +102,18 @@ class PatientController {
       return null;
     }
   }
+
+  /// Delete a patient by ID
+  Future<void> deletePatient(int patientId) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/patients/$patientId');
+      
+      if (response.statusCode != 200) {
+        final body = jsonDecode(response.body);
+        throw Exception(body['error'] ?? body['message'] ?? 'Failed to delete patient');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
 }
