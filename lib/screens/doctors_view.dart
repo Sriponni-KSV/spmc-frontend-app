@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../controllers/admin_controller.dart';
+import '../controllers/appointment_controller.dart';
 import '../models/user_model.dart';
+import '../models/appointment_model.dart';
+import '../providers/auth_provider.dart';
 
 class DoctorsView extends StatefulWidget {
   const DoctorsView({Key? key}) : super(key: key);
@@ -12,7 +17,9 @@ class DoctorsView extends StatefulWidget {
 
 class _DoctorsViewState extends State<DoctorsView> {
   final AdminController _adminController = AdminController();
+  final AppointmentController _appointmentController = AppointmentController();
   Future<List<UserModel>>? _doctorsFuture;
+  List<AppointmentModel> _appointments = [];
   String _searchQuery = '';
   String _selectedDepartment = 'All';
 
@@ -24,10 +31,18 @@ class _DoctorsViewState extends State<DoctorsView> {
     _loadDoctors();
   }
 
-  void _loadDoctors() {
+  void _loadDoctors() async {
     setState(() {
       _doctorsFuture = _adminController.fetchStaff(role: 'Doctor');
     });
+    try {
+      final appts = await _appointmentController.fetchAppointments();
+      setState(() {
+        _appointments = appts;
+      });
+    } catch (e) {
+      debugPrint('Error loading appointments in DoctorsView: $e');
+    }
   }
 
   @override
@@ -280,12 +295,17 @@ class _DoctorsViewState extends State<DoctorsView> {
   }
 
   Widget _buildDoctorCard(UserModel doctor, bool isMobile) {
-    // Generate some mock data for fields not in DB to match screenshot aesthetics
-    final String experience = '12 years'; // Mock
-    final String patients = '312'; // Mock
-    final String rating = '4.9'; // Mock
-    final List<String> availability = ['Mon', 'Wed', 'Fri']; // Mock
-    final String nextAvailable = 'Today, 2:30 PM'; // Mock
+    // Use real data from DB where available, fallback to '-' for missing fields
+    final String experience = (doctor.experience != null && doctor.experience!.isNotEmpty)
+        ? (doctor.experience!.toLowerCase().contains('year') ? doctor.experience! : '${doctor.experience} years')
+        : '-'; 
+    final String patients = (doctor.numberPatientsAttended != null) ? doctor.numberPatientsAttended.toString() : '-';
+    final String rating = '4.9'; // Mock: Rating system not yet implemented in DB
+    final List<String> weekDaysOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final List<String> availabilityList = List<String>.from(doctor.availableDays ?? [])
+      ..sort((a, b) => weekDaysOrder.indexOf(a).compareTo(weekDaysOrder.indexOf(b)));
+    final String availability = availabilityList.isNotEmpty ? availabilityList.join(', ') : '-';
+    final String nextAvailable = _getNextAvailable(doctor); 
 
     return Container(
       margin: isMobile ? const EdgeInsets.only(bottom: 24) : EdgeInsets.zero,
@@ -336,7 +356,7 @@ class _DoctorsViewState extends State<DoctorsView> {
                       ),
                     ),
                     Text(
-                      doctor.specialization ?? 'General Medicine',
+                      doctor.specialization ?? '-',
                       style: const TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 13,
@@ -390,7 +410,7 @@ class _DoctorsViewState extends State<DoctorsView> {
                   ),
                 ),
                 Text(
-                  doctor.specialization ?? 'Interventional Cardiology',
+                  doctor.specialization ?? '-',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
@@ -489,7 +509,7 @@ class _DoctorsViewState extends State<DoctorsView> {
                   ),
                 ),
                 Text(
-                  availability.join(', '),
+                  availability,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
@@ -538,7 +558,7 @@ class _DoctorsViewState extends State<DoctorsView> {
               ),
               const SizedBox(width: 12),
               OutlinedButton(
-                onPressed: () {},
+                onPressed: () => _showEditDoctorDialog(doctor),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -547,6 +567,311 @@ class _DoctorsViewState extends State<DoctorsView> {
                 child: const Text('Profile', style: TextStyle(color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+  void _showEditDoctorDialog(UserModel doctor) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final String userRole = authProvider.user?.role ?? '';
+    final bool canEdit = userRole == 'Admin' || userRole == 'Super Admin' || userRole == 'Supervisor';
+
+    final List<Map<String, dynamic>> specializations = await _adminController.fetchSpecializations();
+    
+    final fullnameController = TextEditingController(text: doctor.fullname);
+    final emailController = TextEditingController(text: doctor.email);
+    final experienceController = TextEditingController(text: doctor.experience ?? '');
+    final patientsController = TextEditingController(text: doctor.numberPatientsAttended?.toString() ?? '0');
+    final bioController = TextEditingController(text: doctor.bio ?? '');
+    final licenseController = TextEditingController(text: doctor.medicalLicense ?? '');
+    final qualificationController = TextEditingController(text: doctor.qualification ?? '');
+    final clinicNameController = TextEditingController(text: doctor.clinicName ?? '');
+    final clinicLocationController = TextEditingController(text: doctor.clinicLocation ?? '');
+    final feeController = TextEditingController(text: doctor.consultationFee ?? '');
+    final expertiseController = TextEditingController(text: doctor.areasOfExpertise ?? '');
+    final startTimeController = TextEditingController(text: doctor.slotStartTime ?? '');
+    
+    int? selectedSpecId = doctor.specializationId;
+    List<String> selectedDays = List<String>.from(doctor.availableDays ?? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+    final List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(canEdit ? Icons.edit_note : Icons.person_outline, color: AppTheme.primaryColor),
+              const SizedBox(width: 12),
+              Text(canEdit ? 'Edit Doctor Profile' : 'Doctor Professional Profile'),
+            ],
+          ),
+          content: SizedBox(
+            width: 600,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Basic Information', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                  const Divider(),
+                  Row(
+                    children: [
+                      Expanded(child: _buildDialogField('Full Name', fullnameController, enabled: canEdit)),
+                      const SizedBox(width: 16),
+                      Expanded(child: _buildDialogField('Email', emailController, enabled: canEdit)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(child: _buildDialogField('Medical License', licenseController, enabled: canEdit)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Specialization', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            DropdownButton<int>(
+                              isExpanded: true,
+                              value: selectedSpecId,
+                              disabledHint: selectedSpecId != null 
+                                ? Text(
+                                    specializations.firstWhere((s) => s['id'] == selectedSpecId)['name'],
+                                    style: const TextStyle(color: Colors.black87),
+                                  )
+                                : null,
+                              items: specializations.map((s) => DropdownMenuItem<int>(
+                                value: s['id'],
+                                child: Text(s['name']),
+                              )).toList(),
+                              onChanged: canEdit ? (val) => setDialogState(() => selectedSpecId = val) : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('Professional Details', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                  const Divider(),
+                  Row(
+                    children: [
+                      Expanded(child: _buildDialogField('Experience (years)', experienceController, enabled: canEdit)),
+                      const SizedBox(width: 16),
+                      Expanded(child: _buildDialogField('Patients Attended', patientsController, isNumeric: true, enabled: canEdit)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildDialogField('Qualification', qualificationController, enabled: canEdit),
+                  const SizedBox(height: 16),
+                  _buildDialogField('Areas of Expertise', expertiseController, hint: 'Comma separated', enabled: canEdit),
+                  const SizedBox(height: 16),
+                  _buildDialogField('Bio', bioController, maxLines: 3, enabled: canEdit),
+                  const SizedBox(height: 24),
+                  const Text('Clinic & Availability', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                  const Divider(),
+                  Row(
+                    children: [
+                      Expanded(child: _buildDialogField('Clinic Name', clinicNameController, enabled: canEdit)),
+                      const SizedBox(width: 16),
+                      Expanded(child: _buildDialogField('Clinic Location', clinicLocationController, enabled: canEdit)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(child: _buildDialogField('Consultation Fee', feeController, enabled: canEdit)),
+                      const SizedBox(width: 16),
+                      Expanded(child: _buildDialogField('Slot Start Time', startTimeController, hint: 'e.g. 9:30 AM', enabled: canEdit)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Available Days', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Wrap(
+                    spacing: 8,
+                    children: weekDays.map((day) {
+                      final isSelected = selectedDays.contains(day);
+                      return FilterChip(
+                        label: Text(
+                          day,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : (canEdit ? Colors.black87 : Colors.black54),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryColor,
+                        disabledColor: isSelected 
+                            ? AppTheme.primaryColor 
+                            : Colors.grey.shade100,
+                        checkmarkColor: Colors.white,
+                        showCheckmark: isSelected,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        side: BorderSide(
+                          color: isSelected ? AppTheme.primaryColor : Colors.grey.shade300,
+                        ),
+                        onSelected: canEdit ? (val) {
+                          setDialogState(() {
+                            if (val) selectedDays.add(day);
+                            else selectedDays.remove(day);
+                          });
+                        } : null,
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            if (canEdit)
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    await _adminController.updateStaff(
+                      id: doctor.id,
+                      fullname: fullnameController.text,
+                      email: emailController.text,
+                      role: 'Doctor',
+                      medicalLicense: licenseController.text,
+                      specializationId: selectedSpecId,
+                      qualification: qualificationController.text,
+                      experience: experienceController.text,
+                      patientsAttended: int.tryParse(patientsController.text) ?? 0,
+                      bio: bioController.text,
+                      availableDays: selectedDays,
+                      slotStartTime: startTimeController.text,
+                      clinicName: clinicNameController.text,
+                      clinicLocation: clinicLocationController.text,
+                      consultationFee: double.tryParse(feeController.text.replaceAll(RegExp(r'[^0-9.]'), '')),
+                      areasOfExpertise: expertiseController.text,
+                    );
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      _loadDoctors();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Profile updated successfully'), backgroundColor: Colors.green),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                child: const Text('Save Changes'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getNextAvailable(UserModel doctor) {
+    if (doctor.availableDays == null || doctor.availableDays!.isEmpty || doctor.slotStartTime == null || doctor.slotStartTime!.isEmpty) {
+      return '-';
+    }
+
+    final now = DateTime.now();
+    final List<String> availableDays = List<String>.from(doctor.availableDays!);
+    final List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    
+    int duration = 30;
+    if (doctor.slotDuration != null) {
+      duration = int.tryParse(doctor.slotDuration!.split(' ')[0]) ?? 30;
+    }
+
+    // Check next 7 days for the first available slot
+    for (int i = 0; i < 7; i++) {
+      final checkDate = now.add(Duration(days: i));
+      final dayName = weekDays[checkDate.weekday - 1];
+      
+      if (!availableDays.contains(dayName)) continue;
+      if (doctor.weeklyOffDays != null && doctor.weeklyOffDays!.contains(dayName)) continue;
+      
+      final dateStr = DateFormat('dd/MM/yyyy').format(checkDate);
+      if (doctor.specificLeaveDates != null && doctor.specificLeaveDates!.contains(dateStr)) continue;
+
+      try {
+        DateTime start = _parseTimeOnDate(checkDate, doctor.slotStartTime!);
+        DateTime end = doctor.slotEndTime != null 
+            ? _parseTimeOnDate(checkDate, doctor.slotEndTime!) 
+            : start.add(const Duration(hours: 8)); // Fallback 8 hour window if no end time
+        
+        DateTime currentSlot = start;
+        while (currentSlot.isBefore(end)) {
+          // 1. Check if slot is in the future
+          if (currentSlot.isAfter(now)) {
+            final timeStr = DateFormat('hh:mm a').format(currentSlot);
+            
+            // 2. Check if this specific slot is already booked for this doctor
+            bool isBooked = _appointments.any((a) => 
+              a.doctorName == doctor.fullname && 
+              a.appointmentDate == dateStr && 
+              a.appointmentTime == timeStr &&
+              (a.status == 'Confirmed' || a.status == 'Arrived')
+            );
+
+            if (!isBooked) {
+              final prefix = i == 0 ? 'Today' : (i == 1 ? 'Tomorrow' : dayName);
+              return '$prefix, $timeStr';
+            }
+          }
+          currentSlot = currentSlot.add(Duration(minutes: duration));
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    return '-';
+  }
+
+  DateTime _parseTimeOnDate(DateTime date, String timeStr) {
+    final timeParts = timeStr.split(' ');
+    final hms = timeParts[0].split(':');
+    int hour = int.parse(hms[0]);
+    int minute = hms.length > 1 ? int.parse(hms[1]) : 0;
+    
+    if (timeParts.length > 1) {
+      if (timeParts[1].toUpperCase() == 'PM' && hour < 12) hour += 12;
+      if (timeParts[1].toUpperCase() == 'AM' && hour == 12) hour = 0;
+    }
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+  Widget _buildDialogField(String label, TextEditingController controller, {bool isNumeric = false, int maxLines = 1, String? hint, bool enabled = true}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          TextField(
+            controller: controller,
+            readOnly: !enabled,
+            keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+            maxLines: maxLines,
+            style: const TextStyle(color: Colors.black87, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: hint,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              border: enabled ? null : InputBorder.none,
+              filled: enabled,
+              fillColor: Colors.grey.shade50,
+            ),
           ),
         ],
       ),

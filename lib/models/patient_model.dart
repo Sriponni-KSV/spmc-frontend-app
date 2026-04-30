@@ -11,6 +11,7 @@ class PatientModel {
   final String email;
   final String department;
   final String address;
+  final String? createdAt;
 
   // Medical intake
   final double height;
@@ -58,6 +59,7 @@ class PatientModel {
     required this.physicalActivity,
     this.isQuickRegister = false,
     this.patientId,
+    this.createdAt,
   });
 
 
@@ -86,6 +88,7 @@ class PatientModel {
       'foodHabits': foodHabits,
       'physicalActivity': physicalActivity,
       'isQuickRegister': isQuickRegister,
+      'created_at': createdAt,
     };
 
   }
@@ -127,6 +130,7 @@ class PatientModel {
                        (json['isQuickRegister'] ?? json['is_quick_register']).toString() == '1' ||
                        (json['isQuickRegister'] ?? json['is_quick_register']).toString().toLowerCase() == 'true',
       patientId: json['patientId']?.toString() ?? json['patient_id']?.toString(),
+      createdAt: (json['createdAt'] ?? json['created_at']) != null ? DateFormatter.toUi(json['createdAt'] ?? json['created_at']) : null,
     );
 
   }

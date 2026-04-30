@@ -8,7 +8,8 @@ import '../models/patient_model.dart';
 
 class NewPatientRegistrationView extends StatefulWidget {
   final VoidCallback onBack;
-  const NewPatientRegistrationView({Key? key, required this.onBack}) : super(key: key);
+  final PatientModel? existingPatient;
+  const NewPatientRegistrationView({Key? key, required this.onBack, this.existingPatient}) : super(key: key);
 
   @override
   State<NewPatientRegistrationView> createState() => _NewPatientRegistrationViewState();
@@ -61,6 +62,39 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   void initState() {
     super.initState();
     _fetchDepartments();
+    if (widget.existingPatient != null) {
+      _preFillForm();
+    }
+  }
+
+  void _preFillForm() {
+    final p = widget.existingPatient!;
+    _nameController.text = p.name;
+    _dobController.text = p.dob;
+    _ageController.text = p.age > 0 ? p.age.toString() : '';
+    _phoneController.text = p.phone;
+    _emailController.text = p.email;
+    _addressController.text = p.address;
+    _selectedGender = p.gender;
+    _selectedDepartment = p.department;
+    
+    // Medical Intake
+    _bpSystolicController.text = p.bpSystolic > 0 ? p.bpSystolic.toString() : '';
+    _bpDiastolicController.text = p.bpDiastolic > 0 ? p.bpDiastolic.toString() : '';
+    _sugarController.text = p.sugar > 0 ? p.sugar.toString() : '';
+    _tempController.text = p.temp > 0 ? p.temp.toString() : '';
+    _heightController.text = p.height > 0 ? p.height.toString() : '';
+    _weightController.text = p.weight > 0 ? p.weight.toString() : '';
+    _complaintsController.text = p.complaints;
+    _historyController.text = p.history;
+    
+    // Lifestyle
+    _smokingStatus = (p.smokingStatus == 'No' || p.smokingStatus.isEmpty) ? 'Never' : p.smokingStatus;
+    _alcoholStatus = (p.alcoholStatus == 'No' || p.alcoholStatus.isEmpty) ? 'Never' : p.alcoholStatus;
+    _occupationController.text = p.occupation;
+    _hobbiesController.text = p.hobbies;
+    _foodHabitsController.text = p.foodHabits;
+    _physicalActivityController.text = p.physicalActivity;
   }
 
   Future<void> _fetchDepartments() async {
@@ -137,9 +171,9 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
             ),
           ),
             const SizedBox(height: 24),
-            const Text(
-              'New Patient Registration',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            Text(
+              widget.existingPatient != null ? 'Complete Patient Profile' : 'New Patient Registration',
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             const Text(
@@ -333,7 +367,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
                       _buildLabel('Date of Birth *'),
                       _buildTextField(
                         controller: _dobController,
-                        hint: 'dd-mm-yyyy',
+                        hint: 'dd/mm/yyyy',
                         icon: Icons.calendar_today_outlined,
                         onTap: () => _selectDate(context),
                         readOnly: true,
@@ -1428,14 +1462,30 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
   }
 
   Widget _buildLabel(String label) {
+    final bool hasStar = label.endsWith(' *');
+    final String baseText = hasStar ? label.substring(0, label.length - 2) : label;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF4A5568),
+      child: RichText(
+        text: TextSpan(
+          text: baseText,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF4A5568),
+            fontFamily: 'Inter', // Ensuring consistency with theme
+          ),
+          children: [
+            if (hasStar)
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -1508,6 +1558,13 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     required ValueChanged<String?> onChanged,
     String? Function(String?)? validator,
   }) {
+    // Safety check: ensure 'value' is actually in 'items' to prevent common Flutter DropdownButton crashes.
+    final Set<String> uniqueItems = {...items};
+    if (value != null && value.isNotEmpty) {
+      uniqueItems.add(value);
+    }
+    final List<String> safeItems = uniqueItems.toList();
+
     return DropdownButtonFormField<String>(
       value: value,
       validator: validator,
@@ -1537,7 +1594,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
       ),
       icon: const Icon(Icons.expand_more_rounded, color: Color(0xFFA0AEC0)),
       isExpanded: true,
-      items: items.map((String item) {
+      items: safeItems.map((String item) {
         return DropdownMenuItem<String>(
           value: item,
           child: Text(item, style: const TextStyle(fontSize: 14)),
@@ -1575,19 +1632,29 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
       temp:             double.tryParse(_tempController.text.trim()) ?? 0.0,
       complaints:       _complaintsController.text.trim(),
       history:          _historyController.text.trim(),
-      smokingStatus:    _smokingStatus ?? 'No',
-      alcoholStatus:    _alcoholStatus ?? 'No',
+      smokingStatus:    _smokingStatus ?? 'Never',
+      alcoholStatus:    _alcoholStatus ?? 'Never',
       occupation:       _occupationController.text.trim(),
       hobbies:          _hobbiesController.text.trim(),
       foodHabits:       _foodHabitsController.text.trim(),
       physicalActivity: _physicalActivityController.text.trim(),
     );
  
-    await _patientController.registerPatient(patient);
+    if (widget.existingPatient != null && widget.existingPatient!.id != null) {
+      await _patientController.updatePatient(widget.existingPatient!.id!, patient);
+    } else {
+      await _patientController.registerPatient(patient);
+    }
  
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Patient registered successfully!')),
+        SnackBar(
+          content: Text(
+            widget.existingPatient != null 
+                ? 'Patient profile completed successfully!' 
+                : 'Patient registered successfully!'
+          )
+        ),
       );
       widget.onBack();
     }
@@ -1611,7 +1678,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     );
     if (picked != null) {
       setState(() {
-        _dobController.text = DateFormat('dd-MM-yyyy').format(picked);
+        _dobController.text = DateFormat('dd/MM/yyyy').format(picked);
         
         // Accurate age calculation including month/day check
         final now = DateTime.now();
