@@ -1504,6 +1504,28 @@ class _AdminPatientManagementWrapperState extends State<AdminPatientManagementWr
       patients: _dbPatients,
       isLoading: _isLoading,
       error: _error,
+      onCompleteProfile: (patient) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: const Text('Complete Patient Profile', style: TextStyle(color: Colors.black87)),
+                backgroundColor: Colors.white,
+                iconTheme: const IconThemeData(color: Colors.black87),
+                elevation: 1,
+              ),
+              body: NewPatientRegistrationView(
+                existingPatient: patient,
+                onBack: () {
+                  Navigator.pop(context);
+                  _fetchPatients();
+                },
+              ),
+            ),
+          ),
+        );
+      },
       onRefresh: _fetchPatients,
       onRegisterPatient: () {
         Navigator.push(

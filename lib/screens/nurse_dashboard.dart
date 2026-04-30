@@ -463,18 +463,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                                   size: 18,
                                   color: AppTheme.textSecondaryColor,
                                 ),
-                                onPressed: () {
-                                  auth.logout();
-                                  Navigator.pushAndRemoveUntil(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const LoginScreen(),
-                                    ),
-                                    (route) => false,
-                                  );
-                                },
-                              ),
-                              onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
+                                onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
                             ),
                           ],
                         ),

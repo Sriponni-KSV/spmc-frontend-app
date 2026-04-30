@@ -974,7 +974,7 @@ class _PatientsViewState extends State<PatientsView> {
                         child: const Text('Book Appt.'),
                       ),
                     ),
-                  ),
+                  ],
                   if (isQuick) ...[
                     const SizedBox(width: 12),
                     Expanded(
