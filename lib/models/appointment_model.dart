@@ -9,6 +9,7 @@ class AppointmentModel {
   final String doctorName;
   final String appointmentDate;
   final String appointmentTime;
+  final String? patientPhone;
   final int? bloodPressureSystolic;
   final int? bloodPressureDiastolic;
   final double? sugarLevel;
@@ -29,6 +30,7 @@ class AppointmentModel {
     required this.doctorName,
     required this.appointmentDate,
     required this.appointmentTime,
+    this.patientPhone,
     this.bloodPressureSystolic,
     this.bloodPressureDiastolic,
     this.sugarLevel,
@@ -51,6 +53,7 @@ class AppointmentModel {
       doctorName: json['doctor_name'] ?? '',
       appointmentDate: DateFormatter.toUi(json['appointment_date']),
       appointmentTime: json['appointment_time'] ?? '',
+      patientPhone: json['patient_phone']?.toString(),
       bloodPressureSystolic: json['blood_pressure_systolic'] is int ? json['blood_pressure_systolic'] : int.tryParse(json['blood_pressure_systolic']?.toString() ?? ''),
       bloodPressureDiastolic: json['blood_pressure_diastolic'] is int ? json['blood_pressure_diastolic'] : int.tryParse(json['blood_pressure_diastolic']?.toString() ?? ''),
       sugarLevel: json['sugar_level'] != null ? double.tryParse(json['sugar_level'].toString()) : null,
@@ -72,6 +75,7 @@ class AppointmentModel {
       'doctor_name': doctorName,
       'appointment_date': DateFormatter.toDb(appointmentDate),
       'appointment_time': appointmentTime,
+      'patient_phone': patientPhone,
       'blood_pressure_systolic': bloodPressureSystolic,
       'blood_pressure_diastolic': bloodPressureDiastolic,
       'sugar_level': sugarLevel,
@@ -90,6 +94,7 @@ class AppointmentModel {
     String? doctorName,
     String? appointmentDate,
     String? appointmentTime,
+    String? patientPhone,
     int? bloodPressureSystolic,
     int? bloodPressureDiastolic,
     double? sugarLevel,
@@ -106,6 +111,7 @@ class AppointmentModel {
       doctorName: doctorName ?? this.doctorName,
       appointmentDate: appointmentDate ?? this.appointmentDate,
       appointmentTime: appointmentTime ?? this.appointmentTime,
+      patientPhone: patientPhone ?? this.patientPhone,
       bloodPressureSystolic: bloodPressureSystolic ?? this.bloodPressureSystolic,
       bloodPressureDiastolic:
           bloodPressureDiastolic ?? this.bloodPressureDiastolic,

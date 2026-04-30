@@ -17,6 +17,7 @@ import 'new_patient_registration.dart';
 import 'patients_view.dart';
 import '../utils/logout_helper.dart';
 import 'admin_appointment_management.dart';
+import 'opd_management.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -369,6 +370,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 4:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return const AdminAppointmentManagement();
+        }
+        return const AccessDeniedWidget();
+      case 5:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return OPDManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       default:
@@ -938,6 +944,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _buildSidebarItem(2, Icons.sick_outlined, 'Patient Management'),
           _buildSidebarItem(3, Icons.security_outlined, 'Access Control'),
           _buildSidebarItem(4, Icons.calendar_month_outlined, 'Appointment Management'),
+          _buildSidebarItem(5, Icons.monitor_heart_outlined, 'OPD Management'),
           
           const Spacer(),
           

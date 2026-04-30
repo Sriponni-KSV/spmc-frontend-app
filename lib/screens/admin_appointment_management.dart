@@ -33,7 +33,7 @@ class _AdminAppointmentManagementState
   String _filterStatus = 'All';
 
   final List<String> _statusOptions = [
-    'All', 'Confirmed', 'Completed', 'Cancelled', 'No-Show', 'Rescheduled'
+    'All', 'Confirmed', 'Waiting', 'In Consultation', 'Completed', 'Cancelled', 'No-Show', 'Rescheduled'
   ];
 
   final ScrollController _vScroll = ScrollController();
@@ -91,13 +91,13 @@ class _AdminAppointmentManagementState
     setState(() { _isLoading = true; _errorMsg = null; });
     try {
       final String? dateStr = _filterDate != null
-          ? DateFormat('dd-MM-yyyy').format(_filterDate!)
+          ? DateFormat('yyyy-MM-dd').format(_filterDate!)
           : null;
       final results = await Future.wait([
         _apptCtrl.fetchAdminAppointments(
           date: dateStr,
           doctor: _filterDoctor,
-          status: _filterStatus == 'All' ? null : _filterStatus,
+          status: _filterStatus == 'All' ? null : (_filterStatus == 'Waiting' ? 'Checked-in' : _filterStatus),
         ),
         _adminCtrl.fetchStaff(role: 'Doctor'),
         _adminCtrl.fetchSpecializations(),
@@ -117,6 +117,9 @@ class _AdminAppointmentManagementState
   Color _statusColor(String status) {
     switch (status) {
       case 'Confirmed': return const Color(0xFF3B82F6);
+      case 'Waiting':
+      case 'Checked-in': return const Color(0xFF0D9488);
+      case 'In Consultation': return const Color(0xFFF59E0B);
       case 'Completed': return const Color(0xFF22C55E);
       case 'Cancelled': return const Color(0xFFEF4444);
       case 'No-Show':   return const Color(0xFFF97316);
@@ -139,7 +142,7 @@ class _AdminAppointmentManagementState
     String? appointmentType = appt.appointmentType;
     bool isSaving = false;
 
-    List<String> availableStatuses = ['Confirmed', 'Completed', 'Cancelled', 'No-Show', 'Rescheduled'];
+    List<String> availableStatuses = ['Confirmed', 'Checked-in', 'In Consultation', 'Completed', 'Cancelled', 'No-Show', 'Rescheduled'];
     if (appt.status == 'Completed') {
       availableStatuses = ['Confirmed', 'Completed', 'No-Show'];
     } else if (appt.status == 'Cancelled') {
@@ -252,7 +255,7 @@ class _AdminAppointmentManagementState
                     buildField('Force Status Change', DropdownButtonFormField<String>(
                       value: selectedStatus,
                       decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                      items: availableStatuses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                      items: availableStatuses.map((s) => DropdownMenuItem(value: s, child: Text(s == 'Checked-in' ? 'Waiting' : s))).toList(),
                       onChanged: mode == 'view' ? null : (v) => setS(() => selectedStatus = v),
                     )),
 
@@ -711,7 +714,7 @@ class _AdminAppointmentManagementState
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           Container(width: 6, height: 6, decoration: BoxDecoration(color: sc, shape: BoxShape.circle)),
                           const SizedBox(width: 6),
-                          Text(appt.status, style: TextStyle(color: sc, fontSize: 11, fontWeight: FontWeight.w700)),
+                          Text(appt.status == 'Checked-in' ? 'Waiting' : appt.status, style: TextStyle(color: sc, fontSize: 11, fontWeight: FontWeight.w700)),
                         ]),
                       )),
                       DataCell(hasOverride
