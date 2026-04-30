@@ -15,6 +15,16 @@ class UserModel {
   final int? numberPatientsAttended;
   final String? qualification;
   final String? bio;
+  final List<String>? availableDays;
+  final String? slotStartTime;
+  final String? slotEndTime;
+  final String? slotDuration;
+  final List<String>? weeklyOffDays;
+  final List<String>? specificLeaveDates;
+  final String? clinicName;
+  final String? clinicLocation;
+  final String? consultationFee;
+  final String? areasOfExpertise;
   final List<String> permissions;
   final Map<String, String> permissionDisplayMap;
 
@@ -33,9 +43,32 @@ class UserModel {
     this.numberPatientsAttended,
     this.qualification,
     this.bio,
+    this.availableDays,
+    this.slotStartTime,
+    this.slotEndTime,
+    this.slotDuration,
+    this.weeklyOffDays,
+    this.specificLeaveDates,
+    this.clinicName,
+    this.clinicLocation,
+    this.consultationFee,
+    this.areasOfExpertise,
     this.permissions = const [],
     this.permissionDisplayMap = const {},
   });
+
+  static List<String>? _parseList(dynamic val) {
+    if (val == null) return null;
+    if (val is List) return val.map((e) => e.toString()).toList();
+    if (val is String) {
+      if (val.startsWith('{') && val.endsWith('}')) {
+        return val.substring(1, val.length - 1).split(',').where((e) => e.isNotEmpty).map((e) => e.trim()).toList();
+      }
+      if (val.isEmpty) return [];
+      return [val];
+    }
+    return null;
+  }
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     List<String> perms = [];
@@ -60,15 +93,31 @@ class UserModel {
 
     return UserModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
-      fullname: json['fullname'] ?? '',
+      fullname: json['fullname'] ?? json['fullName'] ?? '',
       email: json['email'] ?? '',
       role: json['role'] ?? '',
       status: json['status'] ?? 'active',
-      medicalLicense: json['medical_license'],
-      specializationId: json['specialization_id'],
+      medicalLicense: json['medical_license'] ?? json['medicalLicense'],
+      specializationId: json['specialization_id'] ?? json['specializationId'],
       specialization: json['specialization'],
-      staffUniqueId: json['staff_unique_id'],
+      staffUniqueId: json['staff_unique_id'] ?? json['staffUniqueId'],
       token: json['token'],
+      experience: (json['experience'] ?? json['Experience'])?.toString(),
+      numberPatientsAttended: (json['patients_attended'] ?? json['patientsAttended']) != null 
+          ? int.tryParse((json['patients_attended'] ?? json['patientsAttended']).toString())
+          : null,
+      qualification: json['qualification'] ?? json['Qualification'],
+      bio: json['bio'] ?? json['Bio'],
+      availableDays: _parseList(json['available_days'] ?? json['availableDays']),
+      slotStartTime: json['slot_start_time'] ?? json['slotStartTime'],
+      slotEndTime: json['slot_end_time'] ?? json['slotEndTime'],
+      slotDuration: json['slot_duration'] ?? json['slotDuration'],
+      weeklyOffDays: _parseList(json['weekly_off_days'] ?? json['weeklyOffDays']),
+      specificLeaveDates: _parseList(json['specific_leave_dates'] ?? json['specificLeaveDates']),
+      clinicName: json['clinic_name'] ?? json['clinicName'],
+      clinicLocation: json['clinic_location'] ?? json['clinicLocation'],
+      consultationFee: (json['consultation_fee'] ?? json['consultationFee'])?.toString(),
+      areasOfExpertise: json['areas_of_expertise'] ?? json['areasOfExpertise'],
       permissions: perms,
       permissionDisplayMap: displays,
     );
@@ -85,6 +134,20 @@ class UserModel {
     String? specialization,
     String? staffUniqueId,
     String? token,
+    String? experience,
+    int? numberPatientsAttended,
+    String? qualification,
+    String? bio,
+    List<String>? availableDays,
+    String? slotStartTime,
+    String? slotEndTime,
+    String? slotDuration,
+    List<String>? weeklyOffDays,
+    List<String>? specificLeaveDates,
+    String? clinicName,
+    String? clinicLocation,
+    String? consultationFee,
+    String? areasOfExpertise,
     List<String>? permissions,
     Map<String, String>? permissionDisplayMap,
   }) {
@@ -99,6 +162,20 @@ class UserModel {
       specialization: specialization ?? this.specialization,
       staffUniqueId: staffUniqueId ?? this.staffUniqueId,
       token: token ?? this.token,
+      experience: experience ?? this.experience,
+      numberPatientsAttended: numberPatientsAttended ?? this.numberPatientsAttended,
+      qualification: qualification ?? this.qualification,
+      bio: bio ?? this.bio,
+      availableDays: availableDays ?? this.availableDays,
+      slotStartTime: slotStartTime ?? this.slotStartTime,
+      slotEndTime: slotEndTime ?? this.slotEndTime,
+      slotDuration: slotDuration ?? this.slotDuration,
+      weeklyOffDays: weeklyOffDays ?? this.weeklyOffDays,
+      specificLeaveDates: specificLeaveDates ?? this.specificLeaveDates,
+      clinicName: clinicName ?? this.clinicName,
+      clinicLocation: clinicLocation ?? this.clinicLocation,
+      consultationFee: consultationFee ?? this.consultationFee,
+      areasOfExpertise: areasOfExpertise ?? this.areasOfExpertise,
       permissions: permissions ?? this.permissions,
       permissionDisplayMap: permissionDisplayMap ?? this.permissionDisplayMap,
     );

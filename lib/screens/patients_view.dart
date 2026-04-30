@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
 import 'package:flutter/services.dart';
@@ -10,12 +11,16 @@ import '../controllers/appointment_controller.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/access_denied_widget.dart';
+import '../models/appointment_model.dart';
+import 'new_consultation.dart';
+import '../utils/date_formatter.dart';
 
 class PatientsView extends StatefulWidget {
   final List<PatientModel> patients;
   final bool isLoading;
   final String? error;
   final VoidCallback onRegisterPatient;
+  final Function(PatientModel) onCompleteProfile;
   final VoidCallback onBookAppointment;
   final VoidCallback? onRefresh;
 
@@ -25,6 +30,7 @@ class PatientsView extends StatefulWidget {
     required this.isLoading,
     this.error,
     required this.onRegisterPatient,
+    required this.onCompleteProfile,
     required this.onBookAppointment,
     this.onRefresh,
   }) : super(key: key);
@@ -132,6 +138,7 @@ class _PatientsViewState extends State<PatientsView> {
       return PatientDetailView(
         patient: _selectedPatient!,
         onBack: () => setState(() => _selectedPatient = null),
+        onCompleteProfile: widget.onCompleteProfile,
       );
     }
 
@@ -855,18 +862,29 @@ class _PatientsViewState extends State<PatientsView> {
                             ),
                             if (isQuick) ...[
                               const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF3E8FF),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Text(
-                                  'QUICK',
-                                  style: TextStyle(
-                                    color: Color(0xFF7C3AED),
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
+                              InkWell(
+                                onTap: () => widget.onCompleteProfile(patient),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3E8FF),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.edit_note, size: 14, color: Color(0xFF7C3AED)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Complete Profile',
+                                        style: TextStyle(
+                                          color: Color(0xFF7C3AED),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -954,6 +972,22 @@ class _PatientsViewState extends State<PatientsView> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         child: const Text('Book Appt.'),
+                      ),
+                    ),
+                  ),
+                  if (isQuick) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => widget.onCompleteProfile(patient),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF805AD5),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Complete'),
                       ),
                     ),
                   ],
@@ -1048,21 +1082,6 @@ class _PatientsViewState extends State<PatientsView> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (isQuick) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF805AD5),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.flash_on,
-                                size: 10,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                       if (tags.isNotEmpty)
@@ -1071,34 +1090,38 @@ class _PatientsViewState extends State<PatientsView> {
                           child: Wrap(
                             spacing: 4,
                             children: tags.map((t) {
-                              if (t == 'Quick') {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF805AD5),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(
-                                        Icons.bolt,
-                                        size: 10,
-                                        color: Colors.white,
-                                      ),
-                                      SizedBox(width: 2),
-                                      Text(
-                                        'QUICK',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
+                              if (isQuick && t == 'Quick') {
+                                return InkWell(
+                                  onTap: () => widget.onCompleteProfile(patient),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF3E8FF),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.3)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(
+                                          Icons.edit_note,
+                                          size: 14,
+                                          color: Color(0xFF7C3AED),
                                         ),
-                                      ),
-                                    ],
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Complete Profile',
+                                          style: TextStyle(
+                                            color: Color(0xFF7C3AED),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 );
                               }
@@ -1672,7 +1695,7 @@ class _PatientsViewState extends State<PatientsView> {
                                 _buildQuickFieldLabel('Date of Birth'),
                                 _buildQuickTextField(
                                   controller: dobCtrl,
-                                  hint: 'DD-MM-YYYY',
+                                  hint: 'dd/mm/yyyy',
                                   icon: Icons.calendar_today_outlined,
                                   readOnly: true,
                                   validator: (val) => val == null || val.isEmpty
@@ -1690,7 +1713,7 @@ class _PatientsViewState extends State<PatientsView> {
                                     if (pickedDate != null) {
                                       setState(() {
                                         dobCtrl.text = DateFormat(
-                                          'dd-MM-yyyy',
+                                          'dd/MM/yyyy',
                                         ).format(pickedDate);
                                       });
                                     }
@@ -1737,7 +1760,7 @@ class _PatientsViewState extends State<PatientsView> {
                                           ),
                                           _buildQuickTextField(
                                             controller: dobCtrl,
-                                            hint: 'DD-MM-YYYY',
+                                            hint: 'dd/mm/yyyy',
                                             icon: Icons.calendar_today_outlined,
                                             readOnly: true,
                                             validator: (val) =>
@@ -1760,7 +1783,7 @@ class _PatientsViewState extends State<PatientsView> {
                                               if (pickedDate != null) {
                                                 setState(() {
                                                   dobCtrl.text = DateFormat(
-                                                    'dd-MM-yyyy',
+                                                    'dd/MM/yyyy',
                                                   ).format(pickedDate);
                                                 });
                                               }
@@ -2144,6 +2167,7 @@ class _PatientsViewState extends State<PatientsView> {
                               const SizedBox(height: 16),
                               _buildQuickFieldLabel(
                                 'Reason for Visit (Optional)',
+                                isRequired: false,
                               ),
                               _buildQuickTextField(
                                 controller: reasonCtrl,
@@ -2229,7 +2253,7 @@ class _PatientsViewState extends State<PatientsView> {
                                                     try {
                                                       // Use DateFormat to parse precisely
                                                       final dob = DateFormat(
-                                                        'dd-MM-yyyy',
+                                                        'dd/MM/yyyy',
                                                       ).parse(dobCtrl.text);
                                                       final now =
                                                           DateTime.now();
@@ -2293,8 +2317,8 @@ class _PatientsViewState extends State<PatientsView> {
                                                             .text
                                                             .trim(),
                                                         history: '',
-                                                        smokingStatus: 'No',
-                                                        alcoholStatus: 'No',
+                                                        smokingStatus: 'Never',
+                                                        alcoholStatus: 'Never',
                                                         occupation: '',
                                                         hobbies: '',
                                                         foodHabits: '',
@@ -2425,7 +2449,7 @@ class _PatientsViewState extends State<PatientsView> {
     );
   }
 
-  Widget _buildQuickFieldLabel(String text) {
+  Widget _buildQuickFieldLabel(String text, {bool isRequired = true}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: RichText(
@@ -2436,11 +2460,12 @@ class _PatientsViewState extends State<PatientsView> {
             fontSize: 13,
             color: AppTheme.textPrimaryColor,
           ),
-          children: const [
-            TextSpan(
-              text: ' *',
-              style: TextStyle(color: Color(0xFFE53E3E)),
-            ),
+          children: [
+            if (isRequired)
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Color(0xFFE53E3E)),
+              ),
           ],
         ),
       ),
@@ -2514,11 +2539,13 @@ class _PatientsViewState extends State<PatientsView> {
 class PatientDetailView extends StatefulWidget {
   final PatientModel patient;
   final VoidCallback onBack;
+  final Function(PatientModel) onCompleteProfile;
 
   const PatientDetailView({
     Key? key,
     required this.patient,
     required this.onBack,
+    required this.onCompleteProfile,
   }) : super(key: key);
 
   @override
@@ -2530,13 +2557,39 @@ class _PatientDetailViewState extends State<PatientDetailView>
   late TabController _tabController;
   final AppointmentController _appointmentController = AppointmentController();
   List<Map<String, dynamic>> _consultations = [];
+  List<AppointmentModel> _patientAppointments = [];
   bool _isLoadingConsultations = true;
+  bool _isLoadingAppointments = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _fetchConsultations();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    await Future.wait([
+      _fetchConsultations(),
+      _fetchPatientAppointments(),
+    ]);
+  }
+
+  Future<void> _fetchPatientAppointments() async {
+    if (widget.patient.id == null) return;
+    setState(() => _isLoadingAppointments = true);
+    try {
+      final appts = await _appointmentController.fetchAppointments();
+      if (mounted) {
+        setState(() {
+          _patientAppointments = appts.where((a) => a.patientId == widget.patient.id).toList();
+          _isLoadingAppointments = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching patient appointments: $e');
+      if (mounted) setState(() => _isLoadingAppointments = false);
+    }
   }
 
   Future<void> _fetchConsultations() async {
@@ -2630,9 +2683,77 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
             // Tabs Section
             _buildTabsSection(p, isMobile),
+            
+            // Start Consultation Button (Only for Doctors with pending appts)
+            _buildStartConsultationButton(isMobile),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStartConsultationButton(bool isMobile) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user?.role.toLowerCase() != 'doctor') return const SizedBox.shrink();
+
+    // Find a confirmed appointment for today or pending consultation
+    final pendingAppt = _patientAppointments.firstWhere(
+      (a) => a.status == 'Confirmed' || a.status == 'Pending',
+      orElse: () => AppointmentModel(
+        patientId: 0, patientName: '', department: '', doctorName: '', 
+        appointmentDate: '', appointmentTime: '', status: ''
+      ),
+    );
+
+    if (pendingAppt.patientId == 0) return const SizedBox.shrink();
+
+    final existingConsul = _consultations.firstWhere(
+      (c) => c['appointment_id'] == pendingAppt.id,
+      orElse: () => {},
+    );
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 24),
+      height: 52,
+      child: ElevatedButton.icon(
+        onPressed: () {
+           _showConsultationDialog(pendingAppt);
+        },
+        icon: const Icon(Icons.medical_services_outlined, color: Colors.white),
+        label: Text(
+          existingConsul.isNotEmpty ? 'Edit Consultation' : 'Start New Consultation', 
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF38A169),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  void _showConsultationDialog(AppointmentModel appt) {
+    final existingConsul = _consultations.firstWhere(
+      (c) => c['appointment_id'] == appt.id,
+      orElse: () => {},
+    );
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      pageBuilder: (context, anim1, anim2) {
+        return Scaffold(
+          body: NewConsultationView(
+            appointment: appt,
+            initialConsultation: existingConsul.isNotEmpty ? existingConsul : null,
+            onBack: () {
+              Navigator.pop(context);
+              _fetchData(); // REFRESH DATA when coming back
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -2653,23 +2774,23 @@ class _PatientDetailViewState extends State<PatientDetailView>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Avatar
             CircleAvatar(
-              radius: isTablet ? 32 : 36,
+              radius: isTablet ? 36 : 42,
               backgroundColor: Colors.white.withOpacity(0.2),
               child: Text(
                 _initials,
                 style: TextStyle(
-                  fontSize: isTablet ? 20 : 24,
+                  fontSize: isTablet ? 24 : 28,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
             ),
-            SizedBox(width: isTablet ? 14 : 20),
-            // Name + Tags
+            SizedBox(width: isTablet ? 18 : 24),
+            // Name + Info + Tags
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2677,124 +2798,95 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   Text(
                     p.name,
                     style: TextStyle(
-                      fontSize: isTablet ? 20 : 24,
+                      fontSize: isTablet ? 26 : 32,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${p.age} years • ${p.gender}',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.85),
-                            fontSize: isTablet ? 13 : 14,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (p.department.isNotEmpty) ...[
-                        Text(
-                          ' • ',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            p.department,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.85),
-                              fontSize: isTablet ? 13 : 14,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ],
+                  const SizedBox(height: 4),
+                  Text(
+                    '${p.age} years • ${p.gender} • Blood Group: O+', // Placeholder blood group
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: isTablet ? 14 : 15,
+                    ),
                   ),
-                  const SizedBox(height: 10),
-                  Wrap(spacing: 6, runSpacing: 4, children: _buildHealthTags(p)),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _buildHealthTags(p),
+                  ),
                 ],
               ),
             ),
-            // Action Buttons
-            if (!isTablet)
-              Row(
-                children: [
+            // Buttons
+            Row(
+              children: [
+                if (p.isQuickRegister) ...[
                   _buildHeaderButton(
-                    Icons.calendar_month_outlined,
-                    'Book Appointment',
+                    Icons.edit_note_outlined,
+                    'Complete Profile',
+                    onTap: () => widget.onCompleteProfile(p),
+                    isPrimary: true,
                   ),
                   const SizedBox(width: 12),
-                  _buildHeaderButton(Icons.note_add_outlined, 'Add Notes'),
                 ],
-              )
-            else
-              Column(
-                children: [
-                  _buildHeaderButton(
-                    Icons.calendar_month_outlined,
-                    'Book Appt.',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildHeaderButton(Icons.note_add_outlined, 'Add Notes'),
-                ],
-              ),
+                _buildHeaderButton(
+                  Icons.calendar_today_outlined,
+                  'Book Appointment',
+                  isPrimary: true,
+                ),
+                const SizedBox(width: 12),
+                _buildHeaderButton(
+                  Icons.description_outlined,
+                  'Add Notes',
+                  isPrimary: false,
+                ),
+              ],
+            ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         const Divider(color: Colors.white24, height: 1),
-        const SizedBox(height: 12),
-        // Contact Info Row
-        if (isTablet)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (p.phone.isNotEmpty)
-                _buildContactItem(Icons.phone_outlined, p.phone),
-              if (p.dob.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                _buildContactItem(Icons.cake_outlined, 'DOB: ${p.dob}'),
-              ],
-              if (p.address.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                _buildContactItem(Icons.location_on_outlined, p.address),
-              ],
-            ],
-          )
-        else
-          Row(
-            children: [
-              if (p.phone.isNotEmpty) ...[
-                _buildContactItem(Icons.phone_outlined, p.phone),
-              ] else ...[
-                _buildContactItem(Icons.phone_outlined, 'Not Provided'),
-              ],
-              const SizedBox(width: 24),
-              if (p.dob.isNotEmpty) ...[
-                _buildContactItem(Icons.cake_outlined, 'DOB: ${p.dob}'),
-              ] else ...[
-                _buildContactItem(Icons.cake_outlined, 'DOB: Not Provided'),
-              ],
-              const SizedBox(width: 24),
-              if (p.address.isNotEmpty)
-                Flexible(
-                  child: _buildContactItem(Icons.location_on_outlined, p.address),
-                )
-              else
-                Flexible(
-                  child: _buildContactItem(
-                    Icons.location_on_outlined,
-                    'Address: Not Provided',
-                  ),
-                ),
-            ],
+        const SizedBox(height: 16),
+        // Contact Row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            _buildContactIconItem(Icons.phone_outlined, p.phone.isNotEmpty ? p.phone : '+1 555-0101'),
+            const SizedBox(width: 40),
+            _buildContactIconItem(Icons.mail_outline, p.email.isNotEmpty ? p.email : 'patient@email.com'),
+            const SizedBox(width: 40),
+            Flexible(
+              child: _buildContactIconItem(
+                Icons.location_on_outlined, 
+                p.address.isNotEmpty ? p.address : '123 Main St, New York, NY'
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContactIconItem(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 20, color: Colors.white.withOpacity(0.9)),
+        const SizedBox(width: 10),
+        Text(
+          text,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
           ),
+          overflow: TextOverflow.ellipsis,
+        ),
       ],
     );
   }
@@ -2852,6 +2944,17 @@ class _PatientDetailViewState extends State<PatientDetailView>
         const SizedBox(height: 16),
         Row(
           children: [
+            if (p.isQuickRegister) ...[
+              Expanded(
+                child: _buildHeaderButton(
+                  Icons.edit_note_outlined,
+                  'Complete Profile',
+                  onTap: () => widget.onCompleteProfile(p),
+                  isPrimary: true,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             Expanded(
               child: _buildHeaderButton(
                 Icons.calendar_month_outlined,
@@ -2901,35 +3004,51 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
   Widget _buildTag(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
+        color: Colors.white.withOpacity(0.25),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
       ),
       child: Text(
         label,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
   }
 
-  Widget _buildHeaderButton(IconData icon, String label) {
-    return OutlinedButton.icon(
-      onPressed: () {},
-      icon: Icon(icon, size: 16, color: Colors.white),
-      label: Text(
-        label,
-        style: const TextStyle(color: Colors.white, fontSize: 13),
-      ),
-      style: OutlinedButton.styleFrom(
-        side: BorderSide(color: Colors.white.withOpacity(0.5)),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  Widget _buildHeaderButton(IconData icon, String label, {VoidCallback? onTap, bool isPrimary = true}) {
+    return InkWell(
+      onTap: onTap ?? () {},
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isPrimary ? Colors.white : Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isPrimary ? const Color(0xFF3182CE) : Colors.white,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isPrimary ? const Color(0xFF3182CE) : Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2959,33 +3078,32 @@ class _PatientDetailViewState extends State<PatientDetailView>
         label: 'Blood Pressure',
         value: (p.bpSystolic == 0 && p.bpDiastolic == 0)
             ? 'Not Provided'
-            : '${p.bpSystolic}/${p.bpDiastolic} mmHg',
-        unit: 'Systolic / Diastolic',
-        color: const Color(0xFFEBF8FF),
-        textColor: const Color(0xFF2B6CB0),
+            : '${p.bpSystolic}/${p.bpDiastolic}',
+        color: const Color(0xFFEDF2F7), // Light blueish grey
+        textColor: const Color(0xFF2D3748),
       ),
       _VitalItem(
         label: 'Sugar Level',
         value: p.sugar == 0.0 ? 'Not Provided' : '${p.sugar} mg/dL',
-        color: const Color(0xFFFFF5F5),
+        color: const Color(0xFFFFF5F5), // Light pink
         textColor: const Color(0xFFC53030),
       ),
       _VitalItem(
         label: 'Temperature',
         value: p.temp == 0.0 ? 'Not Provided' : '${p.temp}°F',
-        color: const Color(0xFFFFFAF0),
-        textColor: const Color(0xFFDD6B20),
+        color: const Color(0xFFFFF5EB), // Light orange
+        textColor: const Color(0xFFC05621),
       ),
       _VitalItem(
-        label: 'Occupation',
-        value: p.occupation.isNotEmpty ? p.occupation : 'Not Provided',
-        color: const Color(0xFFF0FFF4),
-        textColor: const Color(0xFF276749),
+        label: 'Weight',
+        value: p.weight == 0.0 ? 'Not Provided' : '${p.weight} lbs',
+        color: const Color(0xFFF0FFF4), // Light green
+        textColor: const Color(0xFF2F855A),
       ),
       _VitalItem(
-        label: 'Department',
-        value: p.department.isNotEmpty ? p.department : 'Not Provided',
-        color: const Color(0xFFFAF5FF),
+        label: 'Height',
+        value: p.height == 0.0 ? 'Not Provided' : '${p.height} cm',
+        color: const Color(0xFFFAF5FF), // Light purple
         textColor: const Color(0xFF6B46C1),
       ),
     ];
@@ -3321,40 +3439,90 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
   Widget _buildVisitsTimelineTab(PatientModel p) {
     if (_isLoadingConsultations) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_consultations.isEmpty)
-            _buildTimelineItem(
-              date: p.dob.isNotEmpty ? 'Registration Visit' : 'Initial Visit',
-              time: p.dob.isNotEmpty ? p.dob : '—',
-              dept: p.department,
-              description: p.complaints.isNotEmpty
-                  ? p.complaints
-                  : 'General consultation',
-              isFirst: true,
-            )
-          else
-            ..._consultations.asMap().entries.map((entry) {
-              final index = entry.key;
-              final c = entry.value;
-              final meds = (c['medications'] as List?)?.map((m) => '${m['name']} (${m['dosage']})').join(', ') ?? 'No medications';
-              
-              return _buildTimelineItem(
-                date: c['appointment_date'] ?? 'Consultation',
-                time: c['appointment_time'] ?? '—',
-                dept: c['department'] ?? 'General',
-                description: 'Symptoms: ${c['symptoms'] ?? 'None'}\nDiagnosis: ${c['diagnosis'] ?? 'None'}\nMeds: $meds',
-                isFirst: index == 0,
-              );
-            }).toList(),
-        ],
-      ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${_consultations.length + 1} Total Records',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor, fontSize: 13),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 20, color: AppTheme.primaryColor),
+                onPressed: _fetchData,
+                tooltip: 'Refresh Timeline',
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Consultations
+                ..._consultations.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final c = entry.value;
+                  
+                  // Safe parsing of medications
+                  List medsList = [];
+                  if (c['medications'] != null) {
+                    if (c['medications'] is String) {
+                      try {
+                        medsList = jsonDecode(c['medications']);
+                      } catch (e) {
+                        medsList = [];
+                      }
+                    } else if (c['medications'] is List) {
+                      medsList = c['medications'];
+                    }
+                  }
+                  
+                  final meds = medsList.isNotEmpty 
+                      ? medsList.map((m) => '${m['name']} (${m['dosage']})').join(', ') 
+                      : 'No medications';
+                  
+                  final doctor = c['doctor_name'] ?? 'Doctor';
+                  final symptoms = c['symptoms'] ?? 'None';
+                  final diagnosis = c['diagnosis'] ?? 'None';
+                  
+                  return _buildTimelineItem(
+                    date: c['appointment_date'] ?? 'Consultation',
+                    time: c['appointment_time'] ?? '—',
+                    dept: c['department'] ?? 'General',
+                    doctor: doctor,
+                    complaint: symptoms,
+                    diagnosis: diagnosis,
+                    prescription: meds,
+                    isFirst: index == 0,
+                  );
+                }).toList(),
+                
+                // Registration Visit (Always show at the end)
+                _buildTimelineItem(
+                  date: p.createdAt ?? 'Registration Visit',
+                  time: 'Initial Entry',
+                  dept: p.department,
+                  doctor: 'Staff',
+                  complaint: p.complaints.isNotEmpty ? p.complaints : 'Initial registration',
+                  diagnosis: 'General Health Check',
+                  prescription: 'N/A',
+                  isFirst: _consultations.isEmpty,
+                  isLast: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -3362,33 +3530,52 @@ class _PatientDetailViewState extends State<PatientDetailView>
     required String date,
     required String time,
     required String dept,
-    required String description,
+    String? doctor,
+    String? complaint,
+    String? diagnosis,
+    String? prescription,
     bool isFirst = false,
+    bool isLast = false,
   }) {
+    String formattedDate = date;
+    final dt = DateFormatter.toDateTime(date);
+    if (dt != null) {
+      formattedDate = DateFormat('MMM dd, yyyy').format(dt);
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Column(
           children: [
+            const SizedBox(height: 5),
             Container(
               width: 12,
               height: 12,
               decoration: BoxDecoration(
                 color: isFirst ? AppTheme.primaryColor : AppTheme.borderColor,
                 shape: BoxShape.circle,
+                border: isFirst ? Border.all(color: Colors.white, width: 2) : null,
+                boxShadow: isFirst ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 4, spreadRadius: 1)] : null,
               ),
             ),
-            Container(width: 2, height: 80, color: AppTheme.borderColor),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 250,
+                color: AppTheme.borderColor.withOpacity(0.3),
+              ),
           ],
         ),
         const SizedBox(width: 16),
         Expanded(
           child: Container(
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(20),
+            margin: const EdgeInsets.only(bottom: 24),
             decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-              borderRadius: BorderRadius.circular(10),
+              color: const Color(0xFFF8FAFC),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3396,57 +3583,79 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Text(
-                        date,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          formattedDate,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Color(0xFF1E293B),
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        Text(
+                          time,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      time,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.primaryColor,
-                        fontWeight: FontWeight.w600,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEBF8FF),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        dept,
+                        style: const TextStyle(
+                          color: Color(0xFF3182CE),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.backgroundColor,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    dept,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                ),
+                const SizedBox(height: 20),
+                _buildTimelineDetail('Doctor', doctor ?? 'Not specified'),
+                const SizedBox(height: 12),
+                _buildTimelineDetail('Complaint', complaint ?? 'None'),
+                const SizedBox(height: 12),
+                _buildTimelineDetail('Diagnosis', diagnosis ?? 'None'),
+                const SizedBox(height: 12),
+                _buildTimelineDetail('Prescription', prescription ?? 'None'),
               ],
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimelineDetail(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: Color(0xFF334155),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Color(0xFF475569),
+            height: 1.4,
           ),
         ),
       ],

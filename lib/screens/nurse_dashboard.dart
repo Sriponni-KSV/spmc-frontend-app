@@ -27,6 +27,7 @@ class NurseDashboardScreen extends StatefulWidget {
 class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   int _selectedIndex = 0;
   bool _isRegisteringPatient = false;
+  PatientModel? _patientToComplete;
   bool _forceBookingForm = false;
   final FocusNode _mainFocusNode = FocusNode();
   List<PatientModel> _dbPatients = [];
@@ -138,7 +139,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
         floatingActionButton: CustomSpeedDial(
           children: [
-            if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('add_patient') ?? false)
+            if (Provider.of<AuthProvider>(
+                  context,
+                  listen: false,
+                ).user?.hasPermission('add_patient') ??
+                false)
               SpeedDialChild(
                 label: 'New Patient',
                 icon: Icons.person_add_alt_1_outlined,
@@ -148,7 +153,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   _isRegisteringPatient = true;
                 }),
               ),
-            if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('book_appointment') ?? false)
+            if (Provider.of<AuthProvider>(
+                  context,
+                  listen: false,
+                ).user?.hasPermission('book_appointment') ??
+                false)
               SpeedDialChild(
                 label: 'Book Appointment',
                 icon: Icons.calendar_month_outlined,
@@ -183,13 +192,17 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   Widget _buildMainContent(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    
+
     if (_isRegisteringPatient) {
       if (user?.hasPermission('add_patient') ?? false) {
         return NewPatientRegistrationView(
           key: UniqueKey(),
+          existingPatient: _patientToComplete,
           onBack: () {
-            setState(() => _isRegisteringPatient = false);
+            setState(() {
+              _isRegisteringPatient = false;
+              _patientToComplete = null;
+            });
             _fetchPatients();
           },
         );
@@ -205,7 +218,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             patients: _dbPatients,
             isLoading: _isLoadingPatients,
             error: _patientError,
-            onRegisterPatient: () => setState(() => _isRegisteringPatient = true),
+            onRegisterPatient: () =>
+                setState(() => _isRegisteringPatient = true),
+            onCompleteProfile: (patient) => setState(() {
+              _patientToComplete = patient;
+              _isRegisteringPatient = true;
+            }),
             onBookAppointment: () => setState(() {
               _selectedIndex = 2;
               _isRegisteringPatient = false;
@@ -334,7 +352,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Column(
                     children: [
-                      _buildSidebarItem(0, Icons.dashboard_outlined, 'Dashboard'),
+                      _buildSidebarItem(
+                        0,
+                        Icons.dashboard_outlined,
+                        'Dashboard',
+                      ),
                       if (user?.hasPermission('view_patients') ?? false)
                         _buildSidebarItem(1, Icons.people_outline, 'Patients'),
                       if (user?.hasPermission('book_appointment') ?? false)
@@ -348,14 +370,14 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         Icons.medical_services_outlined,
                         'Doctors',
                       ),
-                      _buildSidebarItem(4, Icons.home_outlined, 'Home Care'),
-                      _buildSidebarItem(5, Icons.inventory_2_outlined, 'Inventory'),
-                      _buildSidebarItem(6, Icons.bar_chart_outlined, 'Reports'),
-                      _buildSidebarItem(
-                        7,
-                        Icons.psychology_outlined,
-                        'AI Insights',
-                      ),
+                      // _buildSidebarItem(4, Icons.home_outlined, 'Home Care'),
+                      // _buildSidebarItem(5, Icons.inventory_2_outlined, 'Inventory'),
+                      // _buildSidebarItem(6, Icons.bar_chart_outlined, 'Reports'),
+                      // _buildSidebarItem(
+                      //   7,
+                      //   Icons.psychology_outlined,
+                      //   'AI Insights',
+                      // ),
                     ],
                   ),
                 ),
@@ -399,45 +421,58 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   // User Profile Area
                   Padding(
                     padding: const EdgeInsets.all(24.0),
-                    child: user == null ? const SizedBox.shrink() : Row(
-                          children: [
-                            const CircleAvatar(
-                              backgroundColor: AppTheme.primaryColor,
-                              radius: 18,
-                              child: Icon(
-                                Icons.person,
-                                color: Colors.white,
-                                size: 20,
+                    child: user == null
+                        ? const SizedBox.shrink()
+                        : Row(
+                            children: [
+                              const CircleAvatar(
+                                backgroundColor: AppTheme.primaryColor,
+                                radius: 18,
+                                child: Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    user.fullname,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      user.fullname,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    user.role,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.textSecondaryColor,
+                                    Text(
+                                      user.role,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondaryColor,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.logout,
-                                size: 18,
-                                color: AppTheme.textSecondaryColor,
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.logout,
+                                  size: 18,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                                onPressed: () {
+                                  auth.logout();
+                                  Navigator.pushAndRemoveUntil(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const LoginScreen(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                },
                               ),
                               onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
                             ),
@@ -638,7 +673,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   Widget _buildStatsRow(bool isMobile) {
     final int totalPatients = _dbPatients.length;
-    final String today = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    final String today = DateFormat('dd/MM/yyyy').format(DateTime.now());
     final int todaysApptsCount = _dbAppointments
         .where(
           (a) =>
@@ -1071,7 +1106,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           else
             () {
               final String today = DateFormat(
-                'dd-MM-yyyy',
+                'dd/MM/yyyy',
               ).format(DateTime.now());
               final List<AppointmentModel> todaysAppts = _dbAppointments
                   .where(

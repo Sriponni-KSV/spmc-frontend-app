@@ -6,26 +6,54 @@ import '../services/api_service.dart';
 class AdminController {
   String get baseUrl => dotenv.env['BASE_URL']!;
 
-Future<void> createStaff({
-  required String fullname,
-  required String email,
-  required String password,
-  required String role,
-  String? medicalLicense,
-  int? specializationId,
-   }) async {
-   try {
-    final response = await ApiService.post(
-      '$baseUrl/admin/create',
-      {
-        "fullname": fullname,
-        "email": email,
-        "password": password,
-        "role": role,
-        "medical_license": medicalLicense,
-        "specialization_id": specializationId,
-      },
-    );
+  Future<void> createStaff({
+    required String fullname,
+    required String email,
+    required String password,
+    required String role,
+    String? medicalLicense,
+    int? specializationId,
+    String? qualification,
+    String? experience,
+    int? patientsAttended,
+    String? bio,
+    List<String>? availableDays,
+    String? slotStartTime,
+    String? slotEndTime,
+    String? slotDuration,
+    List<String>? weeklyOffDays,
+    List<String>? specificLeaveDates,
+    String? clinicName,
+    String? clinicLocation,
+    double? consultationFee,
+    String? areasOfExpertise,
+  }) async {
+    try {
+      final response = await ApiService.post(
+        '$baseUrl/admin/create',
+        {
+          "fullname": fullname,
+          "email": email,
+          "password": password,
+          "role": role,
+          "medical_license": medicalLicense,
+          "specialization_id": specializationId,
+          "qualification": qualification,
+          "experience": experience,
+          "patients_attended": patientsAttended,
+          "bio": bio,
+          "available_days": availableDays,
+          "slot_start_time": slotStartTime,
+          "slot_end_time": slotEndTime,
+          "slot_duration": slotDuration,
+          "weekly_off_days": weeklyOffDays,
+          "specific_leave_dates": specificLeaveDates,
+          "clinic_name": clinicName,
+          "clinic_location": clinicLocation,
+          "consultation_fee": consultationFee,
+          "areas_of_expertise": areasOfExpertise,
+        },
+      );
 
     final body = jsonDecode(response.body);
 
@@ -69,7 +97,21 @@ Future<void> createStaff({
     required String role,
     String? medicalLicense,
     int? specializationId,
-   }) async {
+    String? qualification,
+    String? experience,
+    int? patientsAttended,
+    String? bio,
+    List<String>? availableDays,
+    String? slotStartTime,
+    String? slotEndTime,
+    String? slotDuration,
+    List<String>? weeklyOffDays,
+    List<String>? specificLeaveDates,
+    String? clinicName,
+    String? clinicLocation,
+    double? consultationFee,
+    String? areasOfExpertise,
+  }) async {
     try {
       final response = await ApiService.put(
         '$baseUrl/admin/staff/$id',
@@ -79,6 +121,20 @@ Future<void> createStaff({
           'role': role,
           'medical_license': medicalLicense,
           'specialization_id': specializationId,
+          'qualification': qualification,
+          'experience': experience,
+          'patients_attended': patientsAttended,
+          'bio': bio,
+          'available_days': availableDays,
+          'slot_start_time': slotStartTime,
+          'slot_end_time': slotEndTime,
+          'slot_duration': slotDuration,
+          'weekly_off_days': weeklyOffDays,
+          'specific_leave_dates': specificLeaveDates,
+          'clinic_name': clinicName,
+          'clinic_location': clinicLocation,
+          'consultation_fee': consultationFee,
+          'areas_of_expertise': areasOfExpertise,
         },
       );
 

@@ -9,12 +9,14 @@ import '../controllers/appointment_controller.dart';
 
 class NewConsultationView extends StatefulWidget {
   final AppointmentModel appointment;
+  final Map<String, dynamic>? initialConsultation;
   final VoidCallback onBack;
 
   const NewConsultationView({
     Key? key,
     required this.appointment,
     required this.onBack,
+    this.initialConsultation,
   }) : super(key: key);
 
   @override
@@ -41,6 +43,28 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     super.initState();
     _currentAppointment = widget.appointment;
     _fetchLatestVitals();
+    _initializeData();
+  }
+
+  void _initializeData() {
+    if (widget.initialConsultation != null) {
+      _symptomsController.text = widget.initialConsultation!['symptoms'] ?? '';
+      _diagnosisController.text = widget.initialConsultation!['diagnosis'] ?? '';
+      _notesController.text = widget.initialConsultation!['notes'] ?? '';
+      
+      final meds = widget.initialConsultation!['medications'];
+      if (meds is List) {
+        for (var m in meds) {
+          if (m is Map) {
+            _medications.add({
+              'name': m['name']?.toString() ?? '',
+              'dosage': m['dosage']?.toString() ?? '',
+              'frequency': m['frequency']?.toString() ?? '',
+            });
+          }
+        }
+      }
+    }
   }
 
   Future<void> _fetchLatestVitals() async {
@@ -102,7 +126,9 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Consultation: ${_currentAppointment.patientName}',
+                    widget.initialConsultation != null 
+                      ? 'Edit Consultation: ${_currentAppointment.patientName}'
+                      : 'Consultation: ${_currentAppointment.patientName}',
                     style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   Text(
@@ -225,18 +251,30 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
                 setState(() => _isLoadingVitals = true);
                 try {
-                  await _appointmentController.saveConsultation({
+                  final data = {
                     'appointment_id': widget.appointment.id,
                     'patient_id': widget.appointment.patientId,
                     'symptoms': _symptomsController.text,
                     'diagnosis': _diagnosisController.text,
                     'medications': _medications,
                     'notes': _notesController.text,
-                  });
+                  };
+
+                  if (widget.initialConsultation != null) {
+                    final int consulId = widget.initialConsultation!['id'];
+                    await _appointmentController.updateConsultation(consulId, data);
+                  } else {
+                    await _appointmentController.saveConsultation(data);
+                  }
 
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Consultation Saved Successfully!'), backgroundColor: Colors.green),
+                      SnackBar(
+                        content: Text(widget.initialConsultation != null 
+                          ? 'Consultation Updated Successfully!' 
+                          : 'Consultation Saved Successfully!'), 
+                        backgroundColor: Colors.green
+                      ),
                     );
                     widget.onBack();
                   }
@@ -256,7 +294,12 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               ),
               child: _isLoadingVitals 
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('Complete Consultation & Save', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                : Text(
+                    widget.initialConsultation != null 
+                      ? 'Update Consultation' 
+                      : 'Complete Consultation & Save', 
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
+                  ),
             ),
           ),
         ],

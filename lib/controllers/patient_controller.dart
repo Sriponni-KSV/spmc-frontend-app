@@ -24,6 +24,28 @@ class PatientController {
     }
   }
 
+  /// Update an existing patient
+  Future<void> updatePatient(int id, PatientModel patient) async {
+    try {
+      // When updating from full registration, we set isQuickRegister to false
+      Map<String, dynamic> data = patient.toJson();
+      data['isQuickRegister'] = false; // Mark completion
+
+      final response = await ApiService.put(
+        '$baseUrl/patients/$id',
+        data,
+      );
+
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode != 200) {
+        throw Exception(body['message'] ?? 'Failed to update patient');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   /// Fetch all patients
   Future<List<PatientModel>> fetchPatients() async {
   try {

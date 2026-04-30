@@ -330,6 +330,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               }
               return null;
             },
+            onFieldSubmitted: (_) => _nextStep(),
             decoration: const InputDecoration(
               hintText: 'name@example.com',
               labelText: 'Email Address',
@@ -435,6 +436,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       _otpFocusNodes[index - 1].requestFocus();
                     }
                   },
+                  onFieldSubmitted: index == 5 ? (_) => _nextStep() : null,
                 ),
               );
             }),
@@ -510,6 +512,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               }
               return null;
             },
+            onFieldSubmitted: (_) => _nextStep(),
             decoration: InputDecoration(
               hintText: 'New Password',
               labelText: 'New Password',
@@ -540,6 +543,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               }
               return null;
             },
+            onFieldSubmitted: (_) => _nextStep(),
             decoration: InputDecoration(
               hintText: 'Confirm Password',
               labelText: 'Confirm Password',
