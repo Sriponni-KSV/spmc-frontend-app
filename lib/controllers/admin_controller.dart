@@ -69,11 +69,11 @@ class AdminController {
   }
 }
 
- Future<List<UserModel>> fetchStaff({String? role})  async {
+ Future<List<UserModel>> fetchStaff({String? role, bool showDeleted = false})  async {
     try {
-      String url = '$baseUrl/admin/staff';
+      String url = '$baseUrl/admin/staff?showDeleted=$showDeleted';
       if (role != null && role != 'All') {
-        url += '?role=$role';
+        url += '&role=$role';
       }
 
       final response = await ApiService.get(url);
@@ -95,6 +95,7 @@ class AdminController {
     required String fullname,
     required String email,
     required String role,
+    String? status,
     String? medicalLicense,
     int? specializationId,
     String? qualification,
@@ -119,6 +120,7 @@ class AdminController {
           'fullname': fullname,
           'email': email,
           'role': role,
+          'status': status,
           'medical_license': medicalLicense,
           'specialization_id': specializationId,
           'qualification': qualification,

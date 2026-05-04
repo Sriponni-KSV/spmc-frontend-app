@@ -34,6 +34,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<Map<String, dynamic>>? _rbacFuture;
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
+  bool _showDeleted = false;
 
   @override
   void dispose() {
@@ -51,7 +52,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   void _loadStaff() {
     setState(() {
-      _staffFuture = _adminController.fetchStaff();
+      _staffFuture = _adminController.fetchStaff(showDeleted: _showDeleted);
     });
   }
 
@@ -74,6 +75,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final emailCtrl = TextEditingController(text: user.email);
     final editFormKey = GlobalKey<FormState>();
     String selectedRole = user.role;
+    String selectedStatus = user.status;
     int? selectedSpecializationId = user.specializationId;
     List<Map<String, dynamic>> specializations = [];
     bool isSaving = false;
@@ -81,6 +83,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     List<String> availableRoles = [];
     bool isLoadingRoles = false;
+    String? dialogError;
     
     // Initial sync
     if (!availableRoles.contains(selectedRole)) {
@@ -147,6 +150,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (dialogError != null)
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                dialogError!,
+                                style: const TextStyle(color: Colors.red, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (user.staffUniqueId != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
@@ -186,6 +211,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           if (val != null) {
                             setDialogState(() {
                               selectedRole = val;
+                              dialogError = null; // Clear error on change
                               if (selectedRole != 'Doctor') {
                                 selectedSpecializationId = null;
                               }
@@ -202,10 +228,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           value: selectedSpecializationId,
                           decoration: const InputDecoration(labelText: 'Specialization', prefixIcon: Icon(Icons.star_outline)),
                           items: specializations.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['name']))).toList(),
-                          onChanged: (val) { if (val != null) setDialogState(() => selectedSpecializationId = val); },
+                          onChanged: (val) { if (val != null) setDialogState(() { selectedSpecializationId = val; dialogError = null; }); },
                           validator: (val) => selectedRole == 'Doctor' && val == null ? 'Please select a specialization' : null,
                         ),
                     ],
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedStatus,
+                      decoration: const InputDecoration(labelText: 'Status', prefixIcon: Icon(Icons.info_outline)),
+                      items: ['active', 'inactive', 'suspended'].map((s) => DropdownMenuItem(value: s, child: Text(s[0].toUpperCase() + s.substring(1)))).toList(),
+                      onChanged: (val) { if (val != null) setDialogState(() { selectedStatus = val; dialogError = null; }); },
+                    ),
                   ],
                 ),
               ),
@@ -226,6 +259,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     fullname: nameCtrl.text.trim(),
                     email: emailCtrl.text.trim(),
                     role: selectedRole,
+                    status: selectedStatus,
                     medicalLicense: null,
                     specializationId: selectedRole == 'Doctor' ? selectedSpecializationId : null,
                   );
@@ -238,9 +272,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   }
                 } catch (e) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
-                    );
+                    setDialogState(() => dialogError = e.toString().replaceFirst('Exception: ', ''));
                   }
                 } finally {
                   if (mounted) setDialogState(() => isSaving = false);
@@ -272,7 +304,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 children: [
                   const TextSpan(text: 'Are you sure you want to delete '),
                   TextSpan(text: user.fullname, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const TextSpan(text: '? This action cannot be undone.'),
+                  const TextSpan(text: '? This will deactivate their account and hide them from active lists.'),
                 ],
               ),
             ),
@@ -459,10 +491,49 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ],
                     ),
                   ),
-                  if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('manage_users') ?? false) ...[
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => _showAddUserDialog(context),
+                    if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('manage_users') ?? false) ...[
+                      const SizedBox(width: 12),
+                      // Show Deleted Toggle
+                      Container(
+                        decoration: BoxDecoration(
+                          color: _showDeleted ? Colors.red.withOpacity(0.1) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _showDeleted ? Colors.red.withOpacity(0.3) : AppTheme.borderColor),
+                        ),
+                        child: InkWell(
+                          onTap: () {
+                            setState(() => _showDeleted = !_showDeleted);
+                            _loadStaff();
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _showDeleted ? Icons.delete_sweep : Icons.delete_outline,
+                                  size: 18,
+                                  color: _showDeleted ? Colors.red : AppTheme.textSecondaryColor,
+                                ),
+                                if (!isMobile) ...[
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Show Deleted',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: _showDeleted ? Colors.red : AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: () => _showAddUserDialog(context),
                       icon: const Icon(Icons.person_add_outlined, size: 18),
                       label: Text(isMobile ? 'Add' : 'Register Staff', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                       style: ElevatedButton.styleFrom(
@@ -737,15 +808,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       DataCell(Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
+                          color: user.status == 'active' ? Colors.green.withOpacity(0.1) : (user.status == 'suspended' ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1)),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+                            Container(width: 6, height: 6, decoration: BoxDecoration(color: user.status == 'active' ? Colors.green : (user.status == 'suspended' ? Colors.red : Colors.grey), shape: BoxShape.circle)),
                             const SizedBox(width: 6),
-                            const Text('Active', style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w600)),
+                            Text(user.status[0].toUpperCase() + user.status.substring(1), style: TextStyle(color: user.status == 'active' ? Colors.green : (user.status == 'suspended' ? Colors.red : Colors.grey), fontSize: 12, fontWeight: FontWeight.w600)),
                           ],
                         ),
                       )),
@@ -791,106 +862,109 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           case 'Super Admin': roleColor = const Color(0xFFEC4899); break;
           default: roleColor = Colors.grey; break;
         }
+
+        final statusColor = user.status == 'active' ? Colors.green : (user.status == 'suspended' ? Colors.red : Colors.grey);
+
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: user.isDeleted ? Colors.red.withOpacity(0.02) : Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.borderColor.withOpacity(0.4)),
+            border: Border.all(color: user.isDeleted ? Colors.red.withOpacity(0.2) : AppTheme.borderColor.withOpacity(0.4)),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: roleColor.withOpacity(0.1),
-                child: Text(
-                  user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
-                  style: TextStyle(color: roleColor, fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                        const Spacer(),
-                        if (user.staffUniqueId != null)
-                          Text(user.staffUniqueId!, style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace')),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: roleColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(user.role, style: TextStyle(color: roleColor, fontSize: 11, fontWeight: FontWeight.w600)),
-                        ),
-                        if (_selectedRoleFilter == 'Doctor' && user.specialization != null) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(user.specialization!, style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.w600)),
-                          ),
-                        ],
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
-                              const SizedBox(width: 4),
-                              const Text('Active', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        ),
-                        if (user.medicalLicense != null) ...[
-                          const SizedBox(width: 8),
-                          Text(user.medicalLicense!, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Row(
                 children: [
-                  InkWell(
-                    onTap: () => _showEditDialog(context, user),
-                    child: const Padding(
-                      padding: EdgeInsets.all(6),
-                      child: Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: roleColor.withOpacity(0.1),
+                    child: Text(
+                      user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                      style: TextStyle(color: roleColor, fontWeight: FontWeight.bold),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  InkWell(
-                    onTap: () => _showDeleteConfirmation(context, user),
-                    child: const Padding(
-                      padding: EdgeInsets.all(6),
-                      child: Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                            if (user.isDeleted) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(4)),
+                                child: const Text('DELETED', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ],
+                        ),
+                        Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
+                      ],
                     ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: roleColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(user.role, style: TextStyle(color: roleColor, fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Staff ID', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
+                      Text(user.staffUniqueId ?? '\u2014', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'monospace')),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('Status', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(width: 6, height: 6, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
+                          const SizedBox(width: 6),
+                          Text(user.status[0].toUpperCase() + user.status.substring(1), style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              if (!user.isDeleted && user.role != 'Super Admin') ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _showEditDialog(context, user),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Edit'),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: () => _showDeleteConfirmation(context, user),
+                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                      label: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         );
@@ -1270,6 +1344,7 @@ final AdminController _adminController = AdminController();
   bool _isLoading = false;
   bool _isLoadingRoles = false;
   bool _isLoadingSpecializations = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -1365,9 +1440,9 @@ final AdminController _adminController = AdminController();
     Navigator.pop(context);
 
   } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-    );
+    if (mounted) {
+      setState(() => _errorMessage = e.toString().replaceFirst('Exception: ', ''));
+    }
   } finally {
     if (mounted) setState(() => _isLoading = false);
   }
@@ -1385,14 +1460,38 @@ final AdminController _adminController = AdminController();
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (_errorMessage != null)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: const TextStyle(color: Colors.red, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 TextFormField(
                   controller: _nameController,
+                  onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
                   decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
                   validator: (val) => val == null || val.isEmpty ? 'Please enter a name' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailController,
+                  onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
                   decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.email_outlined)),
                   keyboardType: TextInputType.emailAddress,
                   validator: (val) => val == null || val.isEmpty || !val.contains('@') ? 'Please enter a valid email' : null,
@@ -1400,6 +1499,7 @@ final AdminController _adminController = AdminController();
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
+                  onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
                   decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(Icons.lock_outline)),
                   obscureText: true,
                   validator: (val) => val == null || val.length < 6 ? 'Password must be at least 6 characters' : null,
@@ -1414,6 +1514,7 @@ final AdminController _adminController = AdminController();
                   onChanged: (val) {
                     if (val != null) {
                       setState(() {
+                        _errorMessage = null;
                         _selectedRole = val;
                         if (_selectedRole != 'Doctor') {
                           _selectedSpecializationId = null;

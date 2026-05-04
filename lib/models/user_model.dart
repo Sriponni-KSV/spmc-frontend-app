@@ -4,6 +4,7 @@ class UserModel {
   final String email;
   final String role;
   final String status;
+  final bool isDeleted;
   final String? medicalLicense;
   final int? specializationId;
   final String? specialization;
@@ -34,6 +35,7 @@ class UserModel {
     required this.email,
     required this.role,
     this.status = 'active',
+    this.isDeleted = false,
     this.medicalLicense,
     this.specializationId,
     this.specialization,
@@ -97,6 +99,7 @@ class UserModel {
       email: json['email'] ?? '',
       role: json['role'] ?? '',
       status: json['status'] ?? 'active',
+      isDeleted: json['is_deleted'] == 1 || json['is_deleted'] == true,
       medicalLicense: json['medical_license'] ?? json['medicalLicense'],
       specializationId: json['specialization_id'] ?? json['specializationId'],
       specialization: json['specialization'],
@@ -129,6 +132,7 @@ class UserModel {
     String? email,
     String? role,
     String? status,
+    bool? isDeleted,
     String? medicalLicense,
     int? specializationId,
     String? specialization,
@@ -157,6 +161,7 @@ class UserModel {
       email: email ?? this.email,
       role: role ?? this.role,
       status: status ?? this.status,
+      isDeleted: isDeleted ?? this.isDeleted,
       medicalLicense: medicalLicense ?? this.medicalLicense,
       specializationId: specializationId ?? this.specializationId,
       specialization: specialization ?? this.specialization,
