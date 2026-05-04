@@ -19,6 +19,7 @@ class AppointmentModel {
   final String appointmentType;
   final String? overrideReason;
   final String? overrideByName;
+  final String? doctorDisplayId;
   final dynamic changesLog;
 
   AppointmentModel({
@@ -40,6 +41,7 @@ class AppointmentModel {
     this.appointmentType = 'Routine',
     this.overrideReason,
     this.overrideByName,
+    this.doctorDisplayId,
     this.changesLog,
   });
 
@@ -63,6 +65,7 @@ class AppointmentModel {
       appointmentType: json['appointment_type'] ?? 'Routine',
       overrideReason: json['override_reason'],
       overrideByName: json['override_by_name'],
+      doctorDisplayId: json['doctor_display_id']?.toString(),
       changesLog: json['changes_log'],
     );
   }
@@ -102,6 +105,7 @@ class AppointmentModel {
     String? reasonForVisit,
     String? status,
     String? appointmentType,
+    String? doctorDisplayId,
   }) {
     return AppointmentModel(
       id: id ?? this.id,
@@ -120,6 +124,7 @@ class AppointmentModel {
       reasonForVisit: reasonForVisit ?? this.reasonForVisit,
       status: status ?? this.status,
       appointmentType: appointmentType ?? this.appointmentType,
+      doctorDisplayId: doctorDisplayId ?? this.doctorDisplayId,
     );
   }
 }

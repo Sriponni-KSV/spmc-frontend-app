@@ -31,6 +31,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
   String _selectedStatus = 'All';
   String _selectedDoctor = 'All';
   String _searchQuery = '';
+  bool _isFilterVisible = false;
   
   List<UserModel> _doctors = [];
   
@@ -78,6 +79,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
     try {
       final staff = await _adminController.fetchStaff(role: 'Doctor');
       if (mounted) {
+        staff.sort((a, b) => a.fullname.compareTo(b.fullname));
         setState(() {
           _doctors = staff;
         });
@@ -145,8 +147,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(),
-          _buildFilterBar(),
-          const SizedBox(height: 8),
+          _buildSearchAndFilterRow(),
+          if (_isFilterVisible) _buildFilterPanel(),
+          const SizedBox(height: 16),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -196,102 +199,173 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
     );
   }
 
-  Widget _buildFilterBar() {
+  Widget _buildSearchAndFilterRow() {
+    final isMobile = widget.isMobile;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 16 : 24, vertical: 8),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          _buildSearchField(),
-          _buildStatusFilter(),
-          _buildDoctorFilter(),
-          IconButton(
-            onPressed: _loadData,
-            icon: const Icon(Icons.refresh_outlined, color: AppTheme.primaryColor),
-            tooltip: 'Refresh List',
+      margin: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+      child: isMobile 
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildSearchBar(),
+              const SizedBox(height: 12),
+              _buildFilterToggle(isMobile),
+            ],
+          )
+        : Row(children: [
+            Expanded(flex: 4, child: _buildSearchBar()),
+            const SizedBox(width: 16),
+            _buildFilterToggle(isMobile),
+          ]),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      height: 52,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F4F8),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(children: [
+        const Icon(Icons.search, size: 20, color: AppTheme.textSecondaryColor),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextField(
+            onChanged: (v) => setState(() => _searchQuery = v),
+            decoration: const InputDecoration(
+              hintText: 'Search patient name, ID, or phone...',
+              hintStyle: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+              border: InputBorder.none,
+              isDense: true,
+            ),
           ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildFilterToggle(bool isMobile) {
+    return ElevatedButton.icon(
+      onPressed: () => setState(() => _isFilterVisible = !_isFilterVisible),
+      icon: Icon(_isFilterVisible ? Icons.filter_list_off : Icons.filter_list, size: 18),
+      label: const Text('Filter', style: TextStyle(fontWeight: FontWeight.bold)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: AppTheme.textPrimaryColor,
+        minimumSize: Size(isMobile ? double.infinity : 120, 52),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        elevation: 0,
+        side: const BorderSide(color: AppTheme.borderColor),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Widget _buildFilterPanel() {
+    final isMobile = widget.isMobile;
+    return Container(
+      margin: EdgeInsets.only(left: isMobile ? 16 : 24, right: isMobile ? 16 : 24, top: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
+      child: Column(children: [
+        isMobile
+          ? Column(children: [
+              _buildFilterDropdown('Visit Date', DateFormat('dd-MM-yyyy').format(_selectedDate), [], (v) {}, isMobile: true, isReadOnly: true),
+              const SizedBox(height: 14),
+              _buildFilterDropdown('Visit Status', _selectedStatus, _statuses, (v) {
+                if (v != null) setState(() => _selectedStatus = v);
+                _loadData();
+              }, isMobile: true),
+              const SizedBox(height: 14),
+              _buildFilterDropdown('Doctor', _selectedDoctor, ['All', ..._doctors.map((d) => d.fullname)], (v) {
+                if (v != null) setState(() => _selectedDoctor = v);
+                _loadData();
+              }, isMobile: true),
+            ])
+          : Row(children: [
+              Expanded(
+                child: _buildFilterDropdown('Visit Date', DateFormat('dd-MM-yyyy').format(_selectedDate), [], (v) {}, isMobile: false, isReadOnly: true),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildFilterDropdown('Visit Status', _selectedStatus, _statuses, (v) {
+                  if (v != null) setState(() => _selectedStatus = v);
+                  _loadData();
+                }, isMobile: false),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildFilterDropdown('Doctor', _selectedDoctor, ['All', ..._doctors.map((d) => d.fullname)], (v) {
+                  if (v != null) setState(() => _selectedDoctor = v);
+                  _loadData();
+                }, isMobile: false),
+              ),
+            ]),
+        if (_selectedStatus != 'All' || _selectedDoctor != 'All') ...[
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _selectedStatus = 'All';
+                  _selectedDoctor = 'All';
+                });
+                _loadData();
+              },
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Reset Filters'),
+              style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            ),
+          ),
+        ]
+      ]),
     );
   }
 
-  Widget _buildSearchField() {
-    return Container(
-      width: widget.isMobile ? double.infinity : 250,
-      height: 44,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor),
-      ),
-      child: TextField(
-        onChanged: (val) => setState(() => _searchQuery = val),
-        decoration: const InputDecoration(
-          hintText: 'Search patient or ID...',
-          prefixIcon: Icon(Icons.search, size: 20),
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 10),
+  Widget _buildFilterDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged, {required bool isMobile, bool isReadOnly = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor)),
+        const SizedBox(height: 8),
+        Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: isReadOnly ? Colors.grey.shade50 : Colors.white,
+            border: Border.all(color: AppTheme.borderColor),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: isReadOnly 
+            ? Row(children: [
+                const Icon(Icons.calendar_today_outlined, size: 16, color: AppTheme.textSecondaryColor),
+                const SizedBox(width: 8),
+                Text(value, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor)),
+                const Spacer(),
+                const Icon(Icons.lock_outline, size: 14, color: AppTheme.textSecondaryColor),
+              ])
+            : DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: value,
+                  icon: const Icon(Icons.keyboard_arrow_down, size: 20),
+                  style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14),
+                  items: items.map((item) => DropdownMenuItem(value: item, child: Text(item, overflow: TextOverflow.ellipsis))).toList(),
+                  onChanged: onChanged,
+                ),
+              ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatusFilter() {
-    return Container(
-      height: 44,
-      width: widget.isMobile ? double.infinity : 160,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedStatus,
-          isExpanded: true,
-          style: const TextStyle(fontSize: 13, color: Colors.black, fontWeight: FontWeight.w500),
-          items: _statuses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-          onChanged: (val) {
-            if (val != null) {
-              setState(() => _selectedStatus = val);
-              _loadData();
-            }
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDoctorFilter() {
-    return Container(
-      height: 44,
-      width: widget.isMobile ? double.infinity : 180,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedDoctor,
-          isExpanded: true,
-          style: const TextStyle(fontSize: 13, color: Colors.black, fontWeight: FontWeight.w500),
-          items: [
-            const DropdownMenuItem(value: 'All', child: Text('All Doctors')),
-            ..._doctors.map((d) => DropdownMenuItem(value: d.fullname, child: Text(d.fullname, overflow: TextOverflow.ellipsis))),
-          ],
-          onChanged: (val) {
-            if (val != null) {
-              setState(() => _selectedDoctor = val);
-              _loadData();
-            }
-          },
-        ),
-      ),
+      ],
     );
   }
 
@@ -359,7 +433,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
                             Text(app.patientDisplayId!, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontFamily: 'monospace')),
                         ],
                       )),
-                      DataCell(Text(app.doctorName)),
+                      DataCell(Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(app.doctorName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text('ID: ${app.doctorDisplayId ?? "—"}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                        ],
+                      )),
                       DataCell(_buildStatusBadge(app.status)),
                       DataCell(Row(
                         children: [
@@ -418,7 +499,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(app.patientName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      Text('Doctor: ${app.doctorName}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor)),
+                      Text('Doctor: ${app.doctorName} (${app.doctorDisplayId ?? "—"})', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor)),
                     ],
                   ),
                 ),

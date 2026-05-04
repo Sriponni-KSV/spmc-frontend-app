@@ -125,12 +125,14 @@ class AppointmentController {
     String? date,
     String? doctor,
     String? status,
+    String? department,
   }) async {
     try {
       final params = <String, String>{};
       if (date != null && date.isNotEmpty) params['date'] = date;
       if (doctor != null && doctor.isNotEmpty) params['doctor'] = doctor;
       if (status != null && status != 'All') params['status'] = status;
+      if (department != null && department != 'All') params['department'] = department;
 
       final uri = Uri.parse('$baseUrl/admin-appointments')
           .replace(queryParameters: params.isEmpty ? null : params);

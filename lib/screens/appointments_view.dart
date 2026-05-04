@@ -2282,6 +2282,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     patientName: appt.patientName,
                     patientInitials: _getInitials(appt.patientName),
                     doctorName: appt.doctorName,
+                    doctorDisplayId: appt.doctorDisplayId,
                     type: appt.appointmentType,
                     department: appt.department,
                     reason: appt.reasonForVisit?.isNotEmpty == true
@@ -2399,7 +2400,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               ),
               const SizedBox(width: 8),
               Text(
-                appt.doctorName,
+                '${appt.doctorName} (${appt.doctorDisplayId ?? "—"})',
                 style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
               ),
             ],
@@ -2509,6 +2510,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     required String patientName,
     required String patientInitials,
     required String doctorName,
+    String? doctorDisplayId,
     required String type,
     required String department,
     required String reason,
@@ -2610,13 +2612,13 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 12.0),
-                    child: Text(
-                      doctorName,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF475569),
+                      child: Text(
+                        '$doctorName (${doctorDisplayId ?? "—"})',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF475569),
+                        ),
                       ),
-                    ),
                   ),
                 ),
               ],
