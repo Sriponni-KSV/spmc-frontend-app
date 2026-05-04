@@ -10,10 +10,12 @@ class AuthProvider extends ChangeNotifier {
   UserModel? _user;
   bool _isLoading = false;
   String? _errorMessage;
+  String? _errorCode;
 
   UserModel? get user => _user;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  String? get errorCode => _errorCode;
 
   Future<void> refreshPermissions() async {
     if (_user == null) return;
@@ -52,7 +54,26 @@ class AuthProvider extends ChangeNotifier {
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      final err = e.toString().replaceFirst('Exception: ', '');
+      _errorCode = err;
+      
+      switch (err) {
+        case 'invalid_credentials':
+          _errorMessage = 'Invalid email or password.';
+          break;
+        case 'inactive':
+          _errorMessage = 'Your account is currently inactive. Please contact the administrator to regain access.';
+          break;
+        case 'suspended':
+          _errorMessage = 'Your account has been suspended due to policy or security reasons. Please contact support for assistance.';
+          break;
+        case 'deleted':
+          _errorMessage = 'This account is no longer available. Please contact the administrator if you believe this is an error.';
+          break;
+        default:
+          _errorMessage = err.isNotEmpty ? err : 'An unexpected error occurred. Please try again.';
+      }
+      
       _isLoading = false;
       notifyListeners();
       return false;

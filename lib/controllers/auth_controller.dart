@@ -26,7 +26,7 @@ class AuthController {
       await TokenService.saveToken(data['token']);
       return UserModel.fromJson(data['user']);
     } else {
-      throw Exception(data['error'] ?? 'Login failed');
+      throw Exception(data['errorCode'] ?? data['error'] ?? 'Login failed');
     }
   }
 

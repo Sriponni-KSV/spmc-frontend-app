@@ -41,31 +41,25 @@ class _LoginScreenState extends State<LoginScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final success = await authProvider.login(email: email, password: password);
 
-    if (mounted) {
-      if (success) {
-        final user = authProvider.user!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Welcome back, ${user.fullname}!'), backgroundColor: AppTheme.primaryColor),
-        );
-        
-        Widget nextScreen;
-        if (user.role == 'Nurse' || user.role == 'Head Nurse') {
-          nextScreen = const NurseDashboardScreen();
-        } else if (user.role == 'Admin' || user.role == 'Supervisor' || user.role == 'Super Admin') {
-          nextScreen = const AdminDashboardScreen();
-        } else {
-          nextScreen = const DashboardScreen(); // Doctor dashboard
-        }
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => nextScreen),
-        );
+    if (mounted && success) {
+      final user = authProvider.user!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Welcome back, ${user.fullname}!'), backgroundColor: AppTheme.primaryColor),
+      );
+      
+      Widget nextScreen;
+      if (user.role == 'Nurse' || user.role == 'Head Nurse') {
+        nextScreen = const NurseDashboardScreen();
+      } else if (user.role == 'Admin' || user.role == 'Supervisor' || user.role == 'Super Admin') {
+        nextScreen = const AdminDashboardScreen();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(authProvider.errorMessage ?? 'Login failed'), backgroundColor: Colors.redAccent),
-        );
+        nextScreen = const DashboardScreen(); // Doctor dashboard
       }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => nextScreen),
+      );
     }
   }
 
@@ -309,6 +303,45 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 32),
 
+        const SizedBox(height: 16),
+        Consumer<AuthProvider>(
+          builder: (context, auth, child) {
+            if (auth.errorMessage == null) return const SizedBox.shrink();
+            
+            final isWarning = auth.errorCode == 'inactive';
+            final alertColor = isWarning ? Colors.orange : Colors.red;
+            final bgColor = isWarning ? Colors.orange.shade50 : Colors.red.shade50;
+            final borderColor = isWarning ? Colors.orange.shade200 : Colors.red.shade200;
+            final icon = isWarning ? Icons.info_outline : Icons.error_outline;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Row(
+                children: [
+                  Icon(icon, color: alertColor, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      auth.errorMessage!,
+                      style: TextStyle(
+                        color: alertColor.withOpacity(0.9),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
         ElevatedButton(
           onPressed: isLoading ? null : _handleLogin,
           child: isLoading 
