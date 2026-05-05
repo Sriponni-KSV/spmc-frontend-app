@@ -1,4 +1,5 @@
 import 'doctor_model.dart';
+import 'nurse_model.dart';
 
 class UserModel {
   final int id;
@@ -9,8 +10,9 @@ class UserModel {
   final String? staffUniqueId;
   final String? token;
   
-  // Isolated Doctor Profile
+  // Isolated Profiles
   final DoctorModel? doctorProfile;
+  final NurseModel? nurseProfile;
 
   final List<String> permissions;
   final Map<String, String> permissionDisplayMap;
@@ -21,7 +23,7 @@ class UserModel {
   String? get specialization => doctorProfile?.specialization;
   String? get experience => doctorProfile?.experience;
   int? get numberPatientsAttended => doctorProfile?.numberPatientsAttended;
-  String? get qualification => doctorProfile?.qualification;
+  String? get qualification => role == 'Nurse' ? nurseProfile?.qualification : doctorProfile?.qualification;
   String? get bio => doctorProfile?.bio;
   List<String>? get availableDays => doctorProfile?.availableDays;
   String? get slotStartTime => doctorProfile?.slotStartTime;
@@ -32,7 +34,18 @@ class UserModel {
   String? get clinicName => doctorProfile?.clinicName;
   String? get clinicLocation => doctorProfile?.clinicLocation;
   String? get consultationFee => doctorProfile?.consultationFee;
-  String? get areasOfExpertise => doctorProfile?.areasOfExpertise;
+  String? get areasOfExpertise => role == 'Nurse' ? nurseProfile?.areasOfExpertise : doctorProfile?.areasOfExpertise;
+
+  // Nurse Specific Getters
+  String? get nursingRegistrationNumber => nurseProfile?.nursingRegistrationNumber;
+  String? get yearsOfExperience => nurseProfile?.yearsOfExperience;
+  List<String>? get workingDays => nurseProfile?.workingDays;
+  String? get shiftStartTime => nurseProfile?.shiftStartTime;
+  String? get shiftEndTime => nurseProfile?.shiftEndTime;
+  String? get shiftType => nurseProfile?.shiftType;
+  String? get department => nurseProfile?.department;
+  String? get totalExperience => nurseProfile?.totalExperience;
+  String? get registrationCertificate => nurseProfile?.registrationCertificate;
 
   UserModel({
     required this.id,
@@ -43,6 +56,7 @@ class UserModel {
     this.staffUniqueId,
     this.token,
     this.doctorProfile,
+    this.nurseProfile,
     this.permissions = const [],
     this.permissionDisplayMap = const {},
   });
@@ -81,6 +95,9 @@ class UserModel {
       doctorProfile: (json['role'] == 'Doctor' || json['medical_license'] != null || json['specialization_id'] != null) 
           ? DoctorModel.fromJson(json) 
           : null,
+      nurseProfile: (json['role'] == 'Nurse' || json['nursing_registration_number'] != null)
+          ? NurseModel.fromJson(json)
+          : null,
       permissions: perms,
       permissionDisplayMap: displays,
     );
@@ -95,6 +112,7 @@ class UserModel {
     String? staffUniqueId,
     String? token,
     DoctorModel? doctorProfile,
+    NurseModel? nurseProfile,
     List<String>? permissions,
     Map<String, String>? permissionDisplayMap,
   }) {
@@ -107,6 +125,7 @@ class UserModel {
       staffUniqueId: staffUniqueId ?? this.staffUniqueId,
       token: token ?? this.token,
       doctorProfile: doctorProfile ?? this.doctorProfile,
+      nurseProfile: nurseProfile ?? this.nurseProfile,
       permissions: permissions ?? this.permissions,
       permissionDisplayMap: permissionDisplayMap ?? this.permissionDisplayMap,
     );

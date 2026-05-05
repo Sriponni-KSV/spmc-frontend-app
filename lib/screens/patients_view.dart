@@ -975,19 +975,19 @@ class _PatientsViewState extends State<PatientsView> {
                       ),
                     ),
                   ],
-                  if (isQuick) ...[
+                  if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('add_patient') ?? false) ...[
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () => widget.onCompleteProfile(patient),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF805AD5),
+                          backgroundColor: const Color(0xFFF6AD55),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        child: const Text('Complete'),
+                        child: Text(isQuick ? 'Complete' : 'Edit'),
                       ),
                     ),
                   ],
@@ -1223,6 +1223,12 @@ class _PatientsViewState extends State<PatientsView> {
                     const Color(0xFF38A169),
                     onTap: widget.onBookAppointment,
                   ),
+                _buildActionLabel(
+                  Icons.edit_outlined,
+                  'Edit',
+                  const Color(0xFFF6AD55),
+                  onTap: () => widget.onCompleteProfile(patient),
+                ),
                 if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('delete_patient') ?? false)
                   _buildActionLabel(
                     Icons.delete_outline,

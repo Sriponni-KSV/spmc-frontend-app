@@ -172,13 +172,17 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
           ),
             const SizedBox(height: 24),
             Text(
-              widget.existingPatient != null ? 'Complete Patient Profile' : 'New Patient Registration',
+              widget.existingPatient != null 
+                ? (widget.existingPatient!.isQuickRegister ? 'Complete Patient Profile' : 'Edit Patient Profile')
+                : 'New Patient Registration',
               style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Register a new patient with AI-powered voice input',
-              style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+            Text(
+              widget.existingPatient != null 
+                ? 'Update patient information and medical history'
+                : 'Register a new patient with AI-powered voice input',
+              style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
             ),
             const SizedBox(height: 32),
 
@@ -1616,6 +1620,8 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
     }
  
     final patient = PatientModel(
+      id:               widget.existingPatient?.id,
+      patientId:        widget.existingPatient?.patientId,
       name:             _nameController.text.trim(),
       dob:              _dobController.text.trim(),
       age:              int.tryParse(_ageController.text.trim()) ?? 0,
@@ -1638,6 +1644,7 @@ class _NewPatientRegistrationViewState extends State<NewPatientRegistrationView>
       hobbies:          _hobbiesController.text.trim(),
       foodHabits:       _foodHabitsController.text.trim(),
       physicalActivity: _physicalActivityController.text.trim(),
+      isQuickRegister:  widget.existingPatient?.isQuickRegister ?? false,
     );
  
     if (widget.existingPatient != null && widget.existingPatient!.id != null) {
