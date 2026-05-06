@@ -30,10 +30,13 @@ class _AdminAppointmentManagementState
   // Filter state
   DateTime? _filterDate;
   String? _filterDoctor;
+  String? _filterDepartment;
   String _filterStatus = 'All';
+  String _searchQuery = '';
+  bool _isFilterVisible = false;
 
   final List<String> _statusOptions = [
-    'All', 'Confirmed', 'Completed', 'Cancelled', 'No-Show', 'Rescheduled'
+    'All', 'Confirmed', 'Waiting', 'In Consultation', 'Completed', 'Cancelled', 'No-Show', 'Rescheduled'
   ];
 
   final ScrollController _vScroll = ScrollController();
@@ -91,22 +94,26 @@ class _AdminAppointmentManagementState
     setState(() { _isLoading = true; _errorMsg = null; });
     try {
       final String? dateStr = _filterDate != null
-          ? DateFormat('dd-MM-yyyy').format(_filterDate!)
+          ? DateFormat('yyyy-MM-dd').format(_filterDate!)
           : null;
       final results = await Future.wait([
         _apptCtrl.fetchAdminAppointments(
           date: dateStr,
           doctor: _filterDoctor,
-          status: _filterStatus == 'All' ? null : _filterStatus,
+          status: _filterStatus == 'All' ? null : (_filterStatus == 'Waiting' ? 'Checked-in' : _filterStatus),
+          department: _filterDepartment,
         ),
         _adminCtrl.fetchStaff(role: 'Doctor'),
         _adminCtrl.fetchSpecializations(),
       ]);
       setState(() {
         _appointments = results[0] as List<AppointmentModel>;
-        _doctors = results[1] as List<UserModel>;
+        final fetchedDoctors = results[1] as List<UserModel>;
+        fetchedDoctors.sort((a, b) => a.fullname.compareTo(b.fullname));
+        _doctors = fetchedDoctors;
         final specs = results[2] as List<dynamic>;
         _departments = specs.map((e) => e['name'].toString()).toList();
+        _departments.sort(); // Also sort departments alphabetically
         _isLoading = false;
       });
     } catch (e) {
@@ -114,9 +121,23 @@ class _AdminAppointmentManagementState
     }
   }
 
+  List<AppointmentModel> get _filteredAppointments {
+    if (_searchQuery.trim().isEmpty) return _appointments;
+    final query = _searchQuery.toLowerCase();
+    return _appointments.where((a) {
+      return a.patientName.toLowerCase().contains(query) ||
+             (a.patientDisplayId?.toLowerCase().contains(query) ?? false) ||
+             (a.patientPhone?.toLowerCase().contains(query) ?? false) ||
+             a.doctorName.toLowerCase().contains(query);
+    }).toList();
+  }
+
   Color _statusColor(String status) {
     switch (status) {
       case 'Confirmed': return const Color(0xFF3B82F6);
+      case 'Waiting':
+      case 'Checked-in': return const Color(0xFF0D9488);
+      case 'In Consultation': return const Color(0xFFF59E0B);
       case 'Completed': return const Color(0xFF22C55E);
       case 'Cancelled': return const Color(0xFFEF4444);
       case 'No-Show':   return const Color(0xFFF97316);
@@ -139,7 +160,7 @@ class _AdminAppointmentManagementState
     String? appointmentType = appt.appointmentType;
     bool isSaving = false;
 
-    List<String> availableStatuses = ['Confirmed', 'Completed', 'Cancelled', 'No-Show', 'Rescheduled'];
+    List<String> availableStatuses = ['Confirmed', 'Checked-in', 'In Consultation', 'Completed', 'Cancelled', 'No-Show', 'Rescheduled'];
     if (appt.status == 'Completed') {
       availableStatuses = ['Confirmed', 'Completed', 'No-Show'];
     } else if (appt.status == 'Cancelled') {
@@ -252,7 +273,7 @@ class _AdminAppointmentManagementState
                     buildField('Force Status Change', DropdownButtonFormField<String>(
                       value: selectedStatus,
                       decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                      items: availableStatuses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                      items: availableStatuses.map((s) => DropdownMenuItem(value: s, child: Text(s == 'Checked-in' ? 'Waiting' : s))).toList(),
                       onChanged: mode == 'view' ? null : (v) => setS(() => selectedStatus = v),
                     )),
 
@@ -481,115 +502,157 @@ class _AdminAppointmentManagementState
       ),
       const SizedBox(height: 16),
 
-      // Filters
+      // Search and Filter Toggle Row
       Container(
         margin: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.borderColor),
-        ),
-        child: Wrap(spacing: 12, runSpacing: 12, children: [
-          // Date filter
-          SizedBox(
-            width: isMobile ? double.infinity : 200,
-            child: InkWell(
-              onTap: () async {
-                final d = await showDatePicker(
-                  context: context,
-                  initialDate: _filterDate ?? DateTime.now(),
-                  firstDate: DateTime(2024),
-                  lastDate: DateTime(2030),
-                );
-                if (d != null) setState(() => _filterDate = d);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.borderColor),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(children: [
-                  const Icon(Icons.calendar_today_outlined, size: 16, color: AppTheme.textSecondaryColor),
-                  const SizedBox(width: 8),
-                  Text(
-                    _filterDate != null ? DateFormat('dd-MM-yyyy').format(_filterDate!) : 'Filter by date',
-                    style: TextStyle(fontSize: 13, color: _filterDate != null ? AppTheme.textPrimaryColor : AppTheme.textSecondaryColor),
-                  ),
-                  if (_filterDate != null) ...[
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => setState(() => _filterDate = null),
-                      child: const Icon(Icons.close, size: 14, color: AppTheme.textSecondaryColor),
-                    ),
-                  ],
-                ]),
-              ),
-            ),
-          ),
-
-          // Doctor filter
-          SizedBox(
-            width: isMobile ? double.infinity : 200,
-            child: DropdownButtonFormField<String>(
-              isExpanded: true,
-              value: _filterDoctor,
-              decoration: const InputDecoration(
-                hintText: 'Filter by doctor',
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                prefixIcon: Icon(Icons.medical_services_outlined, size: 16),
-              ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('All Doctors')),
-                ..._doctors.map((d) => DropdownMenuItem(value: d.fullname, child: Text(d.fullname, overflow: TextOverflow.ellipsis))),
+        child: isMobile 
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildSearchBar(),
+                const SizedBox(height: 12),
+                _buildFilterToggle(isMobile),
               ],
-              onChanged: (v) => setState(() => _filterDoctor = v),
-            ),
-          ),
-
-          // Status filter
-          SizedBox(
-            width: isMobile ? double.infinity : 180,
-            child: DropdownButtonFormField<String>(
-              isExpanded: true,
-              value: _filterStatus,
-              decoration: const InputDecoration(
-                hintText: 'Filter by status',
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                prefixIcon: Icon(Icons.circle_outlined, size: 16),
-              ),
-              items: _statusOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-              onChanged: (v) => setState(() => _filterStatus = v ?? 'All'),
-            ),
-          ),
-
-          // Apply button
-          ElevatedButton.icon(
-            onPressed: _loadData,
-            icon: const Icon(Icons.search, size: 16),
-            label: const Text('Apply Filters'),
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(140, 44),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-
-          // Clear filters
-          if (_filterDate != null || _filterDoctor != null || _filterStatus != 'All')
-            OutlinedButton.icon(
-              onPressed: () => setState(() { _filterDate = null; _filterDoctor = null; _filterStatus = 'All'; }),
-              icon: const Icon(Icons.clear, size: 16),
-              label: const Text('Clear'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(100, 44),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-        ]),
+            )
+          : Row(children: [
+              Expanded(flex: 4, child: _buildSearchBar()),
+              const SizedBox(width: 16),
+              _buildFilterToggle(isMobile),
+            ]),
       ),
+
+      if (_isFilterVisible) ...[
+        const SizedBox(height: 16),
+        Container(
+          margin: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.borderColor),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+            ],
+          ),
+          child: Column(children: [
+            isMobile
+              ? Column(children: [
+                  _buildFilterDropdown(
+                    'Appointment Date',
+                    _filterDate != null ? DateFormat('dd-MM-yyyy').format(_filterDate!) : 'Any Date',
+                    [],
+                    (v) {},
+                    isMobile: true,
+                    isDate: true,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildFilterDropdown(
+                    'Department',
+                    _filterDepartment ?? 'All Departments',
+                    ['All Departments', ..._departments],
+                    (v) {
+                      setState(() => _filterDepartment = v == 'All Departments' ? null : v);
+                      _loadData();
+                    },
+                    isMobile: true,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildFilterDropdown(
+                    'Doctor',
+                    _filterDoctor ?? 'All Doctors',
+                    ['All Doctors', ..._doctors.map((d) => d.fullname)],
+                    (v) {
+                      setState(() => _filterDoctor = v == 'All Doctors' ? null : v);
+                      _loadData();
+                    },
+                    isMobile: true,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildFilterDropdown(
+                    'Status',
+                    _filterStatus,
+                    _statusOptions,
+                    (v) {
+                      setState(() => _filterStatus = v ?? 'All');
+                      _loadData();
+                    },
+                    isMobile: true,
+                  ),
+                ])
+              : Row(children: [
+                  Expanded(
+                    child: _buildFilterDropdown(
+                      'Appointment Date',
+                      _filterDate != null ? DateFormat('dd-MM-yyyy').format(_filterDate!) : 'Any Date',
+                      [],
+                      (v) {},
+                      isMobile: false,
+                      isDate: true,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildFilterDropdown(
+                      'Department',
+                      _filterDepartment ?? 'All Departments',
+                      ['All Departments', ..._departments],
+                      (v) {
+                        setState(() => _filterDepartment = v == 'All Departments' ? null : v);
+                        _loadData();
+                      },
+                      isMobile: false,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildFilterDropdown(
+                      'Doctor',
+                      _filterDoctor ?? 'All Doctors',
+                      ['All Doctors', ..._doctors.map((d) => d.fullname)],
+                      (v) {
+                        setState(() => _filterDoctor = v == 'All Doctors' ? null : v);
+                        _loadData();
+                      },
+                      isMobile: false,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildFilterDropdown(
+                      'Status',
+                      _filterStatus,
+                      _statusOptions,
+                      (v) {
+                        setState(() => _filterStatus = v ?? 'All');
+                        _loadData();
+                      },
+                      isMobile: false,
+                    ),
+                  ),
+                ]),
+            if (_filterDate != null || _filterDoctor != null || _filterStatus != 'All' || _filterDepartment != null) ...[
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _filterDate = null;
+                      _filterDepartment = null;
+                      _filterDoctor = null;
+                      _filterStatus = 'All';
+                    });
+                    _loadData();
+                  },
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Reset Filters'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                ),
+              ),
+            ]
+          ]),
+        ),
+      ],
 
       const SizedBox(height: 16),
 
@@ -624,6 +687,119 @@ class _AdminAppointmentManagementState
     ]);
   }
 
+  Widget _buildSearchBar() {
+    return Container(
+      height: 52,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F4F8),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(children: [
+        const Icon(Icons.search, size: 20, color: AppTheme.textSecondaryColor),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextField(
+            onChanged: (v) => setState(() => _searchQuery = v),
+            decoration: const InputDecoration(
+              hintText: 'Search by patient name, phone number, or department...',
+              hintStyle: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+              border: InputBorder.none,
+              isDense: true,
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildFilterToggle(bool isMobile) {
+    return ElevatedButton.icon(
+      onPressed: () => setState(() => _isFilterVisible = !_isFilterVisible),
+      icon: Icon(_isFilterVisible ? Icons.filter_list_off : Icons.filter_list, size: 18),
+      label: const Text('Filter', style: TextStyle(fontWeight: FontWeight.bold)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: AppTheme.textPrimaryColor,
+        minimumSize: Size(isMobile ? double.infinity : 120, 52),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        elevation: 0,
+        side: const BorderSide(color: AppTheme.borderColor),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Widget _buildFilterDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged, {required bool isMobile, bool isDate = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor)),
+        const SizedBox(height: 8),
+        isDate 
+          ? InkWell(
+              onTap: () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: _filterDate ?? DateTime.now(),
+                  firstDate: DateTime(2024),
+                  lastDate: DateTime(2030),
+                );
+                if (d != null) {
+                  setState(() => _filterDate = d);
+                  _loadData();
+                }
+              },
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppTheme.borderColor),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.calendar_today_outlined, size: 16, color: AppTheme.textSecondaryColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      value,
+                      style: TextStyle(fontSize: 14, color: _filterDate != null ? AppTheme.textPrimaryColor : AppTheme.textSecondaryColor),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (_filterDate != null)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _filterDate = null);
+                        _loadData();
+                      },
+                      child: const Icon(Icons.close, size: 14, color: AppTheme.textSecondaryColor),
+                    ),
+                ]),
+              ),
+            )
+          : Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppTheme.borderColor),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: value,
+                  icon: const Icon(Icons.keyboard_arrow_down, size: 20),
+                  style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14),
+                  items: items.map((item) => DropdownMenuItem(value: item, child: Text(item, overflow: TextOverflow.ellipsis))).toList(),
+                  onChanged: onChanged,
+                ),
+              ),
+            ),
+      ],
+    );
+  }
+
   Widget _buildTable(bool isMobile) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -637,7 +813,8 @@ class _AdminAppointmentManagementState
         ElevatedButton(onPressed: _loadData, child: const Text('Retry')),
       ]));
     }
-    if (_appointments.isEmpty) {
+    final apps = _filteredAppointments;
+    if (apps.isEmpty) {
       return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
         Icon(Icons.event_busy_outlined, size: 56, color: AppTheme.textSecondaryColor.withOpacity(0.4)),
         const SizedBox(height: 12),
@@ -675,7 +852,6 @@ class _AdminAppointmentManagementState
                   headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
                   headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 12),
                   columns: const [
-                    DataColumn(label: Text('ID')),
                     DataColumn(label: Text('Patient')),
                     DataColumn(label: Text('Doctor')),
                     DataColumn(label: Text('Department')),
@@ -685,16 +861,18 @@ class _AdminAppointmentManagementState
                     DataColumn(label: Text('Override')),
                     DataColumn(label: Text('Actions')),
                   ],
-                  rows: _appointments.map((appt) {
+                  rows: apps.map((appt) {
                     final sc = _statusColor(appt.status);
                     final hasOverride = appt.overrideReason != null && appt.overrideReason!.isNotEmpty;
                     return DataRow(cells: [
-                      DataCell(Text('${appt.id}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primaryColor))),
                       DataCell(Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(appt.patientName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                         Text('ID: ${appt.patientDisplayId ?? appt.patientId}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
                       ])),
-                      DataCell(Text(appt.doctorName, style: const TextStyle(fontSize: 13))),
+                      DataCell(Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(appt.doctorName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text('ID: ${appt.doctorDisplayId ?? "—"}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                      ])),
                       DataCell(Text(appt.department, style: const TextStyle(fontSize: 13))),
                       DataCell(Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(appt.appointmentDate, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -711,7 +889,7 @@ class _AdminAppointmentManagementState
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           Container(width: 6, height: 6, decoration: BoxDecoration(color: sc, shape: BoxShape.circle)),
                           const SizedBox(width: 6),
-                          Text(appt.status, style: TextStyle(color: sc, fontSize: 11, fontWeight: FontWeight.w700)),
+                          Text(appt.status == 'Checked-in' ? 'Waiting' : appt.status, style: TextStyle(color: sc, fontSize: 11, fontWeight: FontWeight.w700)),
                         ]),
                       )),
                       DataCell(hasOverride
