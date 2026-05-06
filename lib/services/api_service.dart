@@ -4,9 +4,8 @@ import 'token_service.dart';
 
 class ApiService {
   static void _checkAccess(http.Response response) {
-    if (response.statusCode == 403) {
-      throw Exception("Access Denied");
-    }
+    // We allow the status codes to be handled by the individual controllers
+    // to support granular error messages from the backend (e.g. inactive, suspended)
   }
 
   static Future<http.Response> get(String url) async {

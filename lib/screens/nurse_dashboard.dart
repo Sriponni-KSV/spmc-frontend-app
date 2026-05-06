@@ -12,6 +12,7 @@ import 'new_patient_registration.dart';
 import 'patients_view.dart';
 import 'appointments_view.dart';
 import 'doctors_view.dart';
+import 'nurse_profile_view.dart';
 import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
@@ -245,6 +246,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return const AccessDeniedWidget();
       case 3:
         return const DoctorsView();
+      case 4:
+        return const NurseProfileView();
       default:
         return _buildDashboardView(isMobile);
     }
@@ -370,6 +373,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         Icons.medical_services_outlined,
                         'Doctors',
                       ),
+                      _buildSidebarItem(4, Icons.person_outline, 'Profile'),
                       // _buildSidebarItem(4, Icons.home_outlined, 'Home Care'),
                       // _buildSidebarItem(5, Icons.inventory_2_outlined, 'Inventory'),
                       // _buildSidebarItem(6, Icons.bar_chart_outlined, 'Reports'),
@@ -463,10 +467,14 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                                   size: 18,
                                   color: AppTheme.textSecondaryColor,
                                 ),
-                                onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
-                            ),
-                          ],
-                        ),
+                                onPressed: () =>
+                                    LogoutHelper.showLogoutConfirmation(
+                                      context,
+                                      auth,
+                                    ),
+                              ),
+                            ],
+                          ),
                   ),
                 ],
               ),
