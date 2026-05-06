@@ -7,6 +7,7 @@ class UserModel {
   final String email;
   final String role;
   final String status;
+  final bool isDeleted;
   final String? staffUniqueId;
   final String? token;
   
@@ -53,6 +54,7 @@ class UserModel {
     required this.email,
     required this.role,
     this.status = 'active',
+    this.isDeleted = false,
     this.staffUniqueId,
     this.token,
     this.doctorProfile,
@@ -90,6 +92,7 @@ class UserModel {
       email: json['email'] ?? '',
       role: json['role'] ?? '',
       status: json['status'] ?? 'active',
+      isDeleted: json['is_deleted'] == true || json['isDeleted'] == true || json['status'] == 'deleted',
       staffUniqueId: json['staff_unique_id'] ?? json['staffUniqueId'],
       token: json['token'],
       doctorProfile: (json['role'] == 'Doctor' || json['medical_license'] != null || json['specialization_id'] != null) 
@@ -109,6 +112,7 @@ class UserModel {
     String? email,
     String? role,
     String? status,
+    bool? isDeleted,
     String? staffUniqueId,
     String? token,
     DoctorModel? doctorProfile,
@@ -122,6 +126,7 @@ class UserModel {
       email: email ?? this.email,
       role: role ?? this.role,
       status: status ?? this.status,
+      isDeleted: isDeleted ?? this.isDeleted,
       staffUniqueId: staffUniqueId ?? this.staffUniqueId,
       token: token ?? this.token,
       doctorProfile: doctorProfile ?? this.doctorProfile,
