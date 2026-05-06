@@ -65,6 +65,8 @@ class PatientModel {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
+      'patientId': patientId,
       'name': name,
       'dob': DateFormatter.toDb(dob),
       'age': age,
@@ -90,7 +92,6 @@ class PatientModel {
       'isQuickRegister': isQuickRegister,
       'created_at': createdAt,
     };
-
   }
 
   /// Convert JSON from backend → model (for future fetch patient list)
