@@ -146,7 +146,7 @@ class _PatientsViewState extends State<PatientsView> {
     final bool isMobile = screenSize.width < 850;
     final bool isSmallMobile = screenSize.width < 400;
     final bool isTablet = screenSize.width >= 850 && screenSize.width < 1200;
-    
+
     EdgeInsets padding;
     if (isMobile) {
       padding = EdgeInsets.all(isSmallMobile ? 10.0 : 12.0);
@@ -155,14 +155,19 @@ class _PatientsViewState extends State<PatientsView> {
     } else {
       padding = const EdgeInsets.all(24.0);
     }
-    
+
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final user = auth.user;
-    final bool hideRecentAndQuick = ['Admin', 'Super Admin'].contains(user?.role);
+    final bool hideRecentAndQuick = [
+      'Admin',
+      'Super Admin',
+    ].contains(user?.role);
 
-    if (widget.error == 'Exception: Access Denied' || (user != null && !user.hasPermission('view_patients'))) {
+    if (widget.error == 'Exception: Access Denied' ||
+        (user != null && !user.hasPermission('view_patients'))) {
       return const AccessDeniedWidget(
-        message: 'Access Denied: You do not have permission to view patient records.',
+        message:
+            'Access Denied: You do not have permission to view patient records.',
       );
     }
 
@@ -223,7 +228,7 @@ class _PatientsViewState extends State<PatientsView> {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final double fontSize = isMobile ? 20 : (isTablet ? 24 : 28);
     final double subtitleSize = isMobile ? 11 : (isTablet ? 12 : 14);
-    
+
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,17 +245,17 @@ class _PatientsViewState extends State<PatientsView> {
           const SizedBox(height: 2),
           Text(
             'Manage patient records and hospital information',
-            style: TextStyle(
-              color: AppTheme.textSecondaryColor,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
           ),
           const SizedBox(height: 16),
           if (user?.hasPermission('add_patient') ?? false)
             ElevatedButton.icon(
               onPressed: widget.onRegisterPatient,
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('New Patient Registration', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text(
+                'New Patient Registration',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFE53E3E),
                 foregroundColor: Colors.white,
@@ -274,7 +279,10 @@ class _PatientsViewState extends State<PatientsView> {
             children: [
               Text(
                 'Patients',
-                style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.bold,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -300,7 +308,10 @@ class _PatientsViewState extends State<PatientsView> {
               backgroundColor: const Color(0xFFE53E3E),
               foregroundColor: Colors.white,
               minimumSize: Size(isTablet ? 100 : 120, 48),
-              padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 24, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? 16 : 24,
+                vertical: 12,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -312,7 +323,10 @@ class _PatientsViewState extends State<PatientsView> {
 
   Widget _buildPatientsSearch(bool isMobile, bool isTablet) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    final bool hideRecentAndQuick = ['Admin', 'Super Admin'].contains(user?.role);
+    final bool hideRecentAndQuick = [
+      'Admin',
+      'Super Admin',
+    ].contains(user?.role);
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -343,7 +357,10 @@ class _PatientsViewState extends State<PatientsView> {
                 Expanded(
                   child: TextField(
                     onChanged: (val) => setState(() => _searchQuery = val),
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
                     decoration: const InputDecoration(
                       hintText: 'Search patients by name or phone...',
                       hintStyle: TextStyle(
@@ -364,15 +381,21 @@ class _PatientsViewState extends State<PatientsView> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              if (!hideRecentAndQuick && (user?.hasPermission('add_patient') ?? false))
+              if (!hideRecentAndQuick &&
+                  (user?.hasPermission('add_patient') ?? false))
                 SizedBox(
-                  width: MediaQuery.of(context).size.width < 450 ? double.infinity : (MediaQuery.of(context).size.width - 34) / 2,
+                  width: MediaQuery.of(context).size.width < 450
+                      ? double.infinity
+                      : (MediaQuery.of(context).size.width - 34) / 2,
                   child: ElevatedButton.icon(
                     onPressed: () => _showQuickRegisterDialog(context),
                     icon: const Icon(Icons.flash_on, size: 16),
                     label: const Text(
                       'Quick Register',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0D5D9A),
@@ -387,7 +410,9 @@ class _PatientsViewState extends State<PatientsView> {
                   ),
                 ),
               SizedBox(
-                width: MediaQuery.of(context).size.width < 450 ? double.infinity : (MediaQuery.of(context).size.width - 34) / 2,
+                width: MediaQuery.of(context).size.width < 450
+                    ? double.infinity
+                    : (MediaQuery.of(context).size.width - 34) / 2,
                 child: ElevatedButton.icon(
                   onPressed: () =>
                       setState(() => _isFilterVisible = !_isFilterVisible),
@@ -441,9 +466,11 @@ class _PatientsViewState extends State<PatientsView> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: TextField(
-                          onChanged: (val) => setState(() => _searchQuery = val),
+                          onChanged: (val) =>
+                              setState(() => _searchQuery = val),
                           decoration: const InputDecoration(
-                            hintText: 'Search by name, phone, department...',
+                            hintText:
+                                'Search by name, mobile number, department...',
                             hintStyle: TextStyle(
                               color: AppTheme.textSecondaryColor,
                               fontSize: 13,
@@ -459,11 +486,15 @@ class _PatientsViewState extends State<PatientsView> {
                 ),
               ),
               const SizedBox(width: 12),
-              if (!hideRecentAndQuick && (user?.hasPermission('add_patient') ?? false))
+              if (!hideRecentAndQuick &&
+                  (user?.hasPermission('add_patient') ?? false))
                 ElevatedButton.icon(
                   onPressed: () => _showQuickRegisterDialog(context),
                   icon: const Icon(Icons.flash_on, size: 16),
-                  label: const Text('Quick Register', style: TextStyle(fontSize: 12)),
+                  label: const Text(
+                    'Quick Register',
+                    style: TextStyle(fontSize: 12),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0D5D9A),
                     foregroundColor: Colors.white,
@@ -477,7 +508,8 @@ class _PatientsViewState extends State<PatientsView> {
                 ),
               const SizedBox(width: 8),
               ElevatedButton.icon(
-                onPressed: () => setState(() => _isFilterVisible = !_isFilterVisible),
+                onPressed: () =>
+                    setState(() => _isFilterVisible = !_isFilterVisible),
                 icon: Icon(
                   _isFilterVisible ? Icons.filter_list_off : Icons.filter_list,
                   size: 16,
@@ -525,7 +557,7 @@ class _PatientsViewState extends State<PatientsView> {
                     onChanged: (val) => setState(() => _searchQuery = val),
                     decoration: const InputDecoration(
                       hintText:
-                          'Search by name, phone number, or department...',
+                          'Search by name, mobile number, or department...',
                       hintStyle: TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 14,
@@ -540,7 +572,8 @@ class _PatientsViewState extends State<PatientsView> {
           ),
         ),
         const SizedBox(width: 16),
-        if (!hideRecentAndQuick && (user?.hasPermission('add_patient') ?? false))
+        if (!hideRecentAndQuick &&
+            (user?.hasPermission('add_patient') ?? false))
           ElevatedButton.icon(
             onPressed: () => _showQuickRegisterDialog(context),
             icon: const Icon(Icons.flash_on, size: 18),
@@ -637,25 +670,25 @@ class _PatientsViewState extends State<PatientsView> {
                 ),
               )
             : isTablet
-                ? SizedBox(
-                    width: 280,
-                    child: PatientInfoCard(
-                      name: name,
-                      info: '${age}y • $gender',
-                      initials: initials,
-                      tags: patient.isQuickRegister ? ['Quick'] : [],
-                      onView: () => setState(() => _selectedPatient = patient),
-                      onBook: widget.onBookAppointment,
-                    ),
-                  )
-                : PatientInfoCard(
-                    name: name,
-                    info: '${age}y • $gender',
-                    initials: initials,
-                    tags: patient.isQuickRegister ? ['Quick'] : [],
-                    onView: () => setState(() => _selectedPatient = patient),
-                    onBook: widget.onBookAppointment,
-                  ),
+            ? SizedBox(
+                width: 280,
+                child: PatientInfoCard(
+                  name: name,
+                  info: '${age}y • $gender',
+                  initials: initials,
+                  tags: patient.isQuickRegister ? ['Quick'] : [],
+                  onView: () => setState(() => _selectedPatient = patient),
+                  onBook: widget.onBookAppointment,
+                ),
+              )
+            : PatientInfoCard(
+                name: name,
+                info: '${age}y • $gender',
+                initials: initials,
+                tags: patient.isQuickRegister ? ['Quick'] : [],
+                onView: () => setState(() => _selectedPatient = patient),
+                onBook: widget.onBookAppointment,
+              ),
       );
 
       if (i < recentPatients.length - 1) {
@@ -668,9 +701,7 @@ class _PatientsViewState extends State<PatientsView> {
         scrollDirection: Axis.horizontal,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
-          child: IntrinsicHeight(
-            child: Row(children: cards),
-          ),
+          child: IntrinsicHeight(child: Row(children: cards)),
         ),
       );
     }
@@ -738,7 +769,7 @@ class _PatientsViewState extends State<PatientsView> {
                 Expanded(child: _buildTableHeaderText('Age')),
                 if (!isMobile) Expanded(child: _buildTableHeaderText('Gender')),
                 if (!isMobile)
-                  Expanded(flex: 2, child: _buildTableHeaderText('Contact')),
+                  Expanded(flex: 2, child: _buildTableHeaderText('Mobile No')),
                 if (!isMobile)
                   Expanded(flex: 2, child: _buildTableHeaderText('Email')),
                 if (!isMobile)
@@ -802,8 +833,15 @@ class _PatientsViewState extends State<PatientsView> {
     final String ageStr = patient.age == 0 ? 'Not Prov.' : '${patient.age}y';
     final bool isQuick = patient.isQuickRegister;
 
-    final parts = name.trim().split(' ').where((p) => p.isNotEmpty).take(2).toList();
-    final String initials = parts.isNotEmpty ? parts.map((p) => p[0].toUpperCase()).join('') : '?';
+    final parts = name
+        .trim()
+        .split(' ')
+        .where((p) => p.isNotEmpty)
+        .take(2)
+        .toList();
+    final String initials = parts.isNotEmpty
+        ? parts.map((p) => p[0].toUpperCase()).join('')
+        : '?';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -831,11 +869,15 @@ class _PatientsViewState extends State<PatientsView> {
                 children: [
                   CircleAvatar(
                     radius: 26,
-                    backgroundColor: isQuick ? const Color(0xFFF3E8FF) : AppTheme.primaryColor.withOpacity(0.1),
+                    backgroundColor: isQuick
+                        ? const Color(0xFFF3E8FF)
+                        : AppTheme.primaryColor.withOpacity(0.1),
                     child: Text(
                       initials,
                       style: TextStyle(
-                        color: isQuick ? const Color(0xFF7C3AED) : AppTheme.primaryColor,
+                        color: isQuick
+                            ? const Color(0xFF7C3AED)
+                            : AppTheme.primaryColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -865,16 +907,27 @@ class _PatientsViewState extends State<PatientsView> {
                               InkWell(
                                 onTap: () => widget.onCompleteProfile(patient),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF3E8FF),
                                     borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.3)),
+                                    border: Border.all(
+                                      color: const Color(
+                                        0xFF7C3AED,
+                                      ).withOpacity(0.3),
+                                    ),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: const [
-                                      Icon(Icons.edit_note, size: 14, color: Color(0xFF7C3AED)),
+                                      Icon(
+                                        Icons.edit_note,
+                                        size: 14,
+                                        color: Color(0xFF7C3AED),
+                                      ),
                                       const SizedBox(width: 4),
                                       Text(
                                         'Complete Profile',
@@ -903,9 +956,17 @@ class _PatientsViewState extends State<PatientsView> {
                     ),
                   ),
                   StatusChip(status: 'Active'),
-                  if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('delete_patient') ?? false)
+                  if (Provider.of<AuthProvider>(
+                        context,
+                        listen: false,
+                      ).user?.hasPermission('delete_patient') ??
+                      false)
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                        size: 20,
+                      ),
                       padding: const EdgeInsets.only(left: 8),
                       constraints: const BoxConstraints(),
                       onPressed: () => _showDeletePatientConfirmation(patient),
@@ -921,7 +982,11 @@ class _PatientsViewState extends State<PatientsView> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.phone_outlined, size: 16, color: AppTheme.textSecondaryColor),
+                    const Icon(
+                      Icons.phone_outlined,
+                      size: 16,
+                      color: AppTheme.textSecondaryColor,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       patient.phone,
@@ -932,7 +997,11 @@ class _PatientsViewState extends State<PatientsView> {
                       ),
                     ),
                     const Spacer(),
-                    const Icon(Icons.medical_services_outlined, size: 16, color: AppTheme.textSecondaryColor),
+                    const Icon(
+                      Icons.medical_services_outlined,
+                      size: 16,
+                      color: AppTheme.textSecondaryColor,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       patient.department,
@@ -950,16 +1019,27 @@ class _PatientsViewState extends State<PatientsView> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => setState(() => _selectedPatient = patient),
+                      onPressed: () =>
+                          setState(() => _selectedPatient = patient),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         side: const BorderSide(color: AppTheme.borderColor),
                       ),
-                      child: const Text('View Details', style: TextStyle(color: AppTheme.textPrimaryColor)),
+                      child: const Text(
+                        'View Details',
+                        style: TextStyle(color: AppTheme.textPrimaryColor),
+                      ),
                     ),
                   ),
-                  if (!['Admin', 'Super Admin'].contains(Provider.of<AuthProvider>(context, listen: false).user?.role)) ...[
+                  if (!['Admin', 'Super Admin'].contains(
+                    Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    ).user?.role,
+                  )) ...[
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
@@ -969,13 +1049,19 @@ class _PatientsViewState extends State<PatientsView> {
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         child: const Text('Book Appt.'),
                       ),
                     ),
                   ],
-                  if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('add_patient') ?? false) ...[
+                  if (Provider.of<AuthProvider>(
+                        context,
+                        listen: false,
+                      ).user?.hasPermission('add_patient') ??
+                      false) ...[
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
@@ -985,7 +1071,9 @@ class _PatientsViewState extends State<PatientsView> {
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         child: Text(isQuick ? 'Complete' : 'Edit'),
                       ),
@@ -1092,7 +1180,8 @@ class _PatientsViewState extends State<PatientsView> {
                             children: tags.map((t) {
                               if (isQuick && t == 'Quick') {
                                 return InkWell(
-                                  onTap: () => widget.onCompleteProfile(patient),
+                                  onTap: () =>
+                                      widget.onCompleteProfile(patient),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 10,
@@ -1101,7 +1190,11 @@ class _PatientsViewState extends State<PatientsView> {
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFF3E8FF),
                                       borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.3)),
+                                      border: Border.all(
+                                        color: const Color(
+                                          0xFF7C3AED,
+                                        ).withOpacity(0.3),
+                                      ),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -1216,7 +1309,9 @@ class _PatientsViewState extends State<PatientsView> {
                   isQuick ? const Color(0xFF805AD5) : const Color(0xFF3182CE),
                   onTap: () => setState(() => _selectedPatient = patient),
                 ),
-                if (!['Admin', 'Super Admin'].contains(Provider.of<AuthProvider>(context, listen: false).user?.role))
+                if (!['Admin', 'Super Admin'].contains(
+                  Provider.of<AuthProvider>(context, listen: false).user?.role,
+                ))
                   _buildActionLabel(
                     Icons.calendar_month_outlined,
                     'Book',
@@ -1229,7 +1324,11 @@ class _PatientsViewState extends State<PatientsView> {
                   const Color(0xFFF6AD55),
                   onTap: () => widget.onCompleteProfile(patient),
                 ),
-                if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('delete_patient') ?? false)
+                if (Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    ).user?.hasPermission('delete_patient') ??
+                    false)
                   _buildActionLabel(
                     Icons.delete_outline,
                     'Delete',
@@ -1251,13 +1350,19 @@ class _PatientsViewState extends State<PatientsView> {
         bool isDeleting = false;
         return StatefulBuilder(
           builder: (ctx, setDialogState) => AlertDialog(
-            title: const Text('Delete Patient', style: TextStyle(fontWeight: FontWeight.bold)),
+            title: const Text(
+              'Delete Patient',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             content: RichText(
               text: TextSpan(
                 style: const TextStyle(color: Colors.black87, fontSize: 15),
                 children: [
                   const TextSpan(text: 'Are you sure you want to delete '),
-                  TextSpan(text: patient.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  TextSpan(
+                    text: patient.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const TextSpan(text: '? This action cannot be undone.'),
                 ],
               ),
@@ -1268,30 +1373,48 @@ class _PatientsViewState extends State<PatientsView> {
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                onPressed: isDeleting ? null : () async {
-                  setDialogState(() => isDeleting = true);
-                  try {
-                    await PatientController().deletePatient(patient.id!);
-                    if (mounted) {
-                      Navigator.pop(ctx);
-                      widget.onRefresh?.call();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${patient.name} deleted.'), backgroundColor: Colors.green.shade600),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
-                      );
-                    }
-                  } finally {
-                    if (mounted) setDialogState(() => isDeleting = false);
-                  }
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                onPressed: isDeleting
+                    ? null
+                    : () async {
+                        setDialogState(() => isDeleting = true);
+                        try {
+                          await PatientController().deletePatient(patient.id!);
+                          if (mounted) {
+                            Navigator.pop(ctx);
+                            widget.onRefresh?.call();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${patient.name} deleted.'),
+                                backgroundColor: Colors.green.shade600,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString()),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setDialogState(() => isDeleting = false);
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                ),
                 child: isDeleting
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
                     : const Text('Delete'),
               ),
             ],
@@ -1375,53 +1498,9 @@ class _PatientsViewState extends State<PatientsView> {
               ],
             )
           : isTablet
-              ? Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildFilterDropdown(
-                            'Age Range',
-                            _selectedAgeRange,
-                            ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'],
-                            (val) => setState(() => _selectedAgeRange = val!),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildFilterDropdown(
-                            'Gender',
-                            _selectedGender,
-                            ['All Genders', 'Male', 'Female', 'Other'],
-                            (val) => setState(() => _selectedGender = val!),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildFilterDropdown(
-                            'Last Visit',
-                            _selectedLastVisit,
-                            ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'],
-                            (val) => setState(() => _selectedLastVisit = val!),
-                          ),
-                        ),
-                        Expanded(
-                          child: _buildFilterDropdown(
-                            'Status',
-                            _selectedStatus,
-                            ['All Status', 'Active', 'Inactive'],
-                            (val) => setState(() => _selectedStatus = val!),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                )
-              : Row(
+          ? Column(
+              children: [
+                Row(
                   children: [
                     Expanded(
                       child: _buildFilterDropdown(
@@ -1431,7 +1510,7 @@ class _PatientsViewState extends State<PatientsView> {
                         (val) => setState(() => _selectedAgeRange = val!),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: _buildFilterDropdown(
                         'Gender',
@@ -1440,16 +1519,24 @@ class _PatientsViewState extends State<PatientsView> {
                         (val) => setState(() => _selectedGender = val!),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
                     Expanded(
                       child: _buildFilterDropdown(
                         'Last Visit',
                         _selectedLastVisit,
-                        ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'],
+                        [
+                          'Any Time',
+                          'Last 7 Days',
+                          'Last 30 Days',
+                          'This Year',
+                        ],
                         (val) => setState(() => _selectedLastVisit = val!),
                       ),
                     ),
-                    const SizedBox(width: 16),
                     Expanded(
                       child: _buildFilterDropdown(
                         'Status',
@@ -1460,6 +1547,47 @@ class _PatientsViewState extends State<PatientsView> {
                     ),
                   ],
                 ),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(
+                  child: _buildFilterDropdown(
+                    'Age Range',
+                    _selectedAgeRange,
+                    ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'],
+                    (val) => setState(() => _selectedAgeRange = val!),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildFilterDropdown(
+                    'Gender',
+                    _selectedGender,
+                    ['All Genders', 'Male', 'Female', 'Other'],
+                    (val) => setState(() => _selectedGender = val!),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildFilterDropdown(
+                    'Last Visit',
+                    _selectedLastVisit,
+                    ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'],
+                    (val) => setState(() => _selectedLastVisit = val!),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildFilterDropdown(
+                    'Status',
+                    _selectedStatus,
+                    ['All Status', 'Active', 'Inactive'],
+                    (val) => setState(() => _selectedStatus = val!),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 
@@ -1726,7 +1854,7 @@ class _PatientsViewState extends State<PatientsView> {
                                   },
                                 ),
                                 const SizedBox(height: 16),
-                                _buildQuickFieldLabel('Phone Number'),
+                                _buildQuickFieldLabel('Mobile Number'),
                                 _buildQuickTextField(
                                   controller: phoneCtrl,
                                   hint: '98765 43210',
@@ -1804,7 +1932,9 @@ class _PatientsViewState extends State<PatientsView> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          _buildQuickFieldLabel('Phone Number'),
+                                          _buildQuickFieldLabel(
+                                            'Mobile Number',
+                                          ),
                                           _buildQuickTextField(
                                             controller: phoneCtrl,
                                             hint: '98765 43210',
@@ -2026,22 +2156,22 @@ class _PatientsViewState extends State<PatientsView> {
                                                         fontSize: 14,
                                                       ),
                                                     ),
-                                                    items: _departments.map(
-                                                      (String value) {
-                                                        return DropdownMenuItem<
-                                                          String
-                                                        >(
-                                                          value: value,
-                                                          child: Text(
-                                                            value,
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 14,
-                                                                ),
-                                                          ),
-                                                        );
-                                                      },
-                                                    ).toList(),
+                                                    items: _departments.map((
+                                                      String value,
+                                                    ) {
+                                                      return DropdownMenuItem<
+                                                        String
+                                                      >(
+                                                        value: value,
+                                                        child: Text(
+                                                          value,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 14,
+                                                              ),
+                                                        ),
+                                                      );
+                                                    }).toList(),
                                                     onChanged: (val) {
                                                       setState(() {
                                                         _selectedDeptQuick =
@@ -2575,10 +2705,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
   }
 
   Future<void> _fetchData() async {
-    await Future.wait([
-      _fetchConsultations(),
-      _fetchPatientAppointments(),
-    ]);
+    await Future.wait([_fetchConsultations(), _fetchPatientAppointments()]);
   }
 
   Future<void> _fetchPatientAppointments() async {
@@ -2588,7 +2715,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
       final appts = await _appointmentController.fetchAppointments();
       if (mounted) {
         setState(() {
-          _patientAppointments = appts.where((a) => a.patientId == widget.patient.id).toList();
+          _patientAppointments = appts
+              .where((a) => a.patientId == widget.patient.id)
+              .toList();
           _isLoadingAppointments = false;
         });
       }
@@ -2604,7 +2733,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
         setState(() => _isLoadingConsultations = false);
         return;
       }
-      final consultations = await _appointmentController.fetchConsultationsByPatient(widget.patient.id!);
+      final consultations = await _appointmentController
+          .fetchConsultationsByPatient(widget.patient.id!);
       if (mounted) {
         setState(() {
           _consultations = consultations;
@@ -2689,7 +2819,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
             // Tabs Section
             _buildTabsSection(p, isMobile),
-            
+
             // Start Consultation Button (Only for Doctors with pending appts)
             _buildStartConsultationButton(isMobile),
           ],
@@ -2706,8 +2836,13 @@ class _PatientDetailViewState extends State<PatientDetailView>
     final pendingAppt = _patientAppointments.firstWhere(
       (a) => a.status == 'Confirmed' || a.status == 'Pending',
       orElse: () => AppointmentModel(
-        patientId: 0, patientName: '', department: '', doctorName: '', 
-        appointmentDate: '', appointmentTime: '', status: ''
+        patientId: 0,
+        patientName: '',
+        department: '',
+        doctorName: '',
+        appointmentDate: '',
+        appointmentTime: '',
+        status: '',
       ),
     );
 
@@ -2724,16 +2859,23 @@ class _PatientDetailViewState extends State<PatientDetailView>
       height: 52,
       child: ElevatedButton.icon(
         onPressed: () {
-           _showConsultationDialog(pendingAppt);
+          _showConsultationDialog(pendingAppt);
         },
         icon: const Icon(Icons.medical_services_outlined, color: Colors.white),
         label: Text(
-          existingConsul.isNotEmpty ? 'Edit Consultation' : 'Start New Consultation', 
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+          existingConsul.isNotEmpty
+              ? 'Edit Consultation'
+              : 'Start New Consultation',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF38A169),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );
@@ -2752,7 +2894,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
         return Scaffold(
           body: NewConsultationView(
             appointment: appt,
-            initialConsultation: existingConsul.isNotEmpty ? existingConsul : null,
+            initialConsultation: existingConsul.isNotEmpty
+                ? existingConsul
+                : null,
             onBack: () {
               Navigator.pop(context);
               _fetchData(); // REFRESH DATA when coming back
@@ -2771,7 +2915,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
         color: const Color(0xFF0D5D9A),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: isMobile ? _buildHeaderMobile(p) : _buildHeaderDesktop(p, isTablet),
+      child: isMobile
+          ? _buildHeaderMobile(p)
+          : _buildHeaderDesktop(p, isTablet),
     );
   }
 
@@ -2862,14 +3008,20 @@ class _PatientDetailViewState extends State<PatientDetailView>
         Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            _buildContactIconItem(Icons.phone_outlined, p.phone.isNotEmpty ? p.phone : '+1 555-0101'),
+            _buildContactIconItem(
+              Icons.phone_outlined,
+              p.phone.isNotEmpty ? p.phone : '+1 555-0101',
+            ),
             const SizedBox(width: 40),
-            _buildContactIconItem(Icons.mail_outline, p.email.isNotEmpty ? p.email : 'patient@email.com'),
+            _buildContactIconItem(
+              Icons.mail_outline,
+              p.email.isNotEmpty ? p.email : 'patient@email.com',
+            ),
             const SizedBox(width: 40),
             Flexible(
               child: _buildContactIconItem(
-                Icons.location_on_outlined, 
-                p.address.isNotEmpty ? p.address : '123 Main St, New York, NY'
+                Icons.location_on_outlined,
+                p.address.isNotEmpty ? p.address : '123 Main St, New York, NY',
               ),
             ),
           ],
@@ -3026,7 +3178,12 @@ class _PatientDetailViewState extends State<PatientDetailView>
     );
   }
 
-  Widget _buildHeaderButton(IconData icon, String label, {VoidCallback? onTap, bool isPrimary = true}) {
+  Widget _buildHeaderButton(
+    IconData icon,
+    String label, {
+    VoidCallback? onTap,
+    bool isPrimary = true,
+  }) {
     return InkWell(
       onTap: onTap ?? () {},
       borderRadius: BorderRadius.circular(10),
@@ -3077,8 +3234,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
   }
 
   Widget _buildVitalsCard(PatientModel p, bool isMobile) {
-    final bool isTablet = MediaQuery.of(context).size.width >= 600 && 
-                          MediaQuery.of(context).size.width < 1000;
+    final bool isTablet =
+        MediaQuery.of(context).size.width >= 600 &&
+        MediaQuery.of(context).size.width < 1000;
     final vitals = [
       _VitalItem(
         label: 'Blood Pressure',
@@ -3138,10 +3296,15 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   spacing: 10,
                   runSpacing: 10,
                   children: vitals
-                      .map((v) => SizedBox(width: itemWidth.floorToDouble(), child: _buildVitalBox(v)))
+                      .map(
+                        (v) => SizedBox(
+                          width: itemWidth.floorToDouble(),
+                          child: _buildVitalBox(v),
+                        ),
+                      )
                       .toList(),
                 );
-              }
+              },
             )
           else if (isTablet)
             LayoutBuilder(
@@ -3151,10 +3314,15 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   spacing: 12,
                   runSpacing: 12,
                   children: vitals
-                      .map((v) => SizedBox(width: itemWidth.floorToDouble(), child: _buildVitalBox(v)))
+                      .map(
+                        (v) => SizedBox(
+                          width: itemWidth.floorToDouble(),
+                          child: _buildVitalBox(v),
+                        ),
+                      )
                       .toList(),
                 );
-              }
+              },
             )
           else
             Row(
@@ -3445,7 +3613,12 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
   Widget _buildVisitsTimelineTab(PatientModel p) {
     if (_isLoadingConsultations) {
-      return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(),
+        ),
+      );
     }
 
     return Column(
@@ -3457,10 +3630,18 @@ class _PatientDetailViewState extends State<PatientDetailView>
             children: [
               Text(
                 '${_consultations.length + 1} Total Records',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor, fontSize: 13),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 13,
+                ),
               ),
               IconButton(
-                icon: const Icon(Icons.refresh, size: 20, color: AppTheme.primaryColor),
+                icon: const Icon(
+                  Icons.refresh,
+                  size: 20,
+                  color: AppTheme.primaryColor,
+                ),
                 onPressed: _fetchData,
                 tooltip: 'Refresh Timeline',
               ),
@@ -3477,7 +3658,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 ..._consultations.asMap().entries.map((entry) {
                   final index = entry.key;
                   final c = entry.value;
-                  
+
                   // Safe parsing of medications
                   List medsList = [];
                   if (c['medications'] != null) {
@@ -3491,15 +3672,17 @@ class _PatientDetailViewState extends State<PatientDetailView>
                       medsList = c['medications'];
                     }
                   }
-                  
-                  final meds = medsList.isNotEmpty 
-                      ? medsList.map((m) => '${m['name']} (${m['dosage']})').join(', ') 
+
+                  final meds = medsList.isNotEmpty
+                      ? medsList
+                            .map((m) => '${m['name']} (${m['dosage']})')
+                            .join(', ')
                       : 'No medications';
-                  
+
                   final doctor = c['doctor_name'] ?? 'Doctor';
                   final symptoms = c['symptoms'] ?? 'None';
                   final diagnosis = c['diagnosis'] ?? 'None';
-                  
+
                   return _buildTimelineItem(
                     date: c['appointment_date'] ?? 'Consultation',
                     time: c['appointment_time'] ?? '—',
@@ -3511,14 +3694,16 @@ class _PatientDetailViewState extends State<PatientDetailView>
                     isFirst: index == 0,
                   );
                 }).toList(),
-                
+
                 // Registration Visit (Always show at the end)
                 _buildTimelineItem(
                   date: p.createdAt ?? 'Registration Visit',
                   time: 'Initial Entry',
                   dept: p.department,
                   doctor: 'Staff',
-                  complaint: p.complaints.isNotEmpty ? p.complaints : 'Initial registration',
+                  complaint: p.complaints.isNotEmpty
+                      ? p.complaints
+                      : 'Initial registration',
                   diagnosis: 'General Health Check',
                   prescription: 'N/A',
                   isFirst: _consultations.isEmpty,
@@ -3561,8 +3746,18 @@ class _PatientDetailViewState extends State<PatientDetailView>
               decoration: BoxDecoration(
                 color: isFirst ? AppTheme.primaryColor : AppTheme.borderColor,
                 shape: BoxShape.circle,
-                border: isFirst ? Border.all(color: Colors.white, width: 2) : null,
-                boxShadow: isFirst ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 4, spreadRadius: 1)] : null,
+                border: isFirst
+                    ? Border.all(color: Colors.white, width: 2)
+                    : null,
+                boxShadow: isFirst
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
               ),
             ),
             if (!isLast)
@@ -3611,7 +3806,10 @@ class _PatientDetailViewState extends State<PatientDetailView>
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEBF8FF),
                         borderRadius: BorderRadius.circular(20),
