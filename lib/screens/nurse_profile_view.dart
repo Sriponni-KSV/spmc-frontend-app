@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
@@ -34,6 +35,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
 
   List<String>? _availableDays;
   List<String>? _weeklyOffDays;
+  List<String>? _specificLeaveDates;
 
   @override
   void initState() {
@@ -52,13 +54,25 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     _yearsExpController = TextEditingController(text: user?.yearsOfExperience ?? '');
     _areasOfExpertiseController = TextEditingController(text: user?.areasOfExpertise ?? '');
     _regCertController = TextEditingController(text: user?.registrationCertificate ?? '');
-    _departmentController = TextEditingController(text: user?.department ?? '');
-    _shiftTypeController = TextEditingController(text: user?.shiftType ?? '');
+    _departmentController = TextEditingController(
+      text: (user?.department != null && user!.department!.isNotEmpty)
+          ? user.department
+          : 'General Medicine',
+    );
+    _shiftTypeController = TextEditingController(
+      text: (user?.shiftType != null && user!.shiftType!.isNotEmpty)
+          ? user.shiftType
+          : 'Day Shift',
+    );
     _slotStartController = TextEditingController(text: user?.shiftStartTime ?? '');
     _slotEndController = TextEditingController(text: user?.shiftEndTime ?? '');
 
     _availableDays = user?.workingDays != null ? List.from(user!.workingDays!) : [];
-    _weeklyOffDays = user?.weeklyOffDays != null ? List.from(user!.weeklyOffDays!) : [];
+    // Ensure all days not in availableDays are in weeklyOffDays
+    final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    _weeklyOffDays = allDays.where((d) => !_availableDays!.contains(d)).toList();
+    
+    _specificLeaveDates = user?.specificLeaveDates != null ? List.from(user!.specificLeaveDates!) : [];
   }
 
   @override
@@ -79,6 +93,12 @@ class _NurseProfileViewState extends State<NurseProfileView> {
   }
 
   Future<void> _saveProfile() async {
+    // Auto-calculate weekly off days: any day not selected as a working day is automatically a weekly off day
+    final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    _weeklyOffDays = allDays
+        .where((day) => !(_availableDays ?? []).contains(day))
+        .toList();
+
     setState(() => _isLoading = true);
     try {
       final updatedUser = await _nurseController.updateProfile(
@@ -93,6 +113,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
         department: _departmentController.text,
         areasOfExpertise: _areasOfExpertiseController.text,
         registrationCertificate: _regCertController.text,
+        weeklyOffDays: _weeklyOffDays ?? [],
+        specificLeaveDates: _specificLeaveDates ?? [],
       );
 
       if (mounted) {
@@ -177,7 +199,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     );
   }
 
-  Widget _buildProfileTextField(String label, TextEditingController controller, IconData icon, {bool isReadOnly = false, VoidCallback? onTap}) {
+  Widget _buildProfileTextField(String label, TextEditingController controller, IconData icon, {bool isReadOnly = false, bool isNumeric = false, int? maxLength, VoidCallback? onTap}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -189,10 +211,16 @@ class _NurseProfileViewState extends State<NurseProfileView> {
         TextFormField(
           controller: controller,
           readOnly: isReadOnly,
+          keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+          maxLength: maxLength,
+          inputFormatters: isNumeric ? [FilteringTextInputFormatter.digitsOnly] : null,
           mouseCursor: isReadOnly ? SystemMouseCursors.forbidden : null,
           onTap: onTap,
           style: TextStyle(color: isReadOnly ? AppTheme.textSecondaryColor.withOpacity(0.7) : AppTheme.textPrimaryColor),
           decoration: InputDecoration(
+            counterText: '',
+            hintText: label,
+            hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
             prefixIcon: Icon(icon, size: 20, color: AppTheme.iconColor),
             suffixIcon: isReadOnly ? const Icon(Icons.lock_outline, size: 16, color: Colors.grey) : null,
             fillColor: isReadOnly ? const Color(0xFFF7FAFC) : Colors.white,
@@ -276,6 +304,10 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                       Text(user?.fullname ?? 'Nurse', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
                       const SizedBox(height: 4),
                       Text(user?.role ?? 'Nurse', style: const TextStyle(color: Color(0xFFC53030), fontSize: 13, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      const Text('About / Bio', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                      const SizedBox(height: 4),
+                      Text(user?.bio ?? '-', style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -287,23 +319,43 @@ class _NurseProfileViewState extends State<NurseProfileView> {
             _buildInfoCard('Professional Details', [
               _buildDetailRow('Qualification', user?.qualification ?? '-', Icons.school_outlined),
               _buildDetailRow('Nursing Registration Number', user?.nursingRegistrationNumber ?? '-', Icons.badge_outlined),
-              _buildDetailRow('Years of Experience', '${user?.yearsOfExperience ?? "0"} years', Icons.work_history_outlined),
+              _buildDetailRow(
+                'Years of Experience',
+                user?.yearsOfExperience == null || user?.yearsOfExperience == '0'
+                    ? '-'
+                    : '${user!.yearsOfExperience} years',
+                Icons.work_history_outlined,
+              ),
               _buildDetailRow('Areas of Expertise', user?.areasOfExpertise ?? '-', Icons.psychology_outlined),
-            ]),
-            sectionSpacing,
-            _buildInfoCard('Availability / Duty', [
-              _buildDetailRow('Working Days', (user?.workingDays ?? []).join(', '), Icons.calendar_month_outlined),
-              _buildDetailRow('Shift Hours', '${user?.shiftStartTime ?? "-"} to ${user?.shiftEndTime ?? "-"}', Icons.access_time_rounded),
-              _buildDetailRow('Shift Type', user?.shiftType ?? '-', Icons.event_available_outlined),
-            ]),
-            sectionSpacing,
-            _buildInfoCard('Work Info', [
               _buildDetailRow('Department', user?.department ?? '-', Icons.business_outlined),
             ]),
             sectionSpacing,
-            _buildInfoCard('Documents', [
-              _buildDetailRow('Registration Certificate', user?.registrationCertificate ?? 'Not uploaded', Icons.description_outlined),
+            _buildInfoCard('Availability / Duty', [
+              _buildDetailRow(
+                'Working Days',
+                (user?.workingDays == null || user!.workingDays!.isEmpty)
+                    ? '-'
+                    : user!.workingDays!.join(', '),
+                Icons.calendar_month_outlined,
+              ),
+              _buildDetailRow('Shift Hours', '${user?.shiftStartTime ?? "-"} to ${user?.shiftEndTime ?? "-"}', Icons.access_time_rounded),
+              _buildDetailRow('Shift Type', user?.shiftType ?? '-', Icons.event_available_outlined),
+              _buildDetailRow(
+                'Weekly Off',
+                (user?.weeklyOffDays ?? []).isEmpty
+                    ? '-'
+                    : user!.weeklyOffDays!.join(', '),
+                Icons.event_busy_outlined,
+              ),
+              _buildDetailRow(
+                'Specific Leave Dates',
+                (user?.specificLeaveDates == null || user!.specificLeaveDates!.isEmpty)
+                    ? '-'
+                    : user!.specificLeaveDates!.join(', '),
+                Icons.calendar_today_outlined,
+              ),
             ]),
+
           ] else ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,37 +364,48 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   child: _buildInfoCard('Professional Details', [
                     _buildDetailRow('Qualification', user?.qualification ?? '-', Icons.school_outlined),
                     _buildDetailRow('Nursing Registration Number', user?.nursingRegistrationNumber ?? '-', Icons.badge_outlined),
-                    _buildDetailRow('Years of Experience', '${user?.yearsOfExperience ?? "0"} years', Icons.work_history_outlined),
+                    _buildDetailRow(
+                      'Years of Experience',
+                      user?.yearsOfExperience == null || user?.yearsOfExperience == '0'
+                          ? '-'
+                          : '${user!.yearsOfExperience} years',
+                      Icons.work_history_outlined,
+                    ),
                     _buildDetailRow('Areas of Expertise', user?.areasOfExpertise ?? '-', Icons.psychology_outlined),
-                  ]),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: _buildInfoCard('Availability / Duty', [
-                    _buildDetailRow('Working Days', (user?.workingDays ?? []).join(', '), Icons.calendar_month_outlined),
-                    _buildDetailRow('Shift Hours', '${user?.shiftStartTime ?? "-"} to ${user?.shiftEndTime ?? "-"}', Icons.access_time_rounded),
-                    _buildDetailRow('Shift Type', user?.shiftType ?? '-', Icons.event_available_outlined),
-                  ]),
-                ),
-              ],
-            ),
-            sectionSpacing,
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildInfoCard('Work Info', [
                     _buildDetailRow('Department', user?.department ?? '-', Icons.business_outlined),
                   ]),
                 ),
                 const SizedBox(width: 24),
                 Expanded(
-                  child: _buildInfoCard('Documents', [
-                    _buildDetailRow('Registration Certificate', user?.registrationCertificate ?? 'Not uploaded', Icons.description_outlined),
+                  child: _buildInfoCard('Availability / Duty', [
+                    _buildDetailRow(
+                      'Working Days',
+                      (user?.workingDays == null || user!.workingDays!.isEmpty)
+                          ? '-'
+                          : user!.workingDays!.join(', '),
+                      Icons.calendar_month_outlined,
+                    ),
+                    _buildDetailRow('Shift Hours', '${user?.shiftStartTime ?? "-"} to ${user?.shiftEndTime ?? "-"}', Icons.access_time_rounded),
+                    _buildDetailRow('Shift Type', user?.shiftType ?? '-', Icons.event_available_outlined),
+                    _buildDetailRow(
+                      'Weekly Off',
+                      (user?.weeklyOffDays ?? []).isEmpty
+                          ? '-'
+                          : user!.weeklyOffDays!.join(', '),
+                      Icons.event_busy_outlined,
+                    ),
+                    _buildDetailRow(
+                      'Specific Leave Dates',
+                      (user?.specificLeaveDates == null || user!.specificLeaveDates!.isEmpty)
+                          ? '-'
+                          : user!.specificLeaveDates!.join(', '),
+                      Icons.calendar_today_outlined,
+                    ),
                   ]),
                 ),
               ],
             ),
+
           ],
         ],
       ),
@@ -390,109 +453,450 @@ class _NurseProfileViewState extends State<NurseProfileView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Update Profile', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Update Profile',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Modify your professional details and availability',
+                      style: TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
                 OutlinedButton.icon(
                   onPressed: () => setState(() => _isEditingProfile = false),
                   icon: const Icon(Icons.arrow_back_ios_new, size: 14),
                   label: const Text('Back to Profile'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    minimumSize: const Size(0, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 32),
+
+            // ── Avatar + Basic Info ──────────────────────────
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildProfileTextField('Full Name', _nameController, Icons.person_outline, isReadOnly: true),
-                  fieldSpacing,
-                  _buildProfileTextField('Email Address', _emailController, Icons.email_outlined, isReadOnly: true),
+                  Row(
+                    children: [
+                      Container(
+                        width: 84,
+                        height: 84,
+                        decoration: const BoxDecoration(
+                          color: AppTheme.primaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            user?.fullname.isNotEmpty == true
+                                ? user!.fullname[0].toUpperCase()
+                                : 'N',
+                            style: const TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user?.fullname ?? 'Nurse',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (user?.department?.isNotEmpty == true)
+                            Text(
+                              user!.department!,
+                              style: const TextStyle(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 14,
+                              ),
+                            ),
+                          const SizedBox(height: 2),
+                          Text(
+                            user?.role ?? 'Nurse',
+                            style: const TextStyle(
+                              color: Color(0xFFC53030),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  if (isMobile) ...[
+                    _buildProfileTextField('Full Name', _nameController, Icons.person_outline, isReadOnly: true),
+                    fieldSpacing,
+                    _buildProfileTextField('Email Address', _emailController, Icons.email_outlined, isReadOnly: true),
+                  ] else ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildProfileTextField('Full Name', _nameController, Icons.person_outline, isReadOnly: true),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildProfileTextField('Email Address', _emailController, Icons.email_outlined, isReadOnly: true),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Bio / Professional Summary',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _bioController,
+                        maxLines: 3,
+                        style: const TextStyle(
+                          color: AppTheme.textPrimaryColor,
+                          fontWeight: FontWeight.normal,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Share a brief summary of your expertise...',
+                          hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                          fillColor: AppTheme.backgroundColor,
+                          filled: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: Colors.grey.withOpacity(0.2),
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: Colors.grey.withOpacity(0.2),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
             sectionSpacing,
             sectionCard('1', 'Professional Details', const Color(0xFF0D5D9A), [
-              _buildProfileTextField('Qualification', _qualController, Icons.school_outlined),
-              fieldSpacing,
-              _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined),
-              fieldSpacing,
-              _buildProfileTextField('Years of Experience', _yearsExpController, Icons.work_outline),
-              fieldSpacing,
-              _buildProfileTextField('Areas of Expertise', _areasOfExpertiseController, Icons.psychology_outlined),
+              if (isMobile) ...[
+                _buildProfileTextField('Qualification', _qualController, Icons.school_outlined),
+                fieldSpacing,
+                _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined),
+                fieldSpacing,
+                _buildProfileTextField('Years of Experience', _yearsExpController, Icons.work_outline, isNumeric: true, maxLength: 2),
+                fieldSpacing,
+                _buildProfileTextField('Areas of Expertise', _areasOfExpertiseController, Icons.psychology_outlined),
+                fieldSpacing,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textSecondaryColor)),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _departmentController.text.isNotEmpty && ['General Medicine', 'Pediatrics', 'Obstetrics & Gynecology', 'Emergency/ICU', 'Surgery', 'Cardiology', 'Oncology', 'Orthopedics'].contains(_departmentController.text) ? _departmentController.text : 'General Medicine',
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.business_outlined, size: 20),
+                        fillColor: AppTheme.backgroundColor,
+                        filled: true,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      items: ['General Medicine', 'Pediatrics', 'Obstetrics & Gynecology', 'Emergency/ICU', 'Surgery', 'Cardiology', 'Oncology', 'Orthopedics'].map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 14)))).toList(),
+                      onChanged: (v) => _departmentController.text = v ?? '',
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildProfileTextField('Qualification', _qualController, Icons.school_outlined),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined),
+                    ),
+                  ],
+                ),
+                fieldSpacing,
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildProfileTextField('Years of Experience', _yearsExpController, Icons.work_outline, isNumeric: true, maxLength: 2),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildProfileTextField('Areas of Expertise', _areasOfExpertiseController, Icons.psychology_outlined),
+                    ),
+                  ],
+                ),
+                fieldSpacing,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textSecondaryColor)),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: _departmentController.text.isNotEmpty && ['General Medicine', 'Pediatrics', 'Obstetrics & Gynecology', 'Emergency/ICU', 'Surgery', 'Cardiology', 'Oncology', 'Orthopedics'].contains(_departmentController.text) ? _departmentController.text : 'General Medicine',
+                            decoration: InputDecoration(
+                              prefixIcon: const Icon(Icons.business_outlined, size: 20),
+                              fillColor: AppTheme.backgroundColor,
+                              filled: true,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            ),
+                            items: ['General Medicine', 'Pediatrics', 'Obstetrics & Gynecology', 'Emergency/ICU', 'Surgery', 'Cardiology', 'Oncology', 'Orthopedics'].map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 14)))).toList(),
+                            onChanged: (v) => _departmentController.text = v ?? '',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(child: SizedBox()), // Placeholder for balance
+                  ],
+                ),
+              ],
             ]),
             sectionSpacing,
             sectionCard('2', 'Availability / Duty', const Color(0xFF38A169), [
-              const Text('Working Days', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+              const Text('Weekly Schedule (Tap: Available ↔ Leave)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8, runSpacing: 8,
                 children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
-                  final selected = _availableDays?.contains(day) ?? false;
+                  final isAvailable = _availableDays?.contains(day) ?? false;
+                  Color bgColor = isAvailable ? const Color(0xFF38A169) : Colors.red.shade400;
                   return GestureDetector(
                     onTap: () => setLocalState(() {
-                      if (selected) _availableDays?.remove(day);
-                      else _availableDays?.add(day);
+                      if (isAvailable) {
+                        _availableDays?.remove(day);
+                      } else {
+                        (_availableDays ??= []).add(day);
+                      }
+                      final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                      _weeklyOffDays = allDays.where((d) => !(_availableDays?.contains(d) ?? false)).toList();
                     }),
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: selected ? const Color(0xFF38A169) : AppTheme.backgroundColor,
+                        color: bgColor,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: selected ? const Color(0xFF38A169) : AppTheme.borderColor),
+                        border: Border.all(color: bgColor),
                       ),
-                      child: Text(day, style: TextStyle(color: selected ? Colors.white : AppTheme.textPrimaryColor)),
+                      child: Text(day, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                     ),
                   );
                 }).toList(),
               ),
               fieldSpacing,
-              _buildProfileTextField('Shift Start Time', _slotStartController, Icons.login_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotStartController)),
+              if (isMobile) ...[
+                _buildProfileTextField('Shift Start Time', _slotStartController, Icons.login_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotStartController)),
+                fieldSpacing,
+                _buildProfileTextField('Shift End Time', _slotEndController, Icons.logout_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotEndController)),
+                fieldSpacing,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor, fontSize: 14)),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
+                      decoration: InputDecoration(prefixIcon: const Icon(Icons.event_available_outlined), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                      items: ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                      onChanged: (v) => _shiftTypeController.text = v ?? '',
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildProfileTextField('Shift Start Time', _slotStartController, Icons.login_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotStartController))),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildProfileTextField('Shift End Time', _slotEndController, Icons.logout_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotEndController))),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor, fontSize: 14)),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
+                            decoration: InputDecoration(
+                              prefixIcon: const Icon(Icons.event_available_outlined),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            items: ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                            onChanged: (v) => _shiftTypeController.text = v ?? '',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               fieldSpacing,
-              _buildProfileTextField('Shift End Time', _slotEndController, Icons.logout_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotEndController)),
-              fieldSpacing,
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const Text('Particular Leave Dates', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8, runSpacing: 8,
                 children: [
-                  const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : null,
-                    decoration: InputDecoration(prefixIcon: const Icon(Icons.event_available_outlined), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
-                    items: ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-                    onChanged: (v) => _shiftTypeController.text = v ?? '',
+                  ...(_specificLeaveDates ?? []).map((d) => Chip(
+                    label: Text(d, style: const TextStyle(fontSize: 12)),
+                    backgroundColor: Colors.orange.shade50,
+                    side: BorderSide(color: Colors.orange.shade200),
+                    deleteIcon: const Icon(Icons.close, size: 14),
+                    onDeleted: () => setLocalState(() => _specificLeaveDates?.remove(d)),
+                  )),
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 730)),
+                      );
+                      if (picked != null) {
+                        final f = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                        if (!(_specificLeaveDates?.contains(f) ?? false)) {
+                          setLocalState(() => (_specificLeaveDates ??= []).add(f));
+                        }
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.backgroundColor,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.5)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add, size: 15, color: AppTheme.primaryColor),
+                          const SizedBox(width: 4),
+                          Text('Add Date', style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
             ]),
-            sectionSpacing,
-            sectionCard('3', 'Work Info', const Color(0xFFE53E3E), [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Department', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _departmentController.text.isNotEmpty && ['General Medicine', 'Pediatrics', 'Obstetrics & Gynecology', 'Emergency/ICU', 'Surgery', 'Cardiology', 'Oncology', 'Orthopedics'].contains(_departmentController.text) ? _departmentController.text : null,
-                    decoration: InputDecoration(prefixIcon: const Icon(Icons.business_outlined), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
-                    items: ['General Medicine', 'Pediatrics', 'Obstetrics & Gynecology', 'Emergency/ICU', 'Surgery', 'Cardiology', 'Oncology', 'Orthopedics'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-                    onChanged: (v) => _departmentController.text = v ?? '',
+
+            const SizedBox(height: 48),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton(
+                  onPressed: () => setState(() => _isEditingProfile = false),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.grey),
+                    minimumSize: const Size(120, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ],
-              ),
-            ]),
-            sectionSpacing,
-            sectionCard('4', 'Documents', const Color(0xFF805AD5), [
-              _buildProfileTextField('Registration Certificate Link/Reference', _regCertController, Icons.description_outlined),
-            ]),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity, height: 56,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _saveProfile,
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Save Profile Changes', style: TextStyle(color: Colors.white, fontSize: 16)),
-              ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _saveProfile,
+                  icon: const Icon(
+                    Icons.save_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  label: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Save Profile Changes',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    minimumSize: const Size(200, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+                const SizedBox(width: 24),
+              ],
             ),
+            const SizedBox(height: 32),
           ],
         ),
       );

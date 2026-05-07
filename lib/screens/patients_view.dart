@@ -3528,21 +3528,6 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                 )
                 .toList(),
-            if (p.history
-                        .split('\n')
-                        .where((l) => l.trim().isNotEmpty)
-                        .length ==
-                    1 &&
-                !p.history.contains('\n'))
-              _buildHistoryItem(
-                icon: Icons.info_outline,
-                iconColor: const Color(0xFFE53E3E),
-                title: p.history,
-                subtitle: 'Past record',
-                status: 'Managed',
-                statusColor: const Color(0xFF38A169),
-                statusBg: const Color(0xFFF0FFF4),
-              ),
           ],
         ],
       ),

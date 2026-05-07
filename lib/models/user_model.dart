@@ -30,8 +30,8 @@ class UserModel {
   String? get slotStartTime => doctorProfile?.slotStartTime;
   String? get slotEndTime => doctorProfile?.slotEndTime;
   String? get slotDuration => doctorProfile?.slotDuration;
-  List<String>? get weeklyOffDays => doctorProfile?.weeklyOffDays;
-  List<String>? get specificLeaveDates => doctorProfile?.specificLeaveDates;
+  List<String>? get weeklyOffDays => role == 'Nurse' ? nurseProfile?.weeklyOffDays : doctorProfile?.weeklyOffDays;
+  List<String>? get specificLeaveDates => role == 'Nurse' ? nurseProfile?.specificLeaveDates : doctorProfile?.specificLeaveDates;
   String? get clinicName => doctorProfile?.clinicName;
   String? get clinicLocation => doctorProfile?.clinicLocation;
   String? get consultationFee => doctorProfile?.consultationFee;

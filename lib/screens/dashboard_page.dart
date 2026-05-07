@@ -85,9 +85,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       text: user?.areasOfExpertise ?? '',
     );
 
-    _availableDays = [];
-    if (user?.availableDays != null)
-      _availableDays!.addAll(user!.availableDays!);
+    _availableDays = user?.availableDays != null ? List.from(user!.availableDays!) : [];
 
     _slotStartController = TextEditingController(
       text: user?.slotStartTime ?? '',
@@ -98,9 +96,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
     _leaveBlockDatesController = TextEditingController();
 
-    _weeklyOffDays = [];
-    if (user?.weeklyOffDays != null)
-      _weeklyOffDays!.addAll(user!.weeklyOffDays!);
+    _weeklyOffDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        .where((day) => !_availableDays!.contains(day))
+        .toList();
 
     _specificLeaveDates = [];
     if (user?.specificLeaveDates != null)
@@ -565,20 +563,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _saveProfile() async {
-    final intersection = (_availableDays ?? []).toSet().intersection(
-      (_weeklyOffDays ?? []).toSet(),
-    );
-    if (intersection.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Error: Available days and leave days cannot overlap (${intersection.join(", ")}).',
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    // Auto-calculate weekly off days: any day not selected as available is automatically a weekly off day
+    final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    _weeklyOffDays = allDays
+        .where((day) => !(_availableDays ?? []).contains(day))
+        .toList();
 
     setState(() => _isLoading = true);
     try {
@@ -840,7 +829,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               _buildDetailRow(
                 'Experience',
-                '${user?.experience ?? "0"} years',
+                user?.experience == null || user?.experience == '0'
+                    ? '-'
+                    : '${user!.experience} years',
                 Icons.work_history_outlined,
               ),
             ]),
@@ -848,7 +839,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildInfoCard('Availability', [
               _buildDetailRow(
                 'Available Days',
-                (user?.availableDays ?? []).join(', '),
+                (user?.availableDays == null || user!.availableDays!.isEmpty)
+                    ? '-'
+                    : user!.availableDays!.join(', '),
                 Icons.calendar_month_outlined,
               ),
               _buildDetailRow(
@@ -864,7 +857,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildDetailRow(
                 'Weekly Off',
                 (user?.weeklyOffDays ?? []).isEmpty
-                    ? 'None'
+                    ? '-'
                     : user!.weeklyOffDays!.join(', '),
                 Icons.event_busy_outlined,
               ),
@@ -883,7 +876,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               _buildDetailRow(
                 'Consultation Fee',
-                '₹${user?.consultationFee ?? "0"}',
+                user?.consultationFee == null || user?.consultationFee == '0'
+                    ? '-'
+                    : '₹${user!.consultationFee}',
                 Icons.payments_outlined,
               ),
             ]),
@@ -909,8 +904,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Icons.badge_outlined,
                     ),
                     _buildDetailRow(
-                      'Experience',
-                      '${user?.experience ?? "0"} years',
+                    'Experience',
+                    user?.experience == null || user?.experience == '0'
+                        ? '-'
+                        : '${user!.experience} years',
                       Icons.work_history_outlined,
                     ),
                   ]),
@@ -920,7 +917,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: _buildInfoCard('Availability', [
                     _buildDetailRow(
                       'Available Days',
-                      (user?.availableDays ?? []).join(', '),
+                      (user?.availableDays == null ||
+                              user!.availableDays!.isEmpty)
+                          ? '-'
+                          : user!.availableDays!.join(', '),
                       Icons.calendar_month_outlined,
                     ),
                     _buildDetailRow(
@@ -936,9 +936,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _buildDetailRow(
                       'Weekly Off',
                       (user?.weeklyOffDays ?? []).isEmpty
-                          ? 'None'
+                          ? '-'
                           : user!.weeklyOffDays!.join(', '),
                       Icons.event_busy_outlined,
+                    ),
+                    _buildDetailRow(
+                      'Specific Leave Dates',
+                      (user?.specificLeaveDates == null || user!.specificLeaveDates!.isEmpty)
+                          ? '-'
+                          : user!.specificLeaveDates!.join(', '),
+                      Icons.calendar_today_outlined,
                     ),
                   ]),
                 ),
@@ -965,7 +972,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Expanded(
                     child: _buildDetailRow(
                       'Consultation Fee',
-                      '₹${user?.consultationFee ?? "0"}',
+                      user?.consultationFee == null ||
+                              user?.consultationFee == '0'
+                          ? '-'
+                          : '₹${user!.consultationFee}',
                       Icons.payments_outlined,
                     ),
                   ),
@@ -1130,156 +1140,211 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 32),
 
-              // ── Avatar + Basic Info ──────────────────────────
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 84,
-                          height: 84,
-                          decoration: const BoxDecoration(
-                            color: AppTheme.primaryColor,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              user?.fullname.isNotEmpty == true
-                                  ? user!.fullname[0].toUpperCase()
-                                  : 'D',
-                              style: const TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+            // ── Basic Info Container ────────────────────────
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 84,
+                        height: 84,
+                        decoration: const BoxDecoration(
+                          color: AppTheme.primaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            user?.fullname.isNotEmpty == true
+                                ? user!.fullname[0].toUpperCase()
+                                : 'D',
+                            style: const TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 20),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user?.fullname ?? 'Doctor',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (user?.specialization?.isNotEmpty == true)
-                              Text(
-                                user!.specialization!,
-                                style: const TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            const SizedBox(height: 2),
-                            Text(
-                              (user?.role != null && user!.role.isNotEmpty)
-                                  ? user.role
-                                  : 'Doctor',
-                              style: const TextStyle(
-                                color: Colors.red,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    if (isMobile) ...[
-                      _buildProfileTextField(
-                        'Full Name',
-                        _nameController,
-                        Icons.person_outline,
-                        isReadOnly: true,
                       ),
-                      fieldSpacing,
-                      _buildProfileTextField(
-                        'Email Address',
-                        _emailController,
-                        Icons.email_outlined,
-                        isReadOnly: true,
-                      ),
-                    ] else
-                      Row(
+                      const SizedBox(width: 20),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: _buildProfileTextField(
-                              'Full Name',
-                              _nameController,
-                              Icons.person_outline,
-                              isReadOnly: true,
+                          Text(
+                            user?.fullname ?? 'Doctor',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildProfileTextField(
-                              'Email Address',
-                              _emailController,
-                              Icons.email_outlined,
-                              isReadOnly: true,
+                          if (user?.specialization?.isNotEmpty == true)
+                            Text(
+                              user!.specialization!,
+                              style: const TextStyle(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 14,
+                              ),
+                            ),
+                          const SizedBox(height: 2),
+                          Text(
+                            (user?.role != null && user!.role.isNotEmpty)
+                                ? user.role
+                                : 'Doctor',
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
-                    fieldSpacing,
-                    const Text(
-                      'Bio / Professional Summary',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  if (isMobile) ...[
+                    _buildProfileTextField(
+                      'Full Name',
+                      _nameController,
+                      Icons.person_outline,
+                      isReadOnly: true,
                     ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _bioController,
-                      maxLines: 3,
-                      readOnly: true,
-                      mouseCursor: SystemMouseCursors.forbidden,
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor.withOpacity(0.7),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Share a brief summary of your expertise...',
-                        fillColor: const Color(0xFFF7FAFC),
-                        suffixIcon: const Icon(
-                          Icons.lock_outline,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: Colors.grey.withOpacity(0.2),
+                    fieldSpacing,
+                    _buildProfileTextField(
+                      'Email Address',
+                      _emailController,
+                      Icons.email_outlined,
+                      isReadOnly: true,
+                    ),
+                    const SizedBox(height: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Bio / Professional Summary',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textSecondaryColor,
                           ),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _bioController,
+                          maxLines: 3,
+                          style: const TextStyle(
+                            color: AppTheme.textPrimaryColor,
+                            fontWeight: FontWeight.normal,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Share a brief summary of your expertise...',
+                            hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                            fillColor: AppTheme.backgroundColor,
+                            filled: true,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: Colors.grey.withOpacity(0.2),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: Colors.grey.withOpacity(0.2),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildProfileTextField(
+                            'Full Name',
+                            _nameController,
+                            Icons.person_outline,
+                            isReadOnly: true,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildProfileTextField(
+                            'Email Address',
+                            _emailController,
+                            Icons.email_outlined,
+                            isReadOnly: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 24),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Bio / Professional Summary',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textSecondaryColor,
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _bioController,
+                        maxLines: 3,
+                        style: const TextStyle(
+                          color: AppTheme.textPrimaryColor,
+                          fontWeight: FontWeight.normal,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Share a brief summary of your expertise...',
+                          hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                          fillColor: AppTheme.backgroundColor,
+                          filled: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: Colors.grey.withOpacity(0.2),
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: Colors.grey.withOpacity(0.2),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
+            ),
               sectionSpacing,
 
-              // ── Section 2: Professional Core ─────────────────
+              // ── Section 1: Professional Details ─────────────────
               sectionCard(
-                '2',
+                '1',
                 'Professional Details',
                 const Color(0xFF0D5D9A),
                 [
@@ -1304,9 +1369,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
-                      'Years of Experience',
+                      'Total Experience (years)',
                       _expController,
                       Icons.work_outline,
+                      isNumeric: true,
+                      maxLength: 2,
+                    ),
+                    fieldSpacing,
+                    _buildProfileTextField(
+                      'Areas of Expertise (comma-separated)',
+                      _areasOfExpertiseController,
+                      Icons.star_outline,
+                    ),
+                    fieldSpacing,
+                    _buildProfileTextField(
+                      'Number of Patients Attended',
+                      _patientsController,
+                      Icons.people_outline,
+                      isNumeric: true,
+                      maxLength: 6,
                     ),
                   ] else ...[
                     Row(
@@ -1342,9 +1423,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: _buildProfileTextField(
-                            'Years of Experience',
+                            'Total Experience (years)',
                             _expController,
                             Icons.work_outline,
+                            isNumeric: true,
+                            maxLength: 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    fieldSpacing,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildProfileTextField(
+                            'Areas of Expertise (comma-separated)',
+                            _areasOfExpertiseController,
+                            Icons.star_outline,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildProfileTextField(
+                            'Number of Patients Attended',
+                            _patientsController,
+                            Icons.people_outline,
+                            isNumeric: true,
+                            maxLength: 6,
                           ),
                         ),
                       ],
@@ -1354,11 +1459,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               sectionSpacing,
 
-              // ── Section 3: Availability ───────────────────────
-              sectionCard('3', 'Availability', const Color(0xFF38A169), [
-                // Available Days chips
+              // ── Section 2: Availability ───────────────────────
+              sectionCard('2', 'Availability', const Color(0xFF38A169), [
+                // Available / Leave Days chips
                 const Text(
-                  'Available Days',
+                  'Weekly Schedule (Tap: Available ↔ Leave)',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -1371,14 +1476,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   runSpacing: 8,
                   children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
                       .map((day) {
-                        final selected = _availableDays?.contains(day) ?? false;
+                        final isAvailable =
+                            _availableDays?.contains(day) ?? false;
+
+                        Color bgColor = isAvailable
+                            ? const Color(0xFF38A169)
+                            : Colors.red.shade400;
+                        Color borderColor = bgColor;
+                        Color textColor = Colors.white;
+
                         return GestureDetector(
                           onTap: () => setLocalState(() {
-                            if (selected) {
+                            if (isAvailable) {
                               _availableDays?.remove(day);
+                              (_weeklyOffDays ??= []).add(day);
                             } else {
-                              _availableDays?.add(day);
                               _weeklyOffDays?.remove(day);
+                              (_availableDays ??= []).add(day);
                             }
                           }),
                           child: AnimatedContainer(
@@ -1388,22 +1502,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: selected
-                                  ? const Color(0xFF38A169)
-                                  : AppTheme.backgroundColor,
+                              color: bgColor,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: selected
-                                    ? const Color(0xFF38A169)
-                                    : AppTheme.borderColor,
-                              ),
+                              border: Border.all(color: borderColor),
                             ),
                             child: Text(
                               day,
                               style: TextStyle(
-                                color: selected
-                                    ? Colors.white
-                                    : AppTheme.textSecondaryColor,
+                                color: textColor,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
@@ -1462,72 +1568,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 fieldSpacing,
 
-                // ── Leave / Block Dates ────────────────────────
-                const Text(
-                  'Leave / Block Days',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Weekly Off — select days that repeat every week.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-                      .map((day) {
-                        final selected = _weeklyOffDays?.contains(day) ?? false;
-                        return GestureDetector(
-                          onTap: () => setLocalState(() {
-                            if (selected) {
-                              _weeklyOffDays?.remove(day);
-                            } else {
-                              _weeklyOffDays?.add(day);
-                              _availableDays?.remove(day);
-                            }
-                          }),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? Colors.red.shade400
-                                  : AppTheme.backgroundColor,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: selected
-                                    ? Colors.red.shade400
-                                    : AppTheme.borderColor,
-                              ),
-                            ),
-                            child: Text(
-                              day,
-                              style: TextStyle(
-                                color: selected
-                                    ? Colors.white
-                                    : AppTheme.textSecondaryColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        );
-                      })
-                      .toList(),
-                ),
-                const SizedBox(height: 16),
+                // ── Specific Leave Dates ────────────────────────
                 const Text(
                   'Specific Leave Dates — pick individual dates.',
                   style: TextStyle(
@@ -1608,9 +1649,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ]),
               sectionSpacing,
 
-              // ── Section 4: Clinic / Hospital Mapping ──────────
+              // ── Section 3: Clinic / Hospital Mapping ──────────
               sectionCard(
-                '4',
+                '3',
                 'Clinic / Hospital Details',
                 const Color(0xFF805AD5),
                 [
@@ -1632,6 +1673,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _consultationFeeController,
                       Icons.currency_rupee,
                       isNumeric: true,
+                      maxLength: 5,
                     ),
                   ] else ...[
                     _buildProfileTextField(
@@ -1656,6 +1698,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             _consultationFeeController,
                             Icons.currency_rupee,
                             isNumeric: true,
+                            maxLength: 5,
                           ),
                         ),
                       ],
@@ -1665,167 +1708,118 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               sectionSpacing,
 
-              // ── Section 5: Basic Experience ───────────────────
-              sectionCard('5', 'Basic Experience', const Color(0xFFDD6B20), [
-                if (isMobile) ...[
-                  _buildProfileTextField(
-                    'Total Experience (years)',
-                    _expController,
-                    Icons.work_outline,
-                    isNumeric: true,
-                  ),
-                  fieldSpacing,
-                  _buildProfileTextField(
-                    'Areas of Expertise (comma-separated)',
-                    _areasOfExpertiseController,
-                    Icons.star_outline,
-                  ),
-                ] else
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildProfileTextField(
-                          'Total Experience (years)',
-                          _expController,
-                          Icons.work_outline,
-                          isNumeric: true,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildProfileTextField(
-                          'Areas of Expertise (comma-separated)',
-                          _areasOfExpertiseController,
-                          Icons.star_outline,
-                        ),
-                      ),
-                    ],
-                  ),
-                fieldSpacing,
-                _buildProfileTextField(
-                  'Number of Patients Attended',
-                  _patientsController,
-                  Icons.people_outline,
-                  isNumeric: true,
-                ),
-              ]),
+
               sectionSpacing,
 
               // ── Section 6: Documents ──────────────────────────
-              sectionCard('6', 'Documents', const Color(0xFFE53E3E), [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF5F5),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: const Color(0xFFE53E3E).withOpacity(0.3),
-                      style: BorderStyle.solid,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.upload_file_outlined,
-                        size: 36,
-                        color: Color(0xFFE53E3E),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Registration Certificate',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Upload your medical registration certificate for admin verification.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.attach_file, size: 18),
-                        label: const Text('Choose File'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFE53E3E),
-                          side: const BorderSide(color: Color(0xFFE53E3E)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ]),
-              sectionSpacing,
+              // sectionCard('6', 'Documents', const Color(0xFFE53E3E), [
+              //   Container(
+              //     width: double.infinity,
+              //     padding: const EdgeInsets.all(20),
+              //     decoration: BoxDecoration(
+              //       color: const Color(0xFFFFF5F5),
+              //       borderRadius: BorderRadius.circular(10),
+              //       border: Border.all(
+              //         color: const Color(0xFFE53E3E).withOpacity(0.3),
+              //         style: BorderStyle.solid,
+              //       ),
+              //     ),
+              //     child: Column(
+              //       children: [
+              //         const Icon(
+              //           Icons.upload_file_outlined,
+              //           size: 36,
+              //           color: Color(0xFFE53E3E),
+              //         ),
+              //         const SizedBox(height: 8),
+              //         const Text(
+              //           'Registration Certificate',
+              //           style: TextStyle(
+              //             fontWeight: FontWeight.bold,
+              //             fontSize: 14,
+              //           ),
+              //         ),
+              //         const SizedBox(height: 4),
+              //         const Text(
+              //           'Upload your medical registration certificate for admin verification.',
+              //           textAlign: TextAlign.center,
+              //           style: TextStyle(
+              //             color: AppTheme.textSecondaryColor,
+              //             fontSize: 12,
+              //           ),
+              //         ),
+              //         const SizedBox(height: 12),
+              //         OutlinedButton.icon(
+              //           onPressed: () {},
+              //           icon: const Icon(Icons.attach_file, size: 18),
+              //           label: const Text('Choose File'),
+              //           style: OutlinedButton.styleFrom(
+              //             foregroundColor: const Color(0xFFE53E3E),
+              //             side: const BorderSide(color: Color(0xFFE53E3E)),
+              //             shape: RoundedRectangleBorder(
+              //               borderRadius: BorderRadius.circular(8),
+              //             ),
+              //           ),
+              //         ),
+              //       ],
+              //     ),
+              //   ),
+              // ]),
+              // sectionSpacing,
 
               // ── Save Button ───────────────────────────────────
-              SizedBox(
-                width: double.infinity,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () =>
-                            setState(() => _isEditingProfile = false),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.grey),
-                          minimumSize: const Size(0, 52),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(color: Colors.grey),
-                        ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    onPressed: () =>
+                        setState(() => _isEditingProfile = false),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.grey),
+                      minimumSize: const Size(120, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton.icon(
-                        onPressed: _isLoading ? null : _saveProfile,
-                        icon: const Icon(
-                          Icons.save_outlined,
-                          color: Colors.white,
-                        ),
-                        label: _isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text(
-                                'Save Profile Changes',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          minimumSize: const Size(0, 52),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _saveProfile,
+                    icon: const Icon(
+                      Icons.save_outlined,
+                      color: Colors.white,
+                    ),
+                    label: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Save Profile Changes',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      minimumSize: const Size(200, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 24),
+                ],
               ),
               const SizedBox(height: 32),
             ],
@@ -1841,6 +1835,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     IconData icon, {
     bool isNumeric = false,
     bool isReadOnly = false,
+    int? maxLength,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1858,6 +1853,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           controller: controller,
           keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
           readOnly: isReadOnly,
+          maxLength: maxLength,
+          inputFormatters: isNumeric 
+              ? [FilteringTextInputFormatter.digitsOnly] 
+              : null,
           mouseCursor: isReadOnly ? SystemMouseCursors.forbidden : null,
           style: TextStyle(
             color: isReadOnly
@@ -1866,6 +1865,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             fontWeight: isReadOnly ? FontWeight.w500 : FontWeight.normal,
           ),
           decoration: InputDecoration(
+            counterText: '',
+            hintText: label,
+            hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
             prefixIcon: Icon(icon, size: 20),
             suffixIcon: isReadOnly
                 ? const Icon(Icons.lock_outline, size: 16, color: Colors.grey)
@@ -1873,6 +1875,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             fillColor: isReadOnly
                 ? const Color(0xFFF7FAFC)
                 : AppTheme.backgroundColor,
+            filled: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: isReadOnly
@@ -1923,7 +1926,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           decoration: InputDecoration(
             prefixIcon: Icon(icon, size: 20),
             hintText: 'Tap to pick time',
+            hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
             fillColor: AppTheme.backgroundColor,
+            filled: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,
@@ -1978,7 +1983,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           decoration: InputDecoration(
             prefixIcon: Icon(icon, size: 20),
             hintText: 'Tap to pick date(s)',
+            hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
             fillColor: AppTheme.backgroundColor,
+            filled: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,

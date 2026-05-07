@@ -19,6 +19,8 @@ class NurseController {
     String? department,
     String? areasOfExpertise,
     String? registrationCertificate,
+    List<String>? weeklyOffDays,
+    List<String>? specificLeaveDates,
   }) async {
     final response = await ApiService.post(
       '$baseUrl/nurse/update-profile',
@@ -34,6 +36,8 @@ class NurseController {
         'department': department ?? '',
         'areas_of_expertise': areasOfExpertise ?? '',
         'registration_certificate': registrationCertificate ?? '',
+        'weekly_off_days': weeklyOffDays,
+        'specific_leave_dates': specificLeaveDates,
       },
     );
 
