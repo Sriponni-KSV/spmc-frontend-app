@@ -50,41 +50,9 @@ class _PatientsViewState extends State<PatientsView> {
   String _selectedLastVisit = 'Any Time';
   String _selectedStatus = 'All Status';
 
-  List<String> _departments = [];
-  bool _isLoadingDepartments = true;
-  final AdminController _adminController = AdminController();
-
   @override
   void initState() {
     super.initState();
-    _fetchDepartments();
-  }
-
-  Future<void> _fetchDepartments() async {
-    try {
-      final specializations = await _adminController.fetchSpecializations();
-      if (mounted) {
-        setState(() {
-          _departments = specializations
-              .map((e) => e['name'].toString())
-              .toList();
-          _isLoadingDepartments = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error fetching departments in patients_view: $e');
-      if (mounted) {
-        setState(() {
-          _departments = [
-            'General Medicine',
-            'Cardiology',
-            'Pediatrics',
-            'Orthopedics',
-          ];
-          _isLoadingDepartments = false;
-        });
-      }
-    }
   }
 
   List<PatientModel> get _filteredPatients {
@@ -95,8 +63,7 @@ class _PatientsViewState extends State<PatientsView> {
       final q = _searchQuery.toLowerCase();
       filtered = filtered.where((p) {
         return p.name.toLowerCase().contains(q) ||
-            p.phone.toLowerCase().contains(q) ||
-            p.department.toLowerCase().contains(q);
+            p.phone.toLowerCase().contains(q);
       }).toList();
     }
 
@@ -557,7 +524,7 @@ class _PatientsViewState extends State<PatientsView> {
                     onChanged: (val) => setState(() => _searchQuery = val),
                     decoration: const InputDecoration(
                       hintText:
-                          'Search by name, mobile number, or department...',
+                          'Search by name or mobile number...',
                       hintStyle: TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 14,
@@ -772,8 +739,6 @@ class _PatientsViewState extends State<PatientsView> {
                   Expanded(flex: 2, child: _buildTableHeaderText('Mobile No')),
                 if (!isMobile)
                   Expanded(flex: 2, child: _buildTableHeaderText('Email')),
-                if (!isMobile)
-                  Expanded(flex: 2, child: _buildTableHeaderText('Department')),
                 Expanded(child: _buildTableHeaderText('Status')),
                 Expanded(flex: 2, child: _buildTableHeaderText('Actions')),
               ],
@@ -812,7 +777,6 @@ class _PatientsViewState extends State<PatientsView> {
                     patient.gender,
                     patient.phone,
                     patient.email,
-                    patient.department,
                     'Active',
                     initials,
                     patient.isQuickRegister ? ['Quick'] : [],
@@ -997,20 +961,6 @@ class _PatientsViewState extends State<PatientsView> {
                       ),
                     ),
                     const Spacer(),
-                    const Icon(
-                      Icons.medical_services_outlined,
-                      size: 16,
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      patient.department,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimaryColor,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -1107,7 +1057,6 @@ class _PatientsViewState extends State<PatientsView> {
     String gender,
     String contact,
     String email,
-    String department,
     String status,
     String initials,
     List<String> tags,
@@ -1276,19 +1225,6 @@ class _PatientsViewState extends State<PatientsView> {
                       : const Color(0xFF4A5568),
                 ),
                 overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          if (!isMobile)
-            Expanded(
-              flex: 2,
-              child: Text(
-                department.isNotEmpty ? department : 'Not Provided',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isQuick
-                      ? const Color(0xFF553C9A)
-                      : const Color(0xFF4A5568),
-                ),
               ),
             ),
           Expanded(
@@ -1669,7 +1605,6 @@ class _PatientsViewState extends State<PatientsView> {
   void _showQuickRegisterDialog(BuildContext context) {
     final PatientController patientController = PatientController();
     String? selectedGender;
-    String? _selectedDeptQuick;
     final TextEditingController nameCtrl = TextEditingController();
     final TextEditingController dobCtrl = TextEditingController();
     final TextEditingController phoneCtrl = TextEditingController();
@@ -1679,7 +1614,6 @@ class _PatientsViewState extends State<PatientsView> {
     bool isSaving = false;
     // For dropdown validation errors (shown only after submit attempt)
     String? genderError;
-    String? deptError;
     // Live phone error (updates on each keystroke)
     String? phoneError;
 
@@ -1972,334 +1906,92 @@ class _PatientsViewState extends State<PatientsView> {
                                 ),
 
                               const SizedBox(height: 16),
-                              if (MediaQuery.of(context).size.width < 500) ...[
-                                _buildQuickFieldLabel('Department'),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      height: 48,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: deptError != null
-                                              ? const Color(0xFFE53E3E)
-                                              : AppTheme.borderColor,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: DropdownButtonHideUnderline(
-                                        child: DropdownButton<String>(
-                                          isExpanded: true,
-                                          value: _selectedDeptQuick,
-                                          hint: Text(
-                                            _isLoadingDepartments
-                                                ? 'Loading...'
-                                                : 'Select Department',
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                          items: _departments.map((
-                                            String value,
-                                          ) {
-                                            return DropdownMenuItem<String>(
-                                              value: value,
-                                              child: Text(
-                                                value,
-                                                style: const TextStyle(
-                                                  fontSize: 14,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _buildQuickFieldLabel('Gender'),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Container(
+                                              height: 48,
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                  color: genderError != null
+                                                      ? const Color(0xFFE53E3E)
+                                                      : AppTheme.borderColor,
+                                                ),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: DropdownButtonHideUnderline(
+                                                child: DropdownButton<String>(
+                                                  isExpanded: true,
+                                                  value: selectedGender,
+                                                  hint: const Text(
+                                                    'Select',
+                                                    style: TextStyle(fontSize: 14),
+                                                  ),
+                                                  items: const [
+                                                    DropdownMenuItem(
+                                                      value: 'Male',
+                                                      child: Text(
+                                                        'Male',
+                                                        style: TextStyle(fontSize: 14),
+                                                      ),
+                                                    ),
+                                                    DropdownMenuItem(
+                                                      value: 'Female',
+                                                      child: Text(
+                                                        'Female',
+                                                        style: TextStyle(fontSize: 14),
+                                                      ),
+                                                    ),
+                                                    DropdownMenuItem(
+                                                      value: 'Other',
+                                                      child: Text(
+                                                        'Other',
+                                                        style: TextStyle(fontSize: 14),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                  onChanged: (val) {
+                                                    setState(() {
+                                                      selectedGender = val;
+                                                      genderError = null;
+                                                    });
+                                                  },
                                                 ),
                                               ),
-                                            );
-                                          }).toList(),
-                                          onChanged: (val) {
-                                            setState(() {
-                                              _selectedDeptQuick = val;
-                                              deptError = null;
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    if (deptError != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          top: 4,
-                                          left: 4,
-                                        ),
-                                        child: Text(
-                                          deptError!,
-                                          style: const TextStyle(
-                                            color: Color(0xFFE53E3E),
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                _buildQuickFieldLabel('Gender'),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      height: 48,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: genderError != null
-                                              ? const Color(0xFFE53E3E)
-                                              : AppTheme.borderColor,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: DropdownButtonHideUnderline(
-                                        child: DropdownButton<String>(
-                                          isExpanded: true,
-                                          value: selectedGender,
-                                          hint: const Text(
-                                            'Select',
-                                            style: TextStyle(fontSize: 14),
-                                          ),
-                                          items: const [
-                                            DropdownMenuItem(
-                                              value: 'Male',
-                                              child: Text(
-                                                'Male',
-                                                style: TextStyle(fontSize: 14),
-                                              ),
                                             ),
-                                            DropdownMenuItem(
-                                              value: 'Female',
-                                              child: Text(
-                                                'Female',
-                                                style: TextStyle(fontSize: 14),
+                                            if (genderError != null)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 4,
+                                                  left: 4,
+                                                ),
+                                                child: Text(
+                                                  genderError!,
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFE53E3E),
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: 'Other',
-                                              child: Text(
-                                                'Other',
-                                                style: TextStyle(fontSize: 14),
-                                              ),
-                                            ),
                                           ],
-                                          onChanged: (val) {
-                                            setState(() {
-                                              selectedGender = val;
-                                              genderError = null;
-                                            });
-                                          },
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                    if (genderError != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          top: 4,
-                                          left: 4,
-                                        ),
-                                        child: Text(
-                                          genderError!,
-                                          style: const TextStyle(
-                                            color: Color(0xFFE53E3E),
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ] else
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          _buildQuickFieldLabel('Department'),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Container(
-                                                height: 48,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(
-                                                    color: deptError != null
-                                                        ? const Color(
-                                                            0xFFE53E3E,
-                                                          )
-                                                        : AppTheme.borderColor,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                child: DropdownButtonHideUnderline(
-                                                  child: DropdownButton<String>(
-                                                    isExpanded: true,
-                                                    value: _selectedDeptQuick,
-                                                    hint: Text(
-                                                      _isLoadingDepartments
-                                                          ? 'Loading...'
-                                                          : 'Select',
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
-                                                      ),
-                                                    ),
-                                                    items: _departments.map((
-                                                      String value,
-                                                    ) {
-                                                      return DropdownMenuItem<
-                                                        String
-                                                      >(
-                                                        value: value,
-                                                        child: Text(
-                                                          value,
-                                                          style:
-                                                              const TextStyle(
-                                                                fontSize: 14,
-                                                              ),
-                                                        ),
-                                                      );
-                                                    }).toList(),
-                                                    onChanged: (val) {
-                                                      setState(() {
-                                                        _selectedDeptQuick =
-                                                            val;
-                                                        deptError = null;
-                                                      });
-                                                    },
-                                                  ),
-                                                ),
-                                              ),
-                                              if (deptError != null)
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 4,
-                                                        left: 4,
-                                                      ),
-                                                  child: Text(
-                                                    deptError!,
-                                                    style: const TextStyle(
-                                                      color: Color(0xFFE53E3E),
-                                                      fontSize: 11,
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          _buildQuickFieldLabel('Gender'),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Container(
-                                                height: 48,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(
-                                                    color: genderError != null
-                                                        ? const Color(
-                                                            0xFFE53E3E,
-                                                          )
-                                                        : AppTheme.borderColor,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                child: DropdownButtonHideUnderline(
-                                                  child: DropdownButton<String>(
-                                                    isExpanded: true,
-                                                    value: selectedGender,
-                                                    hint: const Text(
-                                                      'Select',
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                      ),
-                                                    ),
-                                                    items: const [
-                                                      DropdownMenuItem(
-                                                        value: 'Male',
-                                                        child: Text(
-                                                          'Male',
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      DropdownMenuItem(
-                                                        value: 'Female',
-                                                        child: Text(
-                                                          'Female',
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      DropdownMenuItem(
-                                                        value: 'Other',
-                                                        child: Text(
-                                                          'Other',
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                    onChanged: (val) {
-                                                      setState(() {
-                                                        selectedGender = val;
-                                                        genderError = null;
-                                                      });
-                                                    },
-                                                  ),
-                                                ),
-                                              ),
-                                              if (genderError != null)
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 4,
-                                                        left: 4,
-                                                      ),
-                                                  child: Text(
-                                                    genderError!,
-                                                    style: const TextStyle(
-                                                      color: Color(0xFFE53E3E),
-                                                      fontSize: 11,
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  const Spacer(),
+                                ],
+                              ),
                               const SizedBox(height: 16),
                               _buildQuickFieldLabel(
                                 'Reason for Visit (Optional)',
@@ -2358,25 +2050,15 @@ class _PatientsViewState extends State<PatientsView> {
                                                     if (selectedGender == null)
                                                       genderError =
                                                           'Please select gender';
-                                                    if (_selectedDeptQuick ==
-                                                        null)
-                                                      deptError =
-                                                          'Please select department';
                                                   });
                                                   return;
                                                 }
                                                 // Validate dropdowns
-                                                if (selectedGender == null ||
-                                                    _selectedDeptQuick ==
-                                                        null) {
+                                                if (selectedGender == null) {
                                                   setState(() {
                                                     if (selectedGender == null)
                                                       genderError =
                                                           'Please select gender';
-                                                    if (_selectedDeptQuick ==
-                                                        null)
-                                                      deptError =
-                                                          'Please select department';
                                                   });
                                                   return;
                                                 }
@@ -2427,21 +2109,15 @@ class _PatientsViewState extends State<PatientsView> {
 
                                                   final newPatient =
                                                       PatientModel(
-                                                        name: nameCtrl.text
-                                                            .trim(),
-                                                        dob: dobCtrl.text
-                                                            .trim(),
+                                                        name: nameCtrl.text.trim(),
+                                                        dob: dobCtrl.text.trim(),
                                                         age: calculatedAge,
-                                                        gender:
-                                                            selectedGender ??
-                                                            'Other',
-                                                        phone: phoneCtrl.text
-                                                            .trim(),
-                                                        email: emailCtrl.text
-                                                            .trim(),
-                                                        department:
-                                                            _selectedDeptQuick ??
-                                                            'General',
+                                                        gender: selectedGender ?? 'Other',
+                                                        phone: phoneCtrl.text.trim(),
+                                                        email: emailCtrl.text.trim(),
+                                                        emergencyContactName: 'N/A',
+                                                        emergencyContactRelation: 'N/A',
+                                                        emergencyContactPhone: 'N/A',
                                                         address: '',
                                                         height: 0.0,
                                                         weight: 0.0,
@@ -2449,9 +2125,10 @@ class _PatientsViewState extends State<PatientsView> {
                                                         bpDiastolic: 0,
                                                         sugar: 0.0,
                                                         temp: 0.0,
-                                                        complaints: reasonCtrl
-                                                            .text
-                                                            .trim(),
+                                                        bloodGroup: 'N/A',
+                                                        allergies: 'None',
+                                                        chronicConditions: 'None',
+                                                        complaints: reasonCtrl.text.trim(),
                                                         history: '',
                                                         smokingStatus: 'Never',
                                                         alcoholStatus: 'Never',
@@ -3155,7 +2832,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
       tags.add(_buildTag('Active Complaints'));
     }
     if (tags.isEmpty) {
-      tags.add(_buildTag(p.department.isNotEmpty ? p.department : 'General'));
+      tags.add(_buildTag('General Patient'));
     }
     return tags;
   }
@@ -3684,7 +3361,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 _buildTimelineItem(
                   date: p.createdAt ?? 'Registration Visit',
                   time: 'Initial Entry',
-                  dept: p.department,
+                  dept: 'Registration',
                   doctor: 'Staff',
                   complaint: p.complaints.isNotEmpty
                       ? p.complaints
