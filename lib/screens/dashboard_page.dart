@@ -39,6 +39,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late TextEditingController _nameController;
   late TextEditingController _specController;
   late TextEditingController _emailController;
+  late TextEditingController _mobileController;
   late TextEditingController _licenseController;
   late TextEditingController _qualController;
   late TextEditingController _expController;
@@ -71,6 +72,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _nameController = TextEditingController(text: user?.fullname ?? '');
     _specController = TextEditingController(text: user?.specialization ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
+    _mobileController = TextEditingController(text: user?.mobile ?? '');
     _licenseController = TextEditingController(
       text: user?.medicalLicense ?? '',
     );
@@ -119,6 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _nameController.dispose();
     _specController.dispose();
     _emailController.dispose();
+    _mobileController.dispose();
     _licenseController.dispose();
     _qualController.dispose();
     _expController.dispose();
@@ -573,6 +576,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final updatedUser = await _doctorController.updateProfile(
         fullname: _nameController.text,
+        mobile: _mobileController.text,
         medicalLicense: _licenseController.text,
         qualification: _qualController.text,
         experience: _expController.text,
@@ -797,6 +801,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Email Address',
                     user?.email ?? '-',
                     Icons.alternate_email,
+                  ),
+                  _buildDetailRow(
+                    'Mobile Number',
+                    user?.mobile ?? '-',
+                    Icons.phone_android_outlined,
                   ),
                   _buildDetailRow(
                     'Bio Summary',
@@ -1221,6 +1230,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Icons.email_outlined,
                       isReadOnly: true,
                     ),
+                    fieldSpacing,
+                    _buildProfileTextField(
+                      'Mobile Number',
+                      _mobileController,
+                      Icons.phone_android_outlined,
+                      isNumeric: true,
+                      maxLength: 10,
+                    ),
                     const SizedBox(height: 16),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1286,6 +1303,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             _emailController,
                             Icons.email_outlined,
                             isReadOnly: true,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildProfileTextField(
+                            'Mobile Number',
+                            _mobileController,
+                            Icons.phone_android_outlined,
+                            isNumeric: true,
+                            maxLength: 10,
                           ),
                         ),
                       ],

@@ -94,7 +94,7 @@ class UserModel {
       email: json['email'] ?? '',
       role: json['role'] ?? '',
       status: json['status'] ?? 'active',
-      isDeleted: json['is_deleted'] == true || json['isDeleted'] == true || json['status'] == 'deleted',
+      isDeleted: json['is_deleted'] == 1 || json['is_deleted'] == true || json['isDeleted'] == true || json['status'] == 'deleted',
       staffUniqueId: json['staff_unique_id'] ?? json['staffUniqueId'],
       mobile: json['mobile'],
       token: json['token'],

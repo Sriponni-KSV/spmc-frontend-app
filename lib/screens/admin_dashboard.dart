@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
@@ -6,6 +7,7 @@ import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../controllers/admin_controller.dart';
 import '../widgets/nurse_widgets.dart' hide PatientModel;
+import '../widgets/admin_widgets.dart';
 import 'login_page.dart';
 import 'package:http/http.dart' as http;  
 import 'dart:convert';                     
@@ -35,11 +37,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
   bool _showDeleted = false;
+  final FocusNode _mainFocusNode = FocusNode();
+  List<PatientModel> _dbPatients = [];
+  final PatientController _patientController = PatientController();
 
   @override
   void dispose() {
     _verticalScrollController.dispose();
     _horizontalScrollController.dispose();
+    _mainFocusNode.dispose();
     super.dispose();
   }
 
@@ -48,6 +54,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     super.initState();
     _loadStaff();
     _loadRbacData();
+    _fetchPatients();
+  }
+
+  Future<void> _fetchPatients() async {
+    try {
+      final patients = await _patientController.fetchPatients();
+      if (mounted) setState(() => _dbPatients = patients);
+    } catch (e) {
+      debugPrint('Error fetching patients for search: $e');
+    }
+  }
+
+  void _showSearchOverlay() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Search',
+      barrierColor: Colors.black.withOpacity(0.4),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (context, anim1, anim2) {
+        return SearchOverlay(
+          patients: _dbPatients.map((p) => p.toJson()).toList(),
+          onNewPatient: () => setState(() => _selectedIndex = 2), // Navigate to Patient Management
+          onBookAppointment: () => setState(() => _selectedIndex = 4), // Navigate to Appointments
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return FadeTransition(
+          opacity: anim1,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(anim1),
+            child: child,
+          ),
+        );
+      },
+    );
   }
 
   void _loadStaff() {
@@ -205,7 +247,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       controller: mobileCtrl,
                       decoration: const InputDecoration(labelText: 'Mobile Number', prefixIcon: Icon(Icons.phone_outlined)),
                       keyboardType: TextInputType.phone,
-                      validator: (val) => val == null || val.trim().isEmpty ? 'Please enter a mobile number' : null,
+                      maxLength: 10,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
+                      ],
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) return 'Please enter a mobile number';
+                        if (val.trim().length != 10) return 'Mobile number must be 10 digits';
+                        if (!RegExp(r'^[0-9]+$').hasMatch(val.trim())) return 'Please enter digits only';
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     if (isLoadingRoles)
@@ -360,28 +412,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
-      body: SafeArea(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Sidebar (only on desktop)
-            if (!isMobile) _buildSidebar(context),
-            
-            // Main Content Area
-            Expanded(
-              child: Column(
-                children: [
-                  _buildHeader(context, isMobile),
-                  Expanded(
-                    child: ClipRRect(child: _buildBodyContent(isMobile)),
-                  ),
-                ],
+    return Focus(
+      focusNode: _mainFocusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.slash) {
+          _showSearchOverlay();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
+        body: SafeArea(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Sidebar (only on desktop)
+              if (!isMobile) _buildSidebar(context),
+              
+              // Main Content Area
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildHeader(context, isMobile),
+                    Expanded(
+                      child: ClipRRect(child: _buildBodyContent(isMobile)),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -800,8 +864,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             children: [
                               Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                               Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
-                              if (user.mobile != null && user.mobile!.isNotEmpty)
-                                Text(user.mobile!, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
                             ],
                           ),
                         ],
@@ -916,8 +978,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ],
                         ),
                         Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
-                        if (user.mobile != null && user.mobile!.isNotEmpty)
-                          Text(user.mobile!, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -1103,65 +1163,98 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildHeader(BuildContext context, bool isMobile) {
     return Container(
-      height: isMobile ? 80 : 70,
+      height: isMobile ? 80 : 90,
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1)),
+        border: Border(
+          bottom: BorderSide(color: AppTheme.borderColor, width: 1),
+        ),
       ),
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Left: Menu & Search
-          if (isMobile) 
+          if (isMobile) ...[
             Builder(
               builder: (context) => IconButton(
-                icon: const Icon(Icons.menu, color: AppTheme.textSecondaryColor),
+                icon: const Icon(
+                  Icons.menu,
+                  color: AppTheme.textSecondaryColor,
+                ),
                 onPressed: () => Scaffold.of(context).openDrawer(),
               ),
             ),
-          
-          Flexible(
-            flex: 2,
-            child: Container(
+            const SizedBox(width: 8),
+          ],
+
+          // Search Bar (Flexible on mobile)
+          Expanded(
+            child: SizedBox(
               height: 40,
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundColor,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const TextField(
+              child: TextFormField(
+                textAlignVertical: TextAlignVertical.center,
                 decoration: InputDecoration(
-                  hintText: 'Search system...',
-                  prefixIcon: Icon(Icons.search, size: 20),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                  hintText: isMobile ? 'Search...' : 'Quick search...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixText: isMobile ? null : '/',
+                  suffixStyle: const TextStyle(color: AppTheme.iconColor),
+                  fillColor: AppTheme.backgroundColor,
+                  filled: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
+                readOnly: true,
+                onTap: _showSearchOverlay,
               ),
             ),
           ),
-          
-          const SizedBox(width: 16),
-          
-          // Right Actions
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Notifications icon only on web
-              if (!isMobile) ...[
-                const Icon(Icons.notifications_none_outlined, color: AppTheme.textSecondaryColor),
-                const SizedBox(width: 20),
-              ],
-              
-              // Restored LiveClock widget for real-time display with seconds and day
-              if (!isMobile) 
-                const LiveClock()
-              else
-                Text(
-                  DateFormat('hh:mm a').format(DateTime.now()),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
+
+          if (!isMobile) ...[
+            const SizedBox(width: 24),
+            const Spacer(),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.notifications_none_outlined,
+                  color: AppTheme.textSecondaryColor,
+                  size: 22,
                 ),
-            ],
-          ),
+                const SizedBox(width: 20),
+                const Icon(
+                  Icons.help_outline,
+                  color: AppTheme.textSecondaryColor,
+                  size: 22,
+                ),
+                const SizedBox(width: 20),
+                ElevatedButton(
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    minimumSize: const Size(80, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text('Share', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(width: 24),
+
+          // Date & Time
+          const AdminLiveClock(),
         ],
       ),
     );
@@ -1518,7 +1611,17 @@ final AdminController _adminController = AdminController();
                   onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
                   decoration: const InputDecoration(labelText: 'Mobile Number', prefixIcon: Icon(Icons.phone_outlined)),
                   keyboardType: TextInputType.phone,
-                  validator: (val) => val == null || val.isEmpty ? 'Please enter a mobile number' : null,
+                  maxLength: 10,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return 'Please enter a mobile number';
+                    if (val.length != 10) return 'Mobile number must be 10 digits';
+                    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Please enter digits only';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(

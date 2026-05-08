@@ -702,7 +702,7 @@ class _AdminAppointmentManagementState
           child: TextField(
             onChanged: (v) => setState(() => _searchQuery = v),
             decoration: const InputDecoration(
-              hintText: 'Search by patient name, phone number, or department...',
+              hintText: 'Search by patient name, mobile number, or department...',
               hintStyle: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
               border: InputBorder.none,
               isDense: true,
