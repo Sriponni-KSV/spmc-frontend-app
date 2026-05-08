@@ -190,6 +190,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: SingleChildScrollView(
               child: Form(
                 key: editFormKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -245,7 +246,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: mobileCtrl,
-                      decoration: const InputDecoration(labelText: 'Mobile Number', prefixIcon: Icon(Icons.phone_outlined)),
+                      decoration: const InputDecoration(
+                        labelText: 'Mobile Number', 
+                        prefixIcon: Icon(Icons.phone_outlined),
+                        counterText: "",
+                      ),
                       keyboardType: TextInputType.phone,
                       maxLength: 10,
                       inputFormatters: [
@@ -1566,6 +1571,7 @@ final AdminController _adminController = AdminController();
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1609,7 +1615,11 @@ final AdminController _adminController = AdminController();
                 TextFormField(
                   controller: _mobileController,
                   onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
-                  decoration: const InputDecoration(labelText: 'Mobile Number', prefixIcon: Icon(Icons.phone_outlined)),
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Number', 
+                    prefixIcon: Icon(Icons.phone_outlined),
+                    counterText: "",
+                  ),
                   keyboardType: TextInputType.phone,
                   maxLength: 10,
                   inputFormatters: [
