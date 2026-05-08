@@ -9,6 +9,7 @@ class AdminController {
   Future<void> createStaff({
     required String fullname,
     required String email,
+    String? mobile,
     required String password,
     required String role,
     String? medicalLicense,
@@ -34,6 +35,7 @@ class AdminController {
         {
           "fullname": fullname,
           "email": email,
+          "mobile": mobile,
           "password": password,
           "role": role,
           "medical_license": medicalLicense,
@@ -94,6 +96,7 @@ class AdminController {
     required int id,
     required String fullname,
     required String email,
+    String? mobile,
     required String role,
     String? status,
     String? medicalLicense,
@@ -119,6 +122,7 @@ class AdminController {
         {
           'fullname': fullname,
           'email': email,
+          'mobile': mobile,
           'role': role,
           'status': status,
           'medical_license': medicalLicense,

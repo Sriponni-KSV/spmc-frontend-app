@@ -17,6 +17,7 @@ import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
 import '../utils/logout_helper.dart';
+import '../models/user_model.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
   const NurseDashboardScreen({Key? key}) : super(key: key);
@@ -30,6 +31,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   bool _isRegisteringPatient = false;
   PatientModel? _patientToComplete;
   bool _forceBookingForm = false;
+  PatientModel? _selectedPatientForBooking;
+  UserModel? _selectedDoctorForBooking;
   final FocusNode _mainFocusNode = FocusNode();
   List<PatientModel> _dbPatients = [];
   String? _patientError;
@@ -225,10 +228,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               _patientToComplete = patient;
               _isRegisteringPatient = true;
             }),
-            onBookAppointment: () => setState(() {
+            onBookAppointment: (patient) => setState(() {
               _selectedIndex = 2;
               _isRegisteringPatient = false;
               _forceBookingForm = true;
+              _selectedPatientForBooking = patient;
             }),
             onRefresh: _fetchPatients,
           );
@@ -237,15 +241,29 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 2:
         if (user?.hasPermission('book_appointment') ?? false) {
           final showForm = _forceBookingForm;
+          final initialPatient = _selectedPatientForBooking;
+          final initialDoctor = _selectedDoctorForBooking;
           _forceBookingForm = false; // Reset for next time
+          _selectedPatientForBooking = null; // Clear for next time
+          _selectedDoctorForBooking = null; // Clear for next time
           return AppointmentsView(
             key: showForm ? UniqueKey() : null,
             startWithBookingForm: showForm,
+            initialPatient: initialPatient,
+            initialDoctor: initialDoctor,
           );
         }
         return const AccessDeniedWidget();
       case 3:
-        return const DoctorsView();
+        return DoctorsView(
+          onBookAppointment: (doctor) {
+            setState(() {
+              _selectedDoctorForBooking = doctor;
+              _forceBookingForm = true;
+              _selectedIndex = 2; // Appointments index
+            });
+          },
+        );
       case 4:
         return const NurseProfileView();
       default:

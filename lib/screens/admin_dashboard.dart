@@ -73,6 +73,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void _showEditDialog(BuildContext context, UserModel user) {
     final nameCtrl = TextEditingController(text: user.fullname);
     final emailCtrl = TextEditingController(text: user.email);
+    final mobileCtrl = TextEditingController(text: user.mobile);
     final editFormKey = GlobalKey<FormState>();
     String selectedRole = user.role;
     String selectedStatus = user.status;
@@ -200,6 +201,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       validator: (val) => val == null || val.trim().isEmpty || !val.contains('@') ? 'Please enter a valid email' : null,
                     ),
                     const SizedBox(height: 16),
+                    TextFormField(
+                      controller: mobileCtrl,
+                      decoration: const InputDecoration(labelText: 'Mobile Number', prefixIcon: Icon(Icons.phone_outlined)),
+                      keyboardType: TextInputType.phone,
+                      validator: (val) => val == null || val.trim().isEmpty ? 'Please enter a mobile number' : null,
+                    ),
+                    const SizedBox(height: 16),
                     if (isLoadingRoles)
                       const Center(child: CircularProgressIndicator())
                     else
@@ -258,6 +266,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     id: user.id,
                     fullname: nameCtrl.text.trim(),
                     email: emailCtrl.text.trim(),
+                    mobile: mobileCtrl.text.trim(),
                     role: selectedRole,
                     status: selectedStatus,
                     medicalLicense: null,
@@ -791,6 +800,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             children: [
                               Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                               Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
+                              if (user.mobile != null && user.mobile!.isNotEmpty)
+                                Text(user.mobile!, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
                             ],
                           ),
                         ],
@@ -905,6 +916,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ],
                         ),
                         Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
+                        if (user.mobile != null && user.mobile!.isNotEmpty)
+                          Text(user.mobile!, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -1333,6 +1346,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _mobileController = TextEditingController();
   final _passwordController = TextEditingController();
   final _licenseController = TextEditingController();
 final AdminController _adminController = AdminController();
@@ -1415,6 +1429,7 @@ final AdminController _adminController = AdminController();
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _mobileController.dispose();
     _passwordController.dispose();
     _licenseController.dispose();
     super.dispose();
@@ -1428,6 +1443,7 @@ final AdminController _adminController = AdminController();
     await _adminController.createStaff(
       fullname: _nameController.text.trim(),
       email: _emailController.text.trim(),
+      mobile: _mobileController.text.trim(),
       password: _passwordController.text.trim(),
       role: _selectedRole,
       medicalLicense: _licenseController.text.trim(),
@@ -1495,6 +1511,14 @@ final AdminController _adminController = AdminController();
                   decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.email_outlined)),
                   keyboardType: TextInputType.emailAddress,
                   validator: (val) => val == null || val.isEmpty || !val.contains('@') ? 'Please enter a valid email' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _mobileController,
+                  onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
+                  decoration: const InputDecoration(labelText: 'Mobile Number', prefixIcon: Icon(Icons.phone_outlined)),
+                  keyboardType: TextInputType.phone,
+                  validator: (val) => val == null || val.isEmpty ? 'Please enter a mobile number' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -1656,7 +1680,7 @@ class _AdminPatientManagementWrapperState extends State<AdminPatientManagementWr
           ),
         );
       },
-      onBookAppointment: () {
+      onBookAppointment: (_) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Booking appointments from Admin Dashboard is currently not supported.')),
         );

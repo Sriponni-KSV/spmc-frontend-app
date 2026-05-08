@@ -21,7 +21,7 @@ class PatientsView extends StatefulWidget {
   final String? error;
   final VoidCallback onRegisterPatient;
   final Function(PatientModel) onCompleteProfile;
-  final VoidCallback onBookAppointment;
+  final Function(PatientModel) onBookAppointment;
   final VoidCallback? onRefresh;
 
   const PatientsView({
@@ -106,6 +106,7 @@ class _PatientsViewState extends State<PatientsView> {
         patient: _selectedPatient!,
         onBack: () => setState(() => _selectedPatient = null),
         onCompleteProfile: widget.onCompleteProfile,
+        onBookAppointment: widget.onBookAppointment,
       );
     }
 
@@ -633,7 +634,7 @@ class _PatientsViewState extends State<PatientsView> {
                   initials: initials,
                   tags: patient.isQuickRegister ? ['Quick'] : [],
                   onView: () => setState(() => _selectedPatient = patient),
-                  onBook: widget.onBookAppointment,
+                  onBook: () => widget.onBookAppointment(patient),
                 ),
               )
             : isTablet
@@ -645,7 +646,7 @@ class _PatientsViewState extends State<PatientsView> {
                   initials: initials,
                   tags: patient.isQuickRegister ? ['Quick'] : [],
                   onView: () => setState(() => _selectedPatient = patient),
-                  onBook: widget.onBookAppointment,
+                  onBook: () => widget.onBookAppointment(patient),
                 ),
               )
             : PatientInfoCard(
@@ -654,7 +655,7 @@ class _PatientsViewState extends State<PatientsView> {
                 initials: initials,
                 tags: patient.isQuickRegister ? ['Quick'] : [],
                 onView: () => setState(() => _selectedPatient = patient),
-                onBook: widget.onBookAppointment,
+                onBook: () => widget.onBookAppointment(patient),
               ),
       );
 
@@ -993,7 +994,7 @@ class _PatientsViewState extends State<PatientsView> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: widget.onBookAppointment,
+                        onPressed: () => widget.onBookAppointment(patient),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
@@ -1252,7 +1253,7 @@ class _PatientsViewState extends State<PatientsView> {
                     Icons.calendar_month_outlined,
                     'Book',
                     const Color(0xFF38A169),
-                    onTap: widget.onBookAppointment,
+                    onTap: () => widget.onBookAppointment(patient),
                   ),
                 _buildActionLabel(
                   Icons.edit_outlined,
@@ -2353,12 +2354,14 @@ class PatientDetailView extends StatefulWidget {
   final PatientModel patient;
   final VoidCallback onBack;
   final Function(PatientModel) onCompleteProfile;
+  final Function(PatientModel) onBookAppointment;
 
   const PatientDetailView({
     Key? key,
     required this.patient,
     required this.onBack,
     required this.onCompleteProfile,
+    required this.onBookAppointment,
   }) : super(key: key);
 
   @override
@@ -2666,6 +2669,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 _buildHeaderButton(
                   Icons.calendar_today_outlined,
                   'Book Appointment',
+                  onTap: () => widget.onBookAppointment(p),
                   isPrimary: true,
                 ),
                 const SizedBox(width: 12),
@@ -2794,6 +2798,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
               child: _buildHeaderButton(
                 Icons.calendar_month_outlined,
                 p.age < 18 ? 'Book Pediatric' : 'Book Appt.',
+                onTap: () => widget.onBookAppointment(p),
               ),
             ),
             const SizedBox(width: 8),

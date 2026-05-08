@@ -32,12 +32,15 @@ class _NewPatientRegistrationViewState
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
-  
+
   // Emergency Contact Controllers
-  final TextEditingController _emergencyContactNameController = TextEditingController();
-  final TextEditingController _emergencyContactRelationController = TextEditingController();
-  final TextEditingController _emergencyContactPhoneController = TextEditingController();
-  
+  final TextEditingController _emergencyContactNameController =
+      TextEditingController();
+  final TextEditingController _emergencyContactRelationController =
+      TextEditingController();
+  final TextEditingController _emergencyContactPhoneController =
+      TextEditingController();
+
   final PatientController _patientController = PatientController();
   final AdminController _adminController = AdminController();
 
@@ -51,12 +54,13 @@ class _NewPatientRegistrationViewState
   final TextEditingController _tempController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
-  
+
   // New Medical Fields
   final TextEditingController _bloodGroupController = TextEditingController();
   final TextEditingController _allergiesController = TextEditingController();
-  final TextEditingController _chronicConditionsController = TextEditingController();
-  
+  final TextEditingController _chronicConditionsController =
+      TextEditingController();
+
   final TextEditingController _complaintsController = TextEditingController();
   final TextEditingController _historyController = TextEditingController();
 
@@ -66,7 +70,8 @@ class _NewPatientRegistrationViewState
   final TextEditingController _occupationController = TextEditingController();
   final TextEditingController _hobbiesController = TextEditingController();
   final TextEditingController _foodHabitsController = TextEditingController();
-  final TextEditingController _physicalActivityController = TextEditingController();
+  final TextEditingController _physicalActivityController =
+      TextEditingController();
   String? _selectedGender;
 
   // Form keys for validation
@@ -125,8 +130,6 @@ class _NewPatientRegistrationViewState
     _foodHabitsController.text = p.foodHabits;
     _physicalActivityController.text = p.physicalActivity;
   }
-
-
 
   @override
   void dispose() {
@@ -553,7 +556,7 @@ class _NewPatientRegistrationViewState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildLabel('Emergency Phone *'),
+                      _buildLabel('Emergency Mobile Number *'),
                       _buildTextField(
                         controller: _emergencyContactPhoneController,
                         hint: '98765 43210',
@@ -564,9 +567,9 @@ class _NewPatientRegistrationViewState
                         ],
                         validator: (val) {
                           if (val == null || val.isEmpty)
-                            return 'Emergency phone is required';
+                            return 'Emergency mobile number is required';
                           if (val.length != 10)
-                            return 'Enter a valid 10-digit phone number';
+                            return 'Enter a valid 10-digit mobile number';
                           return null;
                         },
                       ),
@@ -877,7 +880,9 @@ class _NewPatientRegistrationViewState
                           hint: 'mg/dL',
                           keyboardType: TextInputType.number,
                           inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.]'),
+                            ),
                           ],
                         ),
                       ],
@@ -894,7 +899,9 @@ class _NewPatientRegistrationViewState
                           hint: '°F',
                           keyboardType: TextInputType.number,
                           inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.]'),
+                            ),
                           ],
                         ),
                       ],
@@ -905,11 +912,16 @@ class _NewPatientRegistrationViewState
               const SizedBox(height: 16),
               _buildLabel('Blood Group *'),
               _buildDropdownField(
-                value: _bloodGroupController.text.isNotEmpty ? _bloodGroupController.text : null,
+                value: _bloodGroupController.text.isNotEmpty
+                    ? _bloodGroupController.text
+                    : null,
                 hint: 'Select Blood Group',
                 items: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
-                onChanged: (val) => setState(() => _bloodGroupController.text = val ?? ''),
-                validator: (val) => val == null || val.isEmpty ? 'Blood Group is required' : null,
+                onChanged: (val) =>
+                    setState(() => _bloodGroupController.text = val ?? ''),
+                validator: (val) => val == null || val.isEmpty
+                    ? 'Blood Group is required'
+                    : null,
               ),
               const SizedBox(height: 16),
               _buildLabel('Known Allergies'),
@@ -941,7 +953,9 @@ class _NewPatientRegistrationViewState
                                 hint: '170 cm',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
                                 ],
                               ),
                             ),
@@ -952,7 +966,9 @@ class _NewPatientRegistrationViewState
                                 hint: '70 kg',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
                                 ],
                               ),
                             ),
@@ -974,7 +990,9 @@ class _NewPatientRegistrationViewState
                                 controller: _bpSystolicController,
                                 hint: '120',
                                 keyboardType: TextInputType.number,
-                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -983,7 +1001,9 @@ class _NewPatientRegistrationViewState
                                 controller: _bpDiastolicController,
                                 hint: '80',
                                 keyboardType: TextInputType.number,
-                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
                               ),
                             ),
                           ],
@@ -1009,7 +1029,9 @@ class _NewPatientRegistrationViewState
                                 hint: 'mg/dL',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1020,7 +1042,9 @@ class _NewPatientRegistrationViewState
                                 hint: '°F',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1036,11 +1060,26 @@ class _NewPatientRegistrationViewState
                       children: [
                         _buildLabel('Blood Group *'),
                         _buildDropdownField(
-                          value: _bloodGroupController.text.isNotEmpty ? _bloodGroupController.text : null,
+                          value: _bloodGroupController.text.isNotEmpty
+                              ? _bloodGroupController.text
+                              : null,
                           hint: 'Select Blood Group',
-                          items: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
-                          onChanged: (val) => setState(() => _bloodGroupController.text = val ?? ''),
-                          validator: (val) => val == null || val.isEmpty ? 'Blood Group is required' : null,
+                          items: [
+                            'A+',
+                            'A-',
+                            'B+',
+                            'B-',
+                            'O+',
+                            'O-',
+                            'AB+',
+                            'AB-',
+                          ],
+                          onChanged: (val) => setState(
+                            () => _bloodGroupController.text = val ?? '',
+                          ),
+                          validator: (val) => val == null || val.isEmpty
+                              ? 'Blood Group is required'
+                              : null,
                         ),
                       ],
                     ),
@@ -1592,27 +1631,43 @@ class _NewPatientRegistrationViewState
                               _val(_nameController.text),
                             ),
                           ),
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
                               'Email',
                               _val(_emailController.text),
                             ),
                           ),
-                        ],
-                      ),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
                               'Age / DOB',
                               '${_val(_ageController.text)} / ${_val(_dobController.text)}',
                             ),
                           ),
+                        ],
+                      ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Expanded(
                             child: _buildReviewField(
                               'Gender',
                               _val(_selectedGender ?? ''),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Phone',
+                              _val(_phoneController.text),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Emergency Contact',
+                              '${_val(_emergencyContactNameController.text)} (${_val(_emergencyContactRelationController.text)})',
                             ),
                           ),
                         ],
@@ -1622,22 +1677,14 @@ class _NewPatientRegistrationViewState
                         children: [
                           Expanded(
                             child: _buildReviewField(
-                              'Phone',
-                              _val(_phoneController.text),
-                            ),
-                          ),
-                          Expanded(
-                            child: _buildReviewField(
-                              'Emergency Contact',
-                              '${_val(_emergencyContactNameController.text)} (${_val(_emergencyContactRelationController.text)})',
-                            ),
-                          ),
-                          Expanded(
-                            child: _buildReviewField(
-                              'Emergency Phone',
+                              'Emergency Mobile Number',
                               _val(_emergencyContactPhoneController.text),
                             ),
                           ),
+                          const SizedBox(width: 24),
+                          const Expanded(child: SizedBox()),
+                          const SizedBox(width: 24),
+                          const Expanded(child: SizedBox()),
                         ],
                       ),
                     ],
@@ -1660,6 +1707,7 @@ class _NewPatientRegistrationViewState
                         '${_val(_heightController.text)} cm / ${_val(_weightController.text)} kg',
                       ),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: _buildReviewField(
@@ -1670,12 +1718,14 @@ class _NewPatientRegistrationViewState
                                   : '${_bpSystolicController.text}/${_bpDiastolicController.text}',
                             ),
                           ),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: _buildReviewField(
                               'Sugar',
                               _val(_sugarController.text),
                             ),
                           ),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: _buildReviewField(
                               'Temp',
@@ -1706,6 +1756,7 @@ class _NewPatientRegistrationViewState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: _buildReviewField(
@@ -1713,11 +1764,7 @@ class _NewPatientRegistrationViewState
                               '${_val(_heightController.text)} cm / ${_val(_weightController.text)} kg',
                             ),
                           ),
-                          Expanded(child: SizedBox()),
-                        ],
-                      ),
-                      Row(
-                        children: [
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
                               'BP',
@@ -1727,45 +1774,59 @@ class _NewPatientRegistrationViewState
                                   : '${_bpSystolicController.text}/${_bpDiastolicController.text}',
                             ),
                           ),
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
                               'Sugar',
                               _val(_sugarController.text),
                             ),
                           ),
+                        ],
+                      ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Expanded(
                             child: _buildReviewField(
                               'Temp',
                               _val(_tempController.text),
                             ),
                           ),
-                        ],
-                      ),
-                      Row(
-                        children: [
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
                               'Blood Group',
                               _val(_bloodGroupController.text),
                             ),
                           ),
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
                               'Allergies',
                               _val(_allergiesController.text),
                             ),
                           ),
+                        ],
+                      ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Expanded(
                             child: _buildReviewField(
                               'Chronic Conditions',
                               _val(_chronicConditionsController.text),
                             ),
                           ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Reason for Visit',
+                              _val(_complaintsController.text),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          const Expanded(child: SizedBox()),
                         ],
-                      ),
-                      _buildReviewField(
-                        'Reason for Visit',
-                        _val(_complaintsController.text),
                       ),
                     ],
                   ),
@@ -1798,6 +1859,14 @@ class _NewPatientRegistrationViewState
                         'Physical Activity',
                         _val(_physicalActivityController.text),
                       ),
+                      _buildReviewField(
+                        'Smoking Status',
+                        _val(_smokingStatus ?? ''),
+                      ),
+                      _buildReviewField(
+                        'Alcohol Status',
+                        _val(_alcoholStatus ?? ''),
+                      ),
                     ],
                   )
                 : Column(
@@ -1812,21 +1881,46 @@ class _NewPatientRegistrationViewState
                               _val(_occupationController.text),
                             ),
                           ),
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
                               'Hobbies',
                               _val(_hobbiesController.text),
                             ),
                           ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Food Habits',
+                              _val(_foodHabitsController.text),
+                            ),
+                          ),
                         ],
                       ),
-                      _buildReviewField(
-                        'Food Habits',
-                        _val(_foodHabitsController.text),
-                      ),
-                      _buildReviewField(
-                        'Physical Activity',
-                        _val(_physicalActivityController.text),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _buildReviewField(
+                              'Physical Activity',
+                              _val(_physicalActivityController.text),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Smoking Status',
+                              _val(_smokingStatus ?? ''),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Alcohol Status',
+                              _val(_alcoholStatus ?? ''),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -2035,10 +2129,11 @@ class _NewPatientRegistrationViewState
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             label,
+            textAlign: TextAlign.left,
             style: const TextStyle(
               fontSize: 12,
               color: AppTheme.primaryColor,
@@ -2048,6 +2143,7 @@ class _NewPatientRegistrationViewState
           const SizedBox(height: 2),
           Text(
             value,
+            textAlign: TextAlign.left,
             style: const TextStyle(fontSize: 14, color: Color(0xFF2D3748)),
           ),
         ],
@@ -2229,7 +2325,8 @@ class _NewPatientRegistrationViewState
         email: _emailController.text.trim(),
         address: _addressController.text.trim(),
         emergencyContactName: _emergencyContactNameController.text.trim(),
-        emergencyContactRelation: _emergencyContactRelationController.text.trim(),
+        emergencyContactRelation: _emergencyContactRelationController.text
+            .trim(),
         emergencyContactPhone: _emergencyContactPhoneController.text.trim(),
         height: double.tryParse(_heightController.text.trim()) ?? 0.0,
         weight: double.tryParse(_weightController.text.trim()) ?? 0.0,

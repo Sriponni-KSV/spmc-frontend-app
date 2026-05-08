@@ -9,7 +9,8 @@ import '../models/appointment_model.dart';
 import '../providers/auth_provider.dart';
 
 class DoctorsView extends StatefulWidget {
-  const DoctorsView({Key? key}) : super(key: key);
+  final Function(UserModel)? onBookAppointment;
+  const DoctorsView({Key? key, this.onBookAppointment}) : super(key: key);
 
   @override
   State<DoctorsView> createState() => _DoctorsViewState();
@@ -32,14 +33,18 @@ class _DoctorsViewState extends State<DoctorsView> {
   }
 
   void _loadDoctors() async {
-    setState(() {
-      _doctorsFuture = _adminController.fetchStaff(role: 'Doctor');
-    });
+    if (mounted) {
+      setState(() {
+        _doctorsFuture = _adminController.fetchStaff(role: 'Doctor');
+      });
+    }
     try {
       final appts = await _appointmentController.fetchAppointments();
-      setState(() {
-        _appointments = appts;
-      });
+      if (mounted) {
+        setState(() {
+          _appointments = appts;
+        });
+      }
     } catch (e) {
       debugPrint('Error loading appointments in DoctorsView: $e');
     }
@@ -545,7 +550,11 @@ class _DoctorsViewState extends State<DoctorsView> {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    if (widget.onBookAppointment != null) {
+                      widget.onBookAppointment!(doctor);
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.redAccent,
                     foregroundColor: Colors.white,
