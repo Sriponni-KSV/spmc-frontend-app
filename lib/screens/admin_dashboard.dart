@@ -563,9 +563,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Staff Management', style: TextStyle(fontSize: isMobile ? 22 : 28, fontWeight: FontWeight.bold)),
+                        Text(
+                          'Staff Management',
+                          style: Theme.of(context).textTheme.displayLarge,
+                        ),
                         const SizedBox(height: 4),
-                        const Text('View and manage healthcare staff members', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13)),
+                        const Text(
+                          'View and manage healthcare staff members',
+                          style: TextStyle(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -614,14 +623,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         onPressed: () => _showAddUserDialog(context),
                       icon: const Icon(Icons.person_add_outlined, size: 18),
                       label: Text(isMobile ? 'Add' : 'Register Staff', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        minimumSize: const Size(0, 44),
-                        padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 20, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
+                      style: AppTheme.primaryButton,
                     ),
                   ],
                 ],
@@ -795,11 +797,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildStaffTable(List<UserModel> staff, bool isMobile) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-      ),
+      decoration: AppTheme.cardDecoration,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: LayoutBuilder(
@@ -1192,10 +1190,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             const SizedBox(width: 8),
           ],
 
-          // Search Bar (Flexible on mobile)
           Expanded(
-            child: SizedBox(
+            child: Container(
               height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.borderColor),
+              ),
               child: TextFormField(
                 textAlignVertical: TextAlignVertical.center,
                 decoration: InputDecoration(
@@ -1203,17 +1205,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   prefixIcon: const Icon(Icons.search, size: 20),
                   suffixText: isMobile ? null : '/',
                   suffixStyle: const TextStyle(color: AppTheme.iconColor),
-                  fillColor: AppTheme.backgroundColor,
+                  fillColor: Colors.transparent,
                   filled: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                 ),
                 readOnly: true,
                 onTap: _showSearchOverlay,

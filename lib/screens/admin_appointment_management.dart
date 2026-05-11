@@ -691,8 +691,9 @@ class _AdminAppointmentManagementState
     return Container(
       height: 52,
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F4F8),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(children: [
@@ -705,6 +706,8 @@ class _AdminAppointmentManagementState
               hintText: 'Search by patient name, mobile number, or department...',
               hintStyle: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
               border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
               isDense: true,
             ),
           ),

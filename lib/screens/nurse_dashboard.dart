@@ -602,25 +602,26 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             const SizedBox(width: 8),
           ],
 
-          // Search Bar (Flexible on mobile)
           Expanded(
-            child: SizedBox(
+            child: Container(
               height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.borderColor),
+              ),
               child: TextFormField(
                 decoration: InputDecoration(
                   hintText: isMobile ? 'Search...' : 'Quick search...',
                   prefixIcon: const Icon(Icons.search, size: 20),
                   suffixText: isMobile ? null : '/',
                   suffixStyle: const TextStyle(color: AppTheme.iconColor),
-                  fillColor: AppTheme.backgroundColor,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
+                  fillColor: Colors.transparent,
+                  filled: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                 ),
                 readOnly: true,
                 onTap: _showSearchOverlay,
@@ -640,10 +641,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             const SizedBox(width: 16),
             ElevatedButton(
               onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                minimumSize: const Size(80, 40),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+              style: AppTheme.primaryButton.copyWith(
+                minimumSize: MaterialStateProperty.all(const Size(80, 40)),
               ),
               child: const Text('Share', style: TextStyle(fontSize: 14)),
             ),
@@ -667,10 +666,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             Expanded(
               child: Text(
                 user != null ? 'Hello, ${user.fullname}' : 'Dashboard',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(context).textTheme.displayLarge,
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),

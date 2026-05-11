@@ -55,9 +55,7 @@ class _StatCardState extends State<StatCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+        decoration: AppTheme.cardDecoration.copyWith(
           border: Border.all(
             color: _isHovered
                 ? widget.color.withOpacity(0.5)

@@ -648,21 +648,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Professional Profile',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimaryColor,
-                    ),
+                    style: Theme.of(context).textTheme.displayLarge,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Overview of your medical practice and settings',
-                    style: TextStyle(
-                      color: AppTheme.textSecondaryColor,
-                      fontSize: 14,
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondaryColor,
+                        ),
                   ),
                 ],
               ),
@@ -677,15 +672,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'Edit Profile',
                   style: TextStyle(color: Colors.white),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  minimumSize: const Size(0, 48),
-                  elevation: 2,
-                  shadowColor: AppTheme.primaryColor.withOpacity(0.3),
+                style: AppTheme.primaryButton.copyWith(
+                  minimumSize: MaterialStateProperty.all(const Size(0, 48)),
                 ),
               ),
             ],
@@ -694,12 +682,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           // ── Primary Information Card (Name, Email, Bio) ────────────────
           Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: AppTheme.cardShadow,
-            ),
+            padding: const EdgeInsets.all(AppTheme.paddingLarge),
+            decoration: AppTheme.cardDecoration,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -778,19 +762,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 24),
                   const Divider(height: 1, color: Color(0xFFE2E8F0)),
                   const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      const SizedBox(width: 8),
-                      const Text(
-                        'About / Bio',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2D3748),
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 20),
                   _buildDetailRow(
                     'Full Name',
@@ -1237,6 +1208,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Icons.phone_android_outlined,
                       isNumeric: true,
                       maxLength: 10,
+                      isReadOnly: true,
                     ),
                     const SizedBox(height: 16),
                     Column(
@@ -1313,6 +1285,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Icons.phone_android_outlined,
                             isNumeric: true,
                             maxLength: 10,
+                            isReadOnly: true,
                           ),
                         ),
                       ],
@@ -1512,33 +1485,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Color borderColor = bgColor;
                         Color textColor = Colors.white;
 
-                        return GestureDetector(
-                          onTap: () => setLocalState(() {
-                            if (isAvailable) {
-                              _availableDays?.remove(day);
-                              (_weeklyOffDays ??= []).add(day);
-                            } else {
-                              _weeklyOffDays?.remove(day);
-                              (_availableDays ??= []).add(day);
-                            }
-                          }),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: bgColor,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: borderColor),
-                            ),
-                            child: Text(
-                              day,
-                              style: TextStyle(
-                                color: textColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                        return MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () => setLocalState(() {
+                              if (isAvailable) {
+                                _availableDays?.remove(day);
+                                (_weeklyOffDays ??= []).add(day);
+                              } else {
+                                _weeklyOffDays?.remove(day);
+                                (_availableDays ??= []).add(day);
+                              }
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: bgColor,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Text(
+                                day,
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
                           ),
@@ -2276,21 +2252,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Expanded(
             child: Container(
               constraints: const BoxConstraints(maxWidth: 400),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.borderColor),
+              ),
               child: TextField(
                 decoration: InputDecoration(
                   hintText: isMobile ? 'Search...' : 'Quick search...',
                   prefixIcon: const Icon(Icons.search, size: 20),
                   suffixText: isMobile ? null : '/',
                   suffixStyle: const TextStyle(color: AppTheme.iconColor),
-                  fillColor: AppTheme.backgroundColor,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
+                  fillColor: Colors.transparent,
+                  filled: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                 ),
               ),
             ),

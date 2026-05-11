@@ -337,6 +337,8 @@ class _PatientsViewState extends State<PatientsView> {
                         fontWeight: FontWeight.normal,
                       ),
                       border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
                       isDense: true,
                     ),
                   ),
@@ -420,8 +422,9 @@ class _PatientsViewState extends State<PatientsView> {
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0F4F8),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.borderColor),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Row(
@@ -444,6 +447,8 @@ class _PatientsViewState extends State<PatientsView> {
                               fontSize: 13,
                             ),
                             border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
                           ),
@@ -508,8 +513,9 @@ class _PatientsViewState extends State<PatientsView> {
           child: Container(
             height: 52,
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F4F8),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.borderColor),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -531,6 +537,8 @@ class _PatientsViewState extends State<PatientsView> {
                         fontSize: 14,
                       ),
                       border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
                       isDense: true,
                     ),
                   ),

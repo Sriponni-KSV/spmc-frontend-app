@@ -201,17 +201,16 @@ class _NewPatientRegistrationViewState
                       ? 'Complete Patient Profile'
                       : 'Edit Patient Profile')
                 : 'New Patient Registration',
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.displayLarge,
           ),
           const SizedBox(height: 4),
           Text(
             widget.existingPatient != null
                 ? 'Update patient information and medical history'
                 : 'Register a new patient with AI-powered voice input',
-            style: const TextStyle(
-              color: AppTheme.textSecondaryColor,
-              fontSize: 14,
-            ),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.textSecondaryColor,
+                ),
           ),
           const SizedBox(height: 32),
 
@@ -247,18 +246,7 @@ class _NewPatientRegistrationViewState
         vertical: 24,
         horizontal: isMobile ? 12 : 32,
       ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: AppTheme.cardDecoration,
       child: Row(
         children: [
           _buildStepItem(
@@ -599,14 +587,8 @@ class _NewPatientRegistrationViewState
                       onPressed: () {},
                       icon: const Icon(Icons.description_outlined, size: 18),
                       label: const Text('Save as Draft'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF4A5568),
-                        side: const BorderSide(color: Color(0xFFE2E8F0)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        minimumSize: const Size(0, 52),
+                      style: AppTheme.outlinedButton.copyWith(
+                        minimumSize: MaterialStateProperty.all(const Size(0, 52)),
                       ),
                     ),
                   ),
@@ -619,14 +601,8 @@ class _NewPatientRegistrationViewState
                           setState(() => _currentStep = 2);
                         }
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE53E3E),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        minimumSize: const Size(0, 52),
+                      style: AppTheme.primaryButton.copyWith(
+                        minimumSize: MaterialStateProperty.all(const Size(0, 52)),
                       ),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -2263,6 +2239,7 @@ class _NewPatientRegistrationViewState
       value: value,
       validator: validator,
       autovalidateMode: AutovalidateMode.onUserInteraction,
+      style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 13),

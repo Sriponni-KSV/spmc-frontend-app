@@ -262,28 +262,33 @@ class _NurseProfileViewState extends State<NurseProfileView> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Professional Profile', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                  Text(
+                    'Professional Profile',
+                    style: Theme.of(context).textTheme.displayLarge,
+                  ),
                   const SizedBox(height: 4),
-                  const Text('Overview of your professional details and settings', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14)),
+                  Text(
+                    'Overview of your professional details and settings',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                  ),
                 ],
               ),
               ElevatedButton.icon(
                 onPressed: () => setState(() => _isEditingProfile = true),
                 icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
                 label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  minimumSize: const Size(0, 48),
-                  elevation: 2,
+                style: AppTheme.primaryButton.copyWith(
+                  minimumSize: MaterialStateProperty.all(const Size(0, 48)),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 32),
           Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: AppTheme.cardShadow),
+            padding: const EdgeInsets.all(AppTheme.paddingLarge),
+            decoration: AppTheme.cardDecoration,
             child: Row(
               children: [
                 Container(
@@ -304,10 +309,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                       Text(user?.fullname ?? 'Nurse', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
                       const SizedBox(height: 4),
                       Text(user?.role ?? 'Nurse', style: const TextStyle(color: Color(0xFFC53030), fontSize: 13, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 12),
-                      const Text('About / Bio', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
-                      const SizedBox(height: 4),
-                      Text(user?.bio ?? '-', style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14)),
+                       const SizedBox(height: 12),
+                       // Removed About / Bio and hyphen as per user request
                     ],
                   ),
                 ),
@@ -643,6 +646,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       value: _departmentController.text.isNotEmpty && ['General Medicine', 'Pediatrics', 'Obstetrics & Gynecology', 'Emergency/ICU', 'Surgery', 'Cardiology', 'Oncology', 'Orthopedics'].contains(_departmentController.text) ? _departmentController.text : 'General Medicine',
+                      style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
                       decoration: InputDecoration(
                         prefixIcon: const Icon(Icons.business_outlined, size: 20),
                         fillColor: AppTheme.backgroundColor,
@@ -691,6 +695,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
                             value: _departmentController.text.isNotEmpty && ['General Medicine', 'Pediatrics', 'Obstetrics & Gynecology', 'Emergency/ICU', 'Surgery', 'Cardiology', 'Oncology', 'Orthopedics'].contains(_departmentController.text) ? _departmentController.text : 'General Medicine',
+                            style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
                             decoration: InputDecoration(
                               prefixIcon: const Icon(Icons.business_outlined, size: 20),
                               fillColor: AppTheme.backgroundColor,
@@ -720,25 +725,28 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
                   final isAvailable = _availableDays?.contains(day) ?? false;
                   Color bgColor = isAvailable ? const Color(0xFF38A169) : Colors.red.shade400;
-                  return GestureDetector(
-                    onTap: () => setLocalState(() {
-                      if (isAvailable) {
-                        _availableDays?.remove(day);
-                      } else {
-                        (_availableDays ??= []).add(day);
-                      }
-                      final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                      _weeklyOffDays = allDays.where((d) => !(_availableDays?.contains(d) ?? false)).toList();
-                    }),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: bgColor),
+                  return MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => setLocalState(() {
+                        if (isAvailable) {
+                          _availableDays?.remove(day);
+                        } else {
+                          (_availableDays ??= []).add(day);
+                        }
+                        final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                        _weeklyOffDays = allDays.where((d) => !(_availableDays?.contains(d) ?? false)).toList();
+                      }),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: bgColor,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: bgColor),
+                        ),
+                        child: Text(day, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                       ),
-                      child: Text(day, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                     ),
                   );
                 }).toList(),
@@ -756,8 +764,16 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
-                      decoration: InputDecoration(prefixIcon: const Icon(Icons.event_available_outlined), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
-                      items: ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                      style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.event_available_outlined, size: 20),
+                        fillColor: AppTheme.backgroundColor,
+                        filled: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
+                      ),
+                      items: ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 14)))).toList(),
                       onChanged: (v) => _shiftTypeController.text = v ?? '',
                     ),
                   ],
@@ -778,12 +794,16 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
                             value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
+                            style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
                             decoration: InputDecoration(
-                              prefixIcon: const Icon(Icons.event_available_outlined),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              prefixIcon: const Icon(Icons.event_available_outlined, size: 20),
+                              fillColor: AppTheme.backgroundColor,
+                              filled: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
                             ),
-                            items: ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                            items: ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 14)))).toList(),
                             onChanged: (v) => _shiftTypeController.text = v ?? '',
                           ),
                         ],
