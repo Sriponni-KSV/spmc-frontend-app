@@ -10,7 +10,17 @@ class PatientModel {
   final String phone;
   final String email;
   final String address;
+  final String addressLine2;
+  final String district;
+  final String pincode;
   final String? createdAt;
+
+  String get fullAddress {
+    final parts = [address, addressLine2, district, pincode]
+        .where((s) => s.isNotEmpty)
+        .toList();
+    return parts.join(', ');
+  }
 
   // Emergency Contact
   final String emergencyContactName;
@@ -48,6 +58,9 @@ class PatientModel {
     required this.phone,
     required this.email,
     required this.address,
+    required this.addressLine2,
+    required this.district,
+    required this.pincode,
     required this.emergencyContactName,
     required this.emergencyContactRelation,
     required this.emergencyContactPhone,
@@ -84,6 +97,9 @@ class PatientModel {
       'phone': phone,
       'email': email,
       'address': address,
+      'addressLine2': addressLine2,
+      'district': district,
+      'pincode': pincode,
       'emergencyContactName': emergencyContactName,
       'emergencyContactRelation': emergencyContactRelation,
       'emergencyContactPhone': emergencyContactPhone,
@@ -127,6 +143,9 @@ class PatientModel {
       phone: (json['phone'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
       address: (json['address'] ?? '').toString(),
+      addressLine2: (json['address_line_2'] ?? json['addressLine2'] ?? '').toString(),
+      district: (json['district'] ?? '').toString(),
+      pincode: (json['pincode'] ?? '').toString(),
       emergencyContactName: (json['emergency_contact_name'] ?? json['emergencyContactName'] ?? '').toString(),
       emergencyContactRelation: (json['emergency_contact_relation'] ?? json['emergencyContactRelation'] ?? '').toString(),
       emergencyContactPhone: (json['emergency_contact_phone'] ?? json['emergencyContactPhone'] ?? '').toString(),

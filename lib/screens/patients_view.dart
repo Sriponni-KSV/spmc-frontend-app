@@ -2128,6 +2128,9 @@ class _PatientsViewState extends State<PatientsView> {
                                                         emergencyContactRelation: 'N/A',
                                                         emergencyContactPhone: 'N/A',
                                                         address: '',
+                                                        addressLine2: '',
+                                                        district: '',
+                                                        pincode: '',
                                                         height: 0.0,
                                                         weight: 0.0,
                                                         bpSystolic: 0,
@@ -2647,7 +2650,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${p.age} years • ${p.gender} • Blood Group: O+', // Placeholder blood group
+                    '${p.age} years • ${p.gender} • Blood Group: ${p.bloodGroup.isNotEmpty ? p.bloodGroup : "N/A"}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: isTablet ? 14 : 15,
@@ -2699,18 +2702,18 @@ class _PatientDetailViewState extends State<PatientDetailView>
           children: [
             _buildContactIconItem(
               Icons.phone_outlined,
-              p.phone.isNotEmpty ? p.phone : '+1 555-0101',
+              p.phone.isNotEmpty ? p.phone : 'Not Provided',
             ),
             const SizedBox(width: 40),
             _buildContactIconItem(
               Icons.mail_outline,
-              p.email.isNotEmpty ? p.email : 'patient@email.com',
+              p.email.isNotEmpty ? p.email : 'Not Provided',
             ),
             const SizedBox(width: 40),
             Flexible(
               child: _buildContactIconItem(
                 Icons.location_on_outlined,
-                p.address.isNotEmpty ? p.address : '123 Main St, New York, NY',
+                p.fullAddress.isNotEmpty ? p.fullAddress : 'No Address Provided',
               ),
             ),
           ],
@@ -2725,14 +2728,16 @@ class _PatientDetailViewState extends State<PatientDetailView>
       children: [
         Icon(icon, size: 20, color: Colors.white.withOpacity(0.9)),
         const SizedBox(width: 10),
-        Text(
-          text,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
-          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
@@ -2820,9 +2825,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
         const SizedBox(height: 12),
         if (p.phone.isNotEmpty)
           _buildContactItem(Icons.phone_outlined, p.phone),
-        if (p.address.isNotEmpty) ...[
+        if (p.fullAddress.isNotEmpty) ...[
           const SizedBox(height: 8),
-          _buildContactItem(Icons.location_on_outlined, p.address),
+          _buildContactItem(Icons.location_on_outlined, p.fullAddress),
         ],
       ],
     );

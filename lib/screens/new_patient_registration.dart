@@ -32,6 +32,20 @@ class _NewPatientRegistrationViewState
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _addressLine2Controller = TextEditingController();
+  String? _selectedDistrict;
+  final TextEditingController _pincodeController = TextEditingController();
+
+  static const List<String> _tamilNaduDistricts = [
+    'Ariyalur', 'Chengalpattu', 'Chennai', 'Coimbatore', 'Cuddalore',
+    'Dharmapuri', 'Dindigul', 'Erode', 'Kallakurichi', 'Kancheepuram',
+    'Kanyakumari', 'Karur', 'Krishnagiri', 'Madurai', 'Mayiladuthurai',
+    'Nagapattinam', 'Namakkal', 'Nilgiris', 'Perambalur', 'Pudukkottai',
+    'Ramanathapuram', 'Ranipet', 'Salem', 'Sivaganga', 'Tenkasi',
+    'Thanjavur', 'Theni', 'Thoothukudi', 'Tiruchirappalli', 'Tirunelveli',
+    'Tirupathur', 'Tiruppur', 'Tiruvallur', 'Tiruvannamalai', 'Tiruvarur',
+    'Vellore', 'Viluppuram', 'Virudhunagar',
+  ];
 
   // Emergency Contact Controllers
   final TextEditingController _emergencyContactNameController =
@@ -95,6 +109,9 @@ class _NewPatientRegistrationViewState
     _phoneController.text = p.phone;
     _emailController.text = p.email;
     _addressController.text = p.address;
+    _addressLine2Controller.text = p.addressLine2;
+    _selectedDistrict = _tamilNaduDistricts.contains(p.district) ? p.district : null;
+    _pincodeController.text = p.pincode;
     _selectedGender = p.gender;
 
     _emergencyContactNameController.text = p.emergencyContactName;
@@ -139,6 +156,8 @@ class _NewPatientRegistrationViewState
     _phoneController.dispose();
     _emailController.dispose();
     _addressController.dispose();
+    _addressLine2Controller.dispose();
+    _pincodeController.dispose();
     _emergencyContactNameController.dispose();
     _emergencyContactRelationController.dispose();
     _emergencyContactPhoneController.dispose();
@@ -568,12 +587,84 @@ class _NewPatientRegistrationViewState
             ),
             const SizedBox(height: 24),
 
-            // Address
-            _buildLabel('Address'),
-            _buildTextField(
-              controller: _addressController,
-              hint: 'Enter full address',
-              maxLines: 4,
+            // Address Section
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Address Line 1 *'),
+                      _buildTextField(
+                        controller: _addressController,
+                        hint: 'Door No, Building Name',
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'Address Line 1 is required'
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Address Line 2'),
+                      _buildTextField(
+                        controller: _addressLine2Controller,
+                        hint: 'Street Name, Locality',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('District *'),
+                      _buildDropdownField(
+                        value: _selectedDistrict,
+                        hint: 'Select district',
+                        items: _tamilNaduDistricts,
+                        onChanged: (val) => setState(() => _selectedDistrict = val),
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'District is required'
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Pincode *'),
+                      _buildTextField(
+                        controller: _pincodeController,
+                        hint: '600001',
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(6),
+                        ],
+                        validator: (val) {
+                          if (val == null || val.isEmpty)
+                            return 'Pincode is required';
+                          if (val.length != 6) return 'Enter a valid 6-digit pincode';
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 48),
 
@@ -1593,6 +1684,10 @@ class _NewPatientRegistrationViewState
                         'Emergency Contact',
                         '${_val(_emergencyContactNameController.text)} (${_val(_emergencyContactRelationController.text)}) - ${_val(_emergencyContactPhoneController.text)}',
                       ),
+                      _buildReviewField('Address Line 1', _val(_addressController.text)),
+                      if (_addressLine2Controller.text.isNotEmpty)
+                        _buildReviewField('Address Line 2', _addressLine2Controller.text),
+                      _buildReviewField('District / Pincode', '${_val(_selectedDistrict ?? '')} / ${_val(_pincodeController.text)}'),
                     ],
                   )
                 : Column(
@@ -1658,9 +1753,19 @@ class _NewPatientRegistrationViewState
                             ),
                           ),
                           const SizedBox(width: 24),
-                          const Expanded(child: SizedBox()),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Address',
+                              '${_val(_addressController.text)}${_addressLine2Controller.text.isNotEmpty ? ", " + _addressLine2Controller.text : ""}',
+                            ),
+                          ),
                           const SizedBox(width: 24),
-                          const Expanded(child: SizedBox()),
+                          Expanded(
+                            child: _buildReviewField(
+                              'District / Pincode',
+                              '${_val(_selectedDistrict ?? '')} / ${_val(_pincodeController.text)}',
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -2301,6 +2406,9 @@ class _NewPatientRegistrationViewState
         phone: _phoneController.text.trim(),
         email: _emailController.text.trim(),
         address: _addressController.text.trim(),
+        addressLine2: _addressLine2Controller.text.trim(),
+        district: _selectedDistrict ?? '',
+        pincode: _pincodeController.text.trim(),
         emergencyContactName: _emergencyContactNameController.text.trim(),
         emergencyContactRelation: _emergencyContactRelationController.text
             .trim(),
