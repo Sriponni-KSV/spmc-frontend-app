@@ -1715,15 +1715,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               sectionSpacing,
 
               // ── Section 6: Documents ──────────────────────────
-              // sectionCard('6', 'Documents', const Color(0xFFE53E3E), [
+              // sectionCard('6', 'Documents', AppTheme.primaryColor, [
               //   Container(
               //     width: double.infinity,
               //     padding: const EdgeInsets.all(20),
               //     decoration: BoxDecoration(
-              //       color: const Color(0xFFFFF5F5),
+              //       color: AppTheme.primaryLight,
               //       borderRadius: BorderRadius.circular(10),
               //       border: Border.all(
-              //         color: const Color(0xFFE53E3E).withOpacity(0.3),
+              //         color: AppTheme.primaryColor.withOpacity(0.3),
               //         style: BorderStyle.solid,
               //       ),
               //     ),
@@ -1732,7 +1732,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               //         const Icon(
               //           Icons.upload_file_outlined,
               //           size: 36,
-              //           color: Color(0xFFE53E3E),
+              //           color: AppTheme.primaryColor,
               //         ),
               //         const SizedBox(height: 8),
               //         const Text(
@@ -1757,8 +1757,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               //           icon: const Icon(Icons.attach_file, size: 18),
               //           label: const Text('Choose File'),
               //           style: OutlinedButton.styleFrom(
-              //             foregroundColor: const Color(0xFFE53E3E),
-              //             side: const BorderSide(color: Color(0xFFE53E3E)),
+              //             foregroundColor: AppTheme.primaryColor,
+              //             side: const BorderSide(color: AppTheme.primaryColor),
               //             shape: RoundedRectangleBorder(
               //               borderRadius: BorderRadius.circular(8),
               //             ),

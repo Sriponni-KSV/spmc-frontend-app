@@ -738,7 +738,7 @@ class _NewPatientRegistrationViewState
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE53E3E),
+                      backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 40,
@@ -750,13 +750,14 @@ class _NewPatientRegistrationViewState
                       minimumSize: const Size(0, 52),
                     ),
                     child: const Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        Icon(Icons.arrow_forward_rounded, size: 18),
+                        SizedBox(width: 12),
                         Text(
                           'Next',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        SizedBox(width: 12),
-                        Icon(Icons.arrow_forward_rounded, size: 18),
                       ],
                     ),
                   ),
@@ -1259,7 +1260,7 @@ class _NewPatientRegistrationViewState
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE53E3E),
+                        backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -1328,7 +1329,7 @@ class _NewPatientRegistrationViewState
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE53E3E),
+                      backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 40,
@@ -1340,13 +1341,14 @@ class _NewPatientRegistrationViewState
                       minimumSize: const Size(0, 52),
                     ),
                     child: const Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        Icon(Icons.arrow_forward_rounded, size: 18),
+                        SizedBox(width: 12),
                         Text(
                           'Next',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        SizedBox(width: 12),
-                        Icon(Icons.arrow_forward_rounded, size: 18),
                       ],
                     ),
                   ),
@@ -1561,7 +1563,7 @@ class _NewPatientRegistrationViewState
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE53E3E),
+                        backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
                         minimumSize: const Size(0, 52),
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1624,7 +1626,7 @@ class _NewPatientRegistrationViewState
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE53E3E),
+                      backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(0, 52),
                       padding: const EdgeInsets.symmetric(
@@ -2070,7 +2072,7 @@ class _NewPatientRegistrationViewState
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE53E3E),
+                      backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(0, 52),
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -2138,7 +2140,7 @@ class _NewPatientRegistrationViewState
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE53E3E),
+                    backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(0, 52),
                     padding: const EdgeInsets.symmetric(

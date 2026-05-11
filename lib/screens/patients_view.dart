@@ -225,7 +225,7 @@ class _PatientsViewState extends State<PatientsView> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE53E3E),
+                backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 54),
                 elevation: 0,
@@ -273,7 +273,7 @@ class _PatientsViewState extends State<PatientsView> {
             icon: const Icon(Icons.add, size: 20),
             label: const Text('New Patient'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE53E3E),
+              backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
               minimumSize: Size(isTablet ? 100 : 120, 48),
               padding: EdgeInsets.symmetric(
@@ -1933,7 +1933,7 @@ class _PatientsViewState extends State<PatientsView> {
                                               decoration: BoxDecoration(
                                                 border: Border.all(
                                                   color: genderError != null
-                                                      ? const Color(0xFFE53E3E)
+                                                      ? AppTheme.primaryColor
                                                       : AppTheme.borderColor,
                                                 ),
                                                 borderRadius: BorderRadius.circular(8),
@@ -1987,7 +1987,7 @@ class _PatientsViewState extends State<PatientsView> {
                                                 child: Text(
                                                   genderError!,
                                                   style: const TextStyle(
-                                                    color: Color(0xFFE53E3E),
+                                                    color: AppTheme.primaryColor,
                                                     fontSize: 11,
                                                   ),
                                                 ),
@@ -2289,7 +2289,7 @@ class _PatientsViewState extends State<PatientsView> {
             if (isRequired)
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Color(0xFFE53E3E)),
+                style: TextStyle(color: AppTheme.primaryColor),
               ),
           ],
         ),
@@ -2341,11 +2341,11 @@ class _PatientsViewState extends State<PatientsView> {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE53E3E)),
+          borderSide: const BorderSide(color: AppTheme.primaryColor),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE53E3E)),
+          borderSide: const BorderSide(color: AppTheme.primaryColor),
         ),
         errorStyle: const TextStyle(fontSize: 11),
         contentPadding: const EdgeInsets.symmetric(
@@ -3186,12 +3186,12 @@ class _PatientDetailViewState extends State<PatientDetailView>
             const SizedBox(height: 12),
             _buildHistoryItem(
               icon: Icons.error_outline,
-              iconColor: const Color(0xFFE53E3E),
+              iconColor: AppTheme.primaryColor,
               title: p.complaints,
               subtitle: 'Current',
               status: 'Active',
-              statusColor: const Color(0xFFE53E3E),
-              statusBg: const Color(0xFFFFF5F5),
+              statusColor: AppTheme.primaryColor,
+              statusBg: AppTheme.primaryLight,
             ),
             const SizedBox(height: 20),
           ],
@@ -3213,7 +3213,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _buildHistoryItem(
                       icon: Icons.info_outline,
-                      iconColor: const Color(0xFFE53E3E),
+                      iconColor: AppTheme.primaryColor,
                       title: line.trim(),
                       subtitle: 'Past record',
                       status: 'Managed',

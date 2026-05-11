@@ -931,28 +931,26 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               }
                             : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE53E3E),
-                          disabledBackgroundColor: const Color(
-                            0xFFE53E3E,
-                          ).withOpacity(0.5),
-                          minimumSize: const Size(double.infinity, 52),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 40,
+                            vertical: 20,
                           ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          minimumSize: const Size(0, 52),
                           elevation: 0,
                         ),
                         child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.check, size: 20, color: Colors.white),
+                            Icon(Icons.arrow_forward_rounded, size: 18),
                             SizedBox(width: 12),
                             Text(
-                              'Confirm Appointment',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
+                              'Next',
+                              style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -1548,32 +1546,26 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     }
                                   : null,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFE53E3E),
-                                disabledBackgroundColor: const Color(
-                                  0xFFE53E3E,
-                                ).withOpacity(0.5),
-                                minimumSize: const Size(double.infinity, 52),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                backgroundColor: AppTheme.primaryColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 40,
+                                  vertical: 20,
                                 ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                minimumSize: const Size(0, 52),
                                 elevation: 0,
                               ),
                               child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    Icons.check,
-                                    size: 20,
-                                    color: Colors.white,
-                                  ),
+                                  Icon(Icons.arrow_forward_rounded, size: 18),
                                   SizedBox(width: 12),
                                   Text(
-                                    'Confirm Appointment',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
+                                    'Confirm & Complete',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                 ],
                               ),
@@ -1862,7 +1854,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             icon: const Icon(Icons.add, size: 20),
             label: const Text('Books Appointment'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE53E3E),
+              backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 48),
               shape: RoundedRectangleBorder(
@@ -1904,7 +1896,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           icon: const Icon(Icons.add, size: 20),
           label: const Text('Book Appointment'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFE53E3E),
+            backgroundColor: AppTheme.primaryColor,
             foregroundColor: Colors.white,
             minimumSize: const Size(180, 48),
             shape: RoundedRectangleBorder(
@@ -1958,8 +1950,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               _buildStatCard(
                 'Cancelled',
                 cancelled.toString(),
-                const Color(0xFFFFF5F5),
-                const Color(0xFFE53E3E),
+                AppTheme.primaryLight,
+                AppTheme.primaryColor,
               ),
             ],
           );
@@ -1986,8 +1978,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             _buildStatCard(
               'Cancelled',
               cancelled.toString(),
-              const Color(0xFFFFF5F5),
-              const Color(0xFFE53E3E),
+              AppTheme.primaryLight,
+              AppTheme.primaryColor,
               width: cardWidth,
             ),
           ],
@@ -2324,10 +2316,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     status: appt.status,
                     statusColor: appt.status == 'Confirmed'
                         ? const Color(0xFF3182CE)
-                        : const Color(0xFFE53E3E),
+                        : AppTheme.primaryColor,
                     statusBg: appt.status == 'Confirmed'
                         ? const Color(0xFFEBF8FF)
-                        : const Color(0xFFFFF5F5),
+                        : AppTheme.primaryLight,
                   ),
                   const Divider(height: 1),
                 ],
@@ -2342,10 +2334,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   Widget _buildAppointmentCardMobile(AppointmentModel appt) {
     final statusColor = appt.status == 'Confirmed'
         ? const Color(0xFF3182CE)
-        : const Color(0xFFE53E3E);
+        : AppTheme.primaryColor;
     final statusBg = appt.status == 'Confirmed'
         ? const Color(0xFFEBF8FF)
-        : const Color(0xFFFFF5F5);
+        : AppTheme.primaryLight;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2487,7 +2479,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE53E3E),
+                        backgroundColor: AppTheme.primaryColor,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 8,
@@ -2753,7 +2745,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           }
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE53E3E),
+                          backgroundColor: AppTheme.primaryColor,
                           minimumSize: const Size(80, 32),
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           shape: RoundedRectangleBorder(
