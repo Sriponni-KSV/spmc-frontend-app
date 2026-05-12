@@ -940,7 +940,7 @@ class _PatientsViewState extends State<PatientsView> {
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        'Complete Profile',
+                                        'Complete',
                                         style: TextStyle(
                                           color: Color(0xFF7C3AED),
                                           fontSize: 10,
@@ -1201,7 +1201,7 @@ class _PatientsViewState extends State<PatientsView> {
                                         ),
                                         SizedBox(width: 4),
                                         Text(
-                                          'Complete Profile',
+                                          'Complete',
                                           style: TextStyle(
                                             color: Color(0xFF7C3AED),
                                             fontSize: 10,

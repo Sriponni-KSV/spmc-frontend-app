@@ -40,6 +40,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final FocusNode _mainFocusNode = FocusNode();
   List<PatientModel> _dbPatients = [];
   final PatientController _patientController = PatientController();
+  bool _isRegisteringPatient = false;
+  PatientModel? _patientToComplete;
 
   @override
   void dispose() {
@@ -184,7 +186,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             });
           }
           return AlertDialog(
-          title: const Text('Edit Staff', style: TextStyle(fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            title: const Text('Edit Staff', style: TextStyle(fontWeight: FontWeight.bold)),
           content: SizedBox(
             width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.9,
             child: SingleChildScrollView(
@@ -363,6 +368,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         bool isDeleting = false;
         return StatefulBuilder(
           builder: (ctx, setDialogState) => AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             title: const Text('Delete Staff', style: TextStyle(fontWeight: FontWeight.bold)),
             content: RichText(
               text: TextSpan(
@@ -458,7 +466,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildBodyContent(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    
+
+    if (_isRegisteringPatient) {
+      return NewPatientRegistrationView(
+        key: UniqueKey(),
+        existingPatient: _patientToComplete,
+        onBack: () {
+          setState(() {
+            _isRegisteringPatient = false;
+            _patientToComplete = null;
+          });
+          _fetchPatients();
+        },
+      );
+    }
+
     switch (_selectedIndex) {
       case 0:
         return _buildControlPanel(isMobile);
@@ -469,7 +491,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return const AccessDeniedWidget();
       case 2:
         if (user?.hasPermission('view_patients') ?? false) {
-          return const AdminPatientManagementWrapper();
+          return AdminPatientManagementWrapper(
+            onRegister: () => setState(() => _isRegisteringPatient = true),
+            onCompleteProfile: (patient) => setState(() {
+              _patientToComplete = patient;
+              _isRegisteringPatient = true;
+            }),
+          );
         }
         return const AccessDeniedWidget();
       case 3:
@@ -1144,9 +1172,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildSidebarItem(int index, IconData icon, String label) {
-    bool isSelected = _selectedIndex == index;
+    bool isSelected = _selectedIndex == index && !_isRegisteringPatient;
     return InkWell(
-      onTap: () => setState(() => _selectedIndex = index),
+      onTap: () => setState(() {
+        _selectedIndex = index;
+        _isRegisteringPatient = false;
+        _patientToComplete = null;
+      }),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1575,6 +1607,9 @@ final AdminController _adminController = AdminController();
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       title: const Text('Register New Staff', style: TextStyle(fontFamily: AppTheme.fontFamily, fontWeight: FontWeight.bold)),
       content: SizedBox(
         width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.9,
@@ -1720,7 +1755,14 @@ final AdminController _adminController = AdminController();
 }
 
 class AdminPatientManagementWrapper extends StatefulWidget {
-  const AdminPatientManagementWrapper({Key? key}) : super(key: key);
+  final VoidCallback onRegister;
+  final Function(PatientModel) onCompleteProfile;
+
+  const AdminPatientManagementWrapper({
+    Key? key,
+    required this.onRegister,
+    required this.onCompleteProfile,
+  }) : super(key: key);
 
   @override
   State<AdminPatientManagementWrapper> createState() => _AdminPatientManagementWrapperState();
@@ -1759,50 +1801,9 @@ class _AdminPatientManagementWrapperState extends State<AdminPatientManagementWr
       patients: _dbPatients,
       isLoading: _isLoading,
       error: _error,
-      onCompleteProfile: (patient) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Complete Patient Profile', style: TextStyle(color: Colors.black87)),
-                backgroundColor: Colors.white,
-                iconTheme: const IconThemeData(color: Colors.black87),
-                elevation: 1,
-              ),
-              body: NewPatientRegistrationView(
-                existingPatient: patient,
-                onBack: () {
-                  Navigator.pop(context);
-                  _fetchPatients();
-                },
-              ),
-            ),
-          ),
-        );
-      },
+      onCompleteProfile: widget.onCompleteProfile,
       onRefresh: _fetchPatients,
-      onRegisterPatient: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Register Patient', style: TextStyle(color: Colors.black87)),
-                backgroundColor: Colors.white,
-                iconTheme: const IconThemeData(color: Colors.black87),
-                elevation: 1,
-              ),
-              body: NewPatientRegistrationView(
-                onBack: () {
-                  Navigator.pop(context);
-                  _fetchPatients();
-                },
-              ),
-            ),
-          ),
-        );
-      },
+      onRegisterPatient: widget.onRegister,
       onBookAppointment: (_) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Booking appointments from Admin Dashboard is currently not supported.')),

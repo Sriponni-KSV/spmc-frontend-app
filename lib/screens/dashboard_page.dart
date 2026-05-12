@@ -87,7 +87,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       text: user?.areasOfExpertise ?? '',
     );
 
-    _availableDays = user?.availableDays != null ? List.from(user!.availableDays!) : [];
+    _availableDays = user?.availableDays != null
+        ? List.from(user!.availableDays!)
+        : [];
 
     _slotStartController = TextEditingController(
       text: user?.slotStartTime ?? '',
@@ -98,9 +100,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
     _leaveBlockDatesController = TextEditingController();
 
-    _weeklyOffDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        .where((day) => !_availableDays!.contains(day))
-        .toList();
+    _weeklyOffDays = [
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ].where((day) => !_availableDays!.contains(day)).toList();
 
     _specificLeaveDates = [];
     if (user?.specificLeaveDates != null)
@@ -177,11 +185,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _doctorAppointments = allAppointments.where((appt) {
             final docName = appt.doctorName.toLowerCase().trim();
             final userName = (user?.fullname ?? '').toLowerCase().trim();
-            
+
             // Match exact name OR name before hyphen OR name before specialization
-            return docName == userName || 
-                   docName.startsWith(userName + ' ') || 
-                   (docName.contains(' - ') && docName.split(' - ')[0].trim() == userName);
+            return docName == userName ||
+                docName.startsWith(userName + ' ') ||
+                (docName.contains(' - ') &&
+                    docName.split(' - ')[0].trim() == userName);
           }).toList();
           _isLoading = false;
         });
@@ -661,8 +670,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Text(
                     'Overview of your medical practice and settings',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.textSecondaryColor,
-                        ),
+                      color: AppTheme.textSecondaryColor,
+                    ),
                   ),
                 ],
               ),
@@ -889,10 +898,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Icons.badge_outlined,
                     ),
                     _buildDetailRow(
-                    'Experience',
-                    user?.experience == null || user?.experience == '0'
-                        ? '-'
-                        : '${user!.experience} years',
+                      'Experience',
+                      user?.experience == null || user?.experience == '0'
+                          ? '-'
+                          : '${user!.experience} years',
                       Icons.work_history_outlined,
                     ),
                   ]),
@@ -927,7 +936,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     _buildDetailRow(
                       'Specific Leave Dates',
-                      (user?.specificLeaveDates == null || user!.specificLeaveDates!.isEmpty)
+                      (user?.specificLeaveDates == null ||
+                              user!.specificLeaveDates!.isEmpty)
                           ? '-'
                           : user!.specificLeaveDates!.join(', '),
                       Icons.calendar_today_outlined,
@@ -1125,97 +1135,181 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 32),
 
-            // ── Basic Info Container ────────────────────────
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 84,
-                        height: 84,
-                        decoration: const BoxDecoration(
-                          color: AppTheme.primaryColor,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            user?.fullname.isNotEmpty == true
-                                ? user!.fullname[0].toUpperCase()
-                                : 'D',
-                            style: const TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+              // ── Basic Info Container ────────────────────────
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 84,
+                          height: 84,
+                          decoration: const BoxDecoration(
+                            color: AppTheme.primaryColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              user?.fullname.isNotEmpty == true
+                                  ? user!.fullname[0].toUpperCase()
+                                  : 'D',
+                              style: const TextStyle(
+                                fontSize: 36,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
+                        const SizedBox(width: 20),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user?.fullname ?? 'Doctor',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (user?.specialization?.isNotEmpty == true)
+                              Text(
+                                user!.specialization!,
+                                style: const TextStyle(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            const SizedBox(height: 2),
+                            Text(
+                              (user?.role != null && user!.role.isNotEmpty)
+                                  ? user.role
+                                  : 'Doctor',
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    if (isMobile) ...[
+                      _buildProfileTextField(
+                        'Full Name',
+                        _nameController,
+                        Icons.person_outline,
+                        isReadOnly: true,
                       ),
-                      const SizedBox(width: 20),
+                      fieldSpacing,
+                      _buildProfileTextField(
+                        'Email Address',
+                        _emailController,
+                        Icons.email_outlined,
+                        isReadOnly: true,
+                      ),
+                      fieldSpacing,
+                      _buildProfileTextField(
+                        'Mobile Number',
+                        _mobileController,
+                        Icons.phone_android_outlined,
+                        isNumeric: true,
+                        maxLength: 10,
+                        isReadOnly: true,
+                      ),
+                      const SizedBox(height: 16),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            user?.fullname ?? 'Doctor',
-                            style: const TextStyle(
-                              fontSize: 20,
+                          const Text(
+                            'Bio / Professional Summary',
+                            style: TextStyle(
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
+                              color: AppTheme.textSecondaryColor,
                             ),
                           ),
-                          if (user?.specialization?.isNotEmpty == true)
-                            Text(
-                              user!.specialization!,
-                              style: const TextStyle(
-                                color: AppTheme.textSecondaryColor,
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _bioController,
+                            maxLines: 3,
+                            style: const TextStyle(
+                              color: AppTheme.textPrimaryColor,
+                              fontWeight: FontWeight.normal,
+                            ),
+                            decoration: InputDecoration(
+                              hintText:
+                                  'Share a brief summary of your expertise...',
+                              hintStyle: const TextStyle(
+                                color: Colors.grey,
                                 fontSize: 14,
                               ),
-                            ),
-                          const SizedBox(height: 2),
-                          Text(
-                            (user?.role != null && user!.role.isNotEmpty)
-                                ? user.role
-                                : 'Doctor',
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
+                              fillColor: AppTheme.backgroundColor,
+                              filled: true,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.withOpacity(0.2),
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.withOpacity(0.2),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  if (isMobile) ...[
-                    _buildProfileTextField(
-                      'Full Name',
-                      _nameController,
-                      Icons.person_outline,
-                      isReadOnly: true,
-                    ),
-                    fieldSpacing,
-                    _buildProfileTextField(
-                      'Email Address',
-                      _emailController,
-                      Icons.email_outlined,
-                      isReadOnly: true,
-                    ),
-                    fieldSpacing,
-                    _buildProfileTextField(
-                      'Mobile Number',
-                      _mobileController,
-                      Icons.phone_android_outlined,
-                      isNumeric: true,
-                      maxLength: 10,
-                      isReadOnly: true,
-                    ),
-                    const SizedBox(height: 16),
+                    ] else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildProfileTextField(
+                              'Full Name',
+                              _nameController,
+                              Icons.person_outline,
+                              isReadOnly: true,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildProfileTextField(
+                              'Email Address',
+                              _emailController,
+                              Icons.email_outlined,
+                              isReadOnly: true,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildProfileTextField(
+                              'Mobile Number',
+                              _mobileController,
+                              Icons.phone_android_outlined,
+                              isNumeric: true,
+                              maxLength: 10,
+                              isReadOnly: true,
+                            ),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 24),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1236,8 +1330,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             fontWeight: FontWeight.normal,
                           ),
                           decoration: InputDecoration(
-                            hintText: 'Share a brief summary of your expertise...',
-                            hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                            hintText:
+                                'Share a brief summary of your expertise...',
+                            hintStyle: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 14,
+                            ),
                             fillColor: AppTheme.backgroundColor,
                             filled: true,
                             border: OutlineInputBorder(
@@ -1262,89 +1360,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ],
                     ),
-                  ] else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildProfileTextField(
-                            'Full Name',
-                            _nameController,
-                            Icons.person_outline,
-                            isReadOnly: true,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildProfileTextField(
-                            'Email Address',
-                            _emailController,
-                            Icons.email_outlined,
-                            isReadOnly: true,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildProfileTextField(
-                            'Mobile Number',
-                            _mobileController,
-                            Icons.phone_android_outlined,
-                            isNumeric: true,
-                            maxLength: 10,
-                            isReadOnly: true,
-                          ),
-                        ),
-                      ],
-                    ),
-                  const SizedBox(height: 24),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Bio / Professional Summary',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textSecondaryColor,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _bioController,
-                        maxLines: 3,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimaryColor,
-                          fontWeight: FontWeight.normal,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Share a brief summary of your expertise...',
-                          hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
-                          fillColor: AppTheme.backgroundColor,
-                          filled: true,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: Colors.grey.withOpacity(0.2),
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: Colors.grey.withOpacity(0.2),
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
               sectionSpacing,
 
               // ── Section 1: Professional Details ─────────────────
@@ -1716,7 +1734,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               sectionSpacing,
 
-
               sectionSpacing,
 
               // ── Section 6: Documents ──────────────────────────
@@ -1780,8 +1797,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OutlinedButton(
-                    onPressed: () =>
-                        setState(() => _isEditingProfile = false),
+                    onPressed: () => setState(() => _isEditingProfile = false),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Colors.grey),
                       minimumSize: const Size(120, 48),
@@ -1797,10 +1813,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(width: 16),
                   ElevatedButton.icon(
                     onPressed: _isLoading ? null : _saveProfile,
-                    icon: const Icon(
-                      Icons.save_outlined,
-                      color: Colors.white,
-                    ),
+                    icon: const Icon(Icons.save_outlined, color: Colors.white),
                     label: _isLoading
                         ? const SizedBox(
                             width: 20,
@@ -1862,8 +1875,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
           readOnly: isReadOnly,
           maxLength: maxLength,
-          inputFormatters: isNumeric 
-              ? [FilteringTextInputFormatter.digitsOnly] 
+          inputFormatters: isNumeric
+              ? [FilteringTextInputFormatter.digitsOnly]
               : null,
           mouseCursor: isReadOnly ? SystemMouseCursors.forbidden : null,
           style: TextStyle(
@@ -2037,7 +2050,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           // Logo Section
           Container(
-            padding: const EdgeInsets.only(left: 24, top: 0, bottom: 0, right: 24),
+            padding: const EdgeInsets.only(
+              left: 24,
+              top: 0,
+              bottom: 0,
+              right: 24,
+            ),
             decoration: const BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: AppTheme.borderColor, width: 1),
@@ -2208,8 +2226,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 decoration: InputDecoration(
                   isCollapsed: true,
                   hintText: isMobile ? 'Search...' : 'Quick search...',
-                  hintStyle: const TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
-                  prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                  hintStyle: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    size: 18,
+                    color: AppTheme.textSecondaryColor,
+                  ),
                   prefixIconConstraints: const BoxConstraints(
                     minWidth: 40,
                     minHeight: 40,
@@ -2284,7 +2309,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final todayStr = DateFormat('dd/MM/yyyy').format(now);
 
     final int todayCount = _doctorAppointments
-        .where((a) => a.appointmentDate == todayStr || a.appointmentDate.startsWith(todayStr))
+        .where(
+          (a) =>
+              a.appointmentDate == todayStr ||
+              a.appointmentDate.startsWith(todayStr),
+        )
         .length;
     final int confirmedCount = _doctorAppointments
         .where((a) => a.status == 'Confirmed' || a.status == 'Scheduled')
@@ -2405,7 +2434,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (_selectedDate == null) return true;
 
       final String todayStr = DateFormat('dd/MM/yyyy').format(_selectedDate!);
-      return a.appointmentDate == todayStr || a.appointmentDate.startsWith(todayStr);
+      return a.appointmentDate == todayStr ||
+          a.appointmentDate.startsWith(todayStr);
     }).toList();
 
     return Container(
