@@ -2425,7 +2425,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               ),
               const SizedBox(width: 8),
               Text(
-                '${appt.doctorName} (${appt.doctorDisplayId ?? "—"})',
+                appt.doctorDisplayId != null && appt.doctorDisplayId!.isNotEmpty
+                    ? '${appt.doctorName} (${appt.doctorDisplayId})'
+                    : appt.doctorName,
                 style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
               ),
             ],
@@ -2640,7 +2642,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   child: Padding(
                     padding: const EdgeInsets.only(right: 12.0),
                     child: Text(
-                      '$doctorName (${doctorDisplayId ?? "—"})',
+                      doctorDisplayId != null && doctorDisplayId.isNotEmpty
+                          ? '$doctorName ($doctorDisplayId)'
+                          : doctorName,
                       style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFF475569),

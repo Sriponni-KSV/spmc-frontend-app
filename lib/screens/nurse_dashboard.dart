@@ -86,6 +86,20 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     super.dispose();
   }
 
+  void _changePage(int index, {bool isRegistering = false, bool forceBooking = false}) {
+    if (!mounted) return;
+    setState(() {
+      _selectedIndex = index;
+      _isRegisteringPatient = isRegistering;
+      _forceBookingForm = forceBooking;
+    });
+    
+    // Refresh data if switching to dashboard
+    if (index == 0) {
+      _fetchData();
+    }
+  }
+
   void _showSearchOverlay() {
     showGeneralDialog(
       context: context,
@@ -96,19 +110,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       pageBuilder: (context, anim1, anim2) {
         return SearchOverlay(
           patients: _dbPatients.map((p) => p.toJson()).toList(),
-          onNewPatient: () {
-            setState(() {
-              _selectedIndex = 1;
-              _isRegisteringPatient = true;
-            });
-          },
-          onBookAppointment: () {
-            setState(() {
-              _selectedIndex = 2;
-              _isRegisteringPatient = false;
-              _forceBookingForm = true;
-            });
-          },
+          onNewPatient: () => _changePage(1, isRegistering: true),
+          onBookAppointment: () => _changePage(2, forceBooking: true),
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -127,69 +130,50 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
 
-    return Focus(
-      focusNode: _mainFocusNode,
-      autofocus: true,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            event.logicalKey == LogicalKeyboardKey.slash) {
-          _showSearchOverlay();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
-        drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
-        floatingActionButton: CustomSpeedDial(
-          children: [
-            if (Provider.of<AuthProvider>(
-                  context,
-                  listen: false,
-                ).user?.hasPermission('add_patient') ??
-                false)
-              SpeedDialChild(
-                label: 'New Patient',
-                icon: Icons.person_add_alt_1_outlined,
-                color: const Color(0xFF7FB547),
-                onTap: () => setState(() {
-                  _selectedIndex = 1;
-                  _isRegisteringPatient = true;
-                }),
-              ),
-            if (Provider.of<AuthProvider>(
-                  context,
-                  listen: false,
-                ).user?.hasPermission('book_appointment') ??
-                false)
-              SpeedDialChild(
-                label: 'Book Appointment',
-                icon: Icons.calendar_month_outlined,
-                color: const Color(0xFF0D5D9A),
-                onTap: () => setState(() {
-                  _selectedIndex = 2;
-                  _isRegisteringPatient = false;
-                  _forceBookingForm = true;
-                }),
-              ),
-          ],
-        ),
-        body: Row(
-          children: [
-            // Sidebar (only on desktop)
-            if (!isMobile) _buildSidebar(context),
-
-            // Main Content Area
-            Expanded(
-              child: Column(
-                children: [
-                  _buildHeader(context, isMobile),
-                  Expanded(child: _buildMainContent(isMobile)),
-                ],
-              ),
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
+      floatingActionButton: CustomSpeedDial(
+        children: [
+          if (Provider.of<AuthProvider>(
+                context,
+                listen: false,
+              ).user?.hasPermission('add_patient') ??
+              false)
+            SpeedDialChild(
+              label: 'New Patient',
+              icon: Icons.person_add_alt_1_outlined,
+              color: const Color(0xFF7FB547),
+              onTap: () => _changePage(1, isRegistering: true),
             ),
-          ],
-        ),
+          if (Provider.of<AuthProvider>(
+                context,
+                listen: false,
+              ).user?.hasPermission('book_appointment') ??
+              false)
+            SpeedDialChild(
+              label: 'Book Appointment',
+              icon: Icons.calendar_month_outlined,
+              color: const Color(0xFF0D5D9A),
+              onTap: () => _changePage(2, forceBooking: true),
+            ),
+        ],
+      ),
+      body: Row(
+        children: [
+          // Sidebar (only on desktop)
+          if (!isMobile) _buildSidebar(context),
+
+          // Main Content Area
+          Expanded(
+            child: Column(
+              children: [
+                _buildHeader(context, isMobile),
+                Expanded(child: _buildMainContent(isMobile)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -222,18 +206,15 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             patients: _dbPatients,
             isLoading: _isLoadingPatients,
             error: _patientError,
-            onRegisterPatient: () =>
-                setState(() => _isRegisteringPatient = true),
-            onCompleteProfile: (patient) => setState(() {
-              _patientToComplete = patient;
-              _isRegisteringPatient = true;
-            }),
-            onBookAppointment: (patient) => setState(() {
-              _selectedIndex = 2;
-              _isRegisteringPatient = false;
-              _forceBookingForm = true;
-              _selectedPatientForBooking = patient;
-            }),
+            onRegisterPatient: () => _changePage(1, isRegistering: true),
+            onCompleteProfile: (patient) {
+              setState(() => _patientToComplete = patient);
+              _changePage(1, isRegistering: true);
+            },
+            onBookAppointment: (patient) {
+              setState(() => _selectedPatientForBooking = patient);
+              _changePage(2, forceBooking: true);
+            },
             onRefresh: _fetchPatients,
           );
         }
@@ -257,11 +238,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 3:
         return DoctorsView(
           onBookAppointment: (doctor) {
-            setState(() {
-              _selectedDoctorForBooking = doctor;
-              _forceBookingForm = true;
-              _selectedIndex = 2; // Appointments index
-            });
+            setState(() => _selectedDoctorForBooking = doctor);
+            _changePage(2, forceBooking: true);
           },
         );
       case 4:
@@ -283,8 +261,6 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           const SizedBox(height: 24),
           if (isMobile) ...[
             _buildAlertsSection(),
-            const SizedBox(height: 24),
-            _buildQuickActions(),
             const SizedBox(height: 24),
             _buildRecentPatients(),
             const SizedBox(height: 24),
@@ -308,8 +284,6 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   flex: 1,
                   child: Column(
                     children: [
-                      _buildQuickActions(),
-                      const SizedBox(height: 24),
                       _buildUpcomingAppointments(),
                     ],
                   ),
@@ -409,37 +383,6 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Bottom Quick Actions Area
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.backgroundColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Quick Actions',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textSecondaryColor,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          _buildSmallAction('Quick Search', '/'),
-                          if (user?.hasPermission('add_patient') ?? false)
-                            _buildSmallAction('New Patient', 'Alt+N'),
-                          if (user?.hasPermission('book_appointment') ?? false)
-                            _buildSmallAction('Book Appl.', 'Alt+B'),
-                        ],
-                      ),
-                    ),
-                  ),
-
                   // User Profile Area
                   Padding(
                     padding: const EdgeInsets.all(24.0),
@@ -506,10 +449,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   Widget _buildSidebarItem(int index, IconData icon, String label) {
     bool isSelected = _selectedIndex == index;
     return InkWell(
-      onTap: () => setState(() {
-        _selectedIndex = index;
-        _isRegisteringPatient = false;
-      }),
+      onTap: () => _changePage(index),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -540,39 +480,6 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSmallAction(String label, String shortcut) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppTheme.textSecondaryColor,
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Text(
-              shortcut,
-              style: const TextStyle(
-                fontSize: 9,
-                color: AppTheme.textSecondaryColor,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -611,14 +518,19 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 border: Border.all(color: AppTheme.borderColor),
               ),
               child: TextFormField(
+                textAlignVertical: TextAlignVertical.center,
                 decoration: InputDecoration(
+                  isCollapsed: true,
                   hintText: isMobile ? 'Search...' : 'Quick search...',
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  suffixText: isMobile ? null : '/',
-                  suffixStyle: const TextStyle(color: AppTheme.iconColor),
+                  hintStyle: const TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+                  prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
                   fillColor: Colors.transparent,
                   filled: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  contentPadding: const EdgeInsets.only(top: 2),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
@@ -688,7 +600,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     final int todaysApptsCount = _dbAppointments
         .where(
           (a) =>
-              a.appointmentDate == today || a.appointmentDate.startsWith(today),
+              (a.appointmentDate == today || a.appointmentDate.startsWith(today)) &&
+              a.status.toLowerCase() != 'cancelled',
         )
         .length;
 
@@ -869,64 +782,6 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildQuickActions() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryColor,
-        borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppTheme.primaryColor, Color(0xFF0D4D7A)],
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Quick Actions',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildActionButton(
-            Icons.person_add_outlined,
-            'Register New Patient',
-            () {
-              setState(() {
-                _selectedIndex = 1;
-                _isRegisteringPatient = true;
-              });
-            },
-          ),
-          _buildActionButton(
-            Icons.calendar_month_outlined,
-            'Book Appointment',
-            () => setState(() {
-              _selectedIndex = 2;
-              _isRegisteringPatient = false;
-              _forceBookingForm = true;
-            }),
-          ),
-          _buildActionButton(
-            Icons.medical_services_outlined,
-            'Check Inventory',
-            () {},
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, String label, VoidCallback onTap) {
-    return QuickActionButton(icon: icon, label: label, onTap: onTap);
   }
 
   Widget _buildRecentPatients() {

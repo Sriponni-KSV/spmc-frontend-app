@@ -1061,75 +1061,82 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         children: [
           // Logo Section
           Container(
-            padding: const EdgeInsets.only(left: 24, top: 32, bottom: 24, right: 24),
+            padding: const EdgeInsets.only(left: 24, top: 0, bottom: 0, right: 24),
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1)),
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Image.asset('assets/image/sriPonniLogo.png', width: 32, height: 32),
-                ),
-                const SizedBox(width: 12),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('SRI PONNI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
-                    Text('ADMIN PORTAL', style: TextStyle(fontSize: 10, letterSpacing: 1, color: AppTheme.textSecondaryColor)),
-                  ],
+                Image.asset(
+                  'assets/image/full_logo.png',
+                  width: 100,
+                  height: 89,
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          
-          // Navigation Items
-          _buildSidebarItem(0, Icons.admin_panel_settings_outlined, 'Control Panel'),
-          _buildSidebarItem(1, Icons.people_outline, 'Staff Management'),
-          _buildSidebarItem(2, Icons.sick_outlined, 'Patient Management'),
-          _buildSidebarItem(3, Icons.security_outlined, 'Access Control'),
-          _buildSidebarItem(4, Icons.calendar_month_outlined, 'Appointment Management'),
-          _buildSidebarItem(5, Icons.monitor_heart_outlined, 'OPD Management'),
-          
-          const Spacer(),
-          
-          // User Profile Area
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Consumer<AuthProvider>(
-              builder: (context, auth, _) {
-                final user = auth.user;
-                if (user == null) return const SizedBox.shrink();
-                return Row(
-                  children: [
-                    const CircleAvatar(
-                      backgroundColor: Colors.blueGrey,
-                      radius: 18,
-                      child: Icon(Icons.person, color: Colors.white, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
-                          Text(user.role, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
-                      onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
-                    ),
-                  ],
-                );
-              },
+
+          // Navigation Items (Scrollable)
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Column(
+                children: [
+                  _buildSidebarItem(0, Icons.admin_panel_settings_outlined, 'Control Panel'),
+                  _buildSidebarItem(1, Icons.people_outline, 'Staff Management'),
+                  _buildSidebarItem(2, Icons.sick_outlined, 'Patient Management'),
+                  _buildSidebarItem(3, Icons.security_outlined, 'Access Control'),
+                  _buildSidebarItem(4, Icons.calendar_month_outlined, 'Appointments'),
+                  _buildSidebarItem(5, Icons.monitor_heart_outlined, 'OPD Management'),
+                ],
+              ),
             ),
+          ),
+
+          // User Profile Footer
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Consumer<AuthProvider>(
+                  builder: (context, auth, _) {
+                    final user = auth.user;
+                    if (user == null) return const SizedBox.shrink();
+                    return Row(
+                      children: [
+                        const CircleAvatar(
+                          backgroundColor: AppTheme.primaryColor,
+                          radius: 18,
+                          child: Icon(Icons.person, color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user.fullname,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                user.role,
+                                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
+                          onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1201,13 +1208,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: TextFormField(
                 textAlignVertical: TextAlignVertical.center,
                 decoration: InputDecoration(
+                  isCollapsed: true,
                   hintText: isMobile ? 'Search...' : 'Quick search...',
-                  prefixIcon: const Icon(Icons.search, size: 20),
+                  hintStyle: const TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+                  prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
                   suffixText: isMobile ? null : '/',
                   suffixStyle: const TextStyle(color: AppTheme.iconColor),
                   fillColor: Colors.transparent,
                   filled: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  contentPadding: const EdgeInsets.only(top: 2),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,

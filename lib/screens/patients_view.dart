@@ -49,6 +49,8 @@ class _PatientsViewState extends State<PatientsView> {
   String _selectedGender = 'All Genders';
   String _selectedLastVisit = 'Any Time';
   String _selectedStatus = 'All Status';
+  int _currentPage = 0;
+  final int _itemsPerPage = 10;
 
   @override
   void initState() {
@@ -65,6 +67,7 @@ class _PatientsViewState extends State<PatientsView> {
         return p.name.toLowerCase().contains(q) ||
             p.phone.toLowerCase().contains(q);
       }).toList();
+      // Reset to first page when searching
     }
 
     // Age Range filter
@@ -324,7 +327,10 @@ class _PatientsViewState extends State<PatientsView> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
-                    onChanged: (val) => setState(() => _searchQuery = val),
+                    onChanged: (val) => setState(() {
+                      _searchQuery = val;
+                      _currentPage = 0;
+                    }),
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -438,7 +444,10 @@ class _PatientsViewState extends State<PatientsView> {
                       Expanded(
                         child: TextField(
                           onChanged: (val) =>
-                              setState(() => _searchQuery = val),
+                              setState(() {
+                                _searchQuery = val;
+                                _currentPage = 0;
+                              }),
                           decoration: const InputDecoration(
                             hintText:
                                 'Search by name, mobile number, department...',
@@ -528,7 +537,10 @@ class _PatientsViewState extends State<PatientsView> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
-                    onChanged: (val) => setState(() => _searchQuery = val),
+                    onChanged: (val) => setState(() {
+                      _searchQuery = val;
+                      _currentPage = 0;
+                    }),
                     decoration: const InputDecoration(
                       hintText:
                           'Search by name or mobile number...',
@@ -692,7 +704,20 @@ class _PatientsViewState extends State<PatientsView> {
   }
 
   Widget _buildPatientsTable(bool isMobile, bool isTablet) {
-    final patients = _filteredPatients;
+    final allFilteredPatients = _filteredPatients;
+    final totalPatients = allFilteredPatients.length;
+    final totalPages = (totalPatients / _itemsPerPage).ceil();
+
+    // Ensure _currentPage is within valid range
+    if (_currentPage >= totalPages && totalPages > 0) {
+      _currentPage = totalPages - 1;
+    }
+    if (_currentPage < 0) _currentPage = 0;
+
+    final patients = allFilteredPatients
+        .skip(_currentPage * _itemsPerPage)
+        .take(_itemsPerPage)
+        .toList();
 
     if (isMobile || isTablet) {
       if (widget.isLoading) {
@@ -701,21 +726,27 @@ class _PatientsViewState extends State<PatientsView> {
           child: Center(child: CircularProgressIndicator()),
         );
       }
-      if (patients.isEmpty) {
+      if (allFilteredPatients.isEmpty) {
         return const Padding(
           padding: EdgeInsets.all(32.0),
           child: Center(child: Text('No patients found')),
         );
       }
 
-      return ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: patients.length,
-        separatorBuilder: (_, __) => SizedBox(height: isMobile ? 10 : 12),
-        itemBuilder: (context, index) {
-          return _buildPatientCardMobile(patients[index]);
-        },
+      return Column(
+        children: [
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: patients.length,
+            separatorBuilder: (_, __) => SizedBox(height: isMobile ? 10 : 12),
+            itemBuilder: (context, index) {
+              return _buildPatientCardMobile(patients[index]);
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildPaginationControls(totalPages, isMobile),
+        ],
       );
     }
 
@@ -759,7 +790,7 @@ class _PatientsViewState extends State<PatientsView> {
               padding: EdgeInsets.all(32.0),
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (patients.isEmpty)
+          else if (allFilteredPatients.isEmpty)
             const Padding(
               padding: EdgeInsets.all(32.0),
               child: Center(child: Text('No patients found')),
@@ -791,11 +822,17 @@ class _PatientsViewState extends State<PatientsView> {
                     patient.isQuickRegister ? ['Quick'] : [],
                     isMobile,
                   ),
-
                   const Divider(height: 1),
                 ],
               );
             }).toList(),
+          if (totalPages > 1) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildPaginationControls(totalPages, false),
+            ),
+          ],
         ],
       ),
     );
@@ -1417,28 +1454,40 @@ class _PatientsViewState extends State<PatientsView> {
                   'Age Range',
                   _selectedAgeRange,
                   ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'],
-                  (val) => setState(() => _selectedAgeRange = val!),
+                  (val) => setState(() {
+                    _selectedAgeRange = val!;
+                    _currentPage = 0;
+                  }),
                 ),
                 const SizedBox(height: 14),
                 _buildFilterDropdown(
                   'Gender',
                   _selectedGender,
                   ['All Genders', 'Male', 'Female', 'Other'],
-                  (val) => setState(() => _selectedGender = val!),
+                  (val) => setState(() {
+                    _selectedGender = val!;
+                    _currentPage = 0;
+                  }),
                 ),
                 const SizedBox(height: 14),
                 _buildFilterDropdown(
                   'Last Visit',
                   _selectedLastVisit,
                   ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'],
-                  (val) => setState(() => _selectedLastVisit = val!),
+                  (val) => setState(() {
+                    _selectedLastVisit = val!;
+                    _currentPage = 0;
+                  }),
                 ),
                 const SizedBox(height: 14),
                 _buildFilterDropdown(
                   'Status',
                   _selectedStatus,
                   ['All Status', 'Active', 'Inactive'],
-                  (val) => setState(() => _selectedStatus = val!),
+                  (val) => setState(() {
+                    _selectedStatus = val!;
+                    _currentPage = 0;
+                  }),
                 ),
               ],
             )
@@ -1452,7 +1501,10 @@ class _PatientsViewState extends State<PatientsView> {
                         'Age Range',
                         _selectedAgeRange,
                         ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'],
-                        (val) => setState(() => _selectedAgeRange = val!),
+                        (val) => setState(() {
+                          _selectedAgeRange = val!;
+                          _currentPage = 0;
+                        }),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1461,7 +1513,10 @@ class _PatientsViewState extends State<PatientsView> {
                         'Gender',
                         _selectedGender,
                         ['All Genders', 'Male', 'Female', 'Other'],
-                        (val) => setState(() => _selectedGender = val!),
+                        (val) => setState(() {
+                          _selectedGender = val!;
+                          _currentPage = 0;
+                        }),
                       ),
                     ),
                   ],
@@ -1479,7 +1534,10 @@ class _PatientsViewState extends State<PatientsView> {
                           'Last 30 Days',
                           'This Year',
                         ],
-                        (val) => setState(() => _selectedLastVisit = val!),
+                        (val) => setState(() {
+                          _selectedLastVisit = val!;
+                          _currentPage = 0;
+                        }),
                       ),
                     ),
                     Expanded(
@@ -1487,7 +1545,10 @@ class _PatientsViewState extends State<PatientsView> {
                         'Status',
                         _selectedStatus,
                         ['All Status', 'Active', 'Inactive'],
-                        (val) => setState(() => _selectedStatus = val!),
+                        (val) => setState(() {
+                          _selectedStatus = val!;
+                          _currentPage = 0;
+                        }),
                       ),
                     ),
                   ],
@@ -1501,7 +1562,10 @@ class _PatientsViewState extends State<PatientsView> {
                     'Age Range',
                     _selectedAgeRange,
                     ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'],
-                    (val) => setState(() => _selectedAgeRange = val!),
+                    (val) => setState(() {
+                      _selectedAgeRange = val!;
+                      _currentPage = 0;
+                    }),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1510,7 +1574,10 @@ class _PatientsViewState extends State<PatientsView> {
                     'Gender',
                     _selectedGender,
                     ['All Genders', 'Male', 'Female', 'Other'],
-                    (val) => setState(() => _selectedGender = val!),
+                    (val) => setState(() {
+                      _selectedGender = val!;
+                      _currentPage = 0;
+                    }),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1519,7 +1586,10 @@ class _PatientsViewState extends State<PatientsView> {
                     'Last Visit',
                     _selectedLastVisit,
                     ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'],
-                    (val) => setState(() => _selectedLastVisit = val!),
+                    (val) => setState(() {
+                      _selectedLastVisit = val!;
+                      _currentPage = 0;
+                    }),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1528,7 +1598,10 @@ class _PatientsViewState extends State<PatientsView> {
                     'Status',
                     _selectedStatus,
                     ['All Status', 'Active', 'Inactive'],
-                    (val) => setState(() => _selectedStatus = val!),
+                    (val) => setState(() {
+                      _selectedStatus = val!;
+                      _currentPage = 0;
+                    }),
                   ),
                 ),
               ],
@@ -1632,6 +1705,7 @@ class _PatientsViewState extends State<PatientsView> {
         return StatefulBuilder(
           builder: (context, setState) {
             return Dialog(
+              backgroundColor: const Color(0xFFF8FAFC),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -1651,9 +1725,15 @@ class _PatientsViewState extends State<PatientsView> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Header
-                        Padding(
+                        Container(
                           padding: const EdgeInsets.all(24.0),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(16),
+                              topRight: Radius.circular(16),
+                            ),
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2356,6 +2436,78 @@ class _PatientsViewState extends State<PatientsView> {
             ? Icon(icon, size: 18, color: AppTheme.textSecondaryColor)
             : null,
         isDense: true,
+      ),
+    );
+  }
+
+  Widget _buildPaginationControls(int totalPages, bool isMobile) {
+    if (totalPages <= 1) return const SizedBox.shrink();
+
+    return Padding(
+      padding: EdgeInsets.only(right: isMobile ? 0 : 80),
+      child: Row(
+        mainAxisAlignment:
+            isMobile ? MainAxisAlignment.center : MainAxisAlignment.end,
+        children: [
+          Text(
+            'Page ${_currentPage + 1} of $totalPages',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSecondaryColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 16),
+          OutlinedButton(
+            onPressed: _currentPage > 0
+                ? () => setState(() => _currentPage--)
+                : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(80, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              side: BorderSide(
+                color: _currentPage > 0
+                    ? AppTheme.primaryColor
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.chevron_left, size: 18),
+                Text('Prev'),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: _currentPage < totalPages - 1
+                ? () => setState(() => _currentPage++)
+                : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(80, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              side: BorderSide(
+                color: _currentPage < totalPages - 1
+                    ? AppTheme.primaryColor
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text('Next'),
+                Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -3687,6 +3839,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
       ),
     );
   }
+
 }
 
 class _VitalItem {

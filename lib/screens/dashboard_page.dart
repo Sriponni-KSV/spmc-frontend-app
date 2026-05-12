@@ -175,8 +175,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         setState(() {
           _doctorAppointments = allAppointments.where((appt) {
-            return appt.doctorName.toLowerCase() ==
-                user?.fullname.toLowerCase();
+            final docName = appt.doctorName.toLowerCase().trim();
+            final userName = (user?.fullname ?? '').toLowerCase().trim();
+            
+            // Match exact name OR name before hyphen OR name before specialization
+            return docName == userName || 
+                   docName.startsWith(userName + ' ') || 
+                   (docName.contains(' - ') && docName.split(' - ')[0].trim() == userName);
           }).toList();
           _isLoading = false;
         });
@@ -2030,9 +2035,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: Column(
         children: [
+          // Logo Section
           Container(
-            height: 90,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.only(left: 24, top: 0, bottom: 0, right: 24),
             decoration: const BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: AppTheme.borderColor, width: 1),
@@ -2049,6 +2054,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
+          // Navigation Items (Scrollable)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -2061,37 +2067,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
+          // User Profile Footer
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.backgroundColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Quick Actions',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textSecondaryColor,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildSmallAction('Quick Search', '/'),
-                      _buildSmallAction('New Prescription', 'Alt+N'),
-                      _buildSmallAction('Schedule', 'Alt+S'),
-                    ],
-                  ),
-                ),
-              ),
-
               Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Consumer<AuthProvider>(
@@ -2196,42 +2175,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSmallAction(String label, String shortcut) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppTheme.textSecondaryColor,
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Text(
-              shortcut,
-              style: const TextStyle(
-                fontSize: 9,
-                color: AppTheme.textSecondaryColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildHeader(bool isMobile, String name) {
     return Container(
-      height: 70,
+      height: isMobile ? 80 : 90,
       padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -2258,14 +2204,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 border: Border.all(color: AppTheme.borderColor),
               ),
               child: TextField(
+                textAlignVertical: TextAlignVertical.center,
                 decoration: InputDecoration(
+                  isCollapsed: true,
                   hintText: isMobile ? 'Search...' : 'Quick search...',
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  suffixText: isMobile ? null : '/',
-                  suffixStyle: const TextStyle(color: AppTheme.iconColor),
+                  hintStyle: const TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+                  prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
                   fillColor: Colors.transparent,
                   filled: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  contentPadding: const EdgeInsets.only(top: 2),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
@@ -2333,10 +2284,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final todayStr = DateFormat('dd/MM/yyyy').format(now);
 
     final int todayCount = _doctorAppointments
-        .where((a) => a.appointmentDate == todayStr)
+        .where((a) => a.appointmentDate == todayStr || a.appointmentDate.startsWith(todayStr))
         .length;
     final int confirmedCount = _doctorAppointments
-        .where((a) => a.status == 'Confirmed')
+        .where((a) => a.status == 'Confirmed' || a.status == 'Scheduled')
         .length;
     final int totalPatients = _doctorAppointments.length;
 
@@ -2449,11 +2400,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildPatientsTable() {
     final filteredAppts = _doctorAppointments.where((a) {
-      if (a.status != 'Confirmed' && a.status != 'Completed') return false;
+      // Show all appointments except Cancelled ones
+      if (a.status.toLowerCase() == 'cancelled') return false;
       if (_selectedDate == null) return true;
 
       final String todayStr = DateFormat('dd/MM/yyyy').format(_selectedDate!);
-      return a.appointmentDate == todayStr;
+      return a.appointmentDate == todayStr || a.appointmentDate.startsWith(todayStr);
     }).toList();
 
     return Container(

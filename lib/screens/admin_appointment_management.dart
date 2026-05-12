@@ -874,7 +874,8 @@ class _AdminAppointmentManagementState
                       ])),
                       DataCell(Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(appt.doctorName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        Text('ID: ${appt.doctorDisplayId ?? "—"}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                        if (appt.doctorDisplayId != null && appt.doctorDisplayId!.isNotEmpty)
+                          Text('ID: ${appt.doctorDisplayId}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
                       ])),
                       DataCell(Text(appt.department, style: const TextStyle(fontSize: 13))),
                       DataCell(Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [

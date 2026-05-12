@@ -441,7 +441,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(app.doctorName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          Text('ID: ${app.doctorDisplayId ?? "—"}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                          if (app.doctorDisplayId != null && app.doctorDisplayId!.isNotEmpty)
+                            Text('ID: ${app.doctorDisplayId}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
                         ],
                       )),
                       DataCell(_buildStatusBadge(app.status)),
@@ -502,7 +503,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(app.patientName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      Text('Doctor: ${app.doctorName} (${app.doctorDisplayId ?? "—"})', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor)),
+                      Text(
+                        app.doctorDisplayId != null && app.doctorDisplayId!.isNotEmpty
+                            ? 'Doctor: ${app.doctorName} (${app.doctorDisplayId})'
+                            : 'Doctor: ${app.doctorName}',
+                        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                      ),
                     ],
                   ),
                 ),
