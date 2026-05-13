@@ -2539,11 +2539,14 @@ class _PatientDetailViewState extends State<PatientDetailView>
   List<AppointmentModel> _patientAppointments = [];
   bool _isLoadingConsultations = true;
   bool _isLoadingAppointments = false;
+  bool _isShowingInsights = false;
+  bool _isSavingInsights = false;
+  final GlobalKey<PatientInsightsFormState> _insightsFormKey = GlobalKey<PatientInsightsFormState>();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: 1);
     _fetchData();
   }
 
@@ -2616,6 +2619,91 @@ class _PatientDetailViewState extends State<PatientDetailView>
     final bool isMobile = screenWidth < 850;
     final bool isTablet = screenWidth >= 850 && screenWidth < 1200;
     final p = widget.patient;
+
+    if (_isShowingInsights) {
+      return SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(isMobile ? 12.0 : (isTablet ? 16.0 : 24.0)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                onTap: () => setState(() => _isShowingInsights = false),
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.arrow_back, size: 18, color: AppTheme.primaryColor),
+                      SizedBox(width: 8),
+                      Text(
+                        'Back to Profile',
+                        style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Patient Insights',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                      ),
+                      Text(
+                        'Interview for ${p.name}',
+                        style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+                      ),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _isSavingInsights 
+                      ? null 
+                      : () async {
+                          setState(() => _isSavingInsights = true);
+                          try {
+                            final success = await _insightsFormKey.currentState?.saveInsights();
+                            if (success == true) {
+                              setState(() {
+                                _isShowingInsights = false;
+                                _isSavingInsights = false;
+                              });
+                            } else {
+                              setState(() => _isSavingInsights = false);
+                            }
+                          } catch (e) {
+                            setState(() => _isSavingInsights = false);
+                          }
+                        },
+                    icon: _isSavingInsights 
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.check, size: 18),
+                    label: Text(_isSavingInsights ? 'Saving...' : 'Save Insights'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF38A169),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                height: 600, // Fixed height for the scrollable form
+                child: PatientInsightsForm(key: _insightsFormKey, patient: p),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -2837,6 +2925,13 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 ),
                 const SizedBox(width: 12),
                 _buildHeaderButton(
+                  Icons.lightbulb_outline,
+                  'Patient Insights',
+                  onTap: () => setState(() => _isShowingInsights = true),
+                  isPrimary: false,
+                ),
+                const SizedBox(width: 12),
+                _buildHeaderButton(
                   Icons.description_outlined,
                   'Add Notes',
                   isPrimary: false,
@@ -2964,6 +3059,14 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 Icons.calendar_month_outlined,
                 p.age < 18 ? 'Book Pediatric' : 'Book Appt.',
                 onTap: () => widget.onBookAppointment(p),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildHeaderButton(
+                Icons.lightbulb_outline,
+                'Insights',
+                onTap: () => setState(() => _isShowingInsights = true),
               ),
             ),
             const SizedBox(width: 8),
@@ -3840,7 +3943,388 @@ class _PatientDetailViewState extends State<PatientDetailView>
     );
   }
 
+  Widget _buildPatientInsightsTab(PatientModel p) {
+    return PatientInsightsForm(patient: p);
+  }
+
 }
+
+class PatientInsightsForm extends StatefulWidget {
+  final PatientModel patient;
+
+  const PatientInsightsForm({Key? key, required this.patient}) : super(key: key);
+
+  @override
+  State<PatientInsightsForm> createState() => PatientInsightsFormState();
+}
+
+class PatientInsightsFormState extends State<PatientInsightsForm> {
+  final Map<String, TextEditingController> _controllers = {};
+  final PatientController _apiController = PatientController();
+  bool _isLoading = true;
+
+  final List<Map<String, dynamic>> insightCategories = [
+// ... (omitted for brevity, will include full content in replacement)
+    {
+      'category': 'Recovery',
+      'icon': Icons.healing_outlined,
+      'color': Colors.blue,
+      'questions': [
+        {'q': 'What is the one activity that makes you lose track of time?', 'data': 'Primary Hobby', 'why': 'Used for physical therapy to speed up recovery.'},
+        {'q': 'What music always lifts your mood?', 'data': 'Auditory Anchor', 'why': 'Played during painful treatments to naturally lower stress.'},
+        {'q': 'Are you an early riser or a night owl?', 'data': 'Sleep Cycle', 'why': 'Used to schedule nursing tasks when patient is naturally awake.'},
+        {'q': 'What is your favorite childhood comfort food?', 'data': 'Palate Preference', 'why': 'Served if patient stops eating due to illness to keep strength up.'},
+      ]
+    },
+    {
+      'category': 'Social',
+      'icon': Icons.people_outline,
+      'color': Colors.indigo,
+      'questions': [
+        {'q': 'Who is the first person you call in an emergency?', 'data': 'Primary Caregiver', 'why': 'Used to send home-care instructions and bill alerts.'},
+      ]
+    },
+    {
+      'category': 'Safety',
+      'icon': Icons.security_outlined,
+      'color': Colors.orange,
+      'questions': [
+        {'q': 'How is your home set up—any stairs or narrow doors?', 'data': 'Home Architecture', 'why': 'Used to flag if home is "Not Safe" for a patient with a walker.'},
+        {'q': 'How do you usually get around (Bike, Car, Bus)?', 'data': 'Transit Mode', 'why': 'Used to set specific strength goals to safely return to transit.'},
+        {'q': 'Do you have any pets waiting for you at home?', 'data': 'Emotional Bond', 'why': 'Pet\'s name used to motivate walking during recovery.'},
+      ]
+    },
+    {
+      'category': 'Kitchen',
+      'icon': Icons.restaurant_outlined,
+      'color': Colors.red,
+      'questions': [
+        {'q': 'On a scale of 1-10, how spicy do you like your food?', 'data': 'Spice Tolerance', 'why': 'Used to tell the kitchen exactly how much chili to use.'},
+        {'q': 'How many meals do you usually eat in a day?', 'data': 'Portion Frequency', 'why': 'Used to plan kitchen cooking fire-up times.'},
+        {'q': 'Are there any specific grains (like Millets) you prefer?', 'data': 'Grain Type', 'why': 'Provides exact nutrition to prevent digestive issues.'},
+        {'q': 'Do you prefer coffee, tea, or milk in the morning?', 'data': 'Beverage Choice', 'why': 'Used to procure exact liters of milk daily.'},
+      ]
+    },
+    {
+      'category': 'Logistics',
+      'icon': Icons.local_shipping_outlined,
+      'color': Colors.teal,
+      'questions': [
+        {'q': 'Who usually cooks for you at home?', 'data': 'Caregiver Skill', 'why': 'Decides if "Ready-to-Eat" or "Raw Ingredients" are needed.'},
+        {'q': 'What time of day is best for a home visit?', 'data': 'Service Window', 'why': 'Optimizes home-care staff travel route to save fuel/time.'},
+        {'q': 'Do you prefer video updates or paper charts?', 'data': 'Literacy Type', 'why': 'Saves money on printing for tech-savvy patients.'},
+        {'q': 'How often do you buy groceries (Daily/Weekly)?', 'data': 'Supply Chain', 'why': 'Helps design a subscription model for food delivery.'},
+      ]
+    },
+    {
+      'category': 'Work',
+      'icon': Icons.work_outline,
+      'color': Colors.brown,
+      'questions': [
+        {'q': 'What kind of work have you done most of your life?', 'data': 'Career Strain', 'why': 'Predicts back/neck issues based on years of strain.'},
+        {'q': 'Have you worked around dust, chemicals, or loud noise?', 'data': 'Environmental Risk', 'why': 'Flags potential lung or hearing issues for doctors.'},
+      ]
+    },
+    {
+      'category': 'Lifestyle',
+      'icon': Icons.favorite_outline,
+      'color': Colors.pink,
+      'questions': [
+        {'q': 'What is your biggest health-related fear?', 'data': 'Psychological Trigger', 'why': 'Staff trained to talk with extra reassurance to prevent anxiety.'},
+        {'q': 'Do you fast for religious or personal reasons?', 'data': 'Fasting Calendar', 'why': 'Prevents cooking meals on fasting days.'},
+        {'q': 'What is one "Goal" you want to reach in 6 months?', 'data': 'Motivation Goal', 'why': 'Tracks recovery against dreams (e.g., "Walking to temple").'},
+      ]
+    },
+    {
+      'category': 'Physical',
+      'icon': Icons.directions_run_outlined,
+      'color': Colors.green,
+      'questions': [
+        {'q': 'How much water do you drink on a normal day?', 'data': 'Hydration Base', 'why': 'AI alerts nurse if below "Base" amount (Dehydration Risk).'},
+        {'q': 'In one word, how is your energy today?', 'data': 'Baseline Vitality', 'why': 'Tracks slow decline in health over time.'},
+      ]
+    },
+    {
+      'category': 'Financial',
+      'icon': Icons.account_balance_wallet_outlined,
+      'color': Colors.deepPurple,
+      'questions': [
+        {'q': 'Do you prefer the most effective or most budget-friendly option?', 'data': 'Price Sensitivity', 'why': 'Suggests affordable medicines to ensure treatment completion.'},
+      ]
+    },
+    {
+      'category': 'Behavior',
+      'icon': Icons.psychology_outlined,
+      'color': Colors.deepOrange,
+      'questions': [
+        {'q': 'Do you prefer to be around people or have a quiet room?', 'data': 'Social Density', 'why': 'Places "Social" patients in shared wards to help recovery.'},
+      ]
+    }
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize controllers
+    for (var cat in insightCategories) {
+      for (var q in cat['questions']) {
+        _controllers[q['q']] = TextEditingController();
+      }
+    }
+    _fetchInsights();
+  }
+
+  Future<void> _fetchInsights() async {
+    if (widget.patient.id == null) return;
+    try {
+      final insights = await _apiController.fetchPatientInsights(widget.patient.id!);
+      if (mounted) {
+        setState(() {
+          insights.forEach((key, value) {
+            if (_controllers.containsKey(key)) {
+              _controllers[key]!.text = value.toString();
+            }
+          });
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching insights: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<bool> saveInsights() async {
+    if (widget.patient.id == null) return false;
+    
+    try {
+      final Map<String, String> data = {};
+      _controllers.forEach((key, controller) {
+        if (controller.text.trim().isNotEmpty) {
+          data[key] = controller.text.trim();
+        }
+      });
+
+      await _apiController.savePatientInsights(widget.patient.id!, data);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Patient insights saved successfully!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving insights: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  @override
+  void dispose() {
+// ... (omitted)
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading patient insights...', style: TextStyle(color: AppTheme.textSecondaryColor)),
+          ],
+        ),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: insightCategories.length,
+      itemBuilder: (context, index) {
+        final cat = insightCategories[index];
+        return _buildInsightCategory(cat, _controllers);
+      },
+    );
+  }
+
+  Widget _buildInsightCategory(Map<String, dynamic> cat, Map<String, TextEditingController> controllers) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: false,
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: (cat['color'] as Color).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(cat['icon'] as IconData, color: cat['color'] as Color, size: 20),
+        ),
+        title: Text(
+          cat['category'],
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: AppTheme.textPrimaryColor,
+          ),
+        ),
+        subtitle: Text(
+          '${(cat['questions'] as List).length} questions to ask',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppTheme.textSecondaryColor.withOpacity(0.8),
+          ),
+        ),
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: (cat['questions'] as List).map<Widget>((q) {
+          final String qKey = q['q'];
+          return Container(
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.help_outline, size: 16, color: AppTheme.primaryColor),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        q['q'],
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E293B),
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'ANSWER',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF64748B),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: controllers[qKey],
+                  maxLines: null,
+                  decoration: InputDecoration(
+                    hintText: 'Type patient\'s response here...',
+                    hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                    ),
+                  ),
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF334155)),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'DATA CAPTURED',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
+                          Text(
+                            q['data'],
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'WHY WE ASK',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
+                          Text(
+                            q['why'],
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
 
 class _VitalItem {
   final String label;

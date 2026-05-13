@@ -93,6 +93,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       final doctors = await _adminController.fetchStaff(role: 'Doctor');
       final appointments = await _appointmentController.fetchAppointments();
       final specializations = await _adminController.fetchSpecializations();
+      if (!mounted) return;
       setState(() {
         _patients = patients;
         _doctors = doctors;
@@ -136,6 +137,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         _isLoadingData = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.toString();
         _isLoadingData = false;
@@ -2282,9 +2284,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 _buildTableHeader('Time', flex: 2),
                 _buildTableHeader('Date', flex: 2),
                 _buildTableHeader('Patient', flex: 3),
-                _buildTableHeader('Doctor', flex: 3),
                 _buildTableHeader('Type', flex: 2),
                 _buildTableHeader('Department', flex: 2),
+                _buildTableHeader('Doctor', flex: 3),
                 _buildTableHeader('Reason', flex: 2),
                 _buildTableHeader('Status', flex: 2),
                 _buildTableHeader('Actions', flex: 3, leftPadding: 16),
@@ -2629,33 +2631,6 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           ),
           Expanded(
-            flex: 3,
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.medical_services_outlined,
-                  size: 16,
-                  color: Color(0xFF94A3B8),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 12.0),
-                    child: Text(
-                      doctorDisplayId != null && doctorDisplayId.isNotEmpty
-                          ? '$doctorName ($doctorDisplayId)'
-                          : doctorName,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF475569),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
             flex: 2,
             child: Padding(
               padding: const EdgeInsets.only(right: 12.0),
@@ -2685,6 +2660,33 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.medical_services_outlined,
+                  size: 16,
+                  color: Color(0xFF94A3B8),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 12.0),
+                    child: Text(
+                      doctorDisplayId != null && doctorDisplayId.isNotEmpty
+                          ? '$doctorName ($doctorDisplayId)'
+                          : doctorName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(

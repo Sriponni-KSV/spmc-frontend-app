@@ -242,12 +242,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             height: 52,
             child: ElevatedButton(
               onPressed: () async {
-                if (_symptomsController.text.isEmpty && _diagnosisController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter symptoms or diagnosis'), backgroundColor: Colors.orange),
-                  );
-                  return;
-                }
+                // All fields are optional as per user request
 
                 setState(() => _isLoadingVitals = true);
                 try {
