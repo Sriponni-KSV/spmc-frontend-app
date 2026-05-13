@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
 import '../models/patient_model.dart';
 import '../services/api_service.dart';
 
@@ -116,4 +117,38 @@ class PatientController {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
-}
+  /// Save patient insights
+  Future<void> savePatientInsights(int patientId, Map<String, String> insights) async {
+    try {
+      final url = '$baseUrl/patients/$patientId/insights';
+      final response = await ApiService.post(
+        url,
+        {'insights': insights},
+      );
+
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode != 200) {
+        throw Exception(body['error'] ?? body['message'] ?? 'Failed to save insights');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch patient insights
+  Future<Map<String, dynamic>> fetchPatientInsights(int patientId) async {
+    try {
+      final response = await ApiService.get('$baseUrl/patients/$patientId/insights');
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        return body['data'] ?? {};
+      }
+      return {};
+    } catch (e) {
+      print('Error fetching insights: $e');
+      return {};
+    }
+  }
+}

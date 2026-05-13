@@ -131,17 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Container(
                         width: 550,
                         padding: const EdgeInsets.all(48.0),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cardColor,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 32,
-                              offset: const Offset(0, 16),
-                            ),
-                          ],
-                        ),
+                        decoration: AppTheme.cardDecoration,
                         child: _buildForm(context, showMobileHeader: false, isLoading: isLoading),
                       ),
                     ),
@@ -344,6 +334,9 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         ElevatedButton(
           onPressed: isLoading ? null : _handleLogin,
+          style: AppTheme.primaryButton.copyWith(
+            minimumSize: MaterialStateProperty.all(const Size(double.infinity, 56)),
+          ),
           child: isLoading 
             ? const SizedBox(
                 width: 24, height: 24, 

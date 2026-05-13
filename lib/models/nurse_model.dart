@@ -11,6 +11,8 @@ class NurseModel {
   final String? totalExperience;
   final String? areasOfExpertise;
   final String? registrationCertificate;
+  final List<String>? weeklyOffDays;
+  final List<String>? specificLeaveDates;
 
   NurseModel({
     this.qualification,
@@ -25,6 +27,8 @@ class NurseModel {
     this.totalExperience,
     this.areasOfExpertise,
     this.registrationCertificate,
+    this.weeklyOffDays,
+    this.specificLeaveDates,
   });
 
   static List<String>? _parseList(dynamic val) {
@@ -54,6 +58,8 @@ class NurseModel {
       totalExperience: (json['total_experience'] ?? json['totalExperience'])?.toString(),
       areasOfExpertise: json['areas_of_expertise'] ?? json['areasOfExpertise'],
       registrationCertificate: json['registration_certificate'] ?? json['registrationCertificate'],
+      weeklyOffDays: _parseList(json['weekly_off_days'] ?? json['weeklyOffDays']),
+      specificLeaveDates: _parseList(json['specific_leave_dates'] ?? json['specificLeaveDates']),
     );
   }
 
@@ -71,6 +77,8 @@ class NurseModel {
       'total_experience': totalExperience,
       'areas_of_expertise': areasOfExpertise,
       'registration_certificate': registrationCertificate,
+      'weekly_off_days': weeklyOffDays,
+      'specific_leave_dates': specificLeaveDates,
     };
   }
 }

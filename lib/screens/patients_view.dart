@@ -21,7 +21,7 @@ class PatientsView extends StatefulWidget {
   final String? error;
   final VoidCallback onRegisterPatient;
   final Function(PatientModel) onCompleteProfile;
-  final VoidCallback onBookAppointment;
+  final Function(PatientModel) onBookAppointment;
   final VoidCallback? onRefresh;
 
   const PatientsView({
@@ -49,42 +49,12 @@ class _PatientsViewState extends State<PatientsView> {
   String _selectedGender = 'All Genders';
   String _selectedLastVisit = 'Any Time';
   String _selectedStatus = 'All Status';
-
-  List<String> _departments = [];
-  bool _isLoadingDepartments = true;
-  final AdminController _adminController = AdminController();
+  int _currentPage = 0;
+  final int _itemsPerPage = 10;
 
   @override
   void initState() {
     super.initState();
-    _fetchDepartments();
-  }
-
-  Future<void> _fetchDepartments() async {
-    try {
-      final specializations = await _adminController.fetchSpecializations();
-      if (mounted) {
-        setState(() {
-          _departments = specializations
-              .map((e) => e['name'].toString())
-              .toList();
-          _isLoadingDepartments = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error fetching departments in patients_view: $e');
-      if (mounted) {
-        setState(() {
-          _departments = [
-            'General Medicine',
-            'Cardiology',
-            'Pediatrics',
-            'Orthopedics',
-          ];
-          _isLoadingDepartments = false;
-        });
-      }
-    }
   }
 
   List<PatientModel> get _filteredPatients {
@@ -95,9 +65,9 @@ class _PatientsViewState extends State<PatientsView> {
       final q = _searchQuery.toLowerCase();
       filtered = filtered.where((p) {
         return p.name.toLowerCase().contains(q) ||
-            p.phone.toLowerCase().contains(q) ||
-            p.department.toLowerCase().contains(q);
+            p.phone.toLowerCase().contains(q);
       }).toList();
+      // Reset to first page when searching
     }
 
     // Age Range filter
@@ -139,6 +109,7 @@ class _PatientsViewState extends State<PatientsView> {
         patient: _selectedPatient!,
         onBack: () => setState(() => _selectedPatient = null),
         onCompleteProfile: widget.onCompleteProfile,
+        onBookAppointment: widget.onBookAppointment,
       );
     }
 
@@ -257,7 +228,7 @@ class _PatientsViewState extends State<PatientsView> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE53E3E),
+                backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 54),
                 elevation: 0,
@@ -305,7 +276,7 @@ class _PatientsViewState extends State<PatientsView> {
             icon: const Icon(Icons.add, size: 20),
             label: const Text('New Patient'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE53E3E),
+              backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
               minimumSize: Size(isTablet ? 100 : 120, 48),
               padding: EdgeInsets.symmetric(
@@ -356,7 +327,10 @@ class _PatientsViewState extends State<PatientsView> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
-                    onChanged: (val) => setState(() => _searchQuery = val),
+                    onChanged: (val) => setState(() {
+                      _searchQuery = val;
+                      _currentPage = 0;
+                    }),
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -369,6 +343,8 @@ class _PatientsViewState extends State<PatientsView> {
                         fontWeight: FontWeight.normal,
                       ),
                       border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
                       isDense: true,
                     ),
                   ),
@@ -452,8 +428,9 @@ class _PatientsViewState extends State<PatientsView> {
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0F4F8),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.borderColor),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Row(
@@ -467,7 +444,10 @@ class _PatientsViewState extends State<PatientsView> {
                       Expanded(
                         child: TextField(
                           onChanged: (val) =>
-                              setState(() => _searchQuery = val),
+                              setState(() {
+                                _searchQuery = val;
+                                _currentPage = 0;
+                              }),
                           decoration: const InputDecoration(
                             hintText:
                                 'Search by name, mobile number, department...',
@@ -476,6 +456,8 @@ class _PatientsViewState extends State<PatientsView> {
                               fontSize: 13,
                             ),
                             border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
                           ),
@@ -540,8 +522,9 @@ class _PatientsViewState extends State<PatientsView> {
           child: Container(
             height: 52,
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F4F8),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.borderColor),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -554,15 +537,20 @@ class _PatientsViewState extends State<PatientsView> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
-                    onChanged: (val) => setState(() => _searchQuery = val),
+                    onChanged: (val) => setState(() {
+                      _searchQuery = val;
+                      _currentPage = 0;
+                    }),
                     decoration: const InputDecoration(
                       hintText:
-                          'Search by name, mobile number, or department...',
+                          'Search by name or mobile number...',
                       hintStyle: TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 14,
                       ),
                       border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
                       isDense: true,
                     ),
                   ),
@@ -666,7 +654,7 @@ class _PatientsViewState extends State<PatientsView> {
                   initials: initials,
                   tags: patient.isQuickRegister ? ['Quick'] : [],
                   onView: () => setState(() => _selectedPatient = patient),
-                  onBook: widget.onBookAppointment,
+                  onBook: () => widget.onBookAppointment(patient),
                 ),
               )
             : isTablet
@@ -678,7 +666,7 @@ class _PatientsViewState extends State<PatientsView> {
                   initials: initials,
                   tags: patient.isQuickRegister ? ['Quick'] : [],
                   onView: () => setState(() => _selectedPatient = patient),
-                  onBook: widget.onBookAppointment,
+                  onBook: () => widget.onBookAppointment(patient),
                 ),
               )
             : PatientInfoCard(
@@ -687,7 +675,7 @@ class _PatientsViewState extends State<PatientsView> {
                 initials: initials,
                 tags: patient.isQuickRegister ? ['Quick'] : [],
                 onView: () => setState(() => _selectedPatient = patient),
-                onBook: widget.onBookAppointment,
+                onBook: () => widget.onBookAppointment(patient),
               ),
       );
 
@@ -716,7 +704,20 @@ class _PatientsViewState extends State<PatientsView> {
   }
 
   Widget _buildPatientsTable(bool isMobile, bool isTablet) {
-    final patients = _filteredPatients;
+    final allFilteredPatients = _filteredPatients;
+    final totalPatients = allFilteredPatients.length;
+    final totalPages = (totalPatients / _itemsPerPage).ceil();
+
+    // Ensure _currentPage is within valid range
+    if (_currentPage >= totalPages && totalPages > 0) {
+      _currentPage = totalPages - 1;
+    }
+    if (_currentPage < 0) _currentPage = 0;
+
+    final patients = allFilteredPatients
+        .skip(_currentPage * _itemsPerPage)
+        .take(_itemsPerPage)
+        .toList();
 
     if (isMobile || isTablet) {
       if (widget.isLoading) {
@@ -725,21 +726,27 @@ class _PatientsViewState extends State<PatientsView> {
           child: Center(child: CircularProgressIndicator()),
         );
       }
-      if (patients.isEmpty) {
+      if (allFilteredPatients.isEmpty) {
         return const Padding(
           padding: EdgeInsets.all(32.0),
           child: Center(child: Text('No patients found')),
         );
       }
 
-      return ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: patients.length,
-        separatorBuilder: (_, __) => SizedBox(height: isMobile ? 10 : 12),
-        itemBuilder: (context, index) {
-          return _buildPatientCardMobile(patients[index]);
-        },
+      return Column(
+        children: [
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: patients.length,
+            separatorBuilder: (_, __) => SizedBox(height: isMobile ? 10 : 12),
+            itemBuilder: (context, index) {
+              return _buildPatientCardMobile(patients[index]);
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildPaginationControls(totalPages, isMobile),
+        ],
       );
     }
 
@@ -772,8 +779,6 @@ class _PatientsViewState extends State<PatientsView> {
                   Expanded(flex: 2, child: _buildTableHeaderText('Mobile No')),
                 if (!isMobile)
                   Expanded(flex: 2, child: _buildTableHeaderText('Email')),
-                if (!isMobile)
-                  Expanded(flex: 2, child: _buildTableHeaderText('Department')),
                 Expanded(child: _buildTableHeaderText('Status')),
                 Expanded(flex: 2, child: _buildTableHeaderText('Actions')),
               ],
@@ -785,7 +790,7 @@ class _PatientsViewState extends State<PatientsView> {
               padding: EdgeInsets.all(32.0),
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (patients.isEmpty)
+          else if (allFilteredPatients.isEmpty)
             const Padding(
               padding: EdgeInsets.all(32.0),
               child: Center(child: Text('No patients found')),
@@ -812,17 +817,22 @@ class _PatientsViewState extends State<PatientsView> {
                     patient.gender,
                     patient.phone,
                     patient.email,
-                    patient.department,
                     'Active',
                     initials,
                     patient.isQuickRegister ? ['Quick'] : [],
                     isMobile,
                   ),
-
                   const Divider(height: 1),
                 ],
               );
             }).toList(),
+          if (totalPages > 1) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildPaginationControls(totalPages, false),
+            ),
+          ],
         ],
       ),
     );
@@ -930,7 +940,7 @@ class _PatientsViewState extends State<PatientsView> {
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        'Complete Profile',
+                                        'Complete',
                                         style: TextStyle(
                                           color: Color(0xFF7C3AED),
                                           fontSize: 10,
@@ -997,20 +1007,6 @@ class _PatientsViewState extends State<PatientsView> {
                       ),
                     ),
                     const Spacer(),
-                    const Icon(
-                      Icons.medical_services_outlined,
-                      size: 16,
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      patient.department,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimaryColor,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -1043,7 +1039,7 @@ class _PatientsViewState extends State<PatientsView> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: widget.onBookAppointment,
+                        onPressed: () => widget.onBookAppointment(patient),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
@@ -1107,7 +1103,6 @@ class _PatientsViewState extends State<PatientsView> {
     String gender,
     String contact,
     String email,
-    String department,
     String status,
     String initials,
     List<String> tags,
@@ -1206,7 +1201,7 @@ class _PatientsViewState extends State<PatientsView> {
                                         ),
                                         SizedBox(width: 4),
                                         Text(
-                                          'Complete Profile',
+                                          'Complete',
                                           style: TextStyle(
                                             color: Color(0xFF7C3AED),
                                             fontSize: 10,
@@ -1278,19 +1273,6 @@ class _PatientsViewState extends State<PatientsView> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-          if (!isMobile)
-            Expanded(
-              flex: 2,
-              child: Text(
-                department.isNotEmpty ? department : 'Not Provided',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isQuick
-                      ? const Color(0xFF553C9A)
-                      : const Color(0xFF4A5568),
-                ),
-              ),
-            ),
           Expanded(
             child: Align(
               alignment: Alignment.centerLeft,
@@ -1316,7 +1298,7 @@ class _PatientsViewState extends State<PatientsView> {
                     Icons.calendar_month_outlined,
                     'Book',
                     const Color(0xFF38A169),
-                    onTap: widget.onBookAppointment,
+                    onTap: () => widget.onBookAppointment(patient),
                   ),
                 _buildActionLabel(
                   Icons.edit_outlined,
@@ -1472,28 +1454,40 @@ class _PatientsViewState extends State<PatientsView> {
                   'Age Range',
                   _selectedAgeRange,
                   ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'],
-                  (val) => setState(() => _selectedAgeRange = val!),
+                  (val) => setState(() {
+                    _selectedAgeRange = val!;
+                    _currentPage = 0;
+                  }),
                 ),
                 const SizedBox(height: 14),
                 _buildFilterDropdown(
                   'Gender',
                   _selectedGender,
                   ['All Genders', 'Male', 'Female', 'Other'],
-                  (val) => setState(() => _selectedGender = val!),
+                  (val) => setState(() {
+                    _selectedGender = val!;
+                    _currentPage = 0;
+                  }),
                 ),
                 const SizedBox(height: 14),
                 _buildFilterDropdown(
                   'Last Visit',
                   _selectedLastVisit,
                   ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'],
-                  (val) => setState(() => _selectedLastVisit = val!),
+                  (val) => setState(() {
+                    _selectedLastVisit = val!;
+                    _currentPage = 0;
+                  }),
                 ),
                 const SizedBox(height: 14),
                 _buildFilterDropdown(
                   'Status',
                   _selectedStatus,
                   ['All Status', 'Active', 'Inactive'],
-                  (val) => setState(() => _selectedStatus = val!),
+                  (val) => setState(() {
+                    _selectedStatus = val!;
+                    _currentPage = 0;
+                  }),
                 ),
               ],
             )
@@ -1507,7 +1501,10 @@ class _PatientsViewState extends State<PatientsView> {
                         'Age Range',
                         _selectedAgeRange,
                         ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'],
-                        (val) => setState(() => _selectedAgeRange = val!),
+                        (val) => setState(() {
+                          _selectedAgeRange = val!;
+                          _currentPage = 0;
+                        }),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1516,7 +1513,10 @@ class _PatientsViewState extends State<PatientsView> {
                         'Gender',
                         _selectedGender,
                         ['All Genders', 'Male', 'Female', 'Other'],
-                        (val) => setState(() => _selectedGender = val!),
+                        (val) => setState(() {
+                          _selectedGender = val!;
+                          _currentPage = 0;
+                        }),
                       ),
                     ),
                   ],
@@ -1534,7 +1534,10 @@ class _PatientsViewState extends State<PatientsView> {
                           'Last 30 Days',
                           'This Year',
                         ],
-                        (val) => setState(() => _selectedLastVisit = val!),
+                        (val) => setState(() {
+                          _selectedLastVisit = val!;
+                          _currentPage = 0;
+                        }),
                       ),
                     ),
                     Expanded(
@@ -1542,7 +1545,10 @@ class _PatientsViewState extends State<PatientsView> {
                         'Status',
                         _selectedStatus,
                         ['All Status', 'Active', 'Inactive'],
-                        (val) => setState(() => _selectedStatus = val!),
+                        (val) => setState(() {
+                          _selectedStatus = val!;
+                          _currentPage = 0;
+                        }),
                       ),
                     ),
                   ],
@@ -1556,7 +1562,10 @@ class _PatientsViewState extends State<PatientsView> {
                     'Age Range',
                     _selectedAgeRange,
                     ['All Ages', 'Under 18', '18-35', '36-60', 'Over 60'],
-                    (val) => setState(() => _selectedAgeRange = val!),
+                    (val) => setState(() {
+                      _selectedAgeRange = val!;
+                      _currentPage = 0;
+                    }),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1565,7 +1574,10 @@ class _PatientsViewState extends State<PatientsView> {
                     'Gender',
                     _selectedGender,
                     ['All Genders', 'Male', 'Female', 'Other'],
-                    (val) => setState(() => _selectedGender = val!),
+                    (val) => setState(() {
+                      _selectedGender = val!;
+                      _currentPage = 0;
+                    }),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1574,7 +1586,10 @@ class _PatientsViewState extends State<PatientsView> {
                     'Last Visit',
                     _selectedLastVisit,
                     ['Any Time', 'Last 7 Days', 'Last 30 Days', 'This Year'],
-                    (val) => setState(() => _selectedLastVisit = val!),
+                    (val) => setState(() {
+                      _selectedLastVisit = val!;
+                      _currentPage = 0;
+                    }),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1583,7 +1598,10 @@ class _PatientsViewState extends State<PatientsView> {
                     'Status',
                     _selectedStatus,
                     ['All Status', 'Active', 'Inactive'],
-                    (val) => setState(() => _selectedStatus = val!),
+                    (val) => setState(() {
+                      _selectedStatus = val!;
+                      _currentPage = 0;
+                    }),
                   ),
                 ),
               ],
@@ -1669,7 +1687,6 @@ class _PatientsViewState extends State<PatientsView> {
   void _showQuickRegisterDialog(BuildContext context) {
     final PatientController patientController = PatientController();
     String? selectedGender;
-    String? _selectedDeptQuick;
     final TextEditingController nameCtrl = TextEditingController();
     final TextEditingController dobCtrl = TextEditingController();
     final TextEditingController phoneCtrl = TextEditingController();
@@ -1679,7 +1696,6 @@ class _PatientsViewState extends State<PatientsView> {
     bool isSaving = false;
     // For dropdown validation errors (shown only after submit attempt)
     String? genderError;
-    String? deptError;
     // Live phone error (updates on each keystroke)
     String? phoneError;
 
@@ -1689,6 +1705,7 @@ class _PatientsViewState extends State<PatientsView> {
         return StatefulBuilder(
           builder: (context, setState) {
             return Dialog(
+              backgroundColor: const Color(0xFFF8FAFC),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -1708,9 +1725,15 @@ class _PatientsViewState extends State<PatientsView> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Header
-                        Padding(
+                        Container(
                           padding: const EdgeInsets.all(24.0),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(16),
+                              topRight: Radius.circular(16),
+                            ),
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1972,334 +1995,92 @@ class _PatientsViewState extends State<PatientsView> {
                                 ),
 
                               const SizedBox(height: 16),
-                              if (MediaQuery.of(context).size.width < 500) ...[
-                                _buildQuickFieldLabel('Department'),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      height: 48,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: deptError != null
-                                              ? const Color(0xFFE53E3E)
-                                              : AppTheme.borderColor,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: DropdownButtonHideUnderline(
-                                        child: DropdownButton<String>(
-                                          isExpanded: true,
-                                          value: _selectedDeptQuick,
-                                          hint: Text(
-                                            _isLoadingDepartments
-                                                ? 'Loading...'
-                                                : 'Select Department',
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                          items: _departments.map((
-                                            String value,
-                                          ) {
-                                            return DropdownMenuItem<String>(
-                                              value: value,
-                                              child: Text(
-                                                value,
-                                                style: const TextStyle(
-                                                  fontSize: 14,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _buildQuickFieldLabel('Gender'),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Container(
+                                              height: 48,
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                  color: genderError != null
+                                                      ? AppTheme.primaryColor
+                                                      : AppTheme.borderColor,
+                                                ),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: DropdownButtonHideUnderline(
+                                                child: DropdownButton<String>(
+                                                  isExpanded: true,
+                                                  value: selectedGender,
+                                                  hint: const Text(
+                                                    'Select',
+                                                    style: TextStyle(fontSize: 14),
+                                                  ),
+                                                  items: const [
+                                                    DropdownMenuItem(
+                                                      value: 'Male',
+                                                      child: Text(
+                                                        'Male',
+                                                        style: TextStyle(fontSize: 14),
+                                                      ),
+                                                    ),
+                                                    DropdownMenuItem(
+                                                      value: 'Female',
+                                                      child: Text(
+                                                        'Female',
+                                                        style: TextStyle(fontSize: 14),
+                                                      ),
+                                                    ),
+                                                    DropdownMenuItem(
+                                                      value: 'Other',
+                                                      child: Text(
+                                                        'Other',
+                                                        style: TextStyle(fontSize: 14),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                  onChanged: (val) {
+                                                    setState(() {
+                                                      selectedGender = val;
+                                                      genderError = null;
+                                                    });
+                                                  },
                                                 ),
                                               ),
-                                            );
-                                          }).toList(),
-                                          onChanged: (val) {
-                                            setState(() {
-                                              _selectedDeptQuick = val;
-                                              deptError = null;
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    if (deptError != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          top: 4,
-                                          left: 4,
-                                        ),
-                                        child: Text(
-                                          deptError!,
-                                          style: const TextStyle(
-                                            color: Color(0xFFE53E3E),
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                _buildQuickFieldLabel('Gender'),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      height: 48,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: genderError != null
-                                              ? const Color(0xFFE53E3E)
-                                              : AppTheme.borderColor,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: DropdownButtonHideUnderline(
-                                        child: DropdownButton<String>(
-                                          isExpanded: true,
-                                          value: selectedGender,
-                                          hint: const Text(
-                                            'Select',
-                                            style: TextStyle(fontSize: 14),
-                                          ),
-                                          items: const [
-                                            DropdownMenuItem(
-                                              value: 'Male',
-                                              child: Text(
-                                                'Male',
-                                                style: TextStyle(fontSize: 14),
-                                              ),
                                             ),
-                                            DropdownMenuItem(
-                                              value: 'Female',
-                                              child: Text(
-                                                'Female',
-                                                style: TextStyle(fontSize: 14),
+                                            if (genderError != null)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 4,
+                                                  left: 4,
+                                                ),
+                                                child: Text(
+                                                  genderError!,
+                                                  style: const TextStyle(
+                                                    color: AppTheme.primaryColor,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: 'Other',
-                                              child: Text(
-                                                'Other',
-                                                style: TextStyle(fontSize: 14),
-                                              ),
-                                            ),
                                           ],
-                                          onChanged: (val) {
-                                            setState(() {
-                                              selectedGender = val;
-                                              genderError = null;
-                                            });
-                                          },
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                    if (genderError != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          top: 4,
-                                          left: 4,
-                                        ),
-                                        child: Text(
-                                          genderError!,
-                                          style: const TextStyle(
-                                            color: Color(0xFFE53E3E),
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ] else
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          _buildQuickFieldLabel('Department'),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Container(
-                                                height: 48,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(
-                                                    color: deptError != null
-                                                        ? const Color(
-                                                            0xFFE53E3E,
-                                                          )
-                                                        : AppTheme.borderColor,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                child: DropdownButtonHideUnderline(
-                                                  child: DropdownButton<String>(
-                                                    isExpanded: true,
-                                                    value: _selectedDeptQuick,
-                                                    hint: Text(
-                                                      _isLoadingDepartments
-                                                          ? 'Loading...'
-                                                          : 'Select',
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
-                                                      ),
-                                                    ),
-                                                    items: _departments.map((
-                                                      String value,
-                                                    ) {
-                                                      return DropdownMenuItem<
-                                                        String
-                                                      >(
-                                                        value: value,
-                                                        child: Text(
-                                                          value,
-                                                          style:
-                                                              const TextStyle(
-                                                                fontSize: 14,
-                                                              ),
-                                                        ),
-                                                      );
-                                                    }).toList(),
-                                                    onChanged: (val) {
-                                                      setState(() {
-                                                        _selectedDeptQuick =
-                                                            val;
-                                                        deptError = null;
-                                                      });
-                                                    },
-                                                  ),
-                                                ),
-                                              ),
-                                              if (deptError != null)
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 4,
-                                                        left: 4,
-                                                      ),
-                                                  child: Text(
-                                                    deptError!,
-                                                    style: const TextStyle(
-                                                      color: Color(0xFFE53E3E),
-                                                      fontSize: 11,
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          _buildQuickFieldLabel('Gender'),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Container(
-                                                height: 48,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(
-                                                    color: genderError != null
-                                                        ? const Color(
-                                                            0xFFE53E3E,
-                                                          )
-                                                        : AppTheme.borderColor,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                child: DropdownButtonHideUnderline(
-                                                  child: DropdownButton<String>(
-                                                    isExpanded: true,
-                                                    value: selectedGender,
-                                                    hint: const Text(
-                                                      'Select',
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                      ),
-                                                    ),
-                                                    items: const [
-                                                      DropdownMenuItem(
-                                                        value: 'Male',
-                                                        child: Text(
-                                                          'Male',
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      DropdownMenuItem(
-                                                        value: 'Female',
-                                                        child: Text(
-                                                          'Female',
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      DropdownMenuItem(
-                                                        value: 'Other',
-                                                        child: Text(
-                                                          'Other',
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                    onChanged: (val) {
-                                                      setState(() {
-                                                        selectedGender = val;
-                                                        genderError = null;
-                                                      });
-                                                    },
-                                                  ),
-                                                ),
-                                              ),
-                                              if (genderError != null)
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 4,
-                                                        left: 4,
-                                                      ),
-                                                  child: Text(
-                                                    genderError!,
-                                                    style: const TextStyle(
-                                                      color: Color(0xFFE53E3E),
-                                                      fontSize: 11,
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  const Spacer(),
+                                ],
+                              ),
                               const SizedBox(height: 16),
                               _buildQuickFieldLabel(
                                 'Reason for Visit (Optional)',
@@ -2358,25 +2139,15 @@ class _PatientsViewState extends State<PatientsView> {
                                                     if (selectedGender == null)
                                                       genderError =
                                                           'Please select gender';
-                                                    if (_selectedDeptQuick ==
-                                                        null)
-                                                      deptError =
-                                                          'Please select department';
                                                   });
                                                   return;
                                                 }
                                                 // Validate dropdowns
-                                                if (selectedGender == null ||
-                                                    _selectedDeptQuick ==
-                                                        null) {
+                                                if (selectedGender == null) {
                                                   setState(() {
                                                     if (selectedGender == null)
                                                       genderError =
                                                           'Please select gender';
-                                                    if (_selectedDeptQuick ==
-                                                        null)
-                                                      deptError =
-                                                          'Please select department';
                                                   });
                                                   return;
                                                 }
@@ -2427,31 +2198,29 @@ class _PatientsViewState extends State<PatientsView> {
 
                                                   final newPatient =
                                                       PatientModel(
-                                                        name: nameCtrl.text
-                                                            .trim(),
-                                                        dob: dobCtrl.text
-                                                            .trim(),
+                                                        name: nameCtrl.text.trim(),
+                                                        dob: dobCtrl.text.trim(),
                                                         age: calculatedAge,
-                                                        gender:
-                                                            selectedGender ??
-                                                            'Other',
-                                                        phone: phoneCtrl.text
-                                                            .trim(),
-                                                        email: emailCtrl.text
-                                                            .trim(),
-                                                        department:
-                                                            _selectedDeptQuick ??
-                                                            'General',
+                                                        gender: selectedGender ?? 'Other',
+                                                        phone: phoneCtrl.text.trim(),
+                                                        email: emailCtrl.text.trim(),
+                                                        emergencyContactName: 'N/A',
+                                                        emergencyContactRelation: 'N/A',
+                                                        emergencyContactPhone: 'N/A',
                                                         address: '',
+                                                        addressLine2: '',
+                                                        district: '',
+                                                        pincode: '',
                                                         height: 0.0,
                                                         weight: 0.0,
                                                         bpSystolic: 0,
                                                         bpDiastolic: 0,
                                                         sugar: 0.0,
                                                         temp: 0.0,
-                                                        complaints: reasonCtrl
-                                                            .text
-                                                            .trim(),
+                                                        bloodGroup: 'N/A',
+                                                        allergies: 'None',
+                                                        chronicConditions: 'None',
+                                                        complaints: reasonCtrl.text.trim(),
                                                         history: '',
                                                         smokingStatus: 'Never',
                                                         alcoholStatus: 'Never',
@@ -2600,7 +2369,7 @@ class _PatientsViewState extends State<PatientsView> {
             if (isRequired)
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Color(0xFFE53E3E)),
+                style: TextStyle(color: AppTheme.primaryColor),
               ),
           ],
         ),
@@ -2652,11 +2421,11 @@ class _PatientsViewState extends State<PatientsView> {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE53E3E)),
+          borderSide: const BorderSide(color: AppTheme.primaryColor),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE53E3E)),
+          borderSide: const BorderSide(color: AppTheme.primaryColor),
         ),
         errorStyle: const TextStyle(fontSize: 11),
         contentPadding: const EdgeInsets.symmetric(
@@ -2670,18 +2439,92 @@ class _PatientsViewState extends State<PatientsView> {
       ),
     );
   }
+
+  Widget _buildPaginationControls(int totalPages, bool isMobile) {
+    if (totalPages <= 1) return const SizedBox.shrink();
+
+    return Padding(
+      padding: EdgeInsets.only(right: isMobile ? 0 : 80),
+      child: Row(
+        mainAxisAlignment:
+            isMobile ? MainAxisAlignment.center : MainAxisAlignment.end,
+        children: [
+          Text(
+            'Page ${_currentPage + 1} of $totalPages',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSecondaryColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 16),
+          OutlinedButton(
+            onPressed: _currentPage > 0
+                ? () => setState(() => _currentPage--)
+                : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(80, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              side: BorderSide(
+                color: _currentPage > 0
+                    ? AppTheme.primaryColor
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.chevron_left, size: 18),
+                Text('Prev'),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: _currentPage < totalPages - 1
+                ? () => setState(() => _currentPage++)
+                : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(80, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              side: BorderSide(
+                color: _currentPage < totalPages - 1
+                    ? AppTheme.primaryColor
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text('Next'),
+                Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class PatientDetailView extends StatefulWidget {
   final PatientModel patient;
   final VoidCallback onBack;
   final Function(PatientModel) onCompleteProfile;
+  final Function(PatientModel) onBookAppointment;
 
   const PatientDetailView({
     Key? key,
     required this.patient,
     required this.onBack,
     required this.onCompleteProfile,
+    required this.onBookAppointment,
   }) : super(key: key);
 
   @override
@@ -2696,11 +2539,14 @@ class _PatientDetailViewState extends State<PatientDetailView>
   List<AppointmentModel> _patientAppointments = [];
   bool _isLoadingConsultations = true;
   bool _isLoadingAppointments = false;
+  bool _isShowingInsights = false;
+  bool _isSavingInsights = false;
+  final GlobalKey<PatientInsightsFormState> _insightsFormKey = GlobalKey<PatientInsightsFormState>();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: 1);
     _fetchData();
   }
 
@@ -2773,6 +2619,91 @@ class _PatientDetailViewState extends State<PatientDetailView>
     final bool isMobile = screenWidth < 850;
     final bool isTablet = screenWidth >= 850 && screenWidth < 1200;
     final p = widget.patient;
+
+    if (_isShowingInsights) {
+      return SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(isMobile ? 12.0 : (isTablet ? 16.0 : 24.0)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                onTap: () => setState(() => _isShowingInsights = false),
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.arrow_back, size: 18, color: AppTheme.primaryColor),
+                      SizedBox(width: 8),
+                      Text(
+                        'Back to Profile',
+                        style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Patient Insights',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                      ),
+                      Text(
+                        'Interview for ${p.name}',
+                        style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+                      ),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _isSavingInsights 
+                      ? null 
+                      : () async {
+                          setState(() => _isSavingInsights = true);
+                          try {
+                            final success = await _insightsFormKey.currentState?.saveInsights();
+                            if (success == true) {
+                              setState(() {
+                                _isShowingInsights = false;
+                                _isSavingInsights = false;
+                              });
+                            } else {
+                              setState(() => _isSavingInsights = false);
+                            }
+                          } catch (e) {
+                            setState(() => _isSavingInsights = false);
+                          }
+                        },
+                    icon: _isSavingInsights 
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.check, size: 18),
+                    label: Text(_isSavingInsights ? 'Saving...' : 'Save Insights'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF38A169),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                height: 600, // Fixed height for the scrollable form
+                child: PatientInsightsForm(key: _insightsFormKey, patient: p),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -2959,7 +2890,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${p.age} years • ${p.gender} • Blood Group: O+', // Placeholder blood group
+                    '${p.age} years • ${p.gender} • Blood Group: ${p.bloodGroup.isNotEmpty ? p.bloodGroup : "N/A"}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: isTablet ? 14 : 15,
@@ -2989,7 +2920,15 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 _buildHeaderButton(
                   Icons.calendar_today_outlined,
                   'Book Appointment',
+                  onTap: () => widget.onBookAppointment(p),
                   isPrimary: true,
+                ),
+                const SizedBox(width: 12),
+                _buildHeaderButton(
+                  Icons.lightbulb_outline,
+                  'Patient Insights',
+                  onTap: () => setState(() => _isShowingInsights = true),
+                  isPrimary: false,
                 ),
                 const SizedBox(width: 12),
                 _buildHeaderButton(
@@ -3010,18 +2949,18 @@ class _PatientDetailViewState extends State<PatientDetailView>
           children: [
             _buildContactIconItem(
               Icons.phone_outlined,
-              p.phone.isNotEmpty ? p.phone : '+1 555-0101',
+              p.phone.isNotEmpty ? p.phone : 'Not Provided',
             ),
             const SizedBox(width: 40),
             _buildContactIconItem(
               Icons.mail_outline,
-              p.email.isNotEmpty ? p.email : 'patient@email.com',
+              p.email.isNotEmpty ? p.email : 'Not Provided',
             ),
             const SizedBox(width: 40),
             Flexible(
               child: _buildContactIconItem(
                 Icons.location_on_outlined,
-                p.address.isNotEmpty ? p.address : '123 Main St, New York, NY',
+                p.fullAddress.isNotEmpty ? p.fullAddress : 'No Address Provided',
               ),
             ),
           ],
@@ -3036,14 +2975,16 @@ class _PatientDetailViewState extends State<PatientDetailView>
       children: [
         Icon(icon, size: 20, color: Colors.white.withOpacity(0.9)),
         const SizedBox(width: 10),
-        Text(
-          text,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
-          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
@@ -3117,6 +3058,15 @@ class _PatientDetailViewState extends State<PatientDetailView>
               child: _buildHeaderButton(
                 Icons.calendar_month_outlined,
                 p.age < 18 ? 'Book Pediatric' : 'Book Appt.',
+                onTap: () => widget.onBookAppointment(p),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildHeaderButton(
+                Icons.lightbulb_outline,
+                'Insights',
+                onTap: () => setState(() => _isShowingInsights = true),
               ),
             ),
             const SizedBox(width: 8),
@@ -3130,9 +3080,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
         const SizedBox(height: 12),
         if (p.phone.isNotEmpty)
           _buildContactItem(Icons.phone_outlined, p.phone),
-        if (p.address.isNotEmpty) ...[
+        if (p.fullAddress.isNotEmpty) ...[
           const SizedBox(height: 8),
-          _buildContactItem(Icons.location_on_outlined, p.address),
+          _buildContactItem(Icons.location_on_outlined, p.fullAddress),
         ],
       ],
     );
@@ -3155,7 +3105,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
       tags.add(_buildTag('Active Complaints'));
     }
     if (tags.isEmpty) {
-      tags.add(_buildTag(p.department.isNotEmpty ? p.department : 'General'));
+      tags.add(_buildTag('General Patient'));
     }
     return tags;
   }
@@ -3491,12 +3441,12 @@ class _PatientDetailViewState extends State<PatientDetailView>
             const SizedBox(height: 12),
             _buildHistoryItem(
               icon: Icons.error_outline,
-              iconColor: const Color(0xFFE53E3E),
+              iconColor: AppTheme.primaryColor,
               title: p.complaints,
               subtitle: 'Current',
               status: 'Active',
-              statusColor: const Color(0xFFE53E3E),
-              statusBg: const Color(0xFFFFF5F5),
+              statusColor: AppTheme.primaryColor,
+              statusBg: AppTheme.primaryLight,
             ),
             const SizedBox(height: 20),
           ],
@@ -3518,7 +3468,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _buildHistoryItem(
                       icon: Icons.info_outline,
-                      iconColor: const Color(0xFFE53E3E),
+                      iconColor: AppTheme.primaryColor,
                       title: line.trim(),
                       subtitle: 'Past record',
                       status: 'Managed',
@@ -3528,21 +3478,6 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                 )
                 .toList(),
-            if (p.history
-                        .split('\n')
-                        .where((l) => l.trim().isNotEmpty)
-                        .length ==
-                    1 &&
-                !p.history.contains('\n'))
-              _buildHistoryItem(
-                icon: Icons.info_outline,
-                iconColor: const Color(0xFFE53E3E),
-                title: p.history,
-                subtitle: 'Past record',
-                status: 'Managed',
-                statusColor: const Color(0xFF38A169),
-                statusBg: const Color(0xFFF0FFF4),
-              ),
           ],
         ],
       ),
@@ -3699,7 +3634,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 _buildTimelineItem(
                   date: p.createdAt ?? 'Registration Visit',
                   time: 'Initial Entry',
-                  dept: p.department,
+                  dept: 'Registration',
                   doctor: 'Staff',
                   complaint: p.complaints.isNotEmpty
                       ? p.complaints
@@ -4007,7 +3942,389 @@ class _PatientDetailViewState extends State<PatientDetailView>
       ),
     );
   }
+
+  Widget _buildPatientInsightsTab(PatientModel p) {
+    return PatientInsightsForm(patient: p);
+  }
+
 }
+
+class PatientInsightsForm extends StatefulWidget {
+  final PatientModel patient;
+
+  const PatientInsightsForm({Key? key, required this.patient}) : super(key: key);
+
+  @override
+  State<PatientInsightsForm> createState() => PatientInsightsFormState();
+}
+
+class PatientInsightsFormState extends State<PatientInsightsForm> {
+  final Map<String, TextEditingController> _controllers = {};
+  final PatientController _apiController = PatientController();
+  bool _isLoading = true;
+
+  final List<Map<String, dynamic>> insightCategories = [
+// ... (omitted for brevity, will include full content in replacement)
+    {
+      'category': 'Recovery',
+      'icon': Icons.healing_outlined,
+      'color': Colors.blue,
+      'questions': [
+        {'q': 'What is the one activity that makes you lose track of time?', 'data': 'Primary Hobby', 'why': 'Used for physical therapy to speed up recovery.'},
+        {'q': 'What music always lifts your mood?', 'data': 'Auditory Anchor', 'why': 'Played during painful treatments to naturally lower stress.'},
+        {'q': 'Are you an early riser or a night owl?', 'data': 'Sleep Cycle', 'why': 'Used to schedule nursing tasks when patient is naturally awake.'},
+        {'q': 'What is your favorite childhood comfort food?', 'data': 'Palate Preference', 'why': 'Served if patient stops eating due to illness to keep strength up.'},
+      ]
+    },
+    {
+      'category': 'Social',
+      'icon': Icons.people_outline,
+      'color': Colors.indigo,
+      'questions': [
+        {'q': 'Who is the first person you call in an emergency?', 'data': 'Primary Caregiver', 'why': 'Used to send home-care instructions and bill alerts.'},
+      ]
+    },
+    {
+      'category': 'Safety',
+      'icon': Icons.security_outlined,
+      'color': Colors.orange,
+      'questions': [
+        {'q': 'How is your home set up—any stairs or narrow doors?', 'data': 'Home Architecture', 'why': 'Used to flag if home is "Not Safe" for a patient with a walker.'},
+        {'q': 'How do you usually get around (Bike, Car, Bus)?', 'data': 'Transit Mode', 'why': 'Used to set specific strength goals to safely return to transit.'},
+        {'q': 'Do you have any pets waiting for you at home?', 'data': 'Emotional Bond', 'why': 'Pet\'s name used to motivate walking during recovery.'},
+      ]
+    },
+    {
+      'category': 'Kitchen',
+      'icon': Icons.restaurant_outlined,
+      'color': Colors.red,
+      'questions': [
+        {'q': 'On a scale of 1-10, how spicy do you like your food?', 'data': 'Spice Tolerance', 'why': 'Used to tell the kitchen exactly how much chili to use.'},
+        {'q': 'How many meals do you usually eat in a day?', 'data': 'Portion Frequency', 'why': 'Used to plan kitchen cooking fire-up times.'},
+        {'q': 'Are there any specific grains (like Millets) you prefer?', 'data': 'Grain Type', 'why': 'Provides exact nutrition to prevent digestive issues.'},
+        {'q': 'Do you prefer coffee, tea, or milk in the morning?', 'data': 'Beverage Choice', 'why': 'Used to procure exact liters of milk daily.'},
+      ]
+    },
+    {
+      'category': 'Logistics',
+      'icon': Icons.local_shipping_outlined,
+      'color': Colors.teal,
+      'questions': [
+        {'q': 'Who usually cooks for you at home?', 'data': 'Caregiver Skill', 'why': 'Decides if "Ready-to-Eat" or "Raw Ingredients" are needed.'},
+        {'q': 'What time of day is best for a home visit?', 'data': 'Service Window', 'why': 'Optimizes home-care staff travel route to save fuel/time.'},
+        {'q': 'Do you prefer video updates or paper charts?', 'data': 'Literacy Type', 'why': 'Saves money on printing for tech-savvy patients.'},
+        {'q': 'How often do you buy groceries (Daily/Weekly)?', 'data': 'Supply Chain', 'why': 'Helps design a subscription model for food delivery.'},
+      ]
+    },
+    {
+      'category': 'Work',
+      'icon': Icons.work_outline,
+      'color': Colors.brown,
+      'questions': [
+        {'q': 'What kind of work have you done most of your life?', 'data': 'Career Strain', 'why': 'Predicts back/neck issues based on years of strain.'},
+        {'q': 'Have you worked around dust, chemicals, or loud noise?', 'data': 'Environmental Risk', 'why': 'Flags potential lung or hearing issues for doctors.'},
+      ]
+    },
+    {
+      'category': 'Lifestyle',
+      'icon': Icons.favorite_outline,
+      'color': Colors.pink,
+      'questions': [
+        {'q': 'What is your biggest health-related fear?', 'data': 'Psychological Trigger', 'why': 'Staff trained to talk with extra reassurance to prevent anxiety.'},
+        {'q': 'Do you fast for religious or personal reasons?', 'data': 'Fasting Calendar', 'why': 'Prevents cooking meals on fasting days.'},
+        {'q': 'What is one "Goal" you want to reach in 6 months?', 'data': 'Motivation Goal', 'why': 'Tracks recovery against dreams (e.g., "Walking to temple").'},
+      ]
+    },
+    {
+      'category': 'Physical',
+      'icon': Icons.directions_run_outlined,
+      'color': Colors.green,
+      'questions': [
+        {'q': 'How much water do you drink on a normal day?', 'data': 'Hydration Base', 'why': 'AI alerts nurse if below "Base" amount (Dehydration Risk).'},
+        {'q': 'In one word, how is your energy today?', 'data': 'Baseline Vitality', 'why': 'Tracks slow decline in health over time.'},
+      ]
+    },
+    {
+      'category': 'Financial',
+      'icon': Icons.account_balance_wallet_outlined,
+      'color': Colors.deepPurple,
+      'questions': [
+        {'q': 'Do you prefer the most effective or most budget-friendly option?', 'data': 'Price Sensitivity', 'why': 'Suggests affordable medicines to ensure treatment completion.'},
+      ]
+    },
+    {
+      'category': 'Behavior',
+      'icon': Icons.psychology_outlined,
+      'color': Colors.deepOrange,
+      'questions': [
+        {'q': 'Do you prefer to be around people or have a quiet room?', 'data': 'Social Density', 'why': 'Places "Social" patients in shared wards to help recovery.'},
+      ]
+    }
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize controllers
+    for (var cat in insightCategories) {
+      for (var q in cat['questions']) {
+        _controllers[q['q']] = TextEditingController();
+      }
+    }
+    _fetchInsights();
+  }
+
+  Future<void> _fetchInsights() async {
+    if (widget.patient.id == null) return;
+    try {
+      final insights = await _apiController.fetchPatientInsights(widget.patient.id!);
+      if (mounted) {
+        setState(() {
+          insights.forEach((key, value) {
+            if (_controllers.containsKey(key)) {
+              _controllers[key]!.text = value.toString();
+            }
+          });
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching insights: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<bool> saveInsights() async {
+    if (widget.patient.id == null) return false;
+    
+    try {
+      final Map<String, String> data = {};
+      _controllers.forEach((key, controller) {
+        if (controller.text.trim().isNotEmpty) {
+          data[key] = controller.text.trim();
+        }
+      });
+
+      await _apiController.savePatientInsights(widget.patient.id!, data);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Patient insights saved successfully!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving insights: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  @override
+  void dispose() {
+// ... (omitted)
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading patient insights...', style: TextStyle(color: AppTheme.textSecondaryColor)),
+          ],
+        ),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: insightCategories.length,
+      itemBuilder: (context, index) {
+        final cat = insightCategories[index];
+        return _buildInsightCategory(cat, _controllers);
+      },
+    );
+  }
+
+  Widget _buildInsightCategory(Map<String, dynamic> cat, Map<String, TextEditingController> controllers) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: false,
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: (cat['color'] as Color).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(cat['icon'] as IconData, color: cat['color'] as Color, size: 20),
+        ),
+        title: Text(
+          cat['category'],
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: AppTheme.textPrimaryColor,
+          ),
+        ),
+        subtitle: Text(
+          '${(cat['questions'] as List).length} questions to ask',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppTheme.textSecondaryColor.withOpacity(0.8),
+          ),
+        ),
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: (cat['questions'] as List).map<Widget>((q) {
+          final String qKey = q['q'];
+          return Container(
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.help_outline, size: 16, color: AppTheme.primaryColor),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        q['q'],
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E293B),
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'ANSWER',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF64748B),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: controllers[qKey],
+                  maxLines: null,
+                  decoration: InputDecoration(
+                    hintText: 'Type patient\'s response here...',
+                    hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                    ),
+                  ),
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF334155)),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'DATA CAPTURED',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
+                          Text(
+                            q['data'],
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'WHY WE ASK',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
+                          Text(
+                            q['why'],
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
 
 class _VitalItem {
   final String label;

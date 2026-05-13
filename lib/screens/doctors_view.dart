@@ -9,7 +9,8 @@ import '../models/appointment_model.dart';
 import '../providers/auth_provider.dart';
 
 class DoctorsView extends StatefulWidget {
-  const DoctorsView({Key? key}) : super(key: key);
+  final Function(UserModel)? onBookAppointment;
+  const DoctorsView({Key? key, this.onBookAppointment}) : super(key: key);
 
   @override
   State<DoctorsView> createState() => _DoctorsViewState();
@@ -23,23 +24,54 @@ class _DoctorsViewState extends State<DoctorsView> {
   String _searchQuery = '';
   String _selectedDepartment = 'All';
 
-
+  final ScrollController _deptScrollController = ScrollController();
+  bool _showRightArrow = true;
+  bool _showLeftArrow = false;
 
   @override
   void initState() {
     super.initState();
     _loadDoctors();
+    _deptScrollController.addListener(_scrollListener);
+    // Delay check to see if content is scrollable initially
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollListener());
   }
 
+  @override
+  void dispose() {
+    _deptScrollController.removeListener(_scrollListener);
+    _deptScrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollListener() {
+    if (_deptScrollController.hasClients) {
+      final bool canScrollLeft = _deptScrollController.offset > 10;
+      final bool canScrollRight = _deptScrollController.offset < _deptScrollController.position.maxScrollExtent - 10;
+      
+      if (canScrollLeft != _showLeftArrow || canScrollRight != _showRightArrow) {
+        setState(() {
+          _showLeftArrow = canScrollLeft;
+          _showRightArrow = canScrollRight;
+        });
+      }
+    }
+  }
+
+
   void _loadDoctors() async {
-    setState(() {
-      _doctorsFuture = _adminController.fetchStaff(role: 'Doctor');
-    });
+    if (mounted) {
+      setState(() {
+        _doctorsFuture = _adminController.fetchStaff(role: 'Doctor');
+      });
+    }
     try {
       final appts = await _appointmentController.fetchAppointments();
-      setState(() {
-        _appointments = appts;
-      });
+      if (mounted) {
+        setState(() {
+          _appointments = appts;
+        });
+      }
     } catch (e) {
       debugPrint('Error loading appointments in DoctorsView: $e');
     }
@@ -227,69 +259,139 @@ class _DoctorsViewState extends State<DoctorsView> {
   }
 
   Widget _buildDepartmentList(bool isMobile, List<Map<String, dynamic>> dynamicDepartments) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: dynamicDepartments.map((dept) {
-          final isSelected = _selectedDepartment == dept['name'];
-          return Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: InkWell(
-              onTap: () {
-                setState(() {
-                  _selectedDepartment = isSelected ? 'All' : dept['name'];
-                });
-              },
-              child: Container(
-                width: isMobile ? 180 : 260,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.primaryColor.withOpacity(0.05) : Colors.white,
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          controller: _deptScrollController,
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: dynamicDepartments.map((dept) {
+              final isSelected = _selectedDepartment == dept['name'];
+              return Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedDepartment = isSelected ? 'All' : dept['name'];
+                    });
+                  },
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor.withOpacity(0.5),
-                    width: isSelected ? 2 : 1,
+                  child: Container(
+                    width: isMobile ? 180 : 260,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primaryColor.withOpacity(0.05) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor.withOpacity(0.5),
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(dept['icon'] as IconData, color: AppTheme.primaryColor, size: 24),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                dept['name'] as String,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
+                              ),
+                              Text(
+                                '${dept['count']} doctor${dept['count'] == 1 ? '' : 's'}',
+                                style: const TextStyle(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(dept['icon'] as IconData, color: AppTheme.primaryColor, size: 24),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            dept['name'] as String,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: AppTheme.textPrimaryColor,
-                            ),
-                          ),
-                          Text(
-                            '${dept['count']} doctor${dept['count'] == 1 ? '' : 's'}',
-                            style: const TextStyle(
-                              color: AppTheme.textSecondaryColor,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              );
+            }).toList(),
+          ),
+        ),
+        if (_showLeftArrow)
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: _buildGradientArrow(isLeft: true),
+          ),
+        if (_showRightArrow)
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: _buildGradientArrow(isLeft: false),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildGradientArrow({required bool isLeft}) {
+    return Container(
+      width: 60,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: isLeft ? Alignment.centerLeft : Alignment.centerRight,
+          end: isLeft ? Alignment.centerRight : Alignment.centerLeft,
+          colors: [
+            Colors.white.withOpacity(0.9),
+            Colors.white.withOpacity(0.0),
+          ],
+        ),
+      ),
+      child: Center(
+        child: InkWell(
+          onTap: () {
+            final double offset = isLeft 
+              ? _deptScrollController.offset - 300 
+              : _deptScrollController.offset + 300;
+            _deptScrollController.animateTo(
+              offset.clamp(0, _deptScrollController.position.maxScrollExtent),
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryColor.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
-              ),
+              ],
             ),
-          );
-        }).toList(),
+            child: Icon(
+              isLeft ? Icons.chevron_left : Icons.chevron_right,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -545,7 +647,11 @@ class _DoctorsViewState extends State<DoctorsView> {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    if (widget.onBookAppointment != null) {
+                      widget.onBookAppointment!(doctor);
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.redAccent,
                     foregroundColor: Colors.white,

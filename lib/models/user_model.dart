@@ -9,6 +9,7 @@ class UserModel {
   final String status;
   final bool isDeleted;
   final String? staffUniqueId;
+  final String? mobile;
   final String? token;
   
   // Isolated Profiles
@@ -30,8 +31,8 @@ class UserModel {
   String? get slotStartTime => doctorProfile?.slotStartTime;
   String? get slotEndTime => doctorProfile?.slotEndTime;
   String? get slotDuration => doctorProfile?.slotDuration;
-  List<String>? get weeklyOffDays => doctorProfile?.weeklyOffDays;
-  List<String>? get specificLeaveDates => doctorProfile?.specificLeaveDates;
+  List<String>? get weeklyOffDays => role == 'Nurse' ? nurseProfile?.weeklyOffDays : doctorProfile?.weeklyOffDays;
+  List<String>? get specificLeaveDates => role == 'Nurse' ? nurseProfile?.specificLeaveDates : doctorProfile?.specificLeaveDates;
   String? get clinicName => doctorProfile?.clinicName;
   String? get clinicLocation => doctorProfile?.clinicLocation;
   String? get consultationFee => doctorProfile?.consultationFee;
@@ -56,6 +57,7 @@ class UserModel {
     this.status = 'active',
     this.isDeleted = false,
     this.staffUniqueId,
+    this.mobile,
     this.token,
     this.doctorProfile,
     this.nurseProfile,
@@ -92,8 +94,9 @@ class UserModel {
       email: json['email'] ?? '',
       role: json['role'] ?? '',
       status: json['status'] ?? 'active',
-      isDeleted: json['is_deleted'] == true || json['isDeleted'] == true || json['status'] == 'deleted',
+      isDeleted: json['is_deleted'] == 1 || json['is_deleted'] == true || json['isDeleted'] == true || json['status'] == 'deleted',
       staffUniqueId: json['staff_unique_id'] ?? json['staffUniqueId'],
+      mobile: json['mobile'],
       token: json['token'],
       doctorProfile: (json['role'] == 'Doctor' || json['medical_license'] != null || json['specialization_id'] != null) 
           ? DoctorModel.fromJson(json) 
@@ -114,6 +117,7 @@ class UserModel {
     String? status,
     bool? isDeleted,
     String? staffUniqueId,
+    String? mobile,
     String? token,
     DoctorModel? doctorProfile,
     NurseModel? nurseProfile,
@@ -128,6 +132,7 @@ class UserModel {
       status: status ?? this.status,
       isDeleted: isDeleted ?? this.isDeleted,
       staffUniqueId: staffUniqueId ?? this.staffUniqueId,
+      mobile: mobile ?? this.mobile,
       token: token ?? this.token,
       doctorProfile: doctorProfile ?? this.doctorProfile,
       nurseProfile: nurseProfile ?? this.nurseProfile,

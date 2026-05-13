@@ -32,6 +32,29 @@ class _NewPatientRegistrationViewState
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _addressLine2Controller = TextEditingController();
+  String? _selectedDistrict;
+  final TextEditingController _pincodeController = TextEditingController();
+
+  static const List<String> _tamilNaduDistricts = [
+    'Ariyalur', 'Chengalpattu', 'Chennai', 'Coimbatore', 'Cuddalore',
+    'Dharmapuri', 'Dindigul', 'Erode', 'Kallakurichi', 'Kancheepuram',
+    'Kanyakumari', 'Karur', 'Krishnagiri', 'Madurai', 'Mayiladuthurai',
+    'Nagapattinam', 'Namakkal', 'Nilgiris', 'Perambalur', 'Pudukkottai',
+    'Ramanathapuram', 'Ranipet', 'Salem', 'Sivaganga', 'Tenkasi',
+    'Thanjavur', 'Theni', 'Thoothukudi', 'Tiruchirappalli', 'Tirunelveli',
+    'Tirupathur', 'Tiruppur', 'Tiruvallur', 'Tiruvannamalai', 'Tiruvarur',
+    'Vellore', 'Viluppuram', 'Virudhunagar',
+  ];
+
+  // Emergency Contact Controllers
+  final TextEditingController _emergencyContactNameController =
+      TextEditingController();
+  final TextEditingController _emergencyContactRelationController =
+      TextEditingController();
+  final TextEditingController _emergencyContactPhoneController =
+      TextEditingController();
+
   final PatientController _patientController = PatientController();
   final AdminController _adminController = AdminController();
 
@@ -45,6 +68,13 @@ class _NewPatientRegistrationViewState
   final TextEditingController _tempController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
+
+  // New Medical Fields
+  final TextEditingController _bloodGroupController = TextEditingController();
+  final TextEditingController _allergiesController = TextEditingController();
+  final TextEditingController _chronicConditionsController =
+      TextEditingController();
+
   final TextEditingController _complaintsController = TextEditingController();
   final TextEditingController _historyController = TextEditingController();
 
@@ -56,9 +86,7 @@ class _NewPatientRegistrationViewState
   final TextEditingController _foodHabitsController = TextEditingController();
   final TextEditingController _physicalActivityController =
       TextEditingController();
-
   String? _selectedGender;
-  String? _selectedDepartment;
 
   // Form keys for validation
   final _formKeyStep1 = GlobalKey<FormState>();
@@ -68,7 +96,6 @@ class _NewPatientRegistrationViewState
   @override
   void initState() {
     super.initState();
-    _fetchDepartments();
     if (widget.existingPatient != null) {
       _preFillForm();
     }
@@ -82,8 +109,14 @@ class _NewPatientRegistrationViewState
     _phoneController.text = p.phone;
     _emailController.text = p.email;
     _addressController.text = p.address;
+    _addressLine2Controller.text = p.addressLine2;
+    _selectedDistrict = _tamilNaduDistricts.contains(p.district) ? p.district : null;
+    _pincodeController.text = p.pincode;
     _selectedGender = p.gender;
-    _selectedDepartment = p.department;
+
+    _emergencyContactNameController.text = p.emergencyContactName;
+    _emergencyContactRelationController.text = p.emergencyContactRelation;
+    _emergencyContactPhoneController.text = p.emergencyContactPhone;
 
     // Medical Intake
     _bpSystolicController.text = p.bpSystolic > 0
@@ -96,6 +129,9 @@ class _NewPatientRegistrationViewState
     _tempController.text = p.temp > 0 ? p.temp.toString() : '';
     _heightController.text = p.height > 0 ? p.height.toString() : '';
     _weightController.text = p.weight > 0 ? p.weight.toString() : '';
+    _bloodGroupController.text = p.bloodGroup;
+    _allergiesController.text = p.allergies;
+    _chronicConditionsController.text = p.chronicConditions;
     _complaintsController.text = p.complaints;
     _historyController.text = p.history;
 
@@ -112,27 +148,6 @@ class _NewPatientRegistrationViewState
     _physicalActivityController.text = p.physicalActivity;
   }
 
-  Future<void> _fetchDepartments() async {
-    try {
-      final specs = await _adminController.fetchSpecializations();
-      setState(() {
-        _departments = specs.map((e) => e['name'].toString()).toList();
-        _isLoadingDepartments = false;
-      });
-    } catch (e) {
-      debugPrint('Error fetching departments: $e');
-      setState(() {
-        _departments = [
-          'General Medicine',
-          'Cardiology',
-          'Pediatrics',
-          'Orthopedics',
-        ];
-        _isLoadingDepartments = false;
-      });
-    }
-  }
-
   @override
   void dispose() {
     _nameController.dispose();
@@ -141,12 +156,20 @@ class _NewPatientRegistrationViewState
     _phoneController.dispose();
     _emailController.dispose();
     _addressController.dispose();
+    _addressLine2Controller.dispose();
+    _pincodeController.dispose();
+    _emergencyContactNameController.dispose();
+    _emergencyContactRelationController.dispose();
+    _emergencyContactPhoneController.dispose();
     _bpSystolicController.dispose();
     _bpDiastolicController.dispose();
     _sugarController.dispose();
     _tempController.dispose();
     _heightController.dispose();
     _weightController.dispose();
+    _bloodGroupController.dispose();
+    _allergiesController.dispose();
+    _chronicConditionsController.dispose();
     _complaintsController.dispose();
     _historyController.dispose();
     _occupationController.dispose();
@@ -197,17 +220,16 @@ class _NewPatientRegistrationViewState
                       ? 'Complete Patient Profile'
                       : 'Edit Patient Profile')
                 : 'New Patient Registration',
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.displayLarge,
           ),
           const SizedBox(height: 4),
           Text(
             widget.existingPatient != null
                 ? 'Update patient information and medical history'
                 : 'Register a new patient with AI-powered voice input',
-            style: const TextStyle(
-              color: AppTheme.textSecondaryColor,
-              fontSize: 14,
-            ),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.textSecondaryColor,
+                ),
           ),
           const SizedBox(height: 32),
 
@@ -243,18 +265,7 @@ class _NewPatientRegistrationViewState
         vertical: 24,
         horizontal: isMobile ? 12 : 32,
       ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: AppTheme.cardDecoration,
       child: Row(
         children: [
           _buildStepItem(
@@ -482,7 +493,7 @@ class _NewPatientRegistrationViewState
             ),
             const SizedBox(height: 24),
 
-            // Phone Number & Department
+            // Phone Number & Emergency Contact
             Row(
               children: [
                 Expanded(
@@ -501,7 +512,7 @@ class _NewPatientRegistrationViewState
                         ],
                         validator: (val) {
                           if (val == null || val.isEmpty)
-                            return 'MobileS number is required';
+                            return 'Mobile number is required';
                           if (val.length != 10)
                             return 'Enter a valid 10-digit mobile number';
                           return null;
@@ -516,19 +527,12 @@ class _NewPatientRegistrationViewState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildLabel('Department *'),
-                      _buildDropdownField(
-                        value: _selectedDepartment,
-                        hint: _isLoadingDepartments
-                            ? 'Loading...'
-                            : 'Select department',
-                        items: _departments.isEmpty
-                            ? ['Loading...']
-                            : _departments,
-                        onChanged: (val) =>
-                            setState(() => _selectedDepartment = val),
+                      _buildLabel('Emergency Contact Name *'),
+                      _buildTextField(
+                        controller: _emergencyContactNameController,
+                        hint: 'Enter name',
                         validator: (val) => val == null || val.isEmpty
-                            ? 'Department is required'
+                            ? 'Emergency contact name is required'
                             : null,
                       ),
                     ],
@@ -537,13 +541,130 @@ class _NewPatientRegistrationViewState
               ],
             ),
             const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Relation *'),
+                      _buildTextField(
+                        controller: _emergencyContactRelationController,
+                        hint: 'e.g. Spouse, Parent',
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'Relation is required'
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Emergency Mobile Number *'),
+                      _buildTextField(
+                        controller: _emergencyContactPhoneController,
+                        hint: '98765 43210',
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
+                        validator: (val) {
+                          if (val == null || val.isEmpty)
+                            return 'Emergency mobile number is required';
+                          if (val.length != 10)
+                            return 'Enter a valid 10-digit mobile number';
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
 
-            // Address
-            _buildLabel('Address'),
-            _buildTextField(
-              controller: _addressController,
-              hint: 'Enter full address',
-              maxLines: 4,
+            // Address Section
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Address Line 1 *'),
+                      _buildTextField(
+                        controller: _addressController,
+                        hint: 'Door No, Building Name',
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'Address Line 1 is required'
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Address Line 2'),
+                      _buildTextField(
+                        controller: _addressLine2Controller,
+                        hint: 'Street Name, Locality',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('District *'),
+                      _buildDropdownField(
+                        value: _selectedDistrict,
+                        hint: 'Select district',
+                        items: _tamilNaduDistricts,
+                        onChanged: (val) => setState(() => _selectedDistrict = val),
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'District is required'
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Pincode *'),
+                      _buildTextField(
+                        controller: _pincodeController,
+                        hint: '600001',
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(6),
+                        ],
+                        validator: (val) {
+                          if (val == null || val.isEmpty)
+                            return 'Pincode is required';
+                          if (val.length != 6) return 'Enter a valid 6-digit pincode';
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 48),
 
@@ -557,14 +678,8 @@ class _NewPatientRegistrationViewState
                       onPressed: () {},
                       icon: const Icon(Icons.description_outlined, size: 18),
                       label: const Text('Save as Draft'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF4A5568),
-                        side: const BorderSide(color: Color(0xFFE2E8F0)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        minimumSize: const Size(0, 52),
+                      style: AppTheme.outlinedButton.copyWith(
+                        minimumSize: MaterialStateProperty.all(const Size(0, 52)),
                       ),
                     ),
                   ),
@@ -577,14 +692,8 @@ class _NewPatientRegistrationViewState
                           setState(() => _currentStep = 2);
                         }
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE53E3E),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        minimumSize: const Size(0, 52),
+                      style: AppTheme.primaryButton.copyWith(
+                        minimumSize: MaterialStateProperty.all(const Size(0, 52)),
                       ),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -629,7 +738,7 @@ class _NewPatientRegistrationViewState
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE53E3E),
+                      backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 40,
@@ -641,13 +750,14 @@ class _NewPatientRegistrationViewState
                       minimumSize: const Size(0, 52),
                     ),
                     child: const Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        Icon(Icons.arrow_forward_rounded, size: 18),
+                        SizedBox(width: 12),
                         Text(
                           'Next',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        SizedBox(width: 12),
-                        Icon(Icons.arrow_forward_rounded, size: 18),
                       ],
                     ),
                   ),
@@ -826,24 +936,74 @@ class _NewPatientRegistrationViewState
                 ],
               ),
               const SizedBox(height: 16),
-              _buildLabel('Sugar Level'),
-              _buildTextField(
-                controller: _sugarController,
-                hint: '100 mg/dL',
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Sugar Level'),
+                        _buildTextField(
+                          controller: _sugarController,
+                          hint: 'mg/dL',
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.]'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Temperature'),
+                        _buildTextField(
+                          controller: _tempController,
+                          hint: '°F',
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.]'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
-              _buildLabel('Temperature'),
+              _buildLabel('Blood Group *'),
+              _buildDropdownField(
+                value: _bloodGroupController.text.isNotEmpty
+                    ? _bloodGroupController.text
+                    : null,
+                hint: 'Select Blood Group',
+                items: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
+                onChanged: (val) =>
+                    setState(() => _bloodGroupController.text = val ?? ''),
+                validator: (val) => val == null || val.isEmpty
+                    ? 'Blood Group is required'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              _buildLabel('Known Allergies'),
               _buildTextField(
-                controller: _tempController,
-                hint: '98.6°F',
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                ],
+                controller: _allergiesController,
+                hint: 'e.g. Penicillin, Peanuts',
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+              _buildLabel('Chronic Conditions'),
+              _buildTextField(
+                controller: _chronicConditionsController,
+                hint: 'e.g. Diabetes, Hypertension',
+                maxLines: 2,
               ),
             ] else ...[
               Row(
@@ -852,49 +1012,45 @@ class _NewPatientRegistrationViewState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel('Height (cm)'),
-                        _buildTextField(
-                          controller: _heightController,
-                          hint: '170',
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[0-9.]'),
+                        _buildLabel('Height & Weight'),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                controller: _heightController,
+                                hint: '170 cm',
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildTextField(
+                                controller: _weightController,
+                                hint: '70 kg',
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 20),
+                  const SizedBox(width: 24),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel('Weight (kg)'),
-                        _buildTextField(
-                          controller: _weightController,
-                          hint: '70',
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[0-9.]'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLabel('Blood Pressure'),
+                        _buildLabel('Blood Pressure (Sys / Dia)'),
                         Row(
                           children: [
                             Expanded(
@@ -907,16 +1063,7 @@ class _NewPatientRegistrationViewState
                                 ],
                               ),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12.0),
-                              child: Text(
-                                '/',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  color: Color(0xFF4A5568),
-                                ),
-                              ),
-                            ),
+                            const SizedBox(width: 16),
                             Expanded(
                               child: _buildTextField(
                                 controller: _bpDiastolicController,
@@ -932,40 +1079,107 @@ class _NewPatientRegistrationViewState
                       ],
                     ),
                   ),
-                  const SizedBox(width: 20),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel('Sugar Level'),
-                        _buildTextField(
-                          controller: _sugarController,
-                          hint: '100 mg/dL',
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[0-9.]'),
+                        _buildLabel('Sugar & Temp'),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                controller: _sugarController,
+                                hint: 'mg/dL',
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildTextField(
+                                controller: _tempController,
+                                hint: '°F',
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 20),
+                  const SizedBox(width: 24),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel('Temperature'),
-                        _buildTextField(
-                          controller: _tempController,
-                          hint: '98.6°F',
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[0-9.]'),
-                            ),
+                        _buildLabel('Blood Group *'),
+                        _buildDropdownField(
+                          value: _bloodGroupController.text.isNotEmpty
+                              ? _bloodGroupController.text
+                              : null,
+                          hint: 'Select Blood Group',
+                          items: [
+                            'A+',
+                            'A-',
+                            'B+',
+                            'B-',
+                            'O+',
+                            'O-',
+                            'AB+',
+                            'AB-',
                           ],
+                          onChanged: (val) => setState(
+                            () => _bloodGroupController.text = val ?? '',
+                          ),
+                          validator: (val) => val == null || val.isEmpty
+                              ? 'Blood Group is required'
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Known Allergies'),
+                        _buildTextField(
+                          controller: _allergiesController,
+                          hint: 'e.g. Penicillin, Peanuts',
+                          maxLines: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Chronic Conditions'),
+                        _buildTextField(
+                          controller: _chronicConditionsController,
+                          hint: 'e.g. Diabetes, Hypertension',
+                          maxLines: 2,
                         ),
                       ],
                     ),
@@ -1046,7 +1260,7 @@ class _NewPatientRegistrationViewState
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE53E3E),
+                        backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -1115,7 +1329,7 @@ class _NewPatientRegistrationViewState
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE53E3E),
+                      backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 40,
@@ -1127,13 +1341,14 @@ class _NewPatientRegistrationViewState
                       minimumSize: const Size(0, 52),
                     ),
                     child: const Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        Icon(Icons.arrow_forward_rounded, size: 18),
+                        SizedBox(width: 12),
                         Text(
                           'Next',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        SizedBox(width: 12),
-                        Icon(Icons.arrow_forward_rounded, size: 18),
                       ],
                     ),
                   ),
@@ -1348,7 +1563,7 @@ class _NewPatientRegistrationViewState
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE53E3E),
+                        backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
                         minimumSize: const Size(0, 52),
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1411,7 +1626,7 @@ class _NewPatientRegistrationViewState
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE53E3E),
+                      backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(0, 52),
                       padding: const EdgeInsets.symmetric(
@@ -1468,9 +1683,13 @@ class _NewPatientRegistrationViewState
                       _buildReviewField('Gender', _val(_selectedGender ?? '')),
                       _buildReviewField('Phone', _val(_phoneController.text)),
                       _buildReviewField(
-                        'Department',
-                        _val(_selectedDepartment ?? ''),
+                        'Emergency Contact',
+                        '${_val(_emergencyContactNameController.text)} (${_val(_emergencyContactRelationController.text)}) - ${_val(_emergencyContactPhoneController.text)}',
                       ),
+                      _buildReviewField('Address Line 1', _val(_addressController.text)),
+                      if (_addressLine2Controller.text.isNotEmpty)
+                        _buildReviewField('Address Line 2', _addressLine2Controller.text),
+                      _buildReviewField('District / Pincode', '${_val(_selectedDistrict ?? '')} / ${_val(_pincodeController.text)}'),
                     ],
                   )
                 : Column(
@@ -1485,27 +1704,43 @@ class _NewPatientRegistrationViewState
                               _val(_nameController.text),
                             ),
                           ),
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
                               'Email',
                               _val(_emailController.text),
                             ),
                           ),
-                        ],
-                      ),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
                               'Age / DOB',
                               '${_val(_ageController.text)} / ${_val(_dobController.text)}',
                             ),
                           ),
+                        ],
+                      ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Expanded(
                             child: _buildReviewField(
                               'Gender',
                               _val(_selectedGender ?? ''),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Phone',
+                              _val(_phoneController.text),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Emergency Contact',
+                              '${_val(_emergencyContactNameController.text)} (${_val(_emergencyContactRelationController.text)})',
                             ),
                           ),
                         ],
@@ -1515,14 +1750,22 @@ class _NewPatientRegistrationViewState
                         children: [
                           Expanded(
                             child: _buildReviewField(
-                              'Phone',
-                              _val(_phoneController.text),
+                              'Emergency Mobile Number',
+                              _val(_emergencyContactPhoneController.text),
                             ),
                           ),
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
-                              'Department',
-                              _val(_selectedDepartment ?? ''),
+                              'Address',
+                              '${_val(_addressController.text)}${_addressLine2Controller.text.isNotEmpty ? ", " + _addressLine2Controller.text : ""}',
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'District / Pincode',
+                              '${_val(_selectedDistrict ?? '')} / ${_val(_pincodeController.text)}',
                             ),
                           ),
                         ],
@@ -1547,6 +1790,7 @@ class _NewPatientRegistrationViewState
                         '${_val(_heightController.text)} cm / ${_val(_weightController.text)} kg',
                       ),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: _buildReviewField(
@@ -1557,12 +1801,14 @@ class _NewPatientRegistrationViewState
                                   : '${_bpSystolicController.text}/${_bpDiastolicController.text}',
                             ),
                           ),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: _buildReviewField(
                               'Sugar',
                               _val(_sugarController.text),
                             ),
                           ),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: _buildReviewField(
                               'Temp',
@@ -1570,6 +1816,18 @@ class _NewPatientRegistrationViewState
                             ),
                           ),
                         ],
+                      ),
+                      _buildReviewField(
+                        'Blood Group',
+                        _val(_bloodGroupController.text),
+                      ),
+                      _buildReviewField(
+                        'Allergies',
+                        _val(_allergiesController.text),
+                      ),
+                      _buildReviewField(
+                        'Chronic Conditions',
+                        _val(_chronicConditionsController.text),
                       ),
                       _buildReviewField(
                         'Reason for Visit',
@@ -1581,6 +1839,7 @@ class _NewPatientRegistrationViewState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: _buildReviewField(
@@ -1588,11 +1847,7 @@ class _NewPatientRegistrationViewState
                               '${_val(_heightController.text)} cm / ${_val(_weightController.text)} kg',
                             ),
                           ),
-                          Expanded(child: SizedBox()),
-                        ],
-                      ),
-                      Row(
-                        children: [
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
                               'BP',
@@ -1602,23 +1857,59 @@ class _NewPatientRegistrationViewState
                                   : '${_bpSystolicController.text}/${_bpDiastolicController.text}',
                             ),
                           ),
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
                               'Sugar',
                               _val(_sugarController.text),
                             ),
                           ),
+                        ],
+                      ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Expanded(
                             child: _buildReviewField(
                               'Temp',
                               _val(_tempController.text),
                             ),
                           ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Blood Group',
+                              _val(_bloodGroupController.text),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Allergies',
+                              _val(_allergiesController.text),
+                            ),
+                          ),
                         ],
                       ),
-                      _buildReviewField(
-                        'Reason for Visit',
-                        _val(_complaintsController.text),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _buildReviewField(
+                              'Chronic Conditions',
+                              _val(_chronicConditionsController.text),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Reason for Visit',
+                              _val(_complaintsController.text),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          const Expanded(child: SizedBox()),
+                        ],
                       ),
                     ],
                   ),
@@ -1651,6 +1942,14 @@ class _NewPatientRegistrationViewState
                         'Physical Activity',
                         _val(_physicalActivityController.text),
                       ),
+                      _buildReviewField(
+                        'Smoking Status',
+                        _val(_smokingStatus ?? ''),
+                      ),
+                      _buildReviewField(
+                        'Alcohol Status',
+                        _val(_alcoholStatus ?? ''),
+                      ),
                     ],
                   )
                 : Column(
@@ -1665,21 +1964,46 @@ class _NewPatientRegistrationViewState
                               _val(_occupationController.text),
                             ),
                           ),
+                          const SizedBox(width: 24),
                           Expanded(
                             child: _buildReviewField(
                               'Hobbies',
                               _val(_hobbiesController.text),
                             ),
                           ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Food Habits',
+                              _val(_foodHabitsController.text),
+                            ),
+                          ),
                         ],
                       ),
-                      _buildReviewField(
-                        'Food Habits',
-                        _val(_foodHabitsController.text),
-                      ),
-                      _buildReviewField(
-                        'Physical Activity',
-                        _val(_physicalActivityController.text),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _buildReviewField(
+                              'Physical Activity',
+                              _val(_physicalActivityController.text),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Smoking Status',
+                              _val(_smokingStatus ?? ''),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _buildReviewField(
+                              'Alcohol Status',
+                              _val(_alcoholStatus ?? ''),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -1748,7 +2072,7 @@ class _NewPatientRegistrationViewState
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE53E3E),
+                      backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(0, 52),
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1816,7 +2140,7 @@ class _NewPatientRegistrationViewState
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE53E3E),
+                    backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(0, 52),
                     padding: const EdgeInsets.symmetric(
@@ -1888,10 +2212,11 @@ class _NewPatientRegistrationViewState
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             label,
+            textAlign: TextAlign.left,
             style: const TextStyle(
               fontSize: 12,
               color: AppTheme.primaryColor,
@@ -1901,6 +2226,7 @@ class _NewPatientRegistrationViewState
           const SizedBox(height: 2),
           Text(
             value,
+            textAlign: TextAlign.left,
             style: const TextStyle(fontSize: 14, color: Color(0xFF2D3748)),
           ),
         ],
@@ -2020,6 +2346,7 @@ class _NewPatientRegistrationViewState
       value: value,
       validator: validator,
       autovalidateMode: AutovalidateMode.onUserInteraction,
+      style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 13),
@@ -2080,14 +2407,23 @@ class _NewPatientRegistrationViewState
         gender: _selectedGender ?? 'Unknown',
         phone: _phoneController.text.trim(),
         email: _emailController.text.trim(),
-        department: _selectedDepartment ?? 'General',
         address: _addressController.text.trim(),
+        addressLine2: _addressLine2Controller.text.trim(),
+        district: _selectedDistrict ?? '',
+        pincode: _pincodeController.text.trim(),
+        emergencyContactName: _emergencyContactNameController.text.trim(),
+        emergencyContactRelation: _emergencyContactRelationController.text
+            .trim(),
+        emergencyContactPhone: _emergencyContactPhoneController.text.trim(),
         height: double.tryParse(_heightController.text.trim()) ?? 0.0,
         weight: double.tryParse(_weightController.text.trim()) ?? 0.0,
         bpSystolic: int.tryParse(_bpSystolicController.text.trim()) ?? 0,
         bpDiastolic: int.tryParse(_bpDiastolicController.text.trim()) ?? 0,
         sugar: double.tryParse(_sugarController.text.trim()) ?? 0.0,
         temp: double.tryParse(_tempController.text.trim()) ?? 0.0,
+        bloodGroup: _bloodGroupController.text.trim(),
+        allergies: _allergiesController.text.trim(),
+        chronicConditions: _chronicConditionsController.text.trim(),
         complaints: _complaintsController.text.trim(),
         history: _historyController.text.trim(),
         smokingStatus: _smokingStatus ?? 'Never',

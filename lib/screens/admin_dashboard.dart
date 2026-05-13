@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
@@ -6,6 +7,7 @@ import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../controllers/admin_controller.dart';
 import '../widgets/nurse_widgets.dart' hide PatientModel;
+import '../widgets/admin_widgets.dart';
 import 'login_page.dart';
 import 'package:http/http.dart' as http;  
 import 'dart:convert';                     
@@ -35,11 +37,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
   bool _showDeleted = false;
+  final FocusNode _mainFocusNode = FocusNode();
+  List<PatientModel> _dbPatients = [];
+  final PatientController _patientController = PatientController();
+  bool _isRegisteringPatient = false;
+  PatientModel? _patientToComplete;
 
   @override
   void dispose() {
     _verticalScrollController.dispose();
     _horizontalScrollController.dispose();
+    _mainFocusNode.dispose();
     super.dispose();
   }
 
@@ -48,6 +56,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     super.initState();
     _loadStaff();
     _loadRbacData();
+    _fetchPatients();
+  }
+
+  Future<void> _fetchPatients() async {
+    try {
+      final patients = await _patientController.fetchPatients();
+      if (mounted) setState(() => _dbPatients = patients);
+    } catch (e) {
+      debugPrint('Error fetching patients for search: $e');
+    }
+  }
+
+  void _showSearchOverlay() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Search',
+      barrierColor: Colors.black.withOpacity(0.4),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (context, anim1, anim2) {
+        return SearchOverlay(
+          patients: _dbPatients.map((p) => p.toJson()).toList(),
+          onNewPatient: () => setState(() => _selectedIndex = 2), // Navigate to Patient Management
+          onBookAppointment: () => setState(() => _selectedIndex = 4), // Navigate to Appointments
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return FadeTransition(
+          opacity: anim1,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(anim1),
+            child: child,
+          ),
+        );
+      },
+    );
   }
 
   void _loadStaff() {
@@ -73,6 +117,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void _showEditDialog(BuildContext context, UserModel user) {
     final nameCtrl = TextEditingController(text: user.fullname);
     final emailCtrl = TextEditingController(text: user.email);
+    final mobileCtrl = TextEditingController(text: user.mobile);
     final editFormKey = GlobalKey<FormState>();
     String selectedRole = user.role;
     String selectedStatus = user.status;
@@ -141,12 +186,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             });
           }
           return AlertDialog(
-          title: const Text('Edit Staff', style: TextStyle(fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            title: const Text('Edit Staff', style: TextStyle(fontWeight: FontWeight.bold)),
           content: SizedBox(
             width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.9,
             child: SingleChildScrollView(
               child: Form(
                 key: editFormKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -198,6 +247,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
                       keyboardType: TextInputType.emailAddress,
                       validator: (val) => val == null || val.trim().isEmpty || !val.contains('@') ? 'Please enter a valid email' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: mobileCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Mobile Number', 
+                        prefixIcon: Icon(Icons.phone_outlined),
+                        counterText: "",
+                      ),
+                      keyboardType: TextInputType.phone,
+                      maxLength: 10,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
+                      ],
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) return 'Please enter a mobile number';
+                        if (val.trim().length != 10) return 'Mobile number must be 10 digits';
+                        if (!RegExp(r'^[0-9]+$').hasMatch(val.trim())) return 'Please enter digits only';
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     if (isLoadingRoles)
@@ -258,6 +328,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     id: user.id,
                     fullname: nameCtrl.text.trim(),
                     email: emailCtrl.text.trim(),
+                    mobile: mobileCtrl.text.trim(),
                     role: selectedRole,
                     status: selectedStatus,
                     medicalLicense: null,
@@ -297,6 +368,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         bool isDeleting = false;
         return StatefulBuilder(
           builder: (ctx, setDialogState) => AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             title: const Text('Delete Staff', style: TextStyle(fontWeight: FontWeight.bold)),
             content: RichText(
               text: TextSpan(
@@ -351,28 +425,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
-      body: SafeArea(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Sidebar (only on desktop)
-            if (!isMobile) _buildSidebar(context),
-            
-            // Main Content Area
-            Expanded(
-              child: Column(
-                children: [
-                  _buildHeader(context, isMobile),
-                  Expanded(
-                    child: ClipRRect(child: _buildBodyContent(isMobile)),
-                  ),
-                ],
+    return Focus(
+      focusNode: _mainFocusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.slash) {
+          _showSearchOverlay();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
+        body: SafeArea(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Sidebar (only on desktop)
+              if (!isMobile) _buildSidebar(context),
+              
+              // Main Content Area
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildHeader(context, isMobile),
+                    Expanded(
+                      child: ClipRRect(child: _buildBodyContent(isMobile)),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -380,7 +466,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildBodyContent(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    
+
+    if (_isRegisteringPatient) {
+      return NewPatientRegistrationView(
+        key: UniqueKey(),
+        existingPatient: _patientToComplete,
+        onBack: () {
+          setState(() {
+            _isRegisteringPatient = false;
+            _patientToComplete = null;
+          });
+          _fetchPatients();
+        },
+      );
+    }
+
     switch (_selectedIndex) {
       case 0:
         return _buildControlPanel(isMobile);
@@ -391,7 +491,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return const AccessDeniedWidget();
       case 2:
         if (user?.hasPermission('view_patients') ?? false) {
-          return const AdminPatientManagementWrapper();
+          return AdminPatientManagementWrapper(
+            onRegister: () => setState(() => _isRegisteringPatient = true),
+            onCompleteProfile: (patient) => setState(() {
+              _patientToComplete = patient;
+              _isRegisteringPatient = true;
+            }),
+          );
         }
         return const AccessDeniedWidget();
       case 3:
@@ -485,9 +591,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Staff Management', style: TextStyle(fontSize: isMobile ? 22 : 28, fontWeight: FontWeight.bold)),
+                        Text(
+                          'Staff Management',
+                          style: Theme.of(context).textTheme.displayLarge,
+                        ),
                         const SizedBox(height: 4),
-                        const Text('View and manage healthcare staff members', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13)),
+                        const Text(
+                          'View and manage healthcare staff members',
+                          style: TextStyle(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -536,14 +651,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         onPressed: () => _showAddUserDialog(context),
                       icon: const Icon(Icons.person_add_outlined, size: 18),
                       label: Text(isMobile ? 'Add' : 'Register Staff', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        minimumSize: const Size(0, 44),
-                        padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 20, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
+                      style: AppTheme.primaryButton,
                     ),
                   ],
                 ],
@@ -717,11 +825,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildStaffTable(List<UserModel> staff, bool isMobile) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-      ),
+      decoration: AppTheme.cardDecoration,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: LayoutBuilder(
@@ -985,75 +1089,82 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         children: [
           // Logo Section
           Container(
-            padding: const EdgeInsets.only(left: 24, top: 32, bottom: 24, right: 24),
+            padding: const EdgeInsets.only(left: 24, top: 0, bottom: 0, right: 24),
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1)),
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Image.asset('assets/image/sriPonniLogo.png', width: 32, height: 32),
-                ),
-                const SizedBox(width: 12),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('SRI PONNI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
-                    Text('ADMIN PORTAL', style: TextStyle(fontSize: 10, letterSpacing: 1, color: AppTheme.textSecondaryColor)),
-                  ],
+                Image.asset(
+                  'assets/image/full_logo.png',
+                  width: 100,
+                  height: 89,
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          
-          // Navigation Items
-          _buildSidebarItem(0, Icons.admin_panel_settings_outlined, 'Control Panel'),
-          _buildSidebarItem(1, Icons.people_outline, 'Staff Management'),
-          _buildSidebarItem(2, Icons.sick_outlined, 'Patient Management'),
-          _buildSidebarItem(3, Icons.security_outlined, 'Access Control'),
-          _buildSidebarItem(4, Icons.calendar_month_outlined, 'Appointment Management'),
-          _buildSidebarItem(5, Icons.monitor_heart_outlined, 'OPD Management'),
-          
-          const Spacer(),
-          
-          // User Profile Area
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Consumer<AuthProvider>(
-              builder: (context, auth, _) {
-                final user = auth.user;
-                if (user == null) return const SizedBox.shrink();
-                return Row(
-                  children: [
-                    const CircleAvatar(
-                      backgroundColor: Colors.blueGrey,
-                      radius: 18,
-                      child: Icon(Icons.person, color: Colors.white, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
-                          Text(user.role, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
-                      onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
-                    ),
-                  ],
-                );
-              },
+
+          // Navigation Items (Scrollable)
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Column(
+                children: [
+                  _buildSidebarItem(0, Icons.admin_panel_settings_outlined, 'Control Panel'),
+                  _buildSidebarItem(1, Icons.people_outline, 'Staff Management'),
+                  _buildSidebarItem(2, Icons.sick_outlined, 'Patient Management'),
+                  _buildSidebarItem(3, Icons.security_outlined, 'Access Control'),
+                  _buildSidebarItem(4, Icons.calendar_month_outlined, 'Appointments'),
+                  _buildSidebarItem(5, Icons.monitor_heart_outlined, 'OPD Management'),
+                ],
+              ),
             ),
+          ),
+
+          // User Profile Footer
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Consumer<AuthProvider>(
+                  builder: (context, auth, _) {
+                    final user = auth.user;
+                    if (user == null) return const SizedBox.shrink();
+                    return Row(
+                      children: [
+                        const CircleAvatar(
+                          backgroundColor: AppTheme.primaryColor,
+                          radius: 18,
+                          child: Icon(Icons.person, color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user.fullname,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                user.role,
+                                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
+                          onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1061,9 +1172,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildSidebarItem(int index, IconData icon, String label) {
-    bool isSelected = _selectedIndex == index;
+    bool isSelected = _selectedIndex == index && !_isRegisteringPatient;
     return InkWell(
-      onTap: () => setState(() => _selectedIndex = index),
+      onTap: () => setState(() {
+        _selectedIndex = index;
+        _isRegisteringPatient = false;
+        _patientToComplete = null;
+      }),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1090,65 +1205,103 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildHeader(BuildContext context, bool isMobile) {
     return Container(
-      height: isMobile ? 80 : 70,
+      height: isMobile ? 80 : 90,
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1)),
+        border: Border(
+          bottom: BorderSide(color: AppTheme.borderColor, width: 1),
+        ),
       ),
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Left: Menu & Search
-          if (isMobile) 
+          if (isMobile) ...[
             Builder(
               builder: (context) => IconButton(
-                icon: const Icon(Icons.menu, color: AppTheme.textSecondaryColor),
+                icon: const Icon(
+                  Icons.menu,
+                  color: AppTheme.textSecondaryColor,
+                ),
                 onPressed: () => Scaffold.of(context).openDrawer(),
               ),
             ),
-          
-          Flexible(
-            flex: 2,
+            const SizedBox(width: 8),
+          ],
+
+          Expanded(
             child: Container(
               height: 40,
               decoration: BoxDecoration(
-                color: AppTheme.backgroundColor,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.borderColor),
               ),
-              child: const TextField(
+              child: TextFormField(
+                textAlignVertical: TextAlignVertical.center,
                 decoration: InputDecoration(
-                  hintText: 'Search system...',
-                  prefixIcon: Icon(Icons.search, size: 20),
+                  isCollapsed: true,
+                  hintText: isMobile ? 'Search...' : 'Quick search...',
+                  hintStyle: const TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+                  prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                  suffixText: isMobile ? null : '/',
+                  suffixStyle: const TextStyle(color: AppTheme.iconColor),
+                  fillColor: Colors.transparent,
+                  filled: true,
+                  contentPadding: const EdgeInsets.only(top: 2),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                 ),
+                readOnly: true,
+                onTap: _showSearchOverlay,
               ),
             ),
           ),
-          
-          const SizedBox(width: 16),
-          
-          // Right Actions
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Notifications icon only on web
-              if (!isMobile) ...[
-                const Icon(Icons.notifications_none_outlined, color: AppTheme.textSecondaryColor),
-                const SizedBox(width: 20),
-              ],
-              
-              // Restored LiveClock widget for real-time display with seconds and day
-              if (!isMobile) 
-                const LiveClock()
-              else
-                Text(
-                  DateFormat('hh:mm a').format(DateTime.now()),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
+
+          if (!isMobile) ...[
+            const SizedBox(width: 24),
+            const Spacer(),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.notifications_none_outlined,
+                  color: AppTheme.textSecondaryColor,
+                  size: 22,
                 ),
-            ],
-          ),
+                const SizedBox(width: 20),
+                const Icon(
+                  Icons.help_outline,
+                  color: AppTheme.textSecondaryColor,
+                  size: 22,
+                ),
+                const SizedBox(width: 20),
+                ElevatedButton(
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    minimumSize: const Size(80, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text('Share', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(width: 24),
+
+          // Date & Time
+          const AdminLiveClock(),
         ],
       ),
     );
@@ -1333,6 +1486,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _mobileController = TextEditingController();
   final _passwordController = TextEditingController();
   final _licenseController = TextEditingController();
 final AdminController _adminController = AdminController();
@@ -1415,6 +1569,7 @@ final AdminController _adminController = AdminController();
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _mobileController.dispose();
     _passwordController.dispose();
     _licenseController.dispose();
     super.dispose();
@@ -1428,6 +1583,7 @@ final AdminController _adminController = AdminController();
     await _adminController.createStaff(
       fullname: _nameController.text.trim(),
       email: _emailController.text.trim(),
+      mobile: _mobileController.text.trim(),
       password: _passwordController.text.trim(),
       role: _selectedRole,
       medicalLicense: _licenseController.text.trim(),
@@ -1451,12 +1607,16 @@ final AdminController _adminController = AdminController();
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       title: const Text('Register New Staff', style: TextStyle(fontFamily: AppTheme.fontFamily, fontWeight: FontWeight.bold)),
       content: SizedBox(
         width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.9,
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1495,6 +1655,28 @@ final AdminController _adminController = AdminController();
                   decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.email_outlined)),
                   keyboardType: TextInputType.emailAddress,
                   validator: (val) => val == null || val.isEmpty || !val.contains('@') ? 'Please enter a valid email' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _mobileController,
+                  onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Number', 
+                    prefixIcon: Icon(Icons.phone_outlined),
+                    counterText: "",
+                  ),
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return 'Please enter a mobile number';
+                    if (val.length != 10) return 'Mobile number must be 10 digits';
+                    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Please enter digits only';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -1573,7 +1755,14 @@ final AdminController _adminController = AdminController();
 }
 
 class AdminPatientManagementWrapper extends StatefulWidget {
-  const AdminPatientManagementWrapper({Key? key}) : super(key: key);
+  final VoidCallback onRegister;
+  final Function(PatientModel) onCompleteProfile;
+
+  const AdminPatientManagementWrapper({
+    Key? key,
+    required this.onRegister,
+    required this.onCompleteProfile,
+  }) : super(key: key);
 
   @override
   State<AdminPatientManagementWrapper> createState() => _AdminPatientManagementWrapperState();
@@ -1612,51 +1801,10 @@ class _AdminPatientManagementWrapperState extends State<AdminPatientManagementWr
       patients: _dbPatients,
       isLoading: _isLoading,
       error: _error,
-      onCompleteProfile: (patient) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Complete Patient Profile', style: TextStyle(color: Colors.black87)),
-                backgroundColor: Colors.white,
-                iconTheme: const IconThemeData(color: Colors.black87),
-                elevation: 1,
-              ),
-              body: NewPatientRegistrationView(
-                existingPatient: patient,
-                onBack: () {
-                  Navigator.pop(context);
-                  _fetchPatients();
-                },
-              ),
-            ),
-          ),
-        );
-      },
+      onCompleteProfile: widget.onCompleteProfile,
       onRefresh: _fetchPatients,
-      onRegisterPatient: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Register Patient', style: TextStyle(color: Colors.black87)),
-                backgroundColor: Colors.white,
-                iconTheme: const IconThemeData(color: Colors.black87),
-                elevation: 1,
-              ),
-              body: NewPatientRegistrationView(
-                onBack: () {
-                  Navigator.pop(context);
-                  _fetchPatients();
-                },
-              ),
-            ),
-          ),
-        );
-      },
-      onBookAppointment: () {
+      onRegisterPatient: widget.onRegister,
+      onBookAppointment: (_) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Booking appointments from Admin Dashboard is currently not supported.')),
         );

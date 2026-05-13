@@ -9,6 +9,7 @@ class DoctorController {
   // ✅ Update Profile
   Future<UserModel> updateProfile({
     required String fullname,
+    String? mobile,
     String? medicalLicense,
     String? qualification,
     String? experience,
@@ -29,6 +30,7 @@ class DoctorController {
       '$baseUrl/doctor/update-profile',
       {
         'fullname': fullname,
+        'mobile': mobile ?? '',
         'medical_license': medicalLicense ?? '',
         'qualification': qualification ?? '',
         'experience': experience ?? '',
