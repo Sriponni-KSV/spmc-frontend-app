@@ -7,12 +7,11 @@ class NurseModel {
   final String? shiftStartTime;
   final String? shiftEndTime;
   final String? shiftType;
-  final String? department;
   final String? totalExperience;
-  final String? areasOfExpertise;
   final String? registrationCertificate;
   final List<String>? weeklyOffDays;
   final List<String>? specificLeaveDates;
+  final String? bio;
 
   NurseModel({
     this.qualification,
@@ -23,12 +22,11 @@ class NurseModel {
     this.shiftStartTime,
     this.shiftEndTime,
     this.shiftType,
-    this.department,
     this.totalExperience,
-    this.areasOfExpertise,
     this.registrationCertificate,
     this.weeklyOffDays,
     this.specificLeaveDates,
+    this.bio,
   });
 
   static List<String>? _parseList(dynamic val) {
@@ -54,12 +52,11 @@ class NurseModel {
       shiftStartTime: json['shift_start_time'] ?? json['shiftStartTime'] ?? json['slot_start_time'],
       shiftEndTime: json['shift_end_time'] ?? json['shiftEndTime'] ?? json['slot_end_time'],
       shiftType: json['shift_type'] ?? json['shiftType'],
-      department: json['department'],
       totalExperience: (json['total_experience'] ?? json['totalExperience'])?.toString(),
-      areasOfExpertise: json['areas_of_expertise'] ?? json['areasOfExpertise'],
       registrationCertificate: json['registration_certificate'] ?? json['registrationCertificate'],
       weeklyOffDays: _parseList(json['weekly_off_days'] ?? json['weeklyOffDays']),
       specificLeaveDates: _parseList(json['specific_leave_dates'] ?? json['specificLeaveDates']),
+      bio: json['bio'],
     );
   }
 
@@ -73,12 +70,11 @@ class NurseModel {
       'shift_start_time': shiftStartTime,
       'shift_end_time': shiftEndTime,
       'shift_type': shiftType,
-      'department': department,
       'total_experience': totalExperience,
-      'areas_of_expertise': areasOfExpertise,
       'registration_certificate': registrationCertificate,
       'weekly_off_days': weeklyOffDays,
       'specific_leave_dates': specificLeaveDates,
+      'bio': bio,
     };
   }
 }

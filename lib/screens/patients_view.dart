@@ -228,7 +228,7 @@ class _PatientsViewState extends State<PatientsView> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
+                backgroundColor: AppTheme.dangerColor,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 54),
                 elevation: 0,
@@ -276,7 +276,7 @@ class _PatientsViewState extends State<PatientsView> {
             icon: const Icon(Icons.add, size: 20),
             label: const Text('New Patient'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.dangerColor,
               foregroundColor: Colors.white,
               minimumSize: Size(isTablet ? 100 : 120, 48),
               padding: EdgeInsets.symmetric(
@@ -877,19 +877,21 @@ class _PatientsViewState extends State<PatientsView> {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundColor: isQuick
-                        ? const Color(0xFFF3E8FF)
-                        : AppTheme.primaryColor.withOpacity(0.1),
-                    child: Text(
-                      initials,
-                      style: TextStyle(
-                        color: isQuick
-                            ? const Color(0xFF7C3AED)
-                            : AppTheme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.borderColor),
+                    ),
+                    child: CircleAvatar(
+                      radius: 26,
+                      backgroundColor: AppTheme.getAvatarColors(name)['bg'],
+                      child: Text(
+                        initials,
+                        style: TextStyle(
+                          color: AppTheme.getAvatarColors(name)['text'],
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),
@@ -1131,17 +1133,21 @@ class _PatientsViewState extends State<PatientsView> {
             flex: 3,
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: isQuick
-                      ? const Color(0xFF805AD5)
-                      : const Color(0xFF0D5D9A),
-                  child: Text(
-                    initials,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppTheme.getAvatarColors(name)['bg'],
+                    child: Text(
+                      initials,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.getAvatarColors(name)['text'],
+                      ),
                     ),
                   ),
                 ),

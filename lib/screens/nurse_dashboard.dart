@@ -143,7 +143,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             SpeedDialChild(
               label: 'New Patient',
               icon: Icons.person_add_alt_1_outlined,
-              color: const Color(0xFF7FB547),
+              color: AppTheme.dangerColor,
               onTap: () => _changePage(1, isRegistering: true),
             ),
           if (Provider.of<AuthProvider>(
@@ -390,13 +390,22 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         ? const SizedBox.shrink()
                         : Row(
                             children: [
-                              const CircleAvatar(
-                                backgroundColor: AppTheme.primaryColor,
-                                radius: 18,
-                                child: Icon(
-                                  Icons.person,
-                                  color: Colors.white,
-                                  size: 20,
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: AppTheme.borderColor),
+                                ),
+                                child: CircleAvatar(
+                                  backgroundColor: AppTheme.getAvatarColors(user.fullname)['bg'],
+                                  radius: 18,
+                                  child: Text(
+                                    user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                                    style: TextStyle(
+                                      color: AppTheme.getAvatarColors(user.fullname)['text'],
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -857,13 +866,19 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Row(
         children: [
-          CircleAvatar(
-            backgroundColor: AppTheme.backgroundColor,
-            child: Text(
-              name.substring(0, 1),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: CircleAvatar(
+              backgroundColor: AppTheme.getAvatarColors(name)['bg'],
+              child: Text(
+                name.substring(0, 1).toUpperCase(),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.getAvatarColors(name)['text'],
+                ),
               ),
             ),
           ),

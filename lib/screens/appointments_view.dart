@@ -96,9 +96,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       if (!mounted) return;
       setState(() {
         _patients = patients;
-        _doctors = doctors;
+        _doctors = doctors.where((d) => d.status.toLowerCase() == 'active').toList();
         _appointments = appointments;
-        final activeDoctorSpecializations = doctors
+        final activeDoctorSpecializations = _doctors
             .map((d) => d.specialization)
             .where((s) => s != null)
             .toSet();
@@ -355,81 +355,90 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   Widget _buildBookingForm(bool isMobile) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16 : 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Back Link
-          InkWell(
-            onTap: () => setState(() {
-              _isBookingAppointment = false;
-              _clearSelections();
-            }),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.arrow_back, size: 16, color: AppTheme.primaryColor),
-                SizedBox(width: 8),
-                Text(
-                  'Back to Appointments',
-                  style: TextStyle(
+    Widget header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Back Link
+        InkWell(
+          onTap: () => setState(() {
+            _isBookingAppointment = false;
+            _clearSelections();
+          }),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.arrow_back, size: 16, color: AppTheme.primaryColor),
+              SizedBox(width: 8),
+              Text(
+                'Back to Appointments',
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        // Title
+        const Text(
+          'Book Appointment',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textPrimaryColor,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Schedule a new appointment for a patient',
+          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+        ),
+      ],
+    );
+
+    if (isMobile) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            header,
+            const SizedBox(height: 32),
+            if (_isLoadingData)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: CircularProgressIndicator(
                     color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Title
-          const Text(
-            'Book Appointment',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimaryColor,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Schedule a new appointment for a patient',
-            style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
-          ),
-          if (_isLoadingData)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(
-                child: CircularProgressIndicator(color: AppTheme.primaryColor),
               ),
-            ),
-          if (_errorMessage != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: Colors.red),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: const TextStyle(color: Colors.red),
+            if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          const SizedBox(height: 32),
-
-          if (isMobile)
+            const SizedBox(height: 32),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -781,32 +790,51 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             itemBuilder: (context, index) {
                               final time = filteredSlots[index];
                               final isSelected = _selectedTime == time;
-                              return InkWell(
-                                onTap: () =>
-                                    setState(() => _selectedTime = time),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? AppTheme.primaryColor
-                                        : Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
+                              return MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: InkWell(
+                                  onTap: () =>
+                                      setState(() => _selectedTime = time),
+                                  borderRadius: BorderRadius.circular(8),
+                                  hoverColor: AppTheme.primaryColor.withOpacity(
+                                    0.05,
+                                  ),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    decoration: BoxDecoration(
                                       color: isSelected
                                           ? AppTheme.primaryColor
-                                          : AppTheme.borderColor,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      time,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
                                         color: isSelected
-                                            ? Colors.white
-                                            : const Color(0xFF1E293B),
+                                            ? AppTheme.primaryColor
+                                            : AppTheme.borderColor,
+                                        width: isSelected ? 1.5 : 1,
+                                      ),
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: AppTheme.primaryColor
+                                                    .withOpacity(0.3),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ]
+                                          : [],
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        time,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: isSelected
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : const Color(0xFF1E293B),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -933,7 +961,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               }
                             : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
+                          backgroundColor: Colors.red,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 40,
@@ -948,10 +976,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.arrow_forward_rounded, size: 18),
-                            SizedBox(width: 12),
-                            Text(
-                              'Next',
+                            const Text(
+                              'Book Appointment',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ],
@@ -961,459 +987,554 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   ),
                 ),
               ],
-            )
-          else
-            Row(
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Desktop View
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          header,
+          const SizedBox(height: 32),
+          if (_isLoadingData)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: CircularProgressIndicator(color: AppTheme.primaryColor),
+              ),
+            ),
+          if (_errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Expanded(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Left Column: Form Cards
+                // Left Column: Scrollable Form
                 Expanded(
                   flex: 2,
-                  child: Column(
-                    children: [
-                      _buildFormCard(
-                        title: 'Select Patient',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildDropdown<PatientModel>(
-                              hint: 'Select a patient',
-                              value: _selectedPatient,
-                              items: _patients,
-                              itemLabel: (p) => p.name,
-                              onChanged: (val) =>
-                                  setState(() => _selectedPatient = val),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildFormCard(
-                        title: 'Patient Vitals',
-                        headerExtra: TextButton(
-                          onPressed: () {},
-                          child: const Text(
-                            'Collect vitals during booking',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.primaryColor,
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 32),
+                      child: Column(
+                        children: [
+                          _buildFormCard(
+                            title: 'Select Patient',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildDropdown<PatientModel>(
+                                  hint: 'Select a patient',
+                                  value: _selectedPatient,
+                                  items: _patients,
+                                  itemLabel: (p) => p.name,
+                                  onChanged: (val) =>
+                                      setState(() => _selectedPatient = val),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 4,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel('Blood Pressure'),
-                                  Row(
+                          const SizedBox(height: 24),
+                          _buildFormCard(
+                            title: 'Patient Vitals',
+                            headerExtra: TextButton(
+                              onPressed: () {},
+                              child: const Text(
+                                'Collect vitals during booking',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  flex: 4,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: _buildTextField(
-                                          controller: _bpSystolicController,
-                                          hint: '120',
-                                        ),
-                                      ),
-                                      const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 8.0,
-                                        ),
-                                        child: Text(
-                                          '/',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            color: Color(0xFF94A3B8),
+                                      _buildFieldLabel('Blood Pressure'),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildTextField(
+                                              controller: _bpSystolicController,
+                                              hint: '120',
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: _buildTextField(
-                                          controller: _bpDiastolicController,
-                                          hint: '80',
-                                        ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 8.0,
+                                            ),
+                                            child: Text(
+                                              '/',
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                color: Color(0xFF94A3B8),
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: _buildTextField(
+                                              controller:
+                                                  _bpDiastolicController,
+                                              hint: '80',
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              flex: 3,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel('Sugar Level'),
-                                  _buildTextField(
-                                    controller: _sugarController,
-                                    hint: '100 mg/dL',
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  flex: 3,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _buildFieldLabel('Sugar Level'),
+                                      _buildTextField(
+                                        controller: _sugarController,
+                                        hint: '100 mg/dL',
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              flex: 3,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel('Temperature'),
-                                  _buildTextField(
-                                    controller: _tempController,
-                                    hint: '98.6°F',
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  flex: 3,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _buildFieldLabel('Temperature'),
+                                      _buildTextField(
+                                        controller: _tempController,
+                                        hint: '98.6°F',
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                      _buildFormCard(
-                        title: 'Visit Details',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildFieldLabel('Appointment Type *'),
-                            _buildDropdown<String>(
-                              hint: 'Select type',
-                              value: _selectedApptType,
-                              items: _apptTypes,
-                              itemLabel: (s) => s,
-                              onChanged: (val) =>
-                                  setState(() => _selectedApptType = val!),
+                          ),
+                          _buildFormCard(
+                            title: 'Visit Details',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFieldLabel('Appointment Type *'),
+                                _buildDropdown<String>(
+                                  hint: 'Select type',
+                                  value: _selectedApptType,
+                                  items: _apptTypes,
+                                  itemLabel: (s) => s,
+                                  onChanged: (val) =>
+                                      setState(() => _selectedApptType = val!),
+                                ),
+                                const SizedBox(height: 16),
+                                _buildFieldLabel('Reason *'),
+                                _buildTextField(
+                                  controller: _reasonController,
+                                  hint: 'e.g. Regular check-up, fever, etc.',
+                                  isNumeric: false,
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 16),
-                            _buildFieldLabel('Reason *'),
-                            _buildTextField(
-                              controller: _reasonController,
-                              hint: 'e.g. Regular check-up, fever, etc.',
-                              isNumeric: false,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildFormCard(
-                        title: 'Department & Doctor',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildFieldLabel('Department *'),
-                            _buildDropdown<String>(
-                              hint: 'Select department',
-                              value: _selectedDept,
-                              items: _departments,
-                              itemLabel: (s) => s,
-                              onChanged: (val) => setState(() {
-                                _selectedDept = val;
-                                _selectedDoctor = null;
-                              }),
-                            ),
-                            if (_selectedDept != null) ...[
-                              const SizedBox(height: 24),
-                              _buildFieldLabel('Select Doctor *'),
-                              const SizedBox(height: 4),
-                              SizedBox(
-                                height: 60,
-                                child:
-                                    _doctors
-                                        .where(
-                                          (d) =>
-                                              d.specialization == _selectedDept,
-                                        )
-                                        .isEmpty
-                                    ? const Center(
-                                        child: Text(
-                                          'No doctors available in this department',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      )
-                                    : ListView.separated(
-                                        scrollDirection: Axis.horizontal,
-                                        itemCount: _doctors
+                          ),
+                          const SizedBox(height: 24),
+                          _buildFormCard(
+                            title: 'Department & Doctor',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFieldLabel('Department *'),
+                                _buildDropdown<String>(
+                                  hint: 'Select department',
+                                  value: _selectedDept,
+                                  items: _departments,
+                                  itemLabel: (s) => s,
+                                  onChanged: (val) => setState(() {
+                                    _selectedDept = val;
+                                    _selectedDoctor = null;
+                                  }),
+                                ),
+                                if (_selectedDept != null) ...[
+                                  const SizedBox(height: 24),
+                                  _buildFieldLabel('Select Doctor *'),
+                                  const SizedBox(height: 4),
+                                  SizedBox(
+                                    height: 60,
+                                    child:
+                                        _doctors
                                             .where(
                                               (d) =>
                                                   d.specialization ==
                                                   _selectedDept,
                                             )
-                                            .length,
-                                        separatorBuilder: (_, __) =>
-                                            const SizedBox(width: 16),
-                                        itemBuilder: (context, index) {
-                                          final doc = _doctors
-                                              .where(
-                                                (d) =>
-                                                    d.specialization ==
-                                                    _selectedDept,
-                                              )
-                                              .toList()[index];
-                                          final isSelected =
-                                              _selectedDoctor?.fullname ==
-                                              doc.fullname;
-                                          return InkWell(
-                                            onTap: () {
-                                              setState(() {
-                                                _selectedDoctor = doc;
-                                                _selectedTime = null;
-                                              });
-                                              _updateAvailableSlots();
-                                            },
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 16,
-                                                    vertical: 8,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: isSelected
-                                                    ? const Color(0xFFF0F7FF)
-                                                    : Colors.white,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                border: Border.all(
-                                                  color: isSelected
-                                                      ? const Color(0xFF3B82F6)
-                                                      : AppTheme.borderColor,
-                                                ),
+                                            .isEmpty
+                                        ? const Center(
+                                            child: Text(
+                                              'No doctors available in this department',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey,
                                               ),
-                                              child: Row(
-                                                children: [
-                                                  Icon(
-                                                    isSelected
-                                                        ? Icons
-                                                              .radio_button_checked
-                                                        : Icons
-                                                              .radio_button_off,
-                                                    size: 18,
+                                            ),
+                                          )
+                                        : ListView.separated(
+                                            scrollDirection: Axis.horizontal,
+                                            itemCount: _doctors
+                                                .where(
+                                                  (d) =>
+                                                      d.specialization ==
+                                                      _selectedDept,
+                                                )
+                                                .length,
+                                            separatorBuilder: (_, __) =>
+                                                const SizedBox(width: 16),
+                                            itemBuilder: (context, index) {
+                                              final doc = _doctors
+                                                  .where(
+                                                    (d) =>
+                                                        d.specialization ==
+                                                        _selectedDept,
+                                                  )
+                                                  .toList()[index];
+                                              final isSelected =
+                                                  _selectedDoctor?.fullname ==
+                                                  doc.fullname;
+                                              return InkWell(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _selectedDoctor = doc;
+                                                    _selectedTime = null;
+                                                  });
+                                                  _updateAvailableSlots();
+                                                },
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 16,
+                                                        vertical: 8,
+                                                      ),
+                                                  decoration: BoxDecoration(
                                                     color: isSelected
                                                         ? const Color(
-                                                            0xFF3B82F6,
+                                                            0xFFF0F7FF,
                                                           )
+                                                        : Colors.white,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: isSelected
+                                                          ? const Color(
+                                                              0xFF3B82F6,
+                                                            )
+                                                          : AppTheme
+                                                                .borderColor,
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        isSelected
+                                                            ? Icons
+                                                                  .radio_button_checked
+                                                            : Icons
+                                                                  .radio_button_off,
+                                                        size: 18,
+                                                        color: isSelected
+                                                            ? const Color(
+                                                                0xFF3B82F6,
+                                                              )
+                                                            : const Color(
+                                                                0xFF94A3B8,
+                                                              ),
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      CircleAvatar(
+                                                        radius: 14,
+                                                        backgroundColor:
+                                                            const Color(
+                                                              0xFF1E40AF,
+                                                            ),
+                                                        child: Text(
+                                                          _getInitials(
+                                                            doc.fullname,
+                                                          ),
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 10,
+                                                                color: Colors
+                                                                    .white,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      Column(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            doc.fullname,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize: 13,
+                                                                  color: Color(
+                                                                    0xFF2D3748,
+                                                                  ),
+                                                                ),
+                                                          ),
+                                                          Text(
+                                                            _selectedDept!,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 11,
+                                                                  color: Color(
+                                                                    0xFF64748B,
+                                                                  ),
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildFormCard(
+                            title: 'Date & Time',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFieldLabel('Appointment Date *'),
+                                TextField(
+                                  controller: _dateController,
+                                  readOnly: true,
+                                  onTap: () async {
+                                    DateTime? picked = await showDatePicker(
+                                      context: context,
+                                      initialDate:
+                                          _bookingDate ?? DateTime.now(),
+                                      firstDate: DateTime.now(),
+                                      lastDate: DateTime.now().add(
+                                        const Duration(days: 365),
+                                      ),
+                                    );
+                                    if (picked != null) {
+                                      setState(() {
+                                        _bookingDate = picked;
+                                        _dateController.text = DateFormat(
+                                          'dd/MM/yyyy',
+                                        ).format(picked);
+                                        _selectedTime = null; // Reset time
+                                      });
+                                      _updateAvailableSlots();
+                                    }
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: 'dd/mm/yyyy',
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    prefixIcon: const Icon(
+                                      Icons.calendar_today_outlined,
+                                      size: 18,
+                                      color: Color(0xFF94A3B8),
+                                    ),
+                                    suffixIcon: const Icon(
+                                      Icons.calendar_month,
+                                      size: 18,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: const BorderSide(
+                                        color: AppTheme.borderColor,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: const BorderSide(
+                                        color: AppTheme.primaryColor,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                ),
+                                if (_bookingDate != null) ...[
+                                  const SizedBox(height: 24),
+                                  _buildFieldLabel('Available Time Slots *'),
+                                  const SizedBox(height: 8),
+                                  () {
+                                    final filteredSlots =
+                                        _getFilteredTimeSlots();
+                                    if (_selectedDoctor == null) {
+                                      return const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 20,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            'Please select a doctor to see available time slots',
+                                            style: TextStyle(
+                                              color: Colors.red,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    if (filteredSlots.isEmpty) {
+                                      return const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 20,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            'No more slots available for today',
+                                            style: TextStyle(
+                                              color: Colors.red,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    return GridView.builder(
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      gridDelegate:
+                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 4,
+                                            childAspectRatio: 2.5,
+                                            crossAxisSpacing: 12,
+                                            mainAxisSpacing: 12,
+                                          ),
+                                      itemCount: filteredSlots.length,
+                                      itemBuilder: (context, index) {
+                                        final time = filteredSlots[index];
+                                        final isSelected =
+                                            _selectedTime == time;
+                                        return InkWell(
+                                          onTap: () => setState(
+                                            () => _selectedTime = time,
+                                          ),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: isSelected
+                                                  ? AppTheme.primaryColor
+                                                  : Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: isSelected
+                                                    ? AppTheme.primaryColor
+                                                    : AppTheme.borderColor,
+                                              ),
+                                            ),
+                                            child: Center(
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.access_time,
+                                                    size: 14,
+                                                    color: isSelected
+                                                        ? Colors.white
                                                         : const Color(
                                                             0xFF94A3B8,
                                                           ),
                                                   ),
-                                                  const SizedBox(width: 12),
-                                                  CircleAvatar(
-                                                    radius: 14,
-                                                    backgroundColor:
-                                                        const Color(0xFF1E40AF),
-                                                    child: Text(
-                                                      _getInitials(
-                                                        doc.fullname,
-                                                      ),
-                                                      style: const TextStyle(
-                                                        fontSize: 10,
-                                                        color: Colors.white,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    time,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: isSelected
+                                                          ? FontWeight.bold
+                                                          : FontWeight.normal,
+                                                      color: isSelected
+                                                          ? Colors.white
+                                                          : const Color(
+                                                              0xFF1E293B,
+                                                            ),
                                                     ),
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Column(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .center,
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        doc.fullname,
-                                                        style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontSize: 13,
-                                                          color: Color(
-                                                            0xFF2D3748,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        _selectedDept!,
-                                                        style: const TextStyle(
-                                                          fontSize: 11,
-                                                          color: Color(
-                                                            0xFF64748B,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
                                                   ),
                                                 ],
                                               ),
                                             ),
-                                          );
-                                        },
-                                      ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildFormCard(
-                        title: 'Date & Time',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildFieldLabel('Appointment Date *'),
-                            TextField(
-                              controller: _dateController,
-                              readOnly: true,
-                              onTap: () async {
-                                DateTime? picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: _bookingDate ?? DateTime.now(),
-                                  firstDate: DateTime.now(),
-                                  lastDate: DateTime.now().add(
-                                    const Duration(days: 365),
-                                  ),
-                                );
-                                if (picked != null) {
-                                  setState(() {
-                                    _bookingDate = picked;
-                                    _dateController.text = DateFormat(
-                                      'dd/MM/yyyy',
-                                    ).format(picked);
-                                    _selectedTime = null; // Reset time
-                                  });
-                                  _updateAvailableSlots();
-                                }
-                              },
-                              decoration: InputDecoration(
-                                hintText: 'dd/mm/yyyy',
-                                filled: true,
-                                fillColor: Colors.white,
-                                prefixIcon: const Icon(
-                                  Icons.calendar_today_outlined,
-                                  size: 18,
-                                  color: Color(0xFF94A3B8),
-                                ),
-                                suffixIcon: const Icon(
-                                  Icons.calendar_month,
-                                  size: 18,
-                                  color: Color(0xFF1E293B),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(
-                                    color: AppTheme.borderColor,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(
-                                    color: AppTheme.primaryColor,
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF1E293B),
-                              ),
-                            ),
-                            if (_bookingDate != null) ...[
-                              const SizedBox(height: 24),
-                              _buildFieldLabel('Available Time Slots *'),
-                              const SizedBox(height: 8),
-                              () {
-                                final filteredSlots = _getFilteredTimeSlots();
-                                if (filteredSlots.isEmpty) {
-                                  return const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 20),
-                                    child: Center(
-                                      child: Text(
-                                        'No more slots available for today',
-                                        style: TextStyle(
-                                          color: Colors.red,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                return GridView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 4,
-                                        childAspectRatio: 2.5,
-                                        crossAxisSpacing: 12,
-                                        mainAxisSpacing: 12,
-                                      ),
-                                  itemCount: filteredSlots.length,
-                                  itemBuilder: (context, index) {
-                                    final time = filteredSlots[index];
-                                    final isSelected = _selectedTime == time;
-                                    return InkWell(
-                                      onTap: () =>
-                                          setState(() => _selectedTime = time),
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? AppTheme.primaryColor
-                                              : Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            8,
                                           ),
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? AppTheme.primaryColor
-                                                : AppTheme.borderColor,
-                                          ),
-                                        ),
-                                        child: Center(
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.access_time,
-                                                size: 14,
-                                                color: isSelected
-                                                    ? Colors.white
-                                                    : const Color(0xFF94A3B8),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                time,
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: isSelected
-                                                      ? FontWeight.bold
-                                                      : FontWeight.normal,
-                                                  color: isSelected
-                                                      ? Colors.white
-                                                      : const Color(0xFF1E293B),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
+                                        );
+                                      },
                                     );
-                                  },
-                                );
-                              }(),
-                            ],
-                          ],
-                        ),
+                                  }(),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 32),
@@ -1423,7 +1544,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   child: Column(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF1F5F9).withOpacity(0.5),
                           borderRadius: BorderRadius.circular(16),
@@ -1438,11 +1559,11 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               'Appointment Summary',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                                fontSize: 14,
                                 color: AppTheme.textPrimaryColor,
                               ),
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 4),
 
                             if (_selectedPatient != null)
                               _buildSummaryItem(
@@ -1548,26 +1669,26 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     }
                                   : null,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryColor,
+                                backgroundColor: Colors.red,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 40,
-                                  vertical: 20,
+                                  horizontal: 20,
+                                  vertical: 16,
                                 ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                minimumSize: const Size(0, 52),
+                                minimumSize: const Size(0, 44),
                                 elevation: 0,
                               ),
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.arrow_forward_rounded, size: 18),
-                                  SizedBox(width: 12),
-                                  Text(
-                                    'Confirm & Complete',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  const Text(
+                                    'Book Appointment',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1580,6 +1701,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
               ],
             ),
+          ),
         ],
       ),
     );
@@ -1684,8 +1806,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1693,7 +1815,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF3B82F6)),
+          Icon(icon, size: 16, color: const Color(0xFF3B82F6)),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -1702,16 +1824,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 Text(
                   label,
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 10,
                     color: Color(0xFF64748B),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   value,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1E293B),
                   ),
@@ -1721,7 +1843,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   Text(
                     subtitle,
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 10,
                       color: Color(0xFF64748B),
                     ),
                   ),
@@ -1898,7 +2020,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           icon: const Icon(Icons.add, size: 20),
           label: const Text('Book Appointment'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
+            backgroundColor: Colors.red,
             foregroundColor: Colors.white,
             minimumSize: const Size(180, 48),
             shape: RoundedRectangleBorder(

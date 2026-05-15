@@ -183,64 +183,98 @@ class _NewPatientRegistrationViewState
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16.0 : 48.0,
-        vertical: 32.0,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Back Button & Header
-          InkWell(
-            onTap: widget.onBack,
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.arrow_back_rounded,
-                  size: 18,
-                  color: AppTheme.primaryColor,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Fixed Top Section: Header & Stepper
+        Container(
+          color: AppTheme.backgroundColor,
+          padding: EdgeInsets.only(
+            left: isMobile ? 16.0 : 48.0,
+            right: isMobile ? 16.0 : 48.0,
+            top: 24.0,
+            bottom: 8.0,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Back Button & Header
+              InkWell(
+                onTap: widget.onBack,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.arrow_back_rounded,
+                      size: 18,
+                      color: AppTheme.primaryColor,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Back to Patients',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 8),
-                Text(
-                  'Back to Patients',
-                  style: TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.existingPatient != null
+                              ? (widget.existingPatient!.isQuickRegister
+                                    ? 'Complete Patient Profile'
+                                    : 'Edit Patient Profile')
+                              : 'New Patient Registration',
+                          style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                                fontSize: isMobile ? 20 : 28,
+                              ),
+                        ),
+                        if (!isMobile) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.existingPatient != null
+                                ? 'Update patient information and medical history'
+                                : 'Register a new patient with AI-powered voice input',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 12,
+                                ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Stepper UI
+              _buildRegistrationStepper(isMobile),
+            ],
+          ),
+        ),
+
+        // Scrollable Form Content
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              left: isMobile ? 16.0 : 48.0,
+              right: isMobile ? 16.0 : 48.0,
+              top: 8.0,
+              bottom: 32.0,
             ),
+            child: _buildStepContent(isMobile),
           ),
-          const SizedBox(height: 24),
-          Text(
-            widget.existingPatient != null
-                ? (widget.existingPatient!.isQuickRegister
-                      ? 'Complete Patient Profile'
-                      : 'Edit Patient Profile')
-                : 'New Patient Registration',
-            style: Theme.of(context).textTheme.displayLarge,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            widget.existingPatient != null
-                ? 'Update patient information and medical history'
-                : 'Register a new patient with AI-powered voice input',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondaryColor,
-                ),
-          ),
-          const SizedBox(height: 32),
-
-          // Stepper UI
-          _buildRegistrationStepper(isMobile),
-          const SizedBox(height: 32),
-
-          // Form Content
-          _buildStepContent(isMobile),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -262,7 +296,7 @@ class _NewPatientRegistrationViewState
   Widget _buildRegistrationStepper(bool isMobile) {
     return Container(
       padding: EdgeInsets.symmetric(
-        vertical: 24,
+        vertical: isMobile ? 6 : 8,
         horizontal: isMobile ? 12 : 32,
       ),
       decoration: AppTheme.cardDecoration,
@@ -278,7 +312,7 @@ class _NewPatientRegistrationViewState
           _buildStepDivider(_currentStep > 1),
           _buildStepItem(
             2,
-            'Medical\nIntake',
+            'Medical Intake',
             _currentStep >= 2,
             isCompleted: _currentStep > 2,
             isMobile: isMobile,
@@ -315,8 +349,8 @@ class _NewPatientRegistrationViewState
       child: Column(
         children: [
           Container(
-            width: isMobile ? 28 : 32,
-            height: isMobile ? 28 : 32,
+            width: isMobile ? 20 : 24,
+            height: isMobile ? 20 : 24,
             decoration: BoxDecoration(
               color: (isActive || isCompleted)
                   ? AppTheme.infoColor
@@ -337,16 +371,16 @@ class _NewPatientRegistrationViewState
                             ? Colors.white
                             : const Color(0xFF718096),
                         fontWeight: FontWeight.bold,
-                        fontSize: isMobile ? 10 : 12,
+                        fontSize: isMobile ? 8 : 10,
                       ),
                     ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: isMobile ? 9 : 11,
+              fontSize: isMobile ? 8 : 10,
               fontWeight: (isActive || isCompleted)
                   ? FontWeight.bold
                   : FontWeight.normal,
@@ -368,7 +402,7 @@ class _NewPatientRegistrationViewState
       child: Container(
         height: 2,
         color: isActive ? AppTheme.infoColor : const Color(0xFFE2E8F0),
-        margin: const EdgeInsets.only(bottom: 24),
+         margin: const EdgeInsets.only(bottom: 16),
       ),
     );
   }

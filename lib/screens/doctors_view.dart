@@ -25,7 +25,7 @@ class _DoctorsViewState extends State<DoctorsView> {
   String _selectedDepartment = 'All';
 
   final ScrollController _deptScrollController = ScrollController();
-  bool _showRightArrow = true;
+  bool _showRightArrow = false;
   bool _showLeftArrow = false;
 
   @override
@@ -158,7 +158,9 @@ class _DoctorsViewState extends State<DoctorsView> {
                 return Center(child: Text('Error: ${snapshot.error}'));
               }
 
-              final doctors = snapshot.data ?? [];
+              final doctors = (snapshot.data ?? [])
+                  .where((d) => d.status.toLowerCase() == 'active')
+                  .toList();
               
               // Calculate dynamic departments from registered doctors
               final Map<String, int> deptCounts = {};
@@ -329,14 +331,14 @@ class _DoctorsViewState extends State<DoctorsView> {
             }).toList(),
           ),
         ),
-        if (_showLeftArrow)
+        if (_showLeftArrow && dynamicDepartments.length > 4)
           Positioned(
             left: 0,
             top: 0,
             bottom: 0,
             child: _buildGradientArrow(isLeft: true),
           ),
-        if (_showRightArrow)
+        if (_showRightArrow && dynamicDepartments.length > 4)
           Positioned(
             right: 0,
             top: 0,
@@ -707,179 +709,520 @@ class _DoctorsViewState extends State<DoctorsView> {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Row(
-            children: [
-              Icon(canEdit ? Icons.edit_note : Icons.person_outline, color: AppTheme.primaryColor),
-              const SizedBox(width: 12),
-              Text(canEdit ? 'Edit Doctor Profile' : 'Doctor Professional Profile'),
-            ],
-          ),
-          content: SizedBox(
-            width: 600,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Basic Information', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                  const Divider(),
-                  Row(
-                    children: [
-                      Expanded(child: _buildDialogField('Full Name', fullnameController, enabled: canEdit)),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildDialogField('Email', emailController, enabled: canEdit)),
-                    ],
+        builder: (context, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: 700,
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header section
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.05),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(24),
+                      topRight: Radius.circular(24),
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
+                  child: Row(
                     children: [
-                      Expanded(child: _buildDialogField('Medical License', licenseController, enabled: canEdit)),
-                      const SizedBox(width: 16),
+                      CircleAvatar(
+                        radius: 32,
+                        backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                        child: Text(
+                          doctor.fullname.substring(0, 1).toUpperCase(),
+                          style: const TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 20),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Specialization', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                            DropdownButton<int>(
-                              isExpanded: true,
-                              value: selectedSpecId,
-                              disabledHint: selectedSpecId != null 
-                                ? Text(
-                                    specializations.firstWhere((s) => s['id'] == selectedSpecId)['name'],
-                                    style: const TextStyle(color: Colors.black87),
-                                  )
-                                : null,
-                              items: specializations.map((s) => DropdownMenuItem<int>(
-                                value: s['id'],
-                                child: Text(s['name']),
-                              )).toList(),
-                              onChanged: canEdit ? (val) => setDialogState(() => selectedSpecId = val) : null,
+                            Text(
+                              canEdit ? 'Edit Doctor Profile' : 'Doctor Professional Profile',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimaryColor,
+                              ),
+                            ),
+                            Text(
+                              'Dr. ${doctor.fullname} • ${doctor.specialization ?? "General Medicine"}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textSecondaryColor,
+                              ),
                             ),
                           ],
                         ),
                       ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          padding: const EdgeInsets.all(8),
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  const Text('Professional Details', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                  const Divider(),
-                  Row(
+                ),
+                
+                // Form content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Section: Basic Info
+                        _buildProfileSection(
+                          title: 'Basic Information',
+                          icon: Icons.person_outline,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: canEdit 
+                                    ? _buildModernField('Full Name', fullnameController)
+                                    : _buildDetailItem('Full Name', fullnameController.text),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: canEdit
+                                    ? _buildModernField('Email', emailController)
+                                    : _buildDetailItem('Email', emailController.text),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: canEdit
+                                    ? _buildModernField('Medical License', licenseController)
+                                    : _buildDetailItem('Medical License', licenseController.text),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: canEdit
+                                    ? _buildModernDropdown(
+                                        label: 'Specialization',
+                                        value: selectedSpecId,
+                                        items: specializations,
+                                        onChanged: (val) => setDialogState(() => selectedSpecId = val),
+                                      )
+                                    : _buildDetailItem(
+                                        'Specialization', 
+                                        selectedSpecId != null 
+                                          ? specializations.firstWhere((s) => s['id'] == selectedSpecId)['name']
+                                          : 'N/A'
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Section: Professional Details
+                        _buildProfileSection(
+                          title: 'Professional Details',
+                          icon: Icons.work_outline,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: canEdit
+                                    ? _buildModernField('Experience (years)', experienceController)
+                                    : _buildDetailItem('Experience', '${experienceController.text} years'),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: canEdit
+                                    ? _buildModernField('Patients Attended', patientsController, isNumeric: true)
+                                    : _buildDetailItem('Patients Attended', patientsController.text),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            canEdit
+                              ? _buildModernField('Qualification', qualificationController)
+                              : _buildDetailItem('Qualification', qualificationController.text),
+                            const SizedBox(height: 16),
+                            canEdit
+                              ? _buildModernField('Areas of Expertise', expertiseController, hint: 'Comma separated')
+                              : _buildDetailItem('Areas of Expertise', expertiseController.text),
+                            const SizedBox(height: 16),
+                            canEdit
+                              ? _buildModernField('Bio', bioController, maxLines: 3)
+                              : _buildDetailItem('Bio', bioController.text),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Section: Clinic & Availability
+                        _buildProfileSection(
+                          title: 'Clinic & Availability',
+                          icon: Icons.access_time,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: canEdit
+                                    ? _buildModernField('Clinic Name', clinicNameController)
+                                    : _buildDetailItem('Clinic Name', clinicNameController.text),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: canEdit
+                                    ? _buildModernField('Clinic Location', clinicLocationController)
+                                    : _buildDetailItem('Clinic Location', clinicLocationController.text),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: canEdit
+                                    ? _buildModernField('Consultation Fee', feeController)
+                                    : _buildDetailItem('Consultation Fee', feeController.text),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: canEdit
+                                    ? _buildModernField('Slot Start Time', startTimeController, hint: 'e.g. 9:30 AM')
+                                    : _buildDetailItem('Consultation Hours', 'Starts at ${startTimeController.text}'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            if (!canEdit)
+                              _buildDetailItem('Available Days', selectedDays.isNotEmpty ? selectedDays.join(', ') : 'Not Provided')
+                            else ...[
+                              const Text(
+                                'Available Days',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: weekDays.map((day) {
+                                  final isSelected = selectedDays.contains(day);
+                                  return InkWell(
+                                    onTap: () {
+                                      setDialogState(() {
+                                        if (isSelected) selectedDays.remove(day);
+                                        else selectedDays.add(day);
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? AppTheme.primaryColor : Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        day,
+                                        style: TextStyle(
+                                          color: isSelected ? Colors.white : AppTheme.textSecondaryColor,
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Actions
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border(top: BorderSide(color: AppTheme.borderColor.withOpacity(0.5))),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Expanded(child: _buildDialogField('Experience (years)', experienceController, enabled: canEdit)),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildDialogField('Patients Attended', patientsController, isNumeric: true, enabled: canEdit)),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDialogField('Qualification', qualificationController, enabled: canEdit),
-                  const SizedBox(height: 16),
-                  _buildDialogField('Areas of Expertise', expertiseController, hint: 'Comma separated', enabled: canEdit),
-                  const SizedBox(height: 16),
-                  _buildDialogField('Bio', bioController, maxLines: 3, enabled: canEdit),
-                  const SizedBox(height: 24),
-                  const Text('Clinic & Availability', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                  const Divider(),
-                  Row(
-                    children: [
-                      Expanded(child: _buildDialogField('Clinic Name', clinicNameController, enabled: canEdit)),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildDialogField('Clinic Location', clinicLocationController, enabled: canEdit)),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(child: _buildDialogField('Consultation Fee', feeController, enabled: canEdit)),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildDialogField('Slot Start Time', startTimeController, hint: 'e.g. 9:30 AM', enabled: canEdit)),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Available Days', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Wrap(
-                    spacing: 8,
-                    children: weekDays.map((day) {
-                      final isSelected = selectedDays.contains(day);
-                      return FilterChip(
-                        label: Text(
-                          day,
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : (canEdit ? Colors.black87 : Colors.black54),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text(canEdit ? 'Cancel' : 'Close'),
+                      ),
+                      if (canEdit) ...[
+                        const SizedBox(width: 16),
+                        ElevatedButton(
+                          onPressed: () async {
+                            try {
+                              await _adminController.updateStaff(
+                                id: doctor.id,
+                                fullname: fullnameController.text,
+                                email: emailController.text,
+                                role: 'Doctor',
+                                medicalLicense: licenseController.text,
+                                specializationId: selectedSpecId,
+                                qualification: qualificationController.text,
+                                experience: experienceController.text,
+                                patientsAttended: int.tryParse(patientsController.text) ?? 0,
+                                bio: bioController.text,
+                                availableDays: selectedDays,
+                                slotStartTime: startTimeController.text,
+                                clinicName: clinicNameController.text,
+                                clinicLocation: clinicLocationController.text,
+                                consultationFee: double.tryParse(feeController.text.replaceAll(RegExp(r'[^0-9.]'), '')),
+                                areasOfExpertise: expertiseController.text,
+                              );
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                _loadDoctors();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Profile updated successfully'), backgroundColor: Colors.green),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
                           ),
+                          child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
-                        selected: isSelected,
-                        selectedColor: AppTheme.primaryColor,
-                        disabledColor: isSelected 
-                            ? AppTheme.primaryColor 
-                            : Colors.grey.shade100,
-                        checkmarkColor: Colors.white,
-                        showCheckmark: isSelected,
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        side: BorderSide(
-                          color: isSelected ? AppTheme.primaryColor : Colors.grey.shade300,
-                        ),
-                        onSelected: canEdit ? (val) {
-                          setDialogState(() {
-                            if (val) selectedDays.add(day);
-                            else selectedDays.remove(day);
-                          });
-                        } : null,
-                      );
-                    }).toList(),
+                      ],
+                    ],
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailItem(String label, String value, {IconData? icon}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondaryColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 14, color: AppTheme.primaryColor),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text(
+                  value.trim().isEmpty ? 'Not Provided' : value,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileSection({required String title, required IconData icon, required List<Widget> children}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: AppTheme.primaryColor),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernField(String label, TextEditingController controller, {bool isNumeric = false, int maxLines = 1, String? hint, bool enabled = true}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondaryColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: controller,
+            readOnly: !enabled,
+            keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+            maxLines: maxLines,
+            style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: hint,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppTheme.borderColor.withOpacity(0.8)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppTheme.borderColor.withOpacity(0.8)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+              ),
+              filled: true,
+              fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade100,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernDropdown({
+    required String label,
+    required int? value,
+    required List<Map<String, dynamic>> items,
+    required Function(int?)? onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondaryColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: onChanged != null ? Colors.grey.shade50 : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppTheme.borderColor.withOpacity(0.8)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                isExpanded: true,
+                value: value,
+                style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14),
+                disabledHint: value != null 
+                  ? Text(
+                      items.firstWhere((s) => s['id'] == value)['name'],
+                      style: const TextStyle(color: AppTheme.textPrimaryColor),
+                    )
+                  : null,
+                items: items.map((s) => DropdownMenuItem<int>(
+                  value: s['id'],
+                  child: Text(s['name']),
+                )).toList(),
+                onChanged: onChanged,
               ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            if (canEdit)
-              ElevatedButton(
-                onPressed: () async {
-                  try {
-                    await _adminController.updateStaff(
-                      id: doctor.id,
-                      fullname: fullnameController.text,
-                      email: emailController.text,
-                      role: 'Doctor',
-                      medicalLicense: licenseController.text,
-                      specializationId: selectedSpecId,
-                      qualification: qualificationController.text,
-                      experience: experienceController.text,
-                      patientsAttended: int.tryParse(patientsController.text) ?? 0,
-                      bio: bioController.text,
-                      availableDays: selectedDays,
-                      slotStartTime: startTimeController.text,
-                      clinicName: clinicNameController.text,
-                      clinicLocation: clinicLocationController.text,
-                      consultationFee: double.tryParse(feeController.text.replaceAll(RegExp(r'[^0-9.]'), '')),
-                      areasOfExpertise: expertiseController.text,
-                    );
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      _loadDoctors();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Profile updated successfully'), backgroundColor: Colors.green),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                      );
-                    }
-                  }
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                child: const Text('Save Changes'),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }

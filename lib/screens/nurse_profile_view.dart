@@ -18,20 +18,39 @@ class _NurseProfileViewState extends State<NurseProfileView> {
   NurseController get _nurseController => NurseController();
 
   // Basic Controllers
-  late TextEditingController _nameController;
-  late TextEditingController _emailController;
-  late TextEditingController _bioController;
+  TextEditingController? __nameController;
+  TextEditingController get _nameController => __nameController ??= TextEditingController();
+  
+  TextEditingController? __emailController;
+  TextEditingController get _emailController => __emailController ??= TextEditingController();
+
+  TextEditingController? __bioController;
+  TextEditingController get _bioController => __bioController ??= TextEditingController();
+
+  TextEditingController? __mobileController;
+  TextEditingController get _mobileController => __mobileController ??= TextEditingController();
 
   // Nurse Specific Controllers
-  late TextEditingController _qualController;
-  late TextEditingController _nursingLicenseController;
-  late TextEditingController _yearsExpController;
-  late TextEditingController _areasOfExpertiseController;
-  late TextEditingController _regCertController;
-  late TextEditingController _departmentController;
-  late TextEditingController _shiftTypeController;
-  late TextEditingController _slotStartController;
-  late TextEditingController _slotEndController;
+  TextEditingController? __qualController;
+  TextEditingController get _qualController => __qualController ??= TextEditingController();
+
+  TextEditingController? __nursingLicenseController;
+  TextEditingController get _nursingLicenseController => __nursingLicenseController ??= TextEditingController();
+
+  TextEditingController? __yearsExpController;
+  TextEditingController get _yearsExpController => __yearsExpController ??= TextEditingController();
+
+  TextEditingController? __regCertController;
+  TextEditingController get _regCertController => __regCertController ??= TextEditingController();
+
+  TextEditingController? __shiftTypeController;
+  TextEditingController get _shiftTypeController => __shiftTypeController ??= TextEditingController();
+
+  TextEditingController? __slotStartController;
+  TextEditingController get _slotStartController => __slotStartController ??= TextEditingController();
+
+  TextEditingController? __slotEndController;
+  TextEditingController get _slotEndController => __slotEndController ??= TextEditingController();
 
   List<String>? _availableDays;
   List<String>? _weeklyOffDays;
@@ -45,27 +64,20 @@ class _NurseProfileViewState extends State<NurseProfileView> {
 
   void _initControllers() {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    _nameController = TextEditingController(text: user?.fullname ?? '');
-    _emailController = TextEditingController(text: user?.email ?? '');
-    _bioController = TextEditingController(text: user?.bio ?? '');
+    _nameController.text = user?.fullname ?? '';
+    _emailController.text = user?.email ?? '';
+    _bioController.text = user?.bio ?? '';
+    _mobileController.text = user?.mobile ?? '';
 
-    _qualController = TextEditingController(text: user?.qualification ?? '');
-    _nursingLicenseController = TextEditingController(text: user?.nursingRegistrationNumber ?? '');
-    _yearsExpController = TextEditingController(text: user?.yearsOfExperience ?? '');
-    _areasOfExpertiseController = TextEditingController(text: user?.areasOfExpertise ?? '');
-    _regCertController = TextEditingController(text: user?.registrationCertificate ?? '');
-    _departmentController = TextEditingController(
-      text: (user?.department != null && user!.department!.isNotEmpty)
-          ? user.department
-          : 'General Medicine',
-    );
-    _shiftTypeController = TextEditingController(
-      text: (user?.shiftType != null && user!.shiftType!.isNotEmpty)
-          ? user.shiftType
-          : 'Day Shift',
-    );
-    _slotStartController = TextEditingController(text: user?.shiftStartTime ?? '');
-    _slotEndController = TextEditingController(text: user?.shiftEndTime ?? '');
+    _qualController.text = user?.qualification ?? '';
+    _nursingLicenseController.text = user?.nursingRegistrationNumber ?? '';
+    _yearsExpController.text = user?.yearsOfExperience ?? '';
+    _regCertController.text = user?.registrationCertificate ?? '';
+    _shiftTypeController.text = (user?.shiftType != null && user!.shiftType!.isNotEmpty)
+          ? user.shiftType!
+          : 'Day Shift';
+    _slotStartController.text = user?.shiftStartTime ?? '';
+    _slotEndController.text = user?.shiftEndTime ?? '';
 
     _availableDays = user?.workingDays != null ? List.from(user!.workingDays!) : [];
     // Ensure all days not in availableDays are in weeklyOffDays
@@ -77,18 +89,17 @@ class _NurseProfileViewState extends State<NurseProfileView> {
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _bioController.dispose();
-    _qualController.dispose();
-    _nursingLicenseController.dispose();
-    _yearsExpController.dispose();
-    _areasOfExpertiseController.dispose();
-    _regCertController.dispose();
-    _departmentController.dispose();
-    _shiftTypeController.dispose();
-    _slotStartController.dispose();
-    _slotEndController.dispose();
+    __nameController?.dispose();
+    __emailController?.dispose();
+    __bioController?.dispose();
+    __mobileController?.dispose();
+    __qualController?.dispose();
+    __nursingLicenseController?.dispose();
+    __yearsExpController?.dispose();
+    __regCertController?.dispose();
+    __shiftTypeController?.dispose();
+    __slotStartController?.dispose();
+    __slotEndController?.dispose();
     super.dispose();
   }
 
@@ -103,6 +114,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     try {
       final updatedUser = await _nurseController.updateProfile(
         fullname: _nameController.text,
+        mobile: _mobileController.text,
+        bio: _bioController.text,
         qualification: _qualController.text,
         nursingRegistrationNumber: _nursingLicenseController.text,
         yearsOfExperience: _yearsExpController.text,
@@ -110,8 +123,6 @@ class _NurseProfileViewState extends State<NurseProfileView> {
         shiftStartTime: _slotStartController.text,
         shiftEndTime: _slotEndController.text,
         shiftType: _shiftTypeController.text,
-        department: _departmentController.text,
-        areasOfExpertise: _areasOfExpertiseController.text,
         registrationCertificate: _regCertController.text,
         weeklyOffDays: _weeklyOffDays ?? [],
         specificLeaveDates: _specificLeaveDates ?? [],
@@ -214,7 +225,9 @@ class _NurseProfileViewState extends State<NurseProfileView> {
           keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
           maxLength: maxLength,
           inputFormatters: isNumeric ? [FilteringTextInputFormatter.digitsOnly] : null,
-          mouseCursor: isReadOnly ? SystemMouseCursors.forbidden : null,
+          mouseCursor: onTap != null 
+              ? SystemMouseCursors.click 
+              : (isReadOnly ? SystemMouseCursors.forbidden : null),
           onTap: onTap,
           style: TextStyle(color: isReadOnly ? AppTheme.textSecondaryColor.withOpacity(0.7) : AppTheme.textPrimaryColor),
           decoration: InputDecoration(
@@ -307,9 +320,30 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(user?.fullname ?? 'Nurse', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
-                      const SizedBox(height: 4),
-                      Text(user?.role ?? 'Nurse', style: const TextStyle(color: Color(0xFFC53030), fontSize: 13, fontWeight: FontWeight.bold)),
+                       const SizedBox(height: 8),
+                       Text(
+                         user?.role ?? 'Nurse', 
+                         style: const TextStyle(
+                           color: Color(0xFFC53030), 
+                           fontSize: 13, 
+                           fontWeight: FontWeight.bold, 
+                         )
+                       ),
                        const SizedBox(height: 12),
+                       Row(
+                         children: [
+                           Icon(Icons.phone_android_rounded, size: 16, color: Colors.grey.shade600),
+                           const SizedBox(width: 8),
+                           Text(
+                             user?.mobile ?? '-',
+                             style: TextStyle(
+                               fontSize: 15,
+                               fontWeight: FontWeight.w600,
+                               color: Colors.blueGrey.shade700,
+                             ),
+                           ),
+                         ],
+                       ),
                        // Removed About / Bio and hyphen as per user request
                     ],
                   ),
@@ -329,8 +363,6 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     : '${user!.yearsOfExperience} years',
                 Icons.work_history_outlined,
               ),
-              _buildDetailRow('Areas of Expertise', user?.areasOfExpertise ?? '-', Icons.psychology_outlined),
-              _buildDetailRow('Department', user?.department ?? '-', Icons.business_outlined),
             ]),
             sectionSpacing,
             _buildInfoCard('Availability / Duty', [
@@ -374,8 +406,6 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                           : '${user!.yearsOfExperience} years',
                       Icons.work_history_outlined,
                     ),
-                    _buildDetailRow('Areas of Expertise', user?.areasOfExpertise ?? '-', Icons.psychology_outlined),
-                    _buildDetailRow('Department', user?.department ?? '-', Icons.business_outlined),
                   ]),
                 ),
                 const SizedBox(width: 24),
@@ -453,48 +483,46 @@ class _NurseProfileViewState extends State<NurseProfileView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Update Profile',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Modify your professional details and availability',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => setState(() => _isEditingProfile = false),
-                  icon: const Icon(Icons.arrow_back_ios_new, size: 14),
-                  label: const Text('Back to Profile'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    minimumSize: const Size(0, 48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
+             InkWell(
+               onTap: () => setState(() => _isEditingProfile = false),
+               borderRadius: BorderRadius.circular(8),
+               child: const Padding(
+                 padding: EdgeInsets.symmetric(vertical: 8),
+                 child: Row(
+                   mainAxisSize: MainAxisSize.min,
+                   children: [
+                     Icon(Icons.arrow_back, color: AppTheme.primaryColor, size: 16),
+                     SizedBox(width: 8),
+                     Text(
+                       'Back to Profile',
+                       style: TextStyle(
+                         color: AppTheme.primaryColor,
+                         fontSize: 13,
+                         fontWeight: FontWeight.w600,
+                       ),
+                     ),
+                   ],
+                 ),
+               ),
+             ),
+             const SizedBox(height: 20),
+             const Text(
+               'Update Profile',
+               style: TextStyle(
+                 fontSize: 28,
+                 fontWeight: FontWeight.bold,
+                 color: AppTheme.textPrimaryColor,
+               ),
+             ),
+             const SizedBox(height: 4),
+             Text(
+               'Modify your professional details and availability',
+               style: TextStyle(
+                 color: AppTheme.textSecondaryColor,
+                 fontSize: 14,
+               ),
+             ),
+             const SizedBox(height: 32),
 
             // ── Avatar + Basic Info ──────────────────────────
             Container(
@@ -539,14 +567,6 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          if (user?.department?.isNotEmpty == true)
-                            Text(
-                              user!.department!,
-                              style: const TextStyle(
-                                color: AppTheme.textSecondaryColor,
-                                fontSize: 14,
-                              ),
-                            ),
                           const SizedBox(height: 2),
                           Text(
                             user?.role ?? 'Nurse',
@@ -565,6 +585,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     _buildProfileTextField('Full Name', _nameController, Icons.person_outline, isReadOnly: true),
                     fieldSpacing,
                     _buildProfileTextField('Email Address', _emailController, Icons.email_outlined, isReadOnly: true),
+                    fieldSpacing,
+                    _buildProfileTextField('Mobile Number', _mobileController, Icons.phone_android_outlined, isReadOnly: true),
                   ] else ...[
                     Row(
                       children: [
@@ -574,6 +596,10 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: _buildProfileTextField('Email Address', _emailController, Icons.email_outlined, isReadOnly: true),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildProfileTextField('Mobile Number', _mobileController, Icons.phone_android_outlined, isReadOnly: true),
                         ),
                       ],
                     ),
@@ -636,30 +662,6 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined),
                 fieldSpacing,
                 _buildProfileTextField('Years of Experience', _yearsExpController, Icons.work_outline, isNumeric: true, maxLength: 2),
-                fieldSpacing,
-                _buildProfileTextField('Areas of Expertise', _areasOfExpertiseController, Icons.psychology_outlined),
-                fieldSpacing,
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textSecondaryColor)),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: _departmentController.text.isNotEmpty && ['General Medicine', 'Pediatrics', 'Obstetrics & Gynecology', 'Emergency/ICU', 'Surgery', 'Cardiology', 'Oncology', 'Orthopedics'].contains(_departmentController.text) ? _departmentController.text : 'General Medicine',
-                      style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.business_outlined, size: 20),
-                        fillColor: AppTheme.backgroundColor,
-                        filled: true,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      ),
-                      items: ['General Medicine', 'Pediatrics', 'Obstetrics & Gynecology', 'Emergency/ICU', 'Surgery', 'Cardiology', 'Oncology', 'Orthopedics'].map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 14)))).toList(),
-                      onChanged: (v) => _departmentController.text = v ?? '',
-                    ),
-                  ],
-                ),
               ] else ...[
                 Row(
                   children: [
@@ -679,52 +681,20 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                       child: _buildProfileTextField('Years of Experience', _yearsExpController, Icons.work_outline, isNumeric: true, maxLength: 2),
                     ),
                     const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildProfileTextField('Areas of Expertise', _areasOfExpertiseController, Icons.psychology_outlined),
-                    ),
-                  ],
-                ),
-                fieldSpacing,
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textSecondaryColor)),
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<String>(
-                            value: _departmentController.text.isNotEmpty && ['General Medicine', 'Pediatrics', 'Obstetrics & Gynecology', 'Emergency/ICU', 'Surgery', 'Cardiology', 'Oncology', 'Orthopedics'].contains(_departmentController.text) ? _departmentController.text : 'General Medicine',
-                            style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
-                            decoration: InputDecoration(
-                              prefixIcon: const Icon(Icons.business_outlined, size: 20),
-                              fillColor: AppTheme.backgroundColor,
-                              filled: true,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            ),
-                            items: ['General Medicine', 'Pediatrics', 'Obstetrics & Gynecology', 'Emergency/ICU', 'Surgery', 'Cardiology', 'Oncology', 'Orthopedics'].map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 14)))).toList(),
-                            onChanged: (v) => _departmentController.text = v ?? '',
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
                     const Expanded(child: SizedBox()), // Placeholder for balance
                   ],
                 ),
               ],
             ]),
             sectionSpacing,
-            sectionCard('2', 'Availability / Duty', const Color(0xFF38A169), [
+            sectionCard('2', 'Availability / Duty', AppTheme.successColor, [
               const Text('Weekly Schedule (Tap: Available ↔ Leave)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8, runSpacing: 8,
                 children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
                   final isAvailable = _availableDays?.contains(day) ?? false;
-                  Color bgColor = isAvailable ? const Color(0xFF38A169) : Colors.red.shade400;
+                  Color bgColor = isAvailable ? AppTheme.successColor : Colors.red.shade400;
                   return MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: GestureDetector(
