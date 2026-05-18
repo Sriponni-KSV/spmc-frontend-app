@@ -3,10 +3,11 @@ import 'package:flutter/services.dart';
 
 class AppTheme {
   // ── Colors ────────────────────────────────────────────────────────────────
-  static const Color backgroundColor = Color(0xFFF8FAFC); // Lighter, modern bg
+  static const Color backgroundColor = Color(0xFFF1F7FB); // Subtle blue-tinted background
   static const Color primaryColor = Color(0xFF065D96); // Logo Blue
   static const Color primaryLight = Color(0xFFEAF2F7);
   static const Color secondaryColor = Color(0xFF79B649); // Logo Green
+  static const Color logoRed = Color(0xFFE53E3E); // Logo Red
   static const Color cardColor = Colors.white;
   
   static const Color textPrimaryColor = Color(0xFF1A202C); // Darker for better contrast
@@ -127,6 +128,11 @@ class AppTheme {
 
   static ButtonStyle get secondaryButton => baseButtonStyle(
     backgroundColor: secondaryColor,
+    foregroundColor: Colors.white,
+  );
+
+  static ButtonStyle get logoRedButton => baseButtonStyle(
+    backgroundColor: logoRed,
     foregroundColor: Colors.white,
   );
 

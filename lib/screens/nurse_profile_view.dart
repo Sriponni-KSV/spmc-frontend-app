@@ -216,7 +216,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black),
         ),
         const SizedBox(height: 8),
         TextFormField(
@@ -465,7 +465,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   child: Center(child: Text(number, style: TextStyle(color: accentColor, fontWeight: FontWeight.bold))),
                 ),
                 const SizedBox(width: 12),
-                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
               ],
             ),
             const SizedBox(height: 20),
@@ -511,14 +511,14 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                style: TextStyle(
                  fontSize: 28,
                  fontWeight: FontWeight.bold,
-                 color: AppTheme.textPrimaryColor,
+                 color: Colors.black,
                ),
              ),
              const SizedBox(height: 4),
              Text(
                'Modify your professional details and availability',
-               style: TextStyle(
-                 color: AppTheme.textSecondaryColor,
+               style: const TextStyle(
+                 color: Colors.black,
                  fontSize: 14,
                ),
              ),
@@ -608,14 +608,14 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Bio / Professional Summary',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textSecondaryColor,
-                        ),
-                      ),
+                       const Text(
+                         'Bio / Professional Summary',
+                         style: TextStyle(
+                           fontSize: 14,
+                           fontWeight: FontWeight.bold,
+                           color: Colors.black,
+                         ),
+                       ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _bioController,
@@ -688,7 +688,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
             ]),
             sectionSpacing,
             sectionCard('2', 'Availability / Duty', AppTheme.successColor, [
-              const Text('Weekly Schedule (Tap: Available ↔ Leave)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+               const Text('Weekly Schedule (Tap: Available ↔ Leave)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8, runSpacing: 8,
@@ -727,10 +727,10 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 fieldSpacing,
                 _buildProfileTextField('Shift End Time', _slotEndController, Icons.logout_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotEndController)),
                 fieldSpacing,
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor, fontSize: 14)),
+                 Column(
+                   crossAxisAlignment: CrossAxisAlignment.start,
+                   children: [
+                     const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
@@ -757,10 +757,10 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     Expanded(child: _buildProfileTextField('Shift End Time', _slotEndController, Icons.logout_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotEndController))),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor, fontSize: 14)),
+                       child: Column(
+                         crossAxisAlignment: CrossAxisAlignment.start,
+                         children: [
+                           const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
                             value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
@@ -783,7 +783,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 ),
               ],
               fieldSpacing,
-              const Text('Particular Leave Dates', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+               const Text('Particular Leave Dates', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8, runSpacing: 8,
@@ -850,14 +850,17 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                ElevatedButton.icon(
+                ElevatedButton(
                   onPressed: _isLoading ? null : _saveProfile,
-                  icon: const Icon(
-                    Icons.save_outlined,
-                    color: Colors.white,
-                    size: 20,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.logoRed,
+                    minimumSize: const Size(200, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
                   ),
-                  label: _isLoading
+                  child: _isLoading
                       ? const SizedBox(
                           width: 20,
                           height: 20,
@@ -874,14 +877,6 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    minimumSize: const Size(200, 48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 2,
-                  ),
                 ),
                 const SizedBox(width: 24),
               ],

@@ -191,7 +191,7 @@ class _AdminAppointmentManagementState
     String? selectedDoctor = appt.doctorName;
     DateTime? newDate;
     try {
-      newDate = DateFormat('dd-MM-yyyy').parse(appt.appointmentDate);
+      newDate = DateFormat('dd/MM/yyyy').parse(appt.appointmentDate);
     } catch (e) {}
     String? newTime = appt.appointmentTime;
     String? patientName = appt.patientName;
@@ -582,7 +582,7 @@ class _AdminAppointmentManagementState
                                   Text(
                                     newDate != null
                                         ? DateFormat(
-                                            'dd-MM-yyyy',
+                                            'dd/MM/yyyy',
                                           ).format(newDate!)
                                         : 'Pick a date',
                                     style: TextStyle(
@@ -753,7 +753,7 @@ class _AdminAppointmentManagementState
                               appointmentDate:
                                   (mode == 'reschedule' || mode == 'edit') &&
                                       newDate != null
-                                  ? DateFormat('dd-MM-yyyy').format(newDate!)
+                                  ? DateFormat('dd/MM/yyyy').format(newDate!)
                                   : null,
                               appointmentTime:
                                   (mode == 'reschedule' || mode == 'edit')
@@ -947,7 +947,7 @@ class _AdminAppointmentManagementState
                           _buildFilterDropdown(
                             'Appointment Date',
                             _filterDate != null
-                                ? DateFormat('dd-MM-yyyy').format(_filterDate!)
+                                ? DateFormat('dd/MM/yyyy').format(_filterDate!)
                                 : 'Any Date',
                             [],
                             (v) {},

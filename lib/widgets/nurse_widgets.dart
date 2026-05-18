@@ -170,7 +170,7 @@ class _LiveClockState extends State<LiveClock> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                DateFormat('EEE, MMM d, yyyy').format(_currentTime),
+                DateFormat('dd/MM/yyyy').format(_currentTime),
                 style: const TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
@@ -833,7 +833,7 @@ class PatientInfoCard extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 200),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9), // Subtle light blue-grey background
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFDCDFE4), width: 1.0),
       ),

@@ -689,6 +689,7 @@ class _DoctorsViewState extends State<DoctorsView> {
     
     final fullnameController = TextEditingController(text: doctor.fullname);
     final emailController = TextEditingController(text: doctor.email);
+    final mobileController = TextEditingController(text: doctor.mobile ?? '');
     final experienceController = TextEditingController(text: doctor.experience ?? '');
     final patientsController = TextEditingController(text: doctor.numberPatientsAttended?.toString() ?? '0');
     final bioController = TextEditingController(text: doctor.bio ?? '');
@@ -701,7 +702,7 @@ class _DoctorsViewState extends State<DoctorsView> {
     final startTimeController = TextEditingController(text: doctor.slotStartTime ?? '');
     
     int? selectedSpecId = doctor.specializationId;
-    List<String> selectedDays = List<String>.from(doctor.availableDays ?? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+    List<String> selectedDays = List<String>.from(doctor.availableDays ?? []);
     final List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     if (!mounted) return;
@@ -821,10 +822,20 @@ class _DoctorsViewState extends State<DoctorsView> {
                               children: [
                                 Expanded(
                                   child: canEdit
+                                    ? _buildModernField('Mobile Number', mobileController)
+                                    : _buildDetailItem('Mobile Number', mobileController.text),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: canEdit
                                     ? _buildModernField('Medical License', licenseController)
                                     : _buildDetailItem('Medical License', licenseController.text),
                                 ),
-                                const SizedBox(width: 16),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
                                 Expanded(
                                   child: canEdit
                                     ? _buildModernDropdown(
@@ -840,6 +851,8 @@ class _DoctorsViewState extends State<DoctorsView> {
                                           : 'N/A'
                                       ),
                                 ),
+                                const SizedBox(width: 16),
+                                const Spacer(),
                               ],
                             ),
                           ],
@@ -1002,6 +1015,7 @@ class _DoctorsViewState extends State<DoctorsView> {
                                 id: doctor.id,
                                 fullname: fullnameController.text,
                                 email: emailController.text,
+                                mobile: mobileController.text,
                                 role: 'Doctor',
                                 medicalLicense: licenseController.text,
                                 specializationId: selectedSpecId,

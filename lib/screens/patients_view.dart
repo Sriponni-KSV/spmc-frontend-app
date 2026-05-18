@@ -1711,7 +1711,7 @@ class _PatientsViewState extends State<PatientsView> {
         return StatefulBuilder(
           builder: (context, setState) {
             return Dialog(
-              backgroundColor: const Color(0xFFF8FAFC),
+              backgroundColor: AppTheme.backgroundColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -2324,7 +2324,7 @@ class _PatientsViewState extends State<PatientsView> {
                         Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
+                            color: AppTheme.backgroundColor,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: AppTheme.borderColor.withOpacity(0.5),
@@ -3715,7 +3715,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
             padding: const EdgeInsets.all(20),
             margin: const EdgeInsets.only(bottom: 24),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: AppTheme.backgroundColor,
               border: Border.all(color: const Color(0xFFE2E8F0)),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -4218,7 +4218,7 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
             margin: const EdgeInsets.only(top: 12),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: AppTheme.backgroundColor,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),

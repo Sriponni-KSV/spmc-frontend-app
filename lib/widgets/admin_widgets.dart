@@ -52,7 +52,7 @@ class _AdminLiveClockState extends State<AdminLiveClock> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                DateFormat('EEE, MMM d, yyyy').format(_currentTime),
+                DateFormat('dd/MM/yyyy').format(_currentTime),
                 style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,

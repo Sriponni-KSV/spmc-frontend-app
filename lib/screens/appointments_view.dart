@@ -443,11 +443,11 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildFormCard(
-                  title: 'Select Patient',
+                  title: '',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Patient *'),
+                      _buildFieldLabel('Select Patient *'),
                       _buildDropdown<PatientModel>(
                         hint: 'Select a patient',
                         value: _selectedPatient,
@@ -890,7 +890,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         _buildSummaryItem(
                           Icons.calendar_month_outlined,
                           'Date',
-                          DateFormat('EEEE, MMM d, yyyy').format(_bookingDate!),
+                          DateFormat('dd/MM/yyyy').format(_bookingDate!),
                         ),
 
                       if (_selectedTime != null)
@@ -1044,10 +1044,11 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       child: Column(
                         children: [
                           _buildFormCard(
-                            title: 'Select Patient',
+                            title: '',
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                _buildFieldLabel('Select Patient *'),
                                 _buildDropdown<PatientModel>(
                                   hint: 'Select a patient',
                                   value: _selectedPatient,
@@ -1585,7 +1586,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 Icons.calendar_month_outlined,
                                 'Date',
                                 DateFormat(
-                                  'EEEE, MMMM d, yyyy',
+                                  'dd/MM/yyyy',
                                 ).format(_bookingDate!),
                               ),
 
@@ -1716,7 +1717,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF4A5568),
+            color: Colors.black,
           ),
         ),
       );
@@ -1733,7 +1734,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF4A5568),
+                color: Colors.black,
                 fontFamily: AppTheme.fontFamily,
               ),
             ),
@@ -1893,21 +1894,24 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Color(0xFF2D3748),
-                ),
-              ),
-              if (headerExtra != null) headerExtra,
-            ],
-          ),
-          const SizedBox(height: 20),
+          if (title.isNotEmpty || headerExtra != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (title.isNotEmpty)
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                if (headerExtra != null) headerExtra,
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
           child,
         ],
       ),
@@ -2062,20 +2066,20 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               _buildStatCard(
                 'Total Today',
                 total.toString(),
-                Colors.grey.shade100,
-                Colors.black87,
+                icon: Icons.calendar_today_rounded,
+                accentColor: const Color(0xFF005691),
               ),
               _buildStatCard(
                 'Confirmed',
                 confirmed.toString(),
-                const Color(0xFFF0F7FF),
-                const Color(0xFF3182CE),
+                icon: Icons.check_circle_rounded,
+                accentColor: const Color(0xFF16A34A),
               ),
               _buildStatCard(
                 'Cancelled',
                 cancelled.toString(),
-                AppTheme.primaryLight,
-                AppTheme.primaryColor,
+                icon: Icons.cancel_rounded,
+                accentColor: const Color(0xFFDC2626),
               ),
             ],
           );
@@ -2086,24 +2090,24 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             _buildStatCard(
               'Total Today',
               total.toString(),
-              Colors.white,
-              Colors.black87,
+              icon: Icons.calendar_today_rounded,
+              accentColor: const Color(0xFF005691),
               width: cardWidth,
             ),
             const SizedBox(width: 16),
             _buildStatCard(
               'Confirmed',
               confirmed.toString(),
-              const Color(0xFFF0F7FF),
-              const Color(0xFF3182CE),
+              icon: Icons.check_circle_rounded,
+              accentColor: const Color(0xFF16A34A),
               width: cardWidth,
             ),
             const SizedBox(width: 16),
             _buildStatCard(
               'Cancelled',
               cancelled.toString(),
-              AppTheme.primaryLight,
-              AppTheme.primaryColor,
+              icon: Icons.cancel_rounded,
+              accentColor: const Color(0xFFDC2626),
               width: cardWidth,
             ),
           ],
@@ -2114,45 +2118,67 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
   Widget _buildStatCard(
     String label,
-    String value,
-    Color bgColor,
-    Color textColor, {
+    String value, {
+    required IconData icon,
+    required Color accentColor,
     double? width,
   }) {
     return Container(
       width: width,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        color: accentColor.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accentColor.withOpacity(0.2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: accentColor.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: textColor.withOpacity(0.7),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: TextStyle(
+                  color: accentColor,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: accentColor.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
+            child: Icon(icon, color: accentColor, size: 24),
           ),
         ],
       ),
@@ -2395,7 +2421,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
-              color: Color(0xFFF8FAFC),
+              color: AppTheme.backgroundColor,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -2478,15 +2504,21 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: const Color(0xFF1E3A8A),
-                    child: Text(
-                      _getInitials(appt.patientName),
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.borderColor),
+                    ),
+                    child: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: AppTheme.getAvatarColors(appt.patientName)['bg'],
+                      child: Text(
+                        _getInitials(appt.patientName),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.getAvatarColors(appt.patientName)['text'],
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -2729,15 +2761,21 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             flex: 3,
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: const Color(0xFF1E3A8A),
-                  child: Text(
-                    patientInitials,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: AppTheme.getAvatarColors(patientName)['bg'],
+                    child: Text(
+                      patientInitials,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppTheme.getAvatarColors(patientName)['text'],
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),

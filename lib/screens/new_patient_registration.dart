@@ -5,6 +5,7 @@ import '../utils/app_theme.dart';
 import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../models/patient_model.dart';
+import '../widgets/custom_dropdown_search.dart';
 
 class NewPatientRegistrationView extends StatefulWidget {
   final VoidCallback onBack;
@@ -427,9 +428,13 @@ class _NewPatientRegistrationViewState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+             const Text(
               'Basic Details',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
             ),
             const SizedBox(height: 32),
 
@@ -451,7 +456,7 @@ class _NewPatientRegistrationViewState
                           ),
                         ],
                         validator: (val) => val == null || val.isEmpty
-                            ? 'Full name is required'
+                            ? 'Please enter Full Name'
                             : null,
                       ),
                     ],
@@ -466,13 +471,13 @@ class _NewPatientRegistrationViewState
                       _buildLabel('Email Address *'),
                       _buildTextField(
                         controller: _emailController,
-                        hint: 'patient@example.com',
+                        hint: 'Enter Email Address',
                         keyboardType: TextInputType.emailAddress,
                         validator: (val) {
                           if (val == null || val.isEmpty)
-                            return 'Email is required';
+                            return 'Please enter Email Address';
                           if (!val.contains('@'))
-                            return 'Enter a valid email address';
+                            return 'Please enter a valid Email Address';
                           return null;
                         },
                       ),
@@ -498,7 +503,7 @@ class _NewPatientRegistrationViewState
                         onTap: () => _selectDate(context),
                         readOnly: true,
                         validator: (val) => val == null || val.isEmpty
-                            ? 'DOB is required'
+                            ? 'Please enter Date of Birth'
                             : null,
                       ),
                     ],
@@ -517,7 +522,7 @@ class _NewPatientRegistrationViewState
                         onChanged: (val) =>
                             setState(() => _selectedGender = val),
                         validator: (val) => val == null || val.isEmpty
-                            ? 'Gender is required'
+                            ? 'Please enter Gender'
                             : null,
                       ),
                     ],
@@ -538,7 +543,7 @@ class _NewPatientRegistrationViewState
                       _buildLabel('Mobile Number *'),
                       _buildTextField(
                         controller: _phoneController,
-                        hint: '98765 43210',
+                        hint: 'Enter Mobile Number',
                         keyboardType: TextInputType.phone,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
@@ -546,9 +551,9 @@ class _NewPatientRegistrationViewState
                         ],
                         validator: (val) {
                           if (val == null || val.isEmpty)
-                            return 'Mobile number is required';
+                            return 'Please enter Mobile Number';
                           if (val.length != 10)
-                            return 'Enter a valid 10-digit mobile number';
+                            return 'Please enter a valid Mobile Number';
                           return null;
                         },
                       ),
@@ -566,7 +571,7 @@ class _NewPatientRegistrationViewState
                         controller: _emergencyContactNameController,
                         hint: 'Enter name',
                         validator: (val) => val == null || val.isEmpty
-                            ? 'Emergency contact name is required'
+                            ? 'Please enter Emergency Contact Name'
                             : null,
                       ),
                     ],
@@ -584,9 +589,9 @@ class _NewPatientRegistrationViewState
                       _buildLabel('Relation *'),
                       _buildTextField(
                         controller: _emergencyContactRelationController,
-                        hint: 'e.g. Spouse, Parent',
+                        hint: 'Enter Relationship',
                         validator: (val) => val == null || val.isEmpty
-                            ? 'Relation is required'
+                            ? 'Please enter Relation'
                             : null,
                       ),
                     ],
@@ -600,7 +605,7 @@ class _NewPatientRegistrationViewState
                       _buildLabel('Emergency Mobile Number *'),
                       _buildTextField(
                         controller: _emergencyContactPhoneController,
-                        hint: '98765 43210',
+                        hint: 'Enter Mobile Number',
                         keyboardType: TextInputType.phone,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
@@ -608,9 +613,9 @@ class _NewPatientRegistrationViewState
                         ],
                         validator: (val) {
                           if (val == null || val.isEmpty)
-                            return 'Emergency mobile number is required';
+                            return 'Please enter Emergency Mobile Number';
                           if (val.length != 10)
-                            return 'Enter a valid 10-digit mobile number';
+                            return 'Please enter a valid Emergency Mobile Number';
                           return null;
                         },
                       ),
@@ -631,9 +636,9 @@ class _NewPatientRegistrationViewState
                       _buildLabel('Address Line 1 *'),
                       _buildTextField(
                         controller: _addressController,
-                        hint: 'Door No, Building Name',
+                        hint: 'Enter Address Line 1',
                         validator: (val) => val == null || val.isEmpty
-                            ? 'Address Line 1 is required'
+                            ? 'Please enter Address Line 1'
                             : null,
                       ),
                     ],
@@ -647,7 +652,7 @@ class _NewPatientRegistrationViewState
                       _buildLabel('Address Line 2'),
                       _buildTextField(
                         controller: _addressLine2Controller,
-                        hint: 'Street Name, Locality',
+                        hint: 'Enter Address Line 2',
                       ),
                     ],
                   ),
@@ -668,7 +673,7 @@ class _NewPatientRegistrationViewState
                         items: _tamilNaduDistricts,
                         onChanged: (val) => setState(() => _selectedDistrict = val),
                         validator: (val) => val == null || val.isEmpty
-                            ? 'District is required'
+                            ? 'Please enter District'
                             : null,
                       ),
                     ],
@@ -682,7 +687,7 @@ class _NewPatientRegistrationViewState
                       _buildLabel('Pincode *'),
                       _buildTextField(
                         controller: _pincodeController,
-                        hint: '600001',
+                        hint: 'Enter Pincode',
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
@@ -690,8 +695,8 @@ class _NewPatientRegistrationViewState
                         ],
                         validator: (val) {
                           if (val == null || val.isEmpty)
-                            return 'Pincode is required';
-                          if (val.length != 6) return 'Enter a valid 6-digit pincode';
+                            return 'Please enter Pincode';
+                          if (val.length != 6) return 'Please enter a valid Pincode';
                           return null;
                         },
                       ),
@@ -726,7 +731,7 @@ class _NewPatientRegistrationViewState
                           setState(() => _currentStep = 2);
                         }
                       },
-                      style: AppTheme.primaryButton.copyWith(
+                      style: AppTheme.logoRedButton.copyWith(
                         minimumSize: MaterialStateProperty.all(const Size(0, 52)),
                       ),
                       child: const Row(
@@ -772,7 +777,7 @@ class _NewPatientRegistrationViewState
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
+                      backgroundColor: AppTheme.logoRed,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 40,
@@ -829,7 +834,11 @@ class _NewPatientRegistrationViewState
                 children: [
                   const Text(
                     'Medical Intake',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -867,7 +876,11 @@ class _NewPatientRegistrationViewState
                 children: [
                   const Text(
                     'Medical Intake',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
                   ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -904,12 +917,12 @@ class _NewPatientRegistrationViewState
               ),
             // Vitals Section
             const SizedBox(height: 24),
-            const Text(
+             const Text(
               'Vitals',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3748),
+                color: AppTheme.primaryColor,
               ),
             ),
             const SizedBox(height: 20),
@@ -920,7 +933,7 @@ class _NewPatientRegistrationViewState
                   Expanded(
                     child: _buildTextField(
                       controller: _heightController,
-                      hint: '170 cm',
+                      hint: 'Enter Height (cm)',
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
@@ -931,7 +944,7 @@ class _NewPatientRegistrationViewState
                   Expanded(
                     child: _buildTextField(
                       controller: _weightController,
-                      hint: '70 kg',
+                      hint: 'Enter Weight (kg)',
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
@@ -947,7 +960,7 @@ class _NewPatientRegistrationViewState
                   Expanded(
                     child: _buildTextField(
                       controller: _bpSystolicController,
-                      hint: '120',
+                      hint: 'Enter Systolic',
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     ),
@@ -962,7 +975,7 @@ class _NewPatientRegistrationViewState
                   Expanded(
                     child: _buildTextField(
                       controller: _bpDiastolicController,
-                      hint: '80',
+                      hint: 'Enter Diastolic',
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     ),
@@ -979,7 +992,7 @@ class _NewPatientRegistrationViewState
                         _buildLabel('Sugar Level'),
                         _buildTextField(
                           controller: _sugarController,
-                          hint: 'mg/dL',
+                          hint: 'Enter Sugar Level',
                           keyboardType: TextInputType.number,
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
@@ -998,7 +1011,7 @@ class _NewPatientRegistrationViewState
                         _buildLabel('Temperature'),
                         _buildTextField(
                           controller: _tempController,
-                          hint: '°F',
+                          hint: 'Enter Temperature',
                           keyboardType: TextInputType.number,
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
@@ -1012,7 +1025,7 @@ class _NewPatientRegistrationViewState
                 ],
               ),
               const SizedBox(height: 16),
-              _buildLabel('Blood Group *'),
+              _buildLabel('Blood Group'),
               _buildDropdownField(
                 value: _bloodGroupController.text.isNotEmpty
                     ? _bloodGroupController.text
@@ -1021,22 +1034,20 @@ class _NewPatientRegistrationViewState
                 items: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
                 onChanged: (val) =>
                     setState(() => _bloodGroupController.text = val ?? ''),
-                validator: (val) => val == null || val.isEmpty
-                    ? 'Blood Group is required'
-                    : null,
+                validator: null,
               ),
               const SizedBox(height: 16),
               _buildLabel('Known Allergies'),
               _buildTextField(
                 controller: _allergiesController,
-                hint: 'e.g. Penicillin, Peanuts',
+                hint: 'Enter Allergies',
                 maxLines: 2,
               ),
               const SizedBox(height: 16),
               _buildLabel('Chronic Conditions'),
               _buildTextField(
                 controller: _chronicConditionsController,
-                hint: 'e.g. Diabetes, Hypertension',
+                hint: 'Enter Pre-existing Conditions',
                 maxLines: 2,
               ),
             ] else ...[
@@ -1052,7 +1063,7 @@ class _NewPatientRegistrationViewState
                             Expanded(
                               child: _buildTextField(
                                 controller: _heightController,
-                                hint: '170 cm',
+                                hint: 'Enter Height (cm)',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.allow(
@@ -1065,7 +1076,7 @@ class _NewPatientRegistrationViewState
                             Expanded(
                               child: _buildTextField(
                                 controller: _weightController,
-                                hint: '70 kg',
+                                hint: 'Enter Weight (kg)',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.allow(
@@ -1090,7 +1101,7 @@ class _NewPatientRegistrationViewState
                             Expanded(
                               child: _buildTextField(
                                 controller: _bpSystolicController,
-                                hint: '120',
+                                hint: 'Enter Systolic',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
@@ -1101,7 +1112,7 @@ class _NewPatientRegistrationViewState
                             Expanded(
                               child: _buildTextField(
                                 controller: _bpDiastolicController,
-                                hint: '80',
+                                hint: 'Enter Diastolic',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
@@ -1128,7 +1139,7 @@ class _NewPatientRegistrationViewState
                             Expanded(
                               child: _buildTextField(
                                 controller: _sugarController,
-                                hint: 'mg/dL',
+                                hint: 'Enter Sugar Level',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.allow(
@@ -1141,7 +1152,7 @@ class _NewPatientRegistrationViewState
                             Expanded(
                               child: _buildTextField(
                                 controller: _tempController,
-                                hint: '°F',
+                                hint: 'Enter Temperature',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.allow(
@@ -1160,7 +1171,7 @@ class _NewPatientRegistrationViewState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel('Blood Group *'),
+                        _buildLabel('Blood Group'),
                         _buildDropdownField(
                           value: _bloodGroupController.text.isNotEmpty
                               ? _bloodGroupController.text
@@ -1179,9 +1190,7 @@ class _NewPatientRegistrationViewState
                           onChanged: (val) => setState(
                             () => _bloodGroupController.text = val ?? '',
                           ),
-                          validator: (val) => val == null || val.isEmpty
-                              ? 'Blood Group is required'
-                              : null,
+                          validator: null,
                         ),
                       ],
                     ),
@@ -1198,7 +1207,7 @@ class _NewPatientRegistrationViewState
                         _buildLabel('Known Allergies'),
                         _buildTextField(
                           controller: _allergiesController,
-                          hint: 'e.g. Penicillin, Peanuts',
+                          hint: 'Enter Allergies',
                           maxLines: 2,
                         ),
                       ],
@@ -1212,7 +1221,7 @@ class _NewPatientRegistrationViewState
                         _buildLabel('Chronic Conditions'),
                         _buildTextField(
                           controller: _chronicConditionsController,
-                          hint: 'e.g. Diabetes, Hypertension',
+                          hint: 'Enter Pre-existing Conditions',
                           maxLines: 2,
                         ),
                       ],
@@ -1294,7 +1303,7 @@ class _NewPatientRegistrationViewState
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
+                        backgroundColor: AppTheme.logoRed,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -1363,7 +1372,7 @@ class _NewPatientRegistrationViewState
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
+                      backgroundColor: AppTheme.logoRed,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 40,
@@ -1414,9 +1423,13 @@ class _NewPatientRegistrationViewState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+             const Text(
               'Lifestyle & Behavioral Data',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
             ),
             const SizedBox(height: 28),
 
@@ -1431,7 +1444,7 @@ class _NewPatientRegistrationViewState
               _buildLabel('Hobbies'),
               _buildTextField(
                 controller: _hobbiesController,
-                hint: 'e.g., gardening, walking',
+                hint: 'Enter Physical Activities',
               ),
             ] else
               Row(
@@ -1456,7 +1469,7 @@ class _NewPatientRegistrationViewState
                         _buildLabel('Hobbies'),
                         _buildTextField(
                           controller: _hobbiesController,
-                          hint: 'e.g., gardening, walking',
+                          hint: 'Enter Physical Activities',
                         ),
                       ],
                     ),
@@ -1597,7 +1610,7 @@ class _NewPatientRegistrationViewState
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
+                        backgroundColor: AppTheme.logoRed,
                         foregroundColor: Colors.white,
                         minimumSize: const Size(0, 52),
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1660,7 +1673,7 @@ class _NewPatientRegistrationViewState
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
+                      backgroundColor: AppTheme.logoRed,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(0, 52),
                       padding: const EdgeInsets.symmetric(
@@ -1692,9 +1705,13 @@ class _NewPatientRegistrationViewState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+           const Text(
             'Review & Confirmation',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryColor,
+            ),
           ),
           const SizedBox(height: 24),
 
@@ -2089,9 +2106,18 @@ class _NewPatientRegistrationViewState
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
+                  child: ElevatedButton(
                     onPressed: _isSubmitting ? null : _submitPatientData,
-                    icon: _isSubmitting
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.logoRed,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(0, 52),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: _isSubmitting
                         ? const SizedBox(
                             width: 18,
                             height: 18,
@@ -2100,20 +2126,10 @@ class _NewPatientRegistrationViewState
                               strokeWidth: 2,
                             ),
                           )
-                        : const Icon(Icons.check, size: 18),
-                    label: const Text(
-                      'Confirm & Complete',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 52),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+                        : const Text(
+                            'Confirm & Complete',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                   ),
                 ),
               ],
@@ -2157,24 +2173,10 @@ class _NewPatientRegistrationViewState
                   ),
                 ),
                 const Spacer(),
-                ElevatedButton.icon(
+                ElevatedButton(
                   onPressed: _isSubmitting ? null : _submitPatientData,
-                  icon: _isSubmitting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Icon(Icons.check, size: 18),
-                  label: const Text(
-                    'Confirm & Complete',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
+                    backgroundColor: AppTheme.logoRed,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(0, 52),
                     padding: const EdgeInsets.symmetric(
@@ -2185,6 +2187,19 @@ class _NewPatientRegistrationViewState
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Confirm & Complete',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                 ),
               ],
             ),
@@ -2280,9 +2295,9 @@ class _NewPatientRegistrationViewState
         text: TextSpan(
           text: baseText,
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF4A5568),
+            color: Colors.black,
             fontFamily: 'Inter', // Ensuring consistency with theme
           ),
           children: [
@@ -2306,7 +2321,7 @@ class _NewPatientRegistrationViewState
       child: Text(
         label,
         style: const TextStyle(
-          fontSize: 14,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: AppTheme.primaryColor,
         ),
@@ -2341,7 +2356,7 @@ class _NewPatientRegistrationViewState
             ? Icon(icon, color: const Color(0xFFCBD5E0), size: 18)
             : null,
         filled: true,
-        fillColor: const Color(0xFFF8FAFC),
+        fillColor: AppTheme.backgroundColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -2376,46 +2391,16 @@ class _NewPatientRegistrationViewState
     }
     final List<String> safeItems = uniqueItems.toList();
 
-    return DropdownButtonFormField<String>(
+    return CustomDropdownSearch(
+      label: '', // Label is handled externally in this form via _buildLabel
+      hint: hint,
+      dropdownItems: safeItems,
       value: value,
-      validator: validator,
-      autovalidateMode: AutovalidateMode.onUserInteraction,
-      style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 13),
-        filled: true,
-        fillColor: const Color(0xFFF8FAFC),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.red, width: 1),
-        ),
-      ),
-      icon: const Icon(Icons.expand_more_rounded, color: Color(0xFFA0AEC0)),
-      isExpanded: true,
-      items: safeItems.map((String item) {
-        return DropdownMenuItem<String>(
-          value: item,
-          child: Text(item, style: const TextStyle(fontSize: 14)),
-        );
-      }).toList(),
       onChanged: onChanged,
+      validator: validator,
+      height: 52, // Match the height of text fields in the form
+      borderColor: const Color(0xFFE2E8F0),
+      focusedBorderColor: AppTheme.primaryColor,
     );
   }
 
