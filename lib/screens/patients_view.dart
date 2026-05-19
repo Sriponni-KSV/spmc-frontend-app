@@ -142,32 +142,42 @@ class _PatientsViewState extends State<PatientsView> {
       );
     }
 
+    final List<Widget> children = [
+      _buildPatientsHeader(isMobile, isTablet),
+      const SizedBox(height: 16),
+      _buildPatientsSearch(isMobile, isTablet),
+      if (_isFilterVisible) ...[
+        const SizedBox(height: 16),
+        _buildFilterPanel(isMobile, isTablet),
+      ],
+      if (!hideRecentAndQuick) ...[
+        const SizedBox(height: 24),
+        _buildRecentPatientsHeader(isMobile),
+        const SizedBox(height: 12),
+        _buildRecentPatientsRow(isMobile, isTablet),
+      ],
+      const SizedBox(height: 24),
+      _buildTableHeading(isMobile),
+      const SizedBox(height: 12),
+      isMobile ? _buildPatientsTable(isMobile, isTablet) : Expanded(child: _buildPatientsTable(isMobile, isTablet)),
+    ];
+
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: padding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildPatientsHeader(isMobile, isTablet),
-            const SizedBox(height: 16),
-            _buildPatientsSearch(isMobile, isTablet),
-            if (_isFilterVisible) ...[
-              const SizedBox(height: 16),
-              _buildFilterPanel(isMobile, isTablet),
-            ],
-            if (!hideRecentAndQuick) ...[
-              const SizedBox(height: 24),
-              _buildRecentPatientsHeader(isMobile),
-              const SizedBox(height: 12),
-              _buildRecentPatientsRow(isMobile, isTablet),
-            ],
-            const SizedBox(height: 24),
-            _buildTableHeading(isMobile),
-            const SizedBox(height: 12),
-            _buildPatientsTable(isMobile, isTablet),
-          ],
-        ),
-      ),
+      child: isMobile
+          ? SingleChildScrollView(
+              padding: padding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: children,
+              ),
+            )
+          : Padding(
+              padding: padding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: children,
+              ),
+            ),
     );
   }
 
@@ -756,10 +766,28 @@ class _PatientsViewState extends State<PatientsView> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Table Header
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final double minWidth = 1100;
+                  final double tableWidth = constraints.maxWidth > minWidth ? constraints.maxWidth : minWidth;
+                  return Scrollbar(
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: SizedBox(
+                          width: tableWidth,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          // Table Header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
@@ -826,6 +854,15 @@ class _PatientsViewState extends State<PatientsView> {
                 ],
               );
             }).toList(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+              },
+            ),
+          ),
           if (totalPages > 1) ...[
             const Divider(height: 1),
             Padding(
@@ -835,8 +872,9 @@ class _PatientsViewState extends State<PatientsView> {
           ],
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildPatientCardMobile(PatientModel patient) {
     final String name = patient.name;

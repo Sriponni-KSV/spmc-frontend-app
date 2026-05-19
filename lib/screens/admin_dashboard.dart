@@ -847,8 +847,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 headingRowHeight: 56,
                 dataRowMinHeight: 60,
                 dataRowMaxHeight: 68,
-                headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
-                headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13),
+                headingRowColor: WidgetStateProperty.all(const Color(0xFFEDF2F7)),
+                headingTextStyle: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF64748B), fontSize: 13),
                 columns: [
                   const DataColumn(label: Text('Staff ID')),
                   const DataColumn(label: Text('Name')),

@@ -1396,12 +1396,12 @@ class _AdminAppointmentManagementState
                     dataRowMinHeight: 58,
                     dataRowMaxHeight: 72,
                     headingRowColor: WidgetStateProperty.all(
-                      AppTheme.backgroundColor,
+                      const Color(0xFFEDF2F7),
                     ),
                     headingTextStyle: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF64748B),
+                      fontSize: 13,
                     ),
                     columns: const [
                       DataColumn(label: Text('Patient')),

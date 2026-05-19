@@ -2421,7 +2421,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
-              color: AppTheme.backgroundColor,
+              color: Color(0xFFEDF2F7),
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
