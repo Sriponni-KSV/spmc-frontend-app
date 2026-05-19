@@ -26,7 +26,7 @@ class UserModel {
   String? get experience => doctorProfile?.experience;
   int? get numberPatientsAttended => doctorProfile?.numberPatientsAttended;
   String? get qualification => role == 'Nurse' ? nurseProfile?.qualification : doctorProfile?.qualification;
-  String? get bio => doctorProfile?.bio;
+  String? get bio => role == 'Nurse' ? nurseProfile?.bio : doctorProfile?.bio;
   List<String>? get availableDays => doctorProfile?.availableDays;
   String? get slotStartTime => doctorProfile?.slotStartTime;
   String? get slotEndTime => doctorProfile?.slotEndTime;
@@ -36,7 +36,7 @@ class UserModel {
   String? get clinicName => doctorProfile?.clinicName;
   String? get clinicLocation => doctorProfile?.clinicLocation;
   String? get consultationFee => doctorProfile?.consultationFee;
-  String? get areasOfExpertise => role == 'Nurse' ? nurseProfile?.areasOfExpertise : doctorProfile?.areasOfExpertise;
+  String? get areasOfExpertise => doctorProfile?.areasOfExpertise;
 
   // Nurse Specific Getters
   String? get nursingRegistrationNumber => nurseProfile?.nursingRegistrationNumber;
@@ -45,7 +45,6 @@ class UserModel {
   String? get shiftStartTime => nurseProfile?.shiftStartTime;
   String? get shiftEndTime => nurseProfile?.shiftEndTime;
   String? get shiftType => nurseProfile?.shiftType;
-  String? get department => nurseProfile?.department;
   String? get totalExperience => nurseProfile?.totalExperience;
   String? get registrationCertificate => nurseProfile?.registrationCertificate;
 

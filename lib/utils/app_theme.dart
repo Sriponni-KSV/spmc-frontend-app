@@ -3,10 +3,11 @@ import 'package:flutter/services.dart';
 
 class AppTheme {
   // ── Colors ────────────────────────────────────────────────────────────────
-  static const Color backgroundColor = Color(0xFFF8FAFC); // Lighter, modern bg
-  static const Color primaryColor = Color(0xFF0F5A8E);
-  static const Color primaryLight = Color(0xFFEBF4FF);
-  static const Color secondaryColor = Color(0xFF4A5568);
+  static const Color backgroundColor = Color(0xFFF1F7FB); // Subtle blue-tinted background
+  static const Color primaryColor = Color(0xFF065D96); // Logo Blue
+  static const Color primaryLight = Color(0xFFEAF2F7);
+  static const Color secondaryColor = Color(0xFF79B649); // Logo Green
+  static const Color logoRed = Color(0xFFE53E3E); // Logo Red
   static const Color cardColor = Colors.white;
   
   static const Color textPrimaryColor = Color(0xFF1A202C); // Darker for better contrast
@@ -16,11 +17,11 @@ class AppTheme {
   static const Color borderColor = Color(0xFFE2E8F0);
   static const Color iconColor = Color(0xFF94A3B8);
   
-  static const Color successColor = Color(0xFF38A169);
-  static const Color successBg = Color(0xFFF0FFF4);
+  static const Color successColor = Color(0xFF79B649); // Using Logo Green for success
+  static const Color successBg = Color(0xFFF1F8EB);
   
-  static const Color infoColor = Color(0xFF3182CE);
-  static const Color infoBg = Color(0xFFEBF8FF);
+  static const Color infoColor = Color(0xFF065D96); // Using Logo Blue for info
+  static const Color infoBg = Color(0xFFEAF2F7);
   
   static const Color warningColor = Color(0xFFDD6B20);
   static const Color warningBg = Color(0xFFFFFAF0);
@@ -127,6 +128,11 @@ class AppTheme {
 
   static ButtonStyle get secondaryButton => baseButtonStyle(
     backgroundColor: secondaryColor,
+    foregroundColor: Colors.white,
+  );
+
+  static ButtonStyle get logoRedButton => baseButtonStyle(
+    backgroundColor: logoRed,
     foregroundColor: Colors.white,
   );
 
@@ -275,6 +281,28 @@ class AppTheme {
         horizontalMargin: paddingMedium,
       ),
     );
+  }
+
+  // ── Avatar Colors ─────────────────────────────────────────────────────────
+  static const List<Map<String, Color>> avatarColorPalettes = [
+    {'bg': Color(0xFFEBF8FF), 'text': Color(0xFF2B6CB0)}, // Blue
+    {'bg': Color(0xFFF0FFF4), 'text': Color(0xFF2F855A)}, // Green
+    {'bg': Color(0xFFFFF5F5), 'text': Color(0xFFC53030)}, // Red
+    {'bg': Color(0xFFFEFCBF), 'text': Color(0xFFB7791F)}, // Yellow
+    {'bg': Color(0xFFFAF5FF), 'text': Color(0xFF6B46C1)}, // Purple
+    {'bg': Color(0xFFE6FFFA), 'text': Color(0xFF2C7A7B)}, // Teal
+    {'bg': Color(0xFFFFEFFF), 'text': Color(0xFFB83280)}, // Pink
+    {'bg': Color(0xFFF7FAFC), 'text': Color(0xFF2D3748)}, // Gray
+  ];
+
+  static Map<String, Color> getAvatarColors(String name) {
+    if (name.isEmpty) return avatarColorPalettes[0];
+    int hash = 0;
+    for (int i = 0; i < name.length; i++) {
+      hash = name.codeUnitAt(i) + ((hash << 5) - hash);
+    }
+    final index = hash.abs() % avatarColorPalettes.length;
+    return avatarColorPalettes[index];
   }
 }
 

@@ -69,7 +69,10 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   Future<void> _fetchLatestVitals() async {
     try {
-      final vitals = await _patientController.fetchLatestVitals(widget.appointment.patientId);
+      final vitals = await _patientController.fetchLatestVitals(
+        widget.appointment.patientId,
+        appointmentId: widget.appointment.id,
+      );
       if (vitals != null && mounted) {
         setState(() {
           _currentAppointment = _currentAppointment.copyWith(
@@ -109,55 +112,133 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+    if (isMobile) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Back Button above title
+            InkWell(
+              onTap: widget.onBack,
+              borderRadius: BorderRadius.circular(8),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.arrow_back, color: AppTheme.primaryColor, size: 16),
+                    SizedBox(width: 8),
+                    Text(
+                      'Back to Dashboard',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Header Title
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.initialConsultation != null 
+                    ? 'Edit Consultation: ${_currentAppointment.patientName}'
+                    : 'Consultation: ${_currentAppointment.patientName}',
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _currentAppointment.appointmentDate,
+                  style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            _buildPatientInfoSummary(),
+            const SizedBox(height: 24),
+            _buildConsultationForm(),
+          ],
+        ),
+      );
+    }
+
+    // Desktop: Vitals stay fixed on the left, while findings form scrolls on the right
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header / Back navigation
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppTheme.primaryColor),
-                onPressed: widget.onBack,
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // Back Button above title
+          InkWell(
+            onTap: widget.onBack,
+            borderRadius: BorderRadius.circular(8),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
+                  Icon(Icons.arrow_back, color: AppTheme.primaryColor, size: 16),
+                  SizedBox(width: 8),
                   Text(
-                    widget.initialConsultation != null 
-                      ? 'Edit Consultation: ${_currentAppointment.patientName}'
-                      : 'Consultation: ${_currentAppointment.patientName}',
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    _currentAppointment.appointmentDate,
-                    style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                    'Back to Dashboard',
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Header Title
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.initialConsultation != null 
+                  ? 'Edit Consultation: ${_currentAppointment.patientName}'
+                  : 'Consultation: ${_currentAppointment.patientName}',
+                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _currentAppointment.appointmentDate,
+                style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
               ),
             ],
           ),
           const SizedBox(height: 32),
 
-          if (isMobile)
-            Column(
-              children: [
-                _buildPatientInfoSummary(),
-                const SizedBox(height: 24),
-                _buildConsultationForm(),
-              ],
-            )
-          else
-            Row(
+          // Main View Split Layout (Takes available height dynamically)
+          Expanded(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(flex: 1, child: _buildPatientInfoSummary()),
+                // Patient Vitals Card (Fixed)
+                SizedBox(
+                  width: 320,
+                  child: _buildPatientInfoSummary(),
+                ),
                 const SizedBox(width: 24),
-                Expanded(flex: 2, child: _buildConsultationForm()),
+                // Clinical Findings Form (Scrollable)
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: _buildConsultationForm(),
+                  ),
+                ),
               ],
             ),
+          ),
         ],
       ),
     );
@@ -220,14 +301,14 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Clinical Findings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const Text('Clinical Findings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryColor)),
           const SizedBox(height: 24),
           _buildTextArea('Subjective Symptoms', _symptomsController, 'e.g. Headache for 2 days, chest pain...'),
           const SizedBox(height: 16),
           _buildTextArea('Diagnosis / Impression', _diagnosisController, 'e.g. Upper Respiratory Tract Infection'),
           const SizedBox(height: 32),
           
-          const Text('Medications & Prescription', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text('Medications & Prescription', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
           const SizedBox(height: 16),
           _buildMedicationInput(),
           const SizedBox(height: 16),
@@ -237,65 +318,68 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           _buildTextArea('Additional Notes', _notesController, 'Internal notes or follow-up instructions...'),
           const SizedBox(height: 32),
           
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: () async {
-                // All fields are optional as per user request
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ElevatedButton(
+                onPressed: () async {
+                  // All fields are optional as per user request
 
-                setState(() => _isLoadingVitals = true);
-                try {
-                  final data = {
-                    'appointment_id': widget.appointment.id,
-                    'patient_id': widget.appointment.patientId,
-                    'symptoms': _symptomsController.text,
-                    'diagnosis': _diagnosisController.text,
-                    'medications': _medications,
-                    'notes': _notesController.text,
-                  };
+                  setState(() => _isLoadingVitals = true);
+                  try {
+                    final data = {
+                      'appointment_id': widget.appointment.id,
+                      'patient_id': widget.appointment.patientId,
+                      'symptoms': _symptomsController.text,
+                      'diagnosis': _diagnosisController.text,
+                      'medications': _medications,
+                      'notes': _notesController.text,
+                    };
 
-                  if (widget.initialConsultation != null) {
-                    final int consulId = widget.initialConsultation!['id'];
-                    await _appointmentController.updateConsultation(consulId, data);
-                  } else {
-                    await _appointmentController.saveConsultation(data);
-                  }
+                    if (widget.initialConsultation != null) {
+                      final int consulId = widget.initialConsultation!['id'];
+                      await _appointmentController.updateConsultation(consulId, data);
+                    } else {
+                      await _appointmentController.saveConsultation(data);
+                    }
 
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(widget.initialConsultation != null 
-                          ? 'Consultation Updated Successfully!' 
-                          : 'Consultation Saved Successfully!'), 
-                        backgroundColor: Colors.green
-                      ),
-                    );
-                    widget.onBack();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(widget.initialConsultation != null 
+                            ? 'Consultation Updated Successfully!' 
+                            : 'Consultation Saved Successfully!'), 
+                          backgroundColor: Colors.green
+                        ),
+                      );
+                      widget.onBack();
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _isLoadingVitals = false);
                   }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                    );
-                  }
-                } finally {
-                  if (mounted) setState(() => _isLoadingVitals = false);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  minimumSize: const Size(200, 46),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                child: _isLoadingVitals 
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text(
+                      widget.initialConsultation != null 
+                        ? 'Update Consultation' 
+                        : 'Complete Consultation & Save', 
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+                    ),
               ),
-              child: _isLoadingVitals 
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : Text(
-                    widget.initialConsultation != null 
-                      ? 'Update Consultation' 
-                      : 'Complete Consultation & Save', 
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
-                  ),
-            ),
+            ],
           ),
         ],
       ),
@@ -306,7 +390,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF4A5568))),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black)),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
@@ -355,17 +439,31 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     );
   }
 
-  Widget _buildSmallField(String hint, TextEditingController controller) {
-    return TextField(
-      controller: controller,
-      style: const TextStyle(fontSize: 13),
-      decoration: InputDecoration(
-        hintText: hint,
-        isDense: true,
-        fillColor: Colors.white,
-        filled: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: AppTheme.borderColor)),
-      ),
+  Widget _buildSmallField(String label, TextEditingController controller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          style: const TextStyle(fontSize: 13),
+          decoration: InputDecoration(
+            hintText: label,
+            isDense: true,
+            fillColor: Colors.white,
+            filled: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: AppTheme.borderColor)),
+          ),
+        ),
+      ],
     );
   }
 

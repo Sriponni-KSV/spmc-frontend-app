@@ -183,11 +183,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
             child: ElevatedButton.icon(
               onPressed: () => _showWalkInDialog(),
               icon: const Icon(Icons.add, size: 18),
-              label: Text(widget.isMobile ? 'Walk-in' : 'New Walk-in', style: const TextStyle(fontWeight: FontWeight.w600)),
+              label: Text(widget.isMobile ? 'Walk-in' : 'New Walk-in', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
+                backgroundColor: AppTheme.dangerColor,
                 foregroundColor: Colors.white,
-                minimumSize: const Size(120, 44),
+                minimumSize: const Size(120, 48),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 elevation: 0,
@@ -416,7 +416,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
               child: ConstrainedBox(
                 constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - (widget.isMobile ? 32 : 310)),
                 child: DataTable(
-                  headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
+                  headingRowColor: WidgetStateProperty.all(const Color(0xFFEDF2F7)),
+                  headingTextStyle: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF64748B), fontSize: 13),
                   columns: const [
                     DataColumn(label: Text('Time')),
                     DataColumn(label: Text('Patient')),
@@ -743,6 +744,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
     bool isSaving = false;
     bool isLoadingPatients = false;
     List<PatientModel> allPatients = [];
+    final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
@@ -768,53 +770,58 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
             content: SizedBox(
               width: 450,
               child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (isLoadingPatients)
-                      const Center(child: Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: CircularProgressIndicator(),
-                      ))
-                    else
-                      DropdownButtonFormField<PatientModel>(
-                        value: selectedPatient,
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isLoadingPatients)
+                        const Center(child: Padding(
+                          padding: EdgeInsets.all(20.0),
+                          child: CircularProgressIndicator(),
+                        ))
+                      else
+                        DropdownButtonFormField<PatientModel>(
+                          value: selectedPatient,
+                          isExpanded: true,
+                          decoration: const InputDecoration(labelText: 'Select Patient', prefixIcon: Icon(Icons.person_outline)),
+                          items: allPatients.map((p) => DropdownMenuItem(value: p, child: Text('${p.name} (${p.patientId ?? "N/A"})', overflow: TextOverflow.ellipsis))).toList(),
+                          onChanged: (val) => setDialogState(() => selectedPatient = val),
+                          validator: (val) => val == null ? 'Patient is required' : null,
+                        ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<UserModel>(
+                        value: selectedDoctor,
                         isExpanded: true,
-                        decoration: const InputDecoration(labelText: 'Select Patient', prefixIcon: Icon(Icons.person_outline)),
-                        items: allPatients.map((p) => DropdownMenuItem(value: p, child: Text('${p.name} (${p.patientId ?? "N/A"})', overflow: TextOverflow.ellipsis))).toList(),
-                        onChanged: (val) => setDialogState(() => selectedPatient = val),
+                        decoration: const InputDecoration(labelText: 'Assign Doctor', prefixIcon: Icon(Icons.medical_services_outlined)),
+                        items: _doctors.map((d) => DropdownMenuItem(value: d, child: Text(d.fullname, overflow: TextOverflow.ellipsis))).toList(),
+                        onChanged: (val) => setDialogState(() => selectedDoctor = val),
+                        validator: (val) => val == null ? 'Doctor is required' : null,
                       ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<UserModel>(
-                      value: selectedDoctor,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Assign Doctor', prefixIcon: Icon(Icons.medical_services_outlined)),
-                      items: _doctors.map((d) => DropdownMenuItem(value: d, child: Text(d.fullname, overflow: TextOverflow.ellipsis))).toList(),
-                      onChanged: (val) => setDialogState(() => selectedDoctor = val),
-                    ),
-                    const SizedBox(height: 16),
-                    InkWell(
-                      onTap: () async {
-                        final pickedTime = await showTimePicker(context: context, initialTime: TimeOfDay.now());
-                        if (pickedTime != null) {
-                          final now = DateTime.now();
-                          final dt = DateTime(now.year, now.month, now.day, pickedTime.hour, pickedTime.minute);
-                          setDialogState(() => time = DateFormat('hh:mm a').format(dt));
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
-                        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400), borderRadius: BorderRadius.circular(4)),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.access_time, size: 20, color: AppTheme.primaryColor),
-                            const SizedBox(width: 12),
-                            Text(time, style: const TextStyle(fontSize: 16)),
-                          ],
+                      const SizedBox(height: 16),
+                      InkWell(
+                        onTap: () async {
+                          final pickedTime = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+                          if (pickedTime != null) {
+                            final now = DateTime.now();
+                            final dt = DateTime(now.year, now.month, now.day, pickedTime.hour, pickedTime.minute);
+                            setDialogState(() => time = DateFormat('hh:mm a').format(dt));
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                          decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400), borderRadius: BorderRadius.circular(4)),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.access_time, size: 20, color: AppTheme.primaryColor),
+                              const SizedBox(width: 12),
+                              Text(time, style: const TextStyle(fontSize: 16)),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -822,10 +829,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
               TextButton(onPressed: isSaving ? null : () => Navigator.pop(ctx), child: const Text('Cancel')),
               ElevatedButton(
                 onPressed: isSaving ? null : () async {
-                  if (selectedPatient == null || selectedDoctor == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select patient and doctor')));
-                    return;
-                  }
+                  if (!formKey.currentState!.validate()) return;
                   setDialogState(() => isSaving = true);
                   try {
                     final newApp = AppointmentModel(

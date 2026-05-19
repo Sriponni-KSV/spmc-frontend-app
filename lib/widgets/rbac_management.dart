@@ -269,8 +269,8 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final userRole = Provider.of<AuthProvider>(context, listen: false).user?.role;
-    final bool isSuperAdmin = userRole == 'Super Admin';
+    final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final bool isSuperAdmin = currentUser?.role == 'Super Admin' || currentUser?.role == 'Admin' || (currentUser?.hasPermission('Manage Roles') ?? false);
 
     return FutureBuilder<Map<String, dynamic>>(
       future: _rbacFuture,
@@ -322,10 +322,10 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                       icon: const Icon(Icons.add_moderator, size: 18),
                       label: Text(widget.isMobile ? 'Add' : 'Create Role', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
+                        backgroundColor: AppTheme.dangerColor,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        minimumSize: const Size(0, 44),
+                        minimumSize: const Size(0, 48),
                         padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 12 : 20, vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),

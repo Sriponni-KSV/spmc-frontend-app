@@ -170,7 +170,7 @@ class _LiveClockState extends State<LiveClock> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                DateFormat('EEE, MMM d, yyyy').format(_currentTime),
+                DateFormat('dd/MM/yyyy').format(_currentTime),
                 style: const TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
@@ -571,7 +571,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                         _buildQuickAction(
                           icon: Icons.person_add_alt_1_outlined,
                           label: 'New Patient',
-                          color: AppTheme.successColor,
+                          color: AppTheme.dangerColor,
                           onTap: () {
                             Navigator.of(context).pop();
                             if (widget.onNewPatient != null) {
@@ -701,15 +701,21 @@ class _SearchOverlayState extends State<SearchOverlay> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-            radius: 20,
-            child: Text(
-              patient.initials,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
-                fontSize: 14,
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: CircleAvatar(
+              backgroundColor: AppTheme.getAvatarColors(patient.name)['bg'],
+              radius: 20,
+              child: Text(
+                patient.initials,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.getAvatarColors(patient.name)['text'],
+                  fontSize: 14,
+                ),
               ),
             ),
           ),
@@ -821,11 +827,13 @@ class PatientInfoCard extends StatelessWidget {
     final bool hasQuickTag = tags.any((t) => t.toLowerCase() == 'quick');
     final List<String> otherTags = tags.where((t) => t.toLowerCase() != 'quick').toList();
 
+    final avatarColors = AppTheme.getAvatarColors(name);
+
     return Container(
       constraints: const BoxConstraints(minWidth: 200),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9), // Subtle light blue-grey background
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFDCDFE4), width: 1.0),
       ),
@@ -835,15 +843,21 @@ class PatientInfoCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: const Color(0xFF005691), // Dark blue from image
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: avatarColors['bg'],
+                  child: Text(
+                    initials,
+                    style: TextStyle(
+                      color: avatarColors['text'],
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),
@@ -897,14 +911,14 @@ class PatientInfoCard extends StatelessWidget {
                   icon: const Icon(
                     Icons.remove_red_eye_outlined,
                     size: 16,
-                    color: Color(0xFF0F172A),
+                    color: AppTheme.primaryColor,
                   ),
                   label: const Text(
                     'View',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF0F172A),
+                      color: AppTheme.primaryColor,
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
@@ -936,7 +950,7 @@ class PatientInfoCard extends StatelessWidget {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF005691),
+                    backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -967,16 +981,16 @@ class HealthTag extends StatelessWidget {
 
     switch (label.toLowerCase()) {
       case 'diabetic':
-        color = const Color(0xFFD53F8C);
-        bgColor = const Color(0xFFFFF5F7);
+        color = AppTheme.dangerColor;
+        bgColor = AppTheme.dangerBg;
         break;
       case 'high risk':
-        color = const Color(0xFFE53E3E);
-        bgColor = const Color(0xFFFFF5F5);
+        color = AppTheme.dangerColor;
+        bgColor = AppTheme.dangerBg;
         break;
       case 'hypertension':
-        color = const Color(0xFFDD6B20);
-        bgColor = const Color(0xFFFFFAF0);
+        color = AppTheme.dangerColor;
+        bgColor = AppTheme.dangerBg;
         break;
       case 'quick':
         color = const Color(0xFF805AD5);
@@ -1017,12 +1031,12 @@ class StatusChip extends StatelessWidget {
 
     switch (status.toLowerCase()) {
       case 'active':
-        color = const Color(0xFF38A169);
+        color = AppTheme.successColor;
         bgColor = const Color(0xFFF0FFF4);
         break;
       case 'inactive':
-        color = const Color(0xFF718096);
-        bgColor = const Color(0xFFEDF2F7);
+        color = AppTheme.dangerColor;
+        bgColor = AppTheme.dangerBg;
         break;
       default:
         color = AppTheme.primaryColor;

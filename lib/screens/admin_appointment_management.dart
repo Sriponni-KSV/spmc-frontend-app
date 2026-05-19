@@ -191,7 +191,7 @@ class _AdminAppointmentManagementState
     String? selectedDoctor = appt.doctorName;
     DateTime? newDate;
     try {
-      newDate = DateFormat('dd-MM-yyyy').parse(appt.appointmentDate);
+      newDate = DateFormat('dd/MM/yyyy').parse(appt.appointmentDate);
     } catch (e) {}
     String? newTime = appt.appointmentTime;
     String? patientName = appt.patientName;
@@ -582,7 +582,7 @@ class _AdminAppointmentManagementState
                                   Text(
                                     newDate != null
                                         ? DateFormat(
-                                            'dd-MM-yyyy',
+                                            'dd/MM/yyyy',
                                           ).format(newDate!)
                                         : 'Pick a date',
                                     style: TextStyle(
@@ -753,7 +753,7 @@ class _AdminAppointmentManagementState
                               appointmentDate:
                                   (mode == 'reschedule' || mode == 'edit') &&
                                       newDate != null
-                                  ? DateFormat('dd-MM-yyyy').format(newDate!)
+                                  ? DateFormat('dd/MM/yyyy').format(newDate!)
                                   : null,
                               appointmentTime:
                                   (mode == 'reschedule' || mode == 'edit')
@@ -947,7 +947,7 @@ class _AdminAppointmentManagementState
                           _buildFilterDropdown(
                             'Appointment Date',
                             _filterDate != null
-                                ? DateFormat('dd-MM-yyyy').format(_filterDate!)
+                                ? DateFormat('dd/MM/yyyy').format(_filterDate!)
                                 : 'Any Date',
                             [],
                             (v) {},
@@ -1396,12 +1396,12 @@ class _AdminAppointmentManagementState
                     dataRowMinHeight: 58,
                     dataRowMaxHeight: 72,
                     headingRowColor: WidgetStateProperty.all(
-                      AppTheme.backgroundColor,
+                      const Color(0xFFEDF2F7),
                     ),
                     headingTextStyle: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF64748B),
+                      fontSize: 13,
                     ),
                     columns: const [
                       DataColumn(label: Text('Patient')),

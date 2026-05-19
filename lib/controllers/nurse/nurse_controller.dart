@@ -9,6 +9,8 @@ class NurseController {
   // ✅ Update Profile
   Future<UserModel> updateProfile({
     required String fullname,
+    String? mobile,
+    String? bio,
     String? qualification,
     String? nursingRegistrationNumber,
     String? yearsOfExperience,
@@ -16,8 +18,6 @@ class NurseController {
     String? shiftStartTime,
     String? shiftEndTime,
     String? shiftType,
-    String? department,
-    String? areasOfExpertise,
     String? registrationCertificate,
     List<String>? weeklyOffDays,
     List<String>? specificLeaveDates,
@@ -26,6 +26,8 @@ class NurseController {
       '$baseUrl/nurse/update-profile',
       {
         'fullname': fullname,
+        'mobile': mobile ?? '',
+        'bio': bio ?? '',
         'qualification': qualification ?? '',
         'nursing_registration_number': nursingRegistrationNumber ?? '',
         'years_of_experience': yearsOfExperience ?? '',
@@ -33,8 +35,6 @@ class NurseController {
         'shift_start_time': shiftStartTime ?? '',
         'shift_end_time': shiftEndTime ?? '',
         'shift_type': shiftType ?? '',
-        'department': department ?? '',
-        'areas_of_expertise': areasOfExpertise ?? '',
         'registration_certificate': registrationCertificate ?? '',
         'weekly_off_days': weeklyOffDays,
         'specific_leave_dates': specificLeaveDates,

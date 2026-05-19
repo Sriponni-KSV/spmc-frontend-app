@@ -89,9 +89,13 @@ class PatientController {
   }
 
   /// Fetch latest vitals for a patient
-  Future<Map<String, dynamic>?> fetchLatestVitals(int patientId) async {
+  Future<Map<String, dynamic>?> fetchLatestVitals(int patientId, {int? appointmentId}) async {
     try {
-      final response = await ApiService.get('$baseUrl/patients/$patientId/vitals');
+      String url = '$baseUrl/patients/$patientId/vitals';
+      if (appointmentId != null) {
+        url += '?appointment_id=$appointmentId';
+      }
+      final response = await ApiService.get(url);
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200 && body['success'] == true) {

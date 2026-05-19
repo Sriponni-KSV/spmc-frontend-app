@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../models/user_model.dart';
+import '../widgets/custom_dropdown_search.dart';
 import '../providers/auth_provider.dart';
 import '../controllers/admin_controller.dart';
 import '../widgets/nurse_widgets.dart' hide PatientModel;
@@ -649,10 +650,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       const SizedBox(width: 12),
                       ElevatedButton.icon(
                         onPressed: () => _showAddUserDialog(context),
-                      icon: const Icon(Icons.person_add_outlined, size: 18),
-                      label: Text(isMobile ? 'Add' : 'Register Staff', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                      style: AppTheme.primaryButton,
-                    ),
+                        icon: const Icon(Icons.person_add_outlined, size: 18),
+                        label: Text(isMobile ? 'Add' : 'Register Staff', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.dangerColor,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          minimumSize: const Size(120, 48),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
                   ],
                 ],
               ),
@@ -847,8 +857,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 headingRowHeight: 56,
                 dataRowMinHeight: 60,
                 dataRowMaxHeight: 68,
-                headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
-                headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13),
+                headingRowColor: WidgetStateProperty.all(const Color(0xFFEDF2F7)),
+                headingTextStyle: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF64748B), fontSize: 13),
                 columns: [
                   const DataColumn(label: Text('Staff ID')),
                   const DataColumn(label: Text('Name')),
@@ -1491,7 +1501,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
   final _licenseController = TextEditingController();
 final AdminController _adminController = AdminController();
 
-  String _selectedRole = 'Doctor';
+  String? _selectedRole;
   List<String> _roles = ['Doctor', 'Nurse'];
   int? _selectedSpecializationId;
   List<Map<String, dynamic>> _specializations = [];
@@ -1531,8 +1541,8 @@ final AdminController _adminController = AdminController();
             return indexA.compareTo(indexB);
           });
           
-          if (!_roles.contains(_selectedRole) && _roles.isNotEmpty) {
-             _selectedRole = _roles.first;
+          if (_selectedRole != null && !_roles.contains(_selectedRole)) {
+             _selectedRole = null;
           }
           _isLoadingRoles = false;
         });
@@ -1585,7 +1595,7 @@ final AdminController _adminController = AdminController();
       email: _emailController.text.trim(),
       mobile: _mobileController.text.trim(),
       password: _passwordController.text.trim(),
-      role: _selectedRole,
+      role: _selectedRole ?? '',
       medicalLicense: _licenseController.text.trim(),
       specializationId: _selectedRole == 'Doctor' ? _selectedSpecializationId : null,
     );
@@ -1612,13 +1622,14 @@ final AdminController _adminController = AdminController();
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       title: const Text('Register New Staff', style: TextStyle(fontFamily: AppTheme.fontFamily, fontWeight: FontWeight.bold)),
       content: SizedBox(
-        width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.9,
+        width: MediaQuery.of(context).size.width > 640 ? 600 : MediaQuery.of(context).size.width * 0.9,
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
             autovalidateMode: AutovalidateMode.onUserInteraction,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (_errorMessage != null)
                   Container(
@@ -1642,94 +1653,237 @@ final AdminController _adminController = AdminController();
                       ],
                     ),
                   ),
-                TextFormField(
-                  controller: _nameController,
-                  onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
-                  decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
-                  validator: (val) => val == null || val.isEmpty ? 'Please enter a name' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailController,
-                  onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
-                  decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.email_outlined)),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (val) => val == null || val.isEmpty || !val.contains('@') ? 'Please enter a valid email' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _mobileController,
-                  onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
-                  decoration: const InputDecoration(
-                    labelText: 'Mobile Number', 
-                    prefixIcon: Icon(Icons.phone_outlined),
-                    counterText: "",
-                  ),
-                  keyboardType: TextInputType.phone,
-                  maxLength: 10,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(10),
-                  ],
-                  validator: (val) {
-                    if (val == null || val.isEmpty) return 'Please enter a mobile number';
-                    if (val.length != 10) return 'Mobile number must be 10 digits';
-                    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Please enter digits only';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
-                  decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(Icons.lock_outline)),
-                  obscureText: true,
-                  validator: (val) => val == null || val.length < 6 ? 'Password must be at least 6 characters' : null,
-                ),
-                const SizedBox(height: 16),
-                _isLoadingRoles 
-                  ? const Center(child: CircularProgressIndicator()) 
-                  : DropdownButtonFormField<String>(
-                  value: _selectedRole,
-                  decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.badge_outlined)),
-                  items: _roles.map((role) => DropdownMenuItem(value: role, child: Text(role))).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _errorMessage = null;
-                        _selectedRole = val;
-                        if (_selectedRole != 'Doctor') {
-                          _selectedSpecializationId = null;
-                        }
-                      });
-                    }
-                  },
-                ),
-                if (_selectedRole == 'Doctor') ...[
-                  const SizedBox(height: 16),
-                  _isLoadingSpecializations
-                      ? const Center(child: CircularProgressIndicator())
-                      : DropdownButtonFormField<int>(
-                          value: _selectedSpecializationId,
-                          decoration: const InputDecoration(
-                            labelText: 'Specialization',
-                            prefixIcon: Icon(Icons.star_outline),
+                // ── Patient-form style helper ──
+                // Labels: black, 12px, w600 | Fields: light fill, E2E8F0 border, primaryColor focused, CBD5E0 hint
+
+                // ── Row 1: Full Name | Email ──
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Full Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                          const SizedBox(height: 10),
+                          TextFormField(
+                            controller: _nameController,
+                            onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
+                            decoration: InputDecoration(
+                              hintText: 'Enter full name',
+                              hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
+                              filled: true,
+                              fillColor: AppTheme.backgroundColor,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.primaryColor)),
+                              errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
+                              focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            ),
+                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                           ),
-                          items: _specializations.map((spec) {
-                            return DropdownMenuItem<int>(
-                              value: spec['id'],
-                              child: Text(spec['name']),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            setState(() => _selectedSpecializationId = val);
-                          },
-                          validator: (val) => _selectedRole == 'Doctor' && val == null ? 'Please select a specialization' : null,
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Email Address', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                          const SizedBox(height: 10),
+                          TextFormField(
+                            controller: _emailController,
+                            onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              hintText: 'Enter email address',
+                              hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
+                              filled: true,
+                              fillColor: AppTheme.backgroundColor,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.primaryColor)),
+                              errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
+                              focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            ),
+                            validator: (val) => val == null || val.isEmpty || !val.contains('@') ? 'Valid email required' : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // ── Row 2: Mobile | Password ──
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Mobile Number', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                          const SizedBox(height: 10),
+                          TextFormField(
+                            controller: _mobileController,
+                            onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
+                            keyboardType: TextInputType.phone,
+                            maxLength: 10,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(10),
+                            ],
+                            decoration: InputDecoration(
+                              hintText: 'Enter 10-digit number',
+                              hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
+                              counterText: '',
+                              filled: true,
+                              fillColor: AppTheme.backgroundColor,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.primaryColor)),
+                              errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
+                              focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            ),
+                            validator: (val) {
+                              if (val == null || val.isEmpty) return 'Required';
+                              if (val.length != 10) return 'Must be 10 digits';
+                              if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Digits only';
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                          const SizedBox(height: 10),
+                          TextFormField(
+                            controller: _passwordController,
+                            onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              hintText: 'Enter password',
+                              hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
+                              filled: true,
+                              fillColor: AppTheme.backgroundColor,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.primaryColor)),
+                              errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
+                              focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            ),
+                            validator: (val) => val == null || val.length < 6 ? 'Min. 6 characters' : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // ── Row 3: Role (full width) ──
+                const Text('Role', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                const SizedBox(height: 10),
+                _isLoadingRoles
+                    ? const Center(child: CircularProgressIndicator())
+                    : CustomDropdownSearch(
+                        label: '', // label shown externally above
+                        hint: 'Select Role',
+                        dropdownItems: _roles,
+                        value: _selectedRole,
+                        fillColor: AppTheme.backgroundColor,
+                        popupBgColor: Colors.white,
+                        borderColor: const Color(0xFFE2E8F0),
+                        focusedBorderColor: AppTheme.primaryColor,
+                        height: 52,
+                        hintFontSize: 11,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _errorMessage = null;
+                              _selectedRole = val;
+                              if (_selectedRole != 'Doctor') {
+                                _selectedSpecializationId = null;
+                              }
+                            });
+                          }
+                        },
+                        validator: (val) => val == null || val.isEmpty ? 'Please select a role' : null,
+                      ),
+
+                // ── Row 4: Specialization | Medical License (Doctor only) ──
+                if (_selectedRole == 'Doctor') ...[
+                  const SizedBox(height: 20),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Specialization', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                            const SizedBox(height: 10),
+                            _isLoadingSpecializations
+                                ? const Center(child: CircularProgressIndicator())
+                                : CustomDropdownSearch(
+                                    label: '',
+                                    hint: 'Select specialization',
+                                    dropdownMap: {
+                                      for (var spec in _specializations)
+                                        spec['id'].toString(): spec['name'].toString()
+                                    },
+                                    value: _selectedSpecializationId?.toString(),
+                                    fillColor: AppTheme.backgroundColor,
+                                    popupBgColor: Colors.white,
+                                    borderColor: const Color(0xFFE2E8F0),
+                                    focusedBorderColor: AppTheme.primaryColor,
+                                    height: 52,
+                                    hintFontSize: 11,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        _selectedSpecializationId = val != null ? int.tryParse(val) : null;
+                                      });
+                                    },
+                                    validator: (val) => _selectedRole == 'Doctor' && val == null ? 'Required' : null,
+                                  ),
+                          ],
                         ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _licenseController,
-                    decoration: const InputDecoration(labelText: 'Medical License (Optional)', prefixIcon: Icon(Icons.medical_services_outlined)),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Medical License', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: _licenseController,
+                              decoration: InputDecoration(
+                                hintText: 'Optional',
+                                hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
+                                filled: true,
+                                fillColor: AppTheme.backgroundColor,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.primaryColor)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -1744,8 +1898,12 @@ final AdminController _adminController = AdminController();
         ),
         ElevatedButton(
           onPressed: _isLoading ? null : _createUser,
-          style: ElevatedButton.styleFrom(minimumSize: const Size(120, 48)),
-          child: _isLoading 
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.logoRed,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(120, 48),
+          ),
+          child: _isLoading
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
               : const Text('Create Staff'),
         ),
