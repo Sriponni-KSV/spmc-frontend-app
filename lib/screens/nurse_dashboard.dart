@@ -383,6 +383,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  const Divider(color: AppTheme.borderColor, height: 1, thickness: 1),
                   // User Profile Area
                   Padding(
                     padding: const EdgeInsets.all(24.0),

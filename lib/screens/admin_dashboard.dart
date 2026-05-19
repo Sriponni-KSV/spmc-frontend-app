@@ -1135,6 +1135,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const Divider(color: AppTheme.borderColor, height: 1, thickness: 1),
               Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Consumer<AuthProvider>(

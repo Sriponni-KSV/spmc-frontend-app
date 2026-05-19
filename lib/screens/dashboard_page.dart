@@ -689,6 +689,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(color: Colors.white),
                 ),
                 style: AppTheme.primaryButton.copyWith(
+                  backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
                   minimumSize: MaterialStateProperty.all(const Size(0, 48)),
                 ),
               ),
@@ -2109,6 +2110,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const Divider(color: AppTheme.borderColor, height: 1, thickness: 1),
               Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Consumer<AuthProvider>(

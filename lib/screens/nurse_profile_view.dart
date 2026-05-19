@@ -293,6 +293,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
                 label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
                 style: AppTheme.primaryButton.copyWith(
+                  backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
                   minimumSize: MaterialStateProperty.all(const Size(0, 48)),
                 ),
               ),
