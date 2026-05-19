@@ -165,6 +165,22 @@ class AppTheme {
     ),
   );
 
+  static ButtonStyle get cancelButton => OutlinedButton.styleFrom(
+    foregroundColor: textSecondaryColor,
+    side: const BorderSide(color: Color(0xFFB0BCC7), width: 1.2),
+    backgroundColor: Colors.transparent,
+    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+    minimumSize: const Size(130, 48),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+    textStyle: const TextStyle(
+      fontFamily: fontFamily,
+      fontSize: 15,
+      fontWeight: FontWeight.bold,
+    ),
+  );
+
   // ── Input Decoration ──────────────────────────────────────────────────────
   static InputDecoration standardInputDecoration({
     required String label,

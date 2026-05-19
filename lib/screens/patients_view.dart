@@ -1362,8 +1362,9 @@ class _PatientsViewState extends State<PatientsView> {
               ),
             ),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+                style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
@@ -2069,24 +2070,10 @@ class _PatientsViewState extends State<PatientsView> {
                                       height: 48,
                                       child: OutlinedButton(
                                         onPressed: () => Navigator.pop(context),
-                                        style: OutlinedButton.styleFrom(
-                                          padding: EdgeInsets.zero,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                          side: const BorderSide(
-                                            color: AppTheme.borderColor,
-                                          ),
+                                        style: AppTheme.cancelButton.copyWith(
+                                          minimumSize: MaterialStateProperty.all(const Size(double.infinity, 48)),
                                         ),
-                                        child: const Text(
-                                          'Cancel',
-                                          style: TextStyle(
-                                            color: AppTheme.textPrimaryColor,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
+                                        child: const Text('Cancel'),
                                       ),
                                     ),
                                   ),

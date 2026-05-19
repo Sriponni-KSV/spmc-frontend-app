@@ -612,7 +612,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: AppTheme.cancelButton,
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
@@ -706,7 +710,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: isSaving ? null : () => Navigator.pop(ctx), child: const Text('Cancel')),
+            OutlinedButton(
+              onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              style: AppTheme.cancelButton,
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               onPressed: isSaving ? null : () async {
                 if (reasonController.text.trim().isEmpty) {
@@ -787,7 +795,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
                           decoration: const InputDecoration(labelText: 'Select Patient', prefixIcon: Icon(Icons.person_outline)),
                           items: allPatients.map((p) => DropdownMenuItem(value: p, child: Text('${p.name} (${p.patientId ?? "N/A"})', overflow: TextOverflow.ellipsis))).toList(),
                           onChanged: (val) => setDialogState(() => selectedPatient = val),
-                          validator: (val) => val == null ? 'Patient is required' : null,
+                          validator: (val) => val == null ? 'Please select patient' : null,
                         ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<UserModel>(
@@ -796,7 +804,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
                         decoration: const InputDecoration(labelText: 'Assign Doctor', prefixIcon: Icon(Icons.medical_services_outlined)),
                         items: _doctors.map((d) => DropdownMenuItem(value: d, child: Text(d.fullname, overflow: TextOverflow.ellipsis))).toList(),
                         onChanged: (val) => setDialogState(() => selectedDoctor = val),
-                        validator: (val) => val == null ? 'Doctor is required' : null,
+                        validator: (val) => val == null ? 'Please select doctor' : null,
                       ),
                       const SizedBox(height: 16),
                       InkWell(
@@ -826,8 +834,25 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
               ),
             ),
             actions: [
-              TextButton(onPressed: isSaving ? null : () => Navigator.pop(ctx), child: const Text('Cancel')),
+              OutlinedButton(
+                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                style: AppTheme.cancelButton,
+                child: const Text('Cancel'),
+              ),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.logoRed,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(130, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 onPressed: isSaving ? null : () async {
                   if (!formKey.currentState!.validate()) return;
                   setDialogState(() => isSaving = true);

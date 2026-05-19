@@ -89,11 +89,25 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
               ),
             ),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.logoRed,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(130, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 onPressed: isSaving ? null : () async {
                   if (!formKey.currentState!.validate()) return;
                   setDialogState(() => isSaving = true);
@@ -178,11 +192,25 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
               ),
             ),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.logoRed,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(130, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 onPressed: isSaving ? null : () async {
                   setDialogState(() => isSaving = true);
                   try {
@@ -230,8 +258,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
           title: const Text('Delete Role', style: TextStyle(fontWeight: FontWeight.bold)),
           content: Text("Are you sure you want to delete ${role['role_name']}?"),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+              style: AppTheme.cancelButton,
               child: const Text('Cancel'),
             ),
             ElevatedButton(

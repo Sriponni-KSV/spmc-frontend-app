@@ -316,8 +316,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              style: AppTheme.cancelButton,
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -384,8 +385,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+                style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
@@ -1682,7 +1684,7 @@ final AdminController _adminController = AdminController();
                               focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
-                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                            validator: (val) => val == null || val.isEmpty ? 'Please enter full name' : null,
                           ),
                         ],
                       ),
@@ -1710,7 +1712,9 @@ final AdminController _adminController = AdminController();
                               focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
-                            validator: (val) => val == null || val.isEmpty || !val.contains('@') ? 'Valid email required' : null,
+                            validator: (val) => val == null || val.isEmpty
+                                ? 'Please enter email address'
+                                : (!val.contains('@') ? 'Please enter valid email address' : null),
                           ),
                         ],
                       ),
@@ -1752,9 +1756,9 @@ final AdminController _adminController = AdminController();
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
                             validator: (val) {
-                              if (val == null || val.isEmpty) return 'Required';
-                              if (val.length != 10) return 'Must be 10 digits';
-                              if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Digits only';
+                              if (val == null || val.isEmpty) return 'Please enter mobile number';
+                              if (val.length != 10) return 'Please enter 10 digit mobile number';
+                              if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Please enter digits only';
                               return null;
                             },
                           ),
@@ -1784,7 +1788,9 @@ final AdminController _adminController = AdminController();
                               focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
-                            validator: (val) => val == null || val.length < 6 ? 'Min. 6 characters' : null,
+                            validator: (val) => val == null || val.isEmpty
+                                ? 'Please enter password'
+                                : (val.length < 6 ? 'Please enter min. 6 characters' : null),
                           ),
                         ],
                       ),
@@ -1856,7 +1862,7 @@ final AdminController _adminController = AdminController();
                                         _selectedSpecializationId = val != null ? int.tryParse(val) : null;
                                       });
                                     },
-                                    validator: (val) => _selectedRole == 'Doctor' && val == null ? 'Required' : null,
+                                    validator: (val) => _selectedRole == 'Doctor' && val == null ? 'Please select specialization' : null,
                                   ),
                           ],
                         ),
@@ -1893,8 +1899,9 @@ final AdminController _adminController = AdminController();
         ),
       ),
       actions: [
-        TextButton(
+        OutlinedButton(
           onPressed: _isLoading ? null : () => Navigator.pop(context),
+          style: AppTheme.cancelButton,
           child: const Text('Cancel'),
         ),
         ElevatedButton(

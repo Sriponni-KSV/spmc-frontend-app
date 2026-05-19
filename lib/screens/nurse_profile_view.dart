@@ -844,17 +844,10 @@ class _NurseProfileViewState extends State<NurseProfileView> {
               children: [
                 OutlinedButton(
                   onPressed: () => setState(() => _isEditingProfile = false),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.grey),
-                    minimumSize: const Size(120, 48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                  style: AppTheme.cancelButton.copyWith(
+                    minimumSize: MaterialStateProperty.all(const Size(120, 48)),
                   ),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
-                  ),
+                  child: const Text('Cancel'),
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
