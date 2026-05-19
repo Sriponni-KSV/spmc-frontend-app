@@ -151,7 +151,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ],
             ),
             child: SizedBox(
-              height: 480,
+              height: 520,
               child: PageView(
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
@@ -255,7 +255,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ],
                       ),
                       child: SizedBox(
-                        height: 480,
+                        height: 520,
                         child: PageView(
                           controller: _pageController,
                           physics: const NeverScrollableScrollPhysics(),
@@ -316,12 +316,29 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           ),
           const SizedBox(height: 32),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Email Address',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _emailController,
             autovalidateMode: AutovalidateMode.onUserInteraction,
+            style: const TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 14,
+            ),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
-                return 'Please enter your email';
+                return 'Please enter Email Address';
               }
               if (!RegExp(
                 r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
@@ -332,13 +349,38 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             },
             onFieldSubmitted: (_) => _nextStep(),
             decoration: const InputDecoration(
-              hintText: 'name@example.com',
-              labelText: 'Email Address',
+              hintText: 'Enter Email Address',
+              hintStyle: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: Color(0xFFCBD5E0),
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+              ),
               prefixIcon: Icon(Icons.email_outlined),
             ),
           ),
           const SizedBox(height: 32),
-          ElevatedButton(onPressed: _nextStep, child: const Text('Send OTP')),
+          ElevatedButton(
+            onPressed: _nextStep,
+            style: AppTheme.primaryButton.copyWith(
+              minimumSize: MaterialStateProperty.all(const Size(double.infinity, 56)),
+            ),
+            child: const Text('Send OTP'),
+          ),
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.textSecondaryColor,
+              overlayColor: Colors.transparent,
+              textStyle: const TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            child: const Text('Back to Login'),
+          ),
         ],
       ),
     );
@@ -454,7 +496,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           ],
           const SizedBox(height: 32),
-          ElevatedButton(onPressed: _nextStep, child: const Text('Verify OTP')),
+          ElevatedButton(
+            onPressed: _nextStep,
+            style: AppTheme.primaryButton.copyWith(
+              minimumSize: MaterialStateProperty.all(const Size(double.infinity, 56)),
+            ),
+            child: const Text('Verify OTP'),
+          ),
         ],
       ),
     );
@@ -499,13 +547,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           ),
           const SizedBox(height: 24),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'New Password',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _newPasswordController,
             obscureText: _obscureNewPassword,
             autovalidateMode: AutovalidateMode.onUserInteraction,
+            style: const TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 14,
+            ),
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter a password';
+                return 'Please enter New Password';
               }
               if (value.length < 8) {
                 return 'Must be at least 8 characters';
@@ -514,8 +579,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             },
             onFieldSubmitted: (_) => _nextStep(),
             decoration: InputDecoration(
-              hintText: 'New Password',
-              labelText: 'New Password',
+              hintText: 'Enter New Password',
+              hintStyle: const TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: Color(0xFFCBD5E0),
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+              ),
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -530,13 +600,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Confirm Password',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _confirmPasswordController,
             obscureText: _obscureConfirmPassword,
             autovalidateMode: AutovalidateMode.onUserInteraction,
+            style: const TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 14,
+            ),
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please confirm your password';
+                return 'Please enter Confirm Password';
               }
               if (value != _newPasswordController.text) {
                 return 'Passwords do not match';
@@ -545,8 +632,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             },
             onFieldSubmitted: (_) => _nextStep(),
             decoration: InputDecoration(
-              hintText: 'Confirm Password',
-              labelText: 'Confirm Password',
+              hintText: 'Enter Confirm Password',
+              hintStyle: const TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: Color(0xFFCBD5E0),
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+              ),
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -565,6 +657,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           const SizedBox(height: 48),
           ElevatedButton(
             onPressed: _isLoading ? null : _nextStep,
+            style: AppTheme.primaryButton.copyWith(
+              minimumSize: MaterialStateProperty.all(const Size(double.infinity, 56)),
+            ),
             child: _isLoading
                 ? const SizedBox(
                     width: 24,

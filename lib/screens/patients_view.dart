@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/custom_dropdown_search.dart';
 import '../utils/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -159,25 +160,17 @@ class _PatientsViewState extends State<PatientsView> {
       const SizedBox(height: 24),
       _buildTableHeading(isMobile),
       const SizedBox(height: 12),
-      isMobile ? _buildPatientsTable(isMobile, isTablet) : Expanded(child: _buildPatientsTable(isMobile, isTablet)),
+      _buildPatientsTable(isMobile, isTablet),
     ];
 
     return SafeArea(
-      child: isMobile
-          ? SingleChildScrollView(
-              padding: padding,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: children,
-              ),
-            )
-          : Padding(
-              padding: padding,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: children,
-              ),
-            ),
+      child: SingleChildScrollView(
+        padding: padding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
+        ),
+      ),
     );
   }
 
@@ -771,109 +764,84 @@ class _PatientsViewState extends State<PatientsView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final double minWidth = 1100;
-                  final double tableWidth = constraints.maxWidth > minWidth ? constraints.maxWidth : minWidth;
-                  return Scrollbar(
-                    thumbVisibility: true,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: SizedBox(
-                          width: tableWidth,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          // Table Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: const BoxDecoration(
-              color: Color(0xFFEDF2F7),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
+            // Table Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEDF2F7),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(flex: 2, child: _buildTableHeaderText('Patient ID')),
+                  Expanded(flex: 3, child: _buildTableHeaderText('Name')),
+                  Expanded(child: _buildTableHeaderText('Age')),
+                  if (!isMobile) Expanded(child: _buildTableHeaderText('Gender')),
+                  if (!isMobile)
+                    Expanded(flex: 2, child: _buildTableHeaderText('Mobile No')),
+                  if (!isMobile)
+                    Expanded(flex: 2, child: _buildTableHeaderText('Email')),
+                  Expanded(child: _buildTableHeaderText('Status')),
+                  Expanded(flex: 2, child: _buildTableHeaderText('Actions')),
+                ],
               ),
             ),
-            child: Row(
-              children: [
-                Expanded(flex: 2, child: _buildTableHeaderText('Patient ID')),
-                Expanded(flex: 3, child: _buildTableHeaderText('Name')),
-                Expanded(child: _buildTableHeaderText('Age')),
-                if (!isMobile) Expanded(child: _buildTableHeaderText('Gender')),
-                if (!isMobile)
-                  Expanded(flex: 2, child: _buildTableHeaderText('Mobile No')),
-                if (!isMobile)
-                  Expanded(flex: 2, child: _buildTableHeaderText('Email')),
-                Expanded(child: _buildTableHeaderText('Status')),
-                Expanded(flex: 2, child: _buildTableHeaderText('Actions')),
-              ],
-            ),
-          ),
-          // Table Rows
-          if (widget.isLoading)
-            const Padding(
-              padding: EdgeInsets.all(32.0),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (allFilteredPatients.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32.0),
-              child: Center(child: Text('No patients found')),
-            )
-          else
-            ...patients.map((patient) {
-              final String name = patient.name;
-              final parts = name
-                  .trim()
-                  .split(' ')
-                  .where((p) => p.isNotEmpty)
-                  .take(2)
-                  .toList();
-              final String initials = parts.isNotEmpty
-                  ? parts.map((p) => p[0].toUpperCase()).join('')
-                  : '?';
+            // Table Rows
+            if (widget.isLoading)
+              const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (allFilteredPatients.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Center(child: Text('No patients found')),
+              )
+            else
+              ...patients.map((patient) {
+                final String name = patient.name;
+                final parts = name
+                    .trim()
+                    .split(' ')
+                    .where((p) => p.isNotEmpty)
+                    .take(2)
+                    .toList();
+                final String initials = parts.isNotEmpty
+                    ? parts.map((p) => p[0].toUpperCase()).join('')
+                    : '?';
 
-              return Column(
-                children: [
-                  _buildPatientTableRow(
-                    patient,
-                    name,
-                    patient.age == 0 ? 'Not Provided' : '${patient.age}y',
-                    patient.gender,
-                    patient.phone,
-                    patient.email,
-                    'Active',
-                    initials,
-                    patient.isQuickRegister ? ['Quick'] : [],
-                    isMobile,
-                  ),
-                  const Divider(height: 1),
-                ],
-              );
-            }).toList(),
-                        ],
-                      ),
+                return Column(
+                  children: [
+                    _buildPatientTableRow(
+                      patient,
+                      name,
+                      patient.age == 0 ? 'Not Provided' : '${patient.age}y',
+                      patient.gender,
+                      patient.phone,
+                      patient.email,
+                      'Active',
+                      initials,
+                      patient.isQuickRegister ? ['Quick'] : [],
+                      isMobile,
                     ),
-                  ),
-                ),
-              );
-              },
-            ),
-          ),
-          if (totalPages > 1) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: _buildPaginationControls(totalPages, false),
-            ),
+                    const Divider(height: 1),
+                  ],
+                );
+              }).toList(),
+            if (totalPages > 1) ...[
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: _buildPaginationControls(totalPages, false),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
-  );
+    );
 }
 
   Widget _buildPatientCardMobile(PatientModel patient) {
@@ -1738,8 +1706,6 @@ class _PatientsViewState extends State<PatientsView> {
     final TextEditingController reasonCtrl = TextEditingController();
     final _formKey = GlobalKey<FormState>();
     bool isSaving = false;
-    // For dropdown validation errors (shown only after submit attempt)
-    String? genderError;
     // Live phone error (updates on each keystroke)
     String? phoneError;
 
@@ -1749,7 +1715,7 @@ class _PatientsViewState extends State<PatientsView> {
         return StatefulBuilder(
           builder: (context, setState) {
             return Dialog(
-              backgroundColor: AppTheme.backgroundColor,
+              backgroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -1827,20 +1793,20 @@ class _PatientsViewState extends State<PatientsView> {
                                   controller: nameCtrl,
                                   hint: 'Enter patient\'s full name',
                                   validator: (val) => val == null || val.isEmpty
-                                      ? 'Name is required'
+                                      ? 'Please enter Full Name'
                                       : null,
                                 ),
                                 const SizedBox(height: 16),
                                 _buildQuickFieldLabel('Email Address'),
                                 _buildQuickTextField(
                                   controller: emailCtrl,
-                                  hint: 'patient@example.com',
+                                  hint: 'Enter Email Address',
                                   keyboardType: TextInputType.emailAddress,
                                   validator: (val) {
                                     if (val == null || val.isEmpty)
-                                      return 'Email is required';
+                                      return 'Please enter Email Address';
                                     if (!val.contains('@'))
-                                      return 'Invalid email';
+                                      return 'Please enter a valid Email Address';
                                     return null;
                                   },
                                 ),
@@ -1858,7 +1824,7 @@ class _PatientsViewState extends State<PatientsView> {
                                             hint: 'Enter patient\'s full name',
                                             validator: (val) =>
                                                 val == null || val.isEmpty
-                                                ? 'Name is required'
+                                                ? 'Please enter Full Name'
                                                 : null,
                                           ),
                                         ],
@@ -1875,14 +1841,14 @@ class _PatientsViewState extends State<PatientsView> {
                                           ),
                                           _buildQuickTextField(
                                             controller: emailCtrl,
-                                            hint: 'patient@example.com',
+                                            hint: 'Enter Email Address',
                                             keyboardType:
                                                 TextInputType.emailAddress,
                                             validator: (val) {
                                               if (val == null || val.isEmpty)
-                                                return 'Email is required';
+                                                return 'Please enter Email Address';
                                               if (!val.contains('@'))
-                                                return 'Invalid email';
+                                                return 'Please enter a valid Email Address';
                                               return null;
                                             },
                                           ),
@@ -1900,7 +1866,7 @@ class _PatientsViewState extends State<PatientsView> {
                                   icon: Icons.calendar_today_outlined,
                                   readOnly: true,
                                   validator: (val) => val == null || val.isEmpty
-                                      ? 'DOB required'
+                                      ? 'Please enter Date of Birth'
                                       : null,
                                   onTap: () async {
                                     DateTime? pickedDate = await showDatePicker(
@@ -1924,7 +1890,7 @@ class _PatientsViewState extends State<PatientsView> {
                                 _buildQuickFieldLabel('Mobile Number'),
                                 _buildQuickTextField(
                                   controller: phoneCtrl,
-                                  hint: '98765 43210',
+                                  hint: 'Enter Mobile Number',
                                   keyboardType: TextInputType.phone,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
@@ -1933,20 +1899,25 @@ class _PatientsViewState extends State<PatientsView> {
                                   onChanged: (val) {
                                     setState(() {
                                       if (val.isEmpty) {
-                                        phoneError = 'Phone number is required';
+                                        phoneError = 'Please enter Mobile Number';
                                       } else if (val.length < 10) {
                                         phoneError =
-                                            'Enter 10-digit number (${val.length}/10)';
+                                            'Please enter a valid Mobile Number (${val.length}/10)';
                                       } else {
                                         phoneError = null;
                                       }
                                     });
                                   },
                                   errorText: phoneError,
-                                  validator: (val) =>
-                                      val == null || val.length != 10
-                                      ? 'Enter 10-digit number'
-                                      : null,
+                                  validator: (val) {
+                                    if (val == null || val.isEmpty) {
+                                      return 'Please enter Mobile Number';
+                                    }
+                                    if (val.length != 10) {
+                                      return 'Please enter a valid Mobile Number';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ] else
                                 Row(
@@ -1966,7 +1937,7 @@ class _PatientsViewState extends State<PatientsView> {
                                             readOnly: true,
                                             validator: (val) =>
                                                 val == null || val.isEmpty
-                                                ? 'Required'
+                                                ? 'Please enter Date of Birth'
                                                 : null,
                                             onTap: () async {
                                               DateTime? pickedDate =
@@ -2004,7 +1975,7 @@ class _PatientsViewState extends State<PatientsView> {
                                           ),
                                           _buildQuickTextField(
                                             controller: phoneCtrl,
-                                            hint: '98765 43210',
+                                            hint: 'Enter Mobile Number',
                                             keyboardType: TextInputType.phone,
                                             inputFormatters: [
                                               FilteringTextInputFormatter
@@ -2017,20 +1988,25 @@ class _PatientsViewState extends State<PatientsView> {
                                               setState(() {
                                                 if (val.isEmpty) {
                                                   phoneError =
-                                                      'Phone number is required';
+                                                      'Please enter Mobile Number';
                                                 } else if (val.length < 10) {
                                                   phoneError =
-                                                      'Enter 10-digit number (${val.length}/10)';
+                                                      'Please enter a valid Mobile Number (${val.length}/10)';
                                                 } else {
                                                   phoneError = null;
                                                 }
                                               });
                                             },
                                             errorText: phoneError,
-                                            validator: (val) =>
-                                                val == null || val.length != 10
-                                                ? 'Enter 10-digit number'
-                                                : null,
+                                            validator: (val) {
+                                              if (val == null || val.isEmpty) {
+                                                return 'Please enter Mobile Number';
+                                              }
+                                              if (val.length != 10) {
+                                                return 'Please enter a valid Mobile Number';
+                                              }
+                                              return null;
+                                            },
                                           ),
                                         ],
                                       ),
@@ -2046,77 +2022,24 @@ class _PatientsViewState extends State<PatientsView> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         _buildQuickFieldLabel('Gender'),
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Container(
-                                              height: 48,
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                  color: genderError != null
-                                                      ? AppTheme.primaryColor
-                                                      : AppTheme.borderColor,
-                                                ),
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: DropdownButtonHideUnderline(
-                                                child: DropdownButton<String>(
-                                                  isExpanded: true,
-                                                  value: selectedGender,
-                                                  hint: const Text(
-                                                    'Select',
-                                                    style: TextStyle(fontSize: 14),
-                                                  ),
-                                                  items: const [
-                                                    DropdownMenuItem(
-                                                      value: 'Male',
-                                                      child: Text(
-                                                        'Male',
-                                                        style: TextStyle(fontSize: 14),
-                                                      ),
-                                                    ),
-                                                    DropdownMenuItem(
-                                                      value: 'Female',
-                                                      child: Text(
-                                                        'Female',
-                                                        style: TextStyle(fontSize: 14),
-                                                      ),
-                                                    ),
-                                                    DropdownMenuItem(
-                                                      value: 'Other',
-                                                      child: Text(
-                                                        'Other',
-                                                        style: TextStyle(fontSize: 14),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                  onChanged: (val) {
-                                                    setState(() {
-                                                      selectedGender = val;
-                                                      genderError = null;
-                                                    });
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                            if (genderError != null)
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                  top: 4,
-                                                  left: 4,
-                                                ),
-                                                child: Text(
-                                                  genderError!,
-                                                  style: const TextStyle(
-                                                    color: AppTheme.primaryColor,
-                                                    fontSize: 11,
-                                                  ),
-                                                ),
-                                              ),
-                                          ],
+                                        CustomDropdownSearch(
+                                          label: '',
+                                          hint: 'Select gender',
+                                          dropdownItems: const ['Male', 'Female', 'Other'],
+                                          value: selectedGender,
+                                          onChanged: (val) {
+                                            setState(() {
+                                              selectedGender = val;
+                                            });
+                                          },
+                                          validator: (val) => val == null || val.isEmpty
+                                              ? 'Please select gender'
+                                              : null,
+                                          height: 52,
+                                          borderColor: const Color(0xFFE2E8F0),
+                                          focusedBorderColor: AppTheme.primaryColor,
+                                          fillColor: AppTheme.backgroundColor,
+                                          popupBgColor: Colors.white,
                                         ),
                                       ],
                                     ),
@@ -2175,24 +2098,8 @@ class _PatientsViewState extends State<PatientsView> {
                                         onPressed: isSaving
                                             ? null
                                             : () async {
-                                                // Validate text fields
-                                                if (!_formKey.currentState!
-                                                    .validate()) {
-                                                  // Also set dropdown errors
-                                                  setState(() {
-                                                    if (selectedGender == null)
-                                                      genderError =
-                                                          'Please select gender';
-                                                  });
-                                                  return;
-                                                }
-                                                // Validate dropdowns
-                                                if (selectedGender == null) {
-                                                  setState(() {
-                                                    if (selectedGender == null)
-                                                      genderError =
-                                                          'Please select gender';
-                                                  });
+                                                // Validate form fields
+                                                if (!_formKey.currentState!.validate()) {
                                                   return;
                                                 }
 
@@ -2321,9 +2228,7 @@ class _PatientsViewState extends State<PatientsView> {
                                                 }
                                               },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(
-                                            0xFF0D5D9A,
-                                          ),
+                                          backgroundColor: AppTheme.logoRed,
                                           foregroundColor: Colors.white,
                                           padding: EdgeInsets.zero,
                                           shape: RoundedRectangleBorder(
@@ -2400,20 +2305,24 @@ class _PatientsViewState extends State<PatientsView> {
 
   Widget _buildQuickFieldLabel(String text, {bool isRequired = true}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: RichText(
         text: TextSpan(
           text: text,
           style: const TextStyle(
-            fontWeight: FontWeight.w600,
             fontSize: 13,
-            color: AppTheme.textPrimaryColor,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+            fontFamily: 'Inter',
           ),
           children: [
             if (isRequired)
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: AppTheme.primaryColor),
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
           ],
         ),
@@ -2443,43 +2352,54 @@ class _PatientsViewState extends State<PatientsView> {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       validator: validator,
-      style: const TextStyle(fontSize: 14),
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      style: const TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 14,
+        color: AppTheme.textPrimaryColor,
+      ),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(
-          color: AppTheme.textSecondaryColor,
-          fontSize: 14,
+          fontFamily: 'Inter',
+          color: Color(0xFFCBD5E0),
+          fontSize: 13,
         ),
         errorText: errorText,
+        filled: true,
+        fillColor: AppTheme.backgroundColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.borderColor),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.borderColor),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.primaryColor),
+          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.primaryColor),
+          borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.primaryColor),
+          borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
         ),
-        errorStyle: const TextStyle(fontSize: 11),
+        errorStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 11,
+          color: AppTheme.dangerColor,
+        ),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 14,
+          horizontal: 16,
+          vertical: 16,
         ),
         suffixIcon: icon != null
-            ? Icon(icon, size: 18, color: AppTheme.textSecondaryColor)
+            ? Icon(icon, size: 18, color: const Color(0xFFCBD5E0))
             : null,
-        isDense: true,
       ),
     );
   }

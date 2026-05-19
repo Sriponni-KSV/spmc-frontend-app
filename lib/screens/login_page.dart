@@ -219,12 +219,12 @@ class _LoginScreenState extends State<LoginScreen> {
           context: context,
           controller: _emailController,
           label: 'Email Address',
-          hint: 'name@example.com',
+          hint: 'Enter Email Address',
           icon: Icons.email_outlined,
           onSubmitted: (_) => _handleLogin(),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
-              return 'Please enter your email address';
+              return 'Please enter Email Address';
             }
             if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
               return 'Please enter a valid email address';
@@ -238,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen> {
           context: context,
           controller: _passwordController,
           label: 'Password',
-          hint: 'Enter your password',
+          hint: 'Enter Password',
           icon: Icons.lock_outline,
           isPassword: true,
           obscureText: _obscurePassword,
@@ -250,7 +250,7 @@ class _LoginScreenState extends State<LoginScreen> {
           onSubmitted: (_) => _handleLogin(),
           validator: (value) {
             if (value == null || value.isEmpty) {
-              return 'Please enter your password';
+              return 'Please enter Password';
             }
             if (value.length < 8) {
               return 'Password must be at least 8 characters long';
@@ -368,7 +368,12 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         Text(
           label,
-          style: Theme.of(context).inputDecorationTheme.labelStyle,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Colors.black,
+            fontFamily: AppTheme.fontFamily,
+          ),
         ),
         const SizedBox(height: 8),
         TextFormField(
@@ -376,10 +381,19 @@ class _LoginScreenState extends State<LoginScreen> {
           obscureText: obscureText,
           onFieldSubmitted: onSubmitted,
           autovalidateMode: AutovalidateMode.onUserInteraction,
-          style: Theme.of(context).textTheme.bodyLarge,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            fontFamily: AppTheme.fontFamily,
+            fontSize: 14,
+          ),
           validator: validator,
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: const TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: Color(0xFFCBD5E0),
+              fontSize: 13,
+              fontWeight: FontWeight.normal,
+            ),
             prefixIcon: Icon(icon, size: 22),
             suffixIcon: isPassword
                 ? IconButton(

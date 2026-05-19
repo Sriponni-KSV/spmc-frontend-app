@@ -21,6 +21,9 @@ class CustomDropdownSearch extends StatefulWidget {
   final Color? focusedBorderColor;
   final double? borderWidth;
   final double? focusedBorderWidth;
+  final Color? fillColor;
+  final Color? popupBgColor;
+  final double? hintFontSize;
 
   const CustomDropdownSearch({
     super.key,
@@ -39,6 +42,9 @@ class CustomDropdownSearch extends StatefulWidget {
     this.focusedBorderColor,
     this.borderWidth,
     this.focusedBorderWidth,
+    this.fillColor,
+    this.popupBgColor,
+    this.hintFontSize,
   });
 
   static bool get isOpen =>
@@ -310,13 +316,13 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                 type: MaterialType.card,
                 elevation: 6,
                 borderRadius: BorderRadius.circular(12),
-                color: Colors.white,
+                color: widget.popupBgColor ?? Colors.white,
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   onTap: () {}, // absorb taps inside overlay
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: widget.popupBgColor ?? Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         width: 1,
@@ -563,7 +569,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                         clipBehavior: Clip.none,
                         decoration: BoxDecoration(
                           color: widget.isEnabled
-                              ? Colors.white
+                              ? (widget.fillColor ?? Colors.white)
                               : const Color(0xFFF9FAFB),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
@@ -600,7 +606,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                   hintStyle: TextStyle(
                                     fontFamily: 'Inter',
                                     color: Colors.grey.shade400,
-                                    fontSize: 13,
+                                    fontSize: widget.hintFontSize ?? 13,
                                   ),
                                   border: InputBorder.none,
                                   enabledBorder: InputBorder.none,

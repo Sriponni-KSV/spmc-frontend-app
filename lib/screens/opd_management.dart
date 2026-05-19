@@ -183,11 +183,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> {
             child: ElevatedButton.icon(
               onPressed: () => _showWalkInDialog(),
               icon: const Icon(Icons.add, size: 18),
-              label: Text(widget.isMobile ? 'Walk-in' : 'New Walk-in', style: const TextStyle(fontWeight: FontWeight.w600)),
+              label: Text(widget.isMobile ? 'Walk-in' : 'New Walk-in', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
+                backgroundColor: AppTheme.dangerColor,
                 foregroundColor: Colors.white,
-                minimumSize: const Size(120, 44),
+                minimumSize: const Size(120, 48),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 elevation: 0,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../providers/auth_provider.dart';
 import '../screens/login_page.dart';
+import 'app_theme.dart';
 
 class LogoutHelper {
   static void showLogoutConfirmation(BuildContext context, AuthProvider auth) {
@@ -26,7 +27,7 @@ class LogoutHelper {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
+                backgroundColor: AppTheme.dangerColor,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Yes'),
