@@ -235,7 +235,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
             hintText: label,
             hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
             prefixIcon: Icon(icon, size: 20, color: AppTheme.iconColor),
-            suffixIcon: isReadOnly ? const Icon(Icons.lock_outline, size: 16, color: Colors.grey) : null,
+            suffixIcon: (isReadOnly && onTap == null) ? const Icon(Icons.lock_outline, size: 16, color: Colors.grey) : null,
             fillColor: isReadOnly ? const Color(0xFFF7FAFC) : Colors.white,
             filled: true,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.borderColor)),

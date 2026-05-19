@@ -28,8 +28,17 @@ class LogoutHelper {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.dangerColor,
+                backgroundColor: AppTheme.logoRed,
                 foregroundColor: Colors.white,
+                minimumSize: const Size(130, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               child: const Text('Yes'),
             ),

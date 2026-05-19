@@ -244,15 +244,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         drawer: isMobile ? Drawer(child: _buildSidebar(isMobile)) : null,
+
         floatingActionButton: CustomSpeedDial(
-          children: [
-            SpeedDialChild(
-              label: 'New Appointment',
-              icon: Icons.calendar_month_outlined,
-              color: AppTheme.primaryColor,
-              onTap: () {},
-            ),
-          ],
+          children: [],
         ),
         body: Row(
           children: [
