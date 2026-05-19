@@ -140,13 +140,40 @@ class AdminStaffProfileView extends StatelessWidget {
                         children: [
                           Text(user.fullname, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
                           const SizedBox(height: 8),
-                          Text(
-                            user.role,
-                            style: const TextStyle(
-                              color: Color(0xFFC53030),
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                user.role,
+                                style: const TextStyle(
+                                  color: Color(0xFFC53030),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: user.status == 'active' ? Colors.green.withOpacity(0.1) : (user.status == 'suspended' ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1)),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(width: 6, height: 6, decoration: BoxDecoration(color: user.status == 'active' ? Colors.green : (user.status == 'suspended' ? Colors.red : Colors.grey), shape: BoxShape.circle)),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      user.status.isNotEmpty ? user.status[0].toUpperCase() + user.status.substring(1) : '-',
+                                      style: TextStyle(
+                                        color: user.status == 'active' ? Colors.green : (user.status == 'suspended' ? Colors.red : Colors.grey), 
+                                        fontSize: 12, 
+                                        fontWeight: FontWeight.w600
+                                      )
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
