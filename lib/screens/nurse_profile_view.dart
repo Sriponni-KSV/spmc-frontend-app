@@ -302,52 +302,58 @@ class _NurseProfileViewState extends State<NurseProfileView> {
           Container(
             padding: const EdgeInsets.all(AppTheme.paddingLarge),
             decoration: AppTheme.cardDecoration,
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 110, height: 110,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(colors: [AppTheme.primaryColor, Color(0xFF1E3A8A)]),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'N', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)),
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 110, height: 110,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(colors: [AppTheme.primaryColor, Color(0xFF1E3A8A)]),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'N', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ),
+                    const SizedBox(width: 32),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(user?.fullname ?? 'Nurse', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
+                          const SizedBox(height: 8),
+                          Text(
+                            user?.role ?? 'Nurse',
+                            style: const TextStyle(
+                              color: Color(0xFFC53030),
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 32),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(user?.fullname ?? 'Nurse', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
-                       const SizedBox(height: 8),
-                       Text(
-                         user?.role ?? 'Nurse', 
-                         style: const TextStyle(
-                           color: Color(0xFFC53030), 
-                           fontSize: 13, 
-                           fontWeight: FontWeight.bold, 
-                         )
-                       ),
-                       const SizedBox(height: 12),
-                       Row(
-                         children: [
-                           Icon(Icons.phone_android_rounded, size: 16, color: Colors.grey.shade600),
-                           const SizedBox(width: 8),
-                           Text(
-                             user?.mobile ?? '-',
-                             style: TextStyle(
-                               fontSize: 15,
-                               fontWeight: FontWeight.w600,
-                               color: Colors.blueGrey.shade700,
-                             ),
-                           ),
-                         ],
-                       ),
-                       // Removed About / Bio and hyphen as per user request
-                    ],
-                  ),
-                ),
+                if (user?.bio != null && user!.bio!.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  const SizedBox(height: 20),
+                  _buildDetailRow('Full Name', user?.fullname ?? '-', Icons.person_outline),
+                  _buildDetailRow('Email Address', user?.email ?? '-', Icons.alternate_email),
+                  _buildDetailRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
+                  _buildDetailRow('Bio Summary', user?.bio ?? '-', Icons.description_outlined),
+                ] else ...[
+                  const SizedBox(height: 24),
+                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  const SizedBox(height: 20),
+                  _buildDetailRow('Full Name', user?.fullname ?? '-', Icons.person_outline),
+                  _buildDetailRow('Email Address', user?.email ?? '-', Icons.alternate_email),
+                  _buildDetailRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
+                ],
               ],
             ),
           ),
