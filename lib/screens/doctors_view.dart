@@ -403,7 +403,7 @@ class _DoctorsViewState extends State<DoctorsView> {
     final String experience = (doctor.experience != null && doctor.experience!.isNotEmpty)
         ? (doctor.experience!.toLowerCase().contains('year') ? doctor.experience! : '${doctor.experience} years')
         : '-'; 
-    final String patients = (doctor.numberPatientsAttended != null) ? doctor.numberPatientsAttended.toString() : '-';
+    final String patients = (doctor.numberPatientsAttended != null && doctor.numberPatientsAttended! > 0) ? doctor.numberPatientsAttended.toString() : '-';
     final String rating = '4.9'; // Mock: Rating system not yet implemented in DB
     final List<String> weekDaysOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final List<String> availabilityList = List<String>.from(doctor.availableDays ?? [])

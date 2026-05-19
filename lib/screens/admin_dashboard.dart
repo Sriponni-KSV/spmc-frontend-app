@@ -21,6 +21,7 @@ import 'patients_view.dart';
 import '../utils/logout_helper.dart';
 import 'admin_appointment_management.dart';
 import 'opd_management.dart';
+import 'admin_staff_profile_view.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -43,6 +44,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final PatientController _patientController = PatientController();
   bool _isRegisteringPatient = false;
   PatientModel? _patientToComplete;
+  UserModel? _viewingStaffProfile;
 
   @override
   void dispose() {
@@ -79,8 +81,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       pageBuilder: (context, anim1, anim2) {
         return SearchOverlay(
           patients: _dbPatients.map((p) => p.toJson()).toList(),
-          onNewPatient: () => setState(() => _selectedIndex = 2), // Navigate to Patient Management
-          onBookAppointment: () => setState(() => _selectedIndex = 4), // Navigate to Appointments
+          onNewPatient: () => setState(() {
+            _selectedIndex = 2;
+            _viewingStaffProfile = null;
+          }),
+          onBookAppointment: () => setState(() {
+            _selectedIndex = 4;
+            _viewingStaffProfile = null;
+          }),
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -467,6 +475,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildBodyContent(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
+
+    if (_viewingStaffProfile != null) {
+      return AdminStaffProfileView(
+        user: _viewingStaffProfile!,
+        onBack: () => setState(() => _viewingStaffProfile = null),
+      );
+    }
 
     if (_isRegisteringPatient) {
       return NewPatientRegistrationView(
@@ -937,6 +952,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       DataCell(Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          IconButton(
+                            icon: const Icon(Icons.visibility_outlined, size: 18, color: AppTheme.primaryColor),
+                            onPressed: () => setState(() => _viewingStaffProfile = user),
+                          ),
                           if (user.role != 'Super Admin') ...[
                             IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
@@ -1059,12 +1078,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 ],
               ),
-              if (!user.isDeleted && user.role != 'Super Admin') ...[
-                const SizedBox(height: 16),
-                const Divider(),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
+              const SizedBox(height: 16),
+              const Divider(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => setState(() => _viewingStaffProfile = user),
+                    icon: const Icon(Icons.visibility_outlined, size: 18),
+                    label: const Text('View'),
+                  ),
+                  if (!user.isDeleted && user.role != 'Super Admin') ...[
+                    const SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: () => _showEditDialog(context, user),
                       icon: const Icon(Icons.edit_outlined, size: 18),
@@ -1077,8 +1102,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       label: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
                     ),
                   ],
-                ),
-              ],
+                ],
+              ),
             ],
           ),
         );
@@ -1188,6 +1213,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _selectedIndex = index;
         _isRegisteringPatient = false;
         _patientToComplete = null;
+        _viewingStaffProfile = null;
       }),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -1509,6 +1535,7 @@ final AdminController _adminController = AdminController();
   bool _isLoadingRoles = false;
   bool _isLoadingSpecializations = false;
   String? _errorMessage;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -1770,10 +1797,22 @@ final AdminController _adminController = AdminController();
                           TextFormField(
                             controller: _passwordController,
                             onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
-                            obscureText: true,
+                            obscureText: _obscurePassword,
                             decoration: InputDecoration(
                               hintText: 'Enter password',
                               hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                  color: AppTheme.textSecondaryColor,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
                               filled: true,
                               fillColor: AppTheme.backgroundColor,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
