@@ -8,6 +8,7 @@ import '../models/appointment_model.dart';
 import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../controllers/appointment_controller.dart';
+import '../widgets/appointment_details_dialog.dart';
 
 class AppointmentsView extends StatefulWidget {
   final bool startWithBookingForm;
@@ -175,6 +176,72 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
     return parts[0][0].toUpperCase();
+  }
+
+  Future<void> _showVitalsMissingDialog(BuildContext context, AppointmentModel appt) async {
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 28),
+              const SizedBox(width: 8),
+              const Text('Vitals Required', style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Text(
+            'Vitals must be recorded before changing the appointment status to "Waiting". Would you like to enter them now?',
+            style: TextStyle(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // close alert
+                _openVitalsEntryDialog(context, appt);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F766E),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              child: const Text('Enter Vitals Now', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openVitalsEntryDialog(BuildContext context, AppointmentModel appt) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AppointmentDetailsDialog(
+        appointment: appt,
+        editVitalsOnly: true,
+        onRefresh: () {
+          _fetchData();
+        },
+      ),
+    );
+  }
+
+  void _openViewDetailsDialog(BuildContext context, AppointmentModel appt) {
+    showDialog(
+      context: context,
+      builder: (context) => AppointmentDetailsDialog(
+        appointment: appt,
+        editVitalsOnly: false,
+        onRefresh: () {
+          _fetchData();
+        },
+      ),
+    );
   }
 
   // No longer needed: _deptDoctors map
@@ -2437,7 +2504,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 _buildTableHeader('Doctor', flex: 3),
                 _buildTableHeader('Reason', flex: 2),
                 _buildTableHeader('Status', flex: 2),
-                _buildTableHeader('Actions', flex: 3, leftPadding: 16),
+                _buildTableHeader('Actions', flex: 4, leftPadding: 16),
               ],
             ),
           ),
@@ -2450,27 +2517,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               final appt = filteredAppts[index];
               return Column(
                 children: [
-                  _buildAppointmentRow(
-                    id: appt.id!,
-                    time: appt.appointmentTime,
-                    date: appt.appointmentDate,
-                    patientName: appt.patientName,
-                    patientInitials: _getInitials(appt.patientName),
-                    doctorName: appt.doctorName,
-                    doctorDisplayId: appt.doctorDisplayId,
-                    type: appt.appointmentType,
-                    department: appt.department,
-                    reason: appt.reasonForVisit?.isNotEmpty == true
-                        ? appt.reasonForVisit!
-                        : 'N/A',
-                    status: appt.status,
-                    statusColor: appt.status == 'Confirmed'
-                        ? const Color(0xFF3182CE)
-                        : AppTheme.primaryColor,
-                    statusBg: appt.status == 'Confirmed'
-                        ? const Color(0xFFEBF8FF)
-                        : AppTheme.primaryLight,
-                  ),
+                  _buildAppointmentRow(appt),
                   const Divider(height: 1),
                 ],
               );
@@ -2482,12 +2529,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   Widget _buildAppointmentCardMobile(AppointmentModel appt) {
-    final statusColor = appt.status == 'Confirmed'
-        ? const Color(0xFF3182CE)
-        : AppTheme.primaryColor;
-    final statusBg = appt.status == 'Confirmed'
-        ? const Color(0xFFEBF8FF)
-        : AppTheme.primaryLight;
+    final statusColor = AppTheme.getStatusTextColor(appt.status);
+    final statusBg = AppTheme.getStatusBgColor(appt.status);
+    
+    final bool hasVitals = appt.bloodPressureSystolic != null && appt.temperature != null;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2615,51 +2660,146 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ],
           ),
           const SizedBox(height: 16),
-          const Divider(height: 1),
+          if (appt.isRescheduled)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3E8FF),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'Rescheduled',
+                style: TextStyle(
+                  color: Color(0xFF9333EA),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              const SizedBox(width: 12),
-              appt.status == 'Confirmed'
-                  ? ElevatedButton(
-                      onPressed: () async {
-                        try {
-                          await _appointmentController.updateStatus(
-                            appt.id!,
-                            'Cancelled',
-                          );
-                          _fetchData();
-                        } catch (e) {
-                          ScaffoldMessenger.of(
-                            context,
-                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
+              Expanded(
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _openViewDetailsDialog(context, appt),
+                      icon: const Icon(Icons.visibility, size: 12),
+                      label: const Text('View Details', style: TextStyle(fontSize: 11)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         minimumSize: const Size(0, 36),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                       ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    )
-                  : const Text(
-                      '-',
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
                     ),
+                    if (appt.status == 'Confirmed') ...[
+                      if (!hasVitals)
+                        ElevatedButton.icon(
+                          onPressed: () => _openVitalsEntryDialog(context, appt),
+                          icon: const Icon(Icons.monitor_heart, size: 12, color: Colors.white),
+                          label: const Text('Add Vitals', style: TextStyle(fontSize: 11)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F766E),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            minimumSize: const Size(0, 36),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          ),
+                        ),
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (!hasVitals) {
+                            await _showVitalsMissingDialog(context, appt);
+                            return;
+                          }
+                          try {
+                            await _appointmentController.updateStatus(appt.id!, 'Waiting');
+                            _fetchData();
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D9488),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                        child: const Text(
+                          'Mark Waiting',
+                          style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () async {
+                          String? cancelReason;
+                          await showDialog(
+                            context: context,
+                            builder: (context) {
+                              final ctrl = TextEditingController();
+                              return AlertDialog(
+                                title: const Text('Cancel Appointment'),
+                                content: TextField(
+                                  controller: ctrl,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Enter cancellation reason (required)',
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back')),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      if (ctrl.text.trim().isNotEmpty) {
+                                        cancelReason = ctrl.text.trim();
+                                        Navigator.pop(context);
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Reason is required')),
+                                        );
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                    child: const Text('Cancel Appointment'),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                          if (cancelReason != null) {
+                            try {
+                              await _appointmentController.updateStatus(
+                                appt.id!,
+                                'Cancelled',
+                                cancellationReason: cancelReason,
+                              );
+                              _fetchData();
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ] else
+                      const Text('-', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                  ],
+                ),
+              ),
             ],
           ),
         ],
@@ -2688,21 +2828,23 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     );
   }
 
-  Widget _buildAppointmentRow({
-    required int id,
-    required String time,
-    required String date,
-    required String patientName,
-    required String patientInitials,
-    required String doctorName,
-    String? doctorDisplayId,
-    required String type,
-    required String department,
-    required String reason,
-    required String status,
-    required Color statusColor,
-    required Color statusBg,
-  }) {
+  Widget _buildAppointmentRow(AppointmentModel appt) {
+    final id = appt.id!;
+    final time = appt.appointmentTime;
+    final date = appt.appointmentDate;
+    final patientName = appt.patientName;
+    final patientInitials = _getInitials(appt.patientName);
+    final doctorName = appt.doctorName;
+    final doctorDisplayId = appt.doctorDisplayId;
+    final type = appt.appointmentType;
+    final department = appt.department;
+    final reason = appt.reasonForVisit?.isNotEmpty == true ? appt.reasonForVisit! : 'N/A';
+    final status = appt.status;
+    final statusColor = AppTheme.getStatusTextColor(appt.status);
+    final statusBg = AppTheme.getStatusBgColor(appt.status);
+    final isRescheduled = appt.isRescheduled;
+    final bool hasVitals = appt.bloodPressureSystolic != null && appt.temperature != null;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
@@ -2754,6 +2896,24 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     color: Color(0xFF475569),
                   ),
                 ),
+                if (isRescheduled) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3E8FF),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Rescheduled',
+                      style: TextStyle(
+                        color: Color(0xFF9333EA),
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -2878,60 +3038,127 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           ),
           Expanded(
-            flex: 3,
-            child: Row(
-              children: [
-                const SizedBox(width: 16),
-                const SizedBox(width: 12),
-                status == 'Confirmed'
-                    ? ElevatedButton(
-                        onPressed: () async {
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16.0),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _openViewDetailsDialog(context, appt),
+                    icon: const Icon(Icons.visibility, size: 12),
+                    label: const Text('View', style: TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                      side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(60, 32),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                  ),
+                  if (status == 'Confirmed') ...[
+                    if (!hasVitals) ...[
+                      ElevatedButton.icon(
+                        onPressed: () => _openVitalsEntryDialog(context, appt),
+                        icon: const Icon(Icons.monitor_heart, size: 12, color: Colors.white),
+                        label: const Text('Add Vitals', style: TextStyle(fontSize: 11)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F766E),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(90, 32),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
+                    ],
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (!hasVitals) {
+                          await _showVitalsMissingDialog(context, appt);
+                          return;
+                        }
+                        try {
+                          await _appointmentController.updateStatus(id, 'Waiting');
+                          _fetchData();
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0D9488),
+                        minimumSize: const Size(80, 32),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      child: const Text(
+                        'Mark Waiting',
+                        style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        String? cancelReason;
+                        await showDialog(
+                          context: context,
+                          builder: (context) {
+                            final ctrl = TextEditingController();
+                            return AlertDialog(
+                              title: const Text('Cancel Appointment'),
+                              content: TextField(
+                                controller: ctrl,
+                                decoration: const InputDecoration(
+                                  hintText: 'Enter cancellation reason (required)',
+                                ),
+                              ),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back')),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    if (ctrl.text.trim().isNotEmpty) {
+                                      cancelReason = ctrl.text.trim();
+                                      Navigator.pop(context);
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Reason is required')),
+                                      );
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                  child: const Text('Cancel'),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                        if (cancelReason != null) {
                           try {
                             await _appointmentController.updateStatus(
                               id,
                               'Cancelled',
+                              cancellationReason: cancelReason,
                             );
-                            setState(() {
-                              final index = _appointments.indexWhere(
-                                (a) => a.id == id,
-                              );
-                              if (index != -1) {
-                                _appointments[index] = _appointments[index]
-                                    .copyWith(status: 'Cancelled');
-                              }
-                            });
                             _fetchData();
                           } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
                           }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          minimumSize: const Size(80, 32),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                        ),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      )
-                    : const Text(
-                        '-',
-                        style: TextStyle(color: Colors.grey, fontSize: 16),
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        minimumSize: const Size(60, 32),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                       ),
-              ],
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ] else
+                    const Text('-', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                ],
+              ),
             ),
           ),
         ],

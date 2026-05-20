@@ -10,6 +10,7 @@ class AppointmentModel {
   final String appointmentDate;
   final String appointmentTime;
   final String? patientPhone;
+  final String? patientGender;
   final int? bloodPressureSystolic;
   final int? bloodPressureDiastolic;
   final double? sugarLevel;
@@ -21,6 +22,11 @@ class AppointmentModel {
   final String? overrideByName;
   final String? doctorDisplayId;
   final dynamic changesLog;
+  final String? cancellationReason;
+  final bool isRescheduled;
+  final String? createdAt;
+  final String? updatedAt;
+  final String? overrideAt;
 
   AppointmentModel({
     this.id,
@@ -32,6 +38,7 @@ class AppointmentModel {
     required this.appointmentDate,
     required this.appointmentTime,
     this.patientPhone,
+    this.patientGender,
     this.bloodPressureSystolic,
     this.bloodPressureDiastolic,
     this.sugarLevel,
@@ -43,6 +50,11 @@ class AppointmentModel {
     this.overrideByName,
     this.doctorDisplayId,
     this.changesLog,
+    this.cancellationReason,
+    this.isRescheduled = false,
+    this.createdAt,
+    this.updatedAt,
+    this.overrideAt,
   });
 
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
@@ -56,6 +68,7 @@ class AppointmentModel {
       appointmentDate: DateFormatter.toUi(json['appointment_date']),
       appointmentTime: json['appointment_time'] ?? '',
       patientPhone: json['patient_phone']?.toString(),
+      patientGender: json['patient_gender']?.toString(),
       bloodPressureSystolic: json['blood_pressure_systolic'] is int ? json['blood_pressure_systolic'] : int.tryParse(json['blood_pressure_systolic']?.toString() ?? ''),
       bloodPressureDiastolic: json['blood_pressure_diastolic'] is int ? json['blood_pressure_diastolic'] : int.tryParse(json['blood_pressure_diastolic']?.toString() ?? ''),
       sugarLevel: json['sugar_level'] != null ? double.tryParse(json['sugar_level'].toString()) : null,
@@ -67,6 +80,11 @@ class AppointmentModel {
       overrideByName: json['override_by_name'],
       doctorDisplayId: json['doctor_display_id']?.toString(),
       changesLog: json['changes_log'],
+      cancellationReason: json['cancellation_reason'],
+      isRescheduled: json['is_rescheduled'] == true || json['is_rescheduled'] == 'true',
+      createdAt: json['created_at']?.toString(),
+      updatedAt: json['updated_at']?.toString(),
+      overrideAt: json['override_at']?.toString(),
     );
   }
 
@@ -79,6 +97,7 @@ class AppointmentModel {
       'appointment_date': DateFormatter.toDb(appointmentDate),
       'appointment_time': appointmentTime,
       'patient_phone': patientPhone,
+      'patient_gender': patientGender,
       'blood_pressure_systolic': bloodPressureSystolic,
       'blood_pressure_diastolic': bloodPressureDiastolic,
       'sugar_level': sugarLevel,
@@ -86,6 +105,11 @@ class AppointmentModel {
       'reason_for_visit': reasonForVisit,
       'status': status,
       'appointment_type': appointmentType,
+      'cancellation_reason': cancellationReason,
+      'is_rescheduled': isRescheduled,
+      'created_at': createdAt,
+      'updated_at': updatedAt,
+      'override_at': overrideAt,
     };
   }
 
@@ -98,6 +122,7 @@ class AppointmentModel {
     String? appointmentDate,
     String? appointmentTime,
     String? patientPhone,
+    String? patientGender,
     int? bloodPressureSystolic,
     int? bloodPressureDiastolic,
     double? sugarLevel,
@@ -106,6 +131,11 @@ class AppointmentModel {
     String? status,
     String? appointmentType,
     String? doctorDisplayId,
+    String? cancellationReason,
+    bool? isRescheduled,
+    String? createdAt,
+    String? updatedAt,
+    String? overrideAt,
   }) {
     return AppointmentModel(
       id: id ?? this.id,
@@ -116,6 +146,7 @@ class AppointmentModel {
       appointmentDate: appointmentDate ?? this.appointmentDate,
       appointmentTime: appointmentTime ?? this.appointmentTime,
       patientPhone: patientPhone ?? this.patientPhone,
+      patientGender: patientGender ?? this.patientGender,
       bloodPressureSystolic: bloodPressureSystolic ?? this.bloodPressureSystolic,
       bloodPressureDiastolic:
           bloodPressureDiastolic ?? this.bloodPressureDiastolic,
@@ -125,6 +156,11 @@ class AppointmentModel {
       status: status ?? this.status,
       appointmentType: appointmentType ?? this.appointmentType,
       doctorDisplayId: doctorDisplayId ?? this.doctorDisplayId,
+      cancellationReason: cancellationReason ?? this.cancellationReason,
+      isRescheduled: isRescheduled ?? this.isRescheduled,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      overrideAt: overrideAt ?? this.overrideAt,
     );
   }
 }

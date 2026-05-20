@@ -7,6 +7,7 @@ import '../models/user_model.dart';
 import '../controllers/appointment_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/appointment_details_dialog.dart';
 
 class AdminAppointmentManagement extends StatefulWidget {
   const AdminAppointmentManagement({Key? key}) : super(key: key);
@@ -42,8 +43,6 @@ class _AdminAppointmentManagementState
     'In Consultation',
     'Completed',
     'Cancelled',
-    'No-Show',
-    'Rescheduled',
   ];
 
   final ScrollController _vScroll = ScrollController();
@@ -124,7 +123,7 @@ class _AdminAppointmentManagementState
           doctor: _filterDoctor,
           status: _filterStatus == 'All'
               ? null
-              : (_filterStatus == 'Waiting' ? 'Checked-in' : _filterStatus),
+              : _filterStatus,
           department: _filterDepartment,
         ),
         _adminCtrl.fetchStaff(role: 'Doctor'),
@@ -162,28 +161,23 @@ class _AdminAppointmentManagementState
   }
 
   Color _statusColor(String status) {
-    switch (status) {
-      case 'Confirmed':
-        return const Color(0xFF3B82F6);
-      case 'Waiting':
-      case 'Checked-in':
-        return const Color(0xFF0D9488);
-      case 'In Consultation':
-        return const Color(0xFFF59E0B);
-      case 'Completed':
-        return const Color(0xFF22C55E);
-      case 'Cancelled':
-        return const Color(0xFFEF4444);
-      case 'No-Show':
-        return const Color(0xFFF97316);
-      case 'Rescheduled':
-        return const Color(0xFF8B5CF6);
-      default:
-        return Colors.grey;
-    }
+    return AppTheme.getStatusTextColor(status);
   }
 
   void _showOverrideDialog(AppointmentModel appt, {required String mode}) {
+    if (mode == 'view') {
+      showDialog(
+        context: context,
+        builder: (context) => AppointmentDetailsDialog(
+          appointment: appt,
+          editVitalsOnly: false,
+          onRefresh: () {
+            _loadData();
+          },
+        ),
+      );
+      return;
+    }
     // mode: 'edit' | 'cancel' | 'reschedule' | 'view' | 'reopen'
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final reasonCtrl = TextEditingController();
@@ -201,19 +195,17 @@ class _AdminAppointmentManagementState
 
     List<String> availableStatuses = [
       'Confirmed',
-      'Checked-in',
+      'Waiting',
       'In Consultation',
       'Completed',
       'Cancelled',
-      'No-Show',
-      'Rescheduled',
     ];
     if (appt.status == 'Completed') {
-      availableStatuses = ['Confirmed', 'Completed', 'No-Show'];
+      availableStatuses = ['Confirmed', 'Completed'];
     } else if (appt.status == 'Cancelled') {
       availableStatuses = ['Confirmed', 'Cancelled'];
     } else if (appt.status == 'No-Show') {
-      availableStatuses = ['Confirmed', 'Completed', 'No-Show'];
+      availableStatuses = ['Confirmed', 'Completed'];
     }
 
     final List<String> apptTypes = [
@@ -423,9 +415,7 @@ class _AdminAppointmentManagementState
                                 .map(
                                   (s) => DropdownMenuItem(
                                     value: s,
-                                    child: Text(
-                                      s == 'Checked-in' ? 'Waiting' : s,
-                                    ),
+                                    child: Text(s),
                                   ),
                                 )
                                 .toList(),
@@ -1491,6 +1481,23 @@ class _AdminAppointmentManagementState
                                     color: AppTheme.textSecondaryColor,
                                   ),
                                 ),
+                                if (appt.isRescheduled)
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 2),
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF3E8FF),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'Rescheduled',
+                                      style: TextStyle(
+                                        color: Color(0xFF9333EA),
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
