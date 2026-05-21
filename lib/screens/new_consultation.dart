@@ -55,6 +55,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   bool _isLoadingVitals = true;
   bool _isLoadingHistory = true;
   bool _isSaving = false;
+  int _currentStep = 0;
   List<Map<String, dynamic>> _previousConsultations = [];
 
   @override
@@ -417,105 +418,165 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     );
   }
 
+  Future<void> _saveConsultation() async {
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _currentStep = 0);
+      return;
+    }
+    setState(() => _isSaving = true);
+    try {
+      final finalLabs = getFinalOrderedLabs();
+      final data = {
+        'appointment_id': widget.appointment.id,
+        'patient_id': widget.appointment.patientId,
+        'symptoms': _symptomsController.text.trim(),
+        'diagnosis': _diagnosisController.text.trim(),
+        'medications': _medications,
+        'lab_tests': finalLabs,
+        'pharmacy_status': _medications.isNotEmpty ? 'Notified' : 'Pending',
+        'notes': _notesController.text.trim(),
+      };
+
+      if (widget.initialConsultation != null) {
+        final int consulId = widget.initialConsultation!['id'];
+        await _appointmentController.updateConsultation(consulId, data);
+      } else {
+        await _appointmentController.saveConsultation(data);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.initialConsultation != null 
+              ? 'Consultation Updated Successfully!' 
+              : 'Consultation Completed & Saved!'), 
+            backgroundColor: Colors.green
+          ),
+        );
+        widget.onBack();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   Widget _buildConsultationForm() {
+    // Clamp the step to prevent bounds errors on hot reload state preservation
+    int safeStep = _currentStep;
+    if (safeStep < 0) safeStep = 0;
+    if (safeStep > 3) safeStep = 3;
+
     return Container(
-      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Clinical Findings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryColor)),
-          const SizedBox(height: 20),
-          _buildTextArea('Subjective Symptoms', _symptomsController, 'Describe clinical history, symptoms reported by patient...', required: true),
-          const SizedBox(height: 16),
-          _buildTextArea('Diagnosis / Impression', _diagnosisController, 'Enter the diagnostic decision or impression...', required: true),
-          const SizedBox(height: 24),
-          
-          const Text('Prescription (Rx)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
-          const SizedBox(height: 12),
-          _buildMedicationInput(),
-          const SizedBox(height: 12),
-          _buildMedicationList(),
-          
-          const SizedBox(height: 24),
-          _buildLabOrdersSection(),
-          
-          const SizedBox(height: 24),
-          _buildTextArea('Additional Clinical Notes / Advice', _notesController, 'Internal advice, follow-up instructions, review notes...'),
-          const SizedBox(height: 32),
-          
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              ElevatedButton(
-                onPressed: _isSaving
-                    ? null
-                    : () async {
-                        if (!_formKey.currentState!.validate()) return;
-                        setState(() => _isSaving = true);
-                        try {
-                          final finalLabs = getFinalOrderedLabs();
-                          final data = {
-                            'appointment_id': widget.appointment.id,
-                            'patient_id': widget.appointment.patientId,
-                            'symptoms': _symptomsController.text.trim(),
-                            'diagnosis': _diagnosisController.text.trim(),
-                            'medications': _medications,
-                            'lab_tests': finalLabs,
-                            'pharmacy_status': _medications.isNotEmpty ? 'Notified' : 'Pending',
-                            'notes': _notesController.text.trim(),
-                          };
-
-                          if (widget.initialConsultation != null) {
-                            final int consulId = widget.initialConsultation!['id'];
-                            await _appointmentController.updateConsultation(consulId, data);
-                          } else {
-                            await _appointmentController.saveConsultation(data);
-                          }
-
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(widget.initialConsultation != null 
-                                  ? 'Consultation Updated Successfully!' 
-                                  : 'Consultation Completed & Saved!'), 
-                                backgroundColor: Colors.green
-                              ),
-                            );
-                            widget.onBack();
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                            );
-                          }
-                        } finally {
-                          if (mounted) setState(() => _isSaving = false);
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  minimumSize: const Size(220, 48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
-                child: _isSaving 
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text(
-                      widget.initialConsultation != null 
-                        ? 'Update Consultation' 
-                        : 'Complete Consultation & Save', 
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(primary: AppTheme.primaryColor),
+        ),
+        child: Stepper(
+          physics: const ClampingScrollPhysics(),
+          currentStep: safeStep,
+          onStepTapped: (step) => setState(() => _currentStep = step),
+          onStepContinue: () {
+            if (_currentStep < 3) {
+              setState(() => _currentStep += 1);
+            } else {
+              _saveConsultation();
+            }
+          },
+          onStepCancel: () {
+            if (_currentStep > 0) {
+              setState(() => _currentStep -= 1);
+            }
+          },
+          controlsBuilder: (BuildContext context, ControlsDetails details) {
+            final isLastStep = safeStep == 3;
+            return Container(
+              margin: const EdgeInsets.only(top: 24),
+              child: Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: _isSaving ? null : details.onStepContinue,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
+                    child: _isSaving && isLastStep
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : Text(isLastStep ? (widget.initialConsultation != null ? 'Update Consultation' : 'Complete & Submit') : 'Continue', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                  ),
+                  const SizedBox(width: 12),
+                  if (_currentStep > 0)
+                    OutlinedButton(
+                      onPressed: _isSaving ? null : details.onStepCancel,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Back', style: TextStyle(color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                    ),
+                ],
               ),
-            ],
-          ),
-        ],
+            );
+          },
+          steps: [
+            Step(
+              title: const Text('Step 1: Clinical Assessment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
+              content: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTextArea('Subjective Symptoms', _symptomsController, 'Describe clinical history, symptoms reported by patient...', required: true),
+                  const SizedBox(height: 16),
+                  _buildTextArea('Diagnosis / Impression', _diagnosisController, 'Enter the diagnostic decision or impression...', required: true),
+                ],
+              ),
+              isActive: _currentStep >= 0,
+              state: _currentStep > 0 ? StepState.complete : StepState.editing,
+            ),
+            Step(
+              title: const Text('Step 2: Prescription Flow', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
+              subtitle: const Text('Automatically sent to Pharmacy upon submission', style: TextStyle(fontSize: 11, color: Color(0xFF0D9488), fontWeight: FontWeight.bold)),
+              content: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildMedicationInput(),
+                  const SizedBox(height: 12),
+                  _buildMedicationList(),
+                ],
+              ),
+              isActive: _currentStep >= 1,
+              state: _currentStep > 1 ? StepState.complete : StepState.editing,
+            ),
+            Step(
+              title: const Text('Step 3: Lab Orders', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
+              subtitle: const Text('Lab receives order directly upon submission', style: TextStyle(fontSize: 11, color: Color(0xFF0D9488), fontWeight: FontWeight.bold)),
+              content: _buildLabOrdersSection(),
+              isActive: _currentStep >= 2,
+              state: _currentStep > 2 ? StepState.complete : StepState.editing,
+            ),
+            Step(
+              title: const Text('Step 4: Finalize & Submit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
+              content: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTextArea('Additional Clinical Notes / Advice', _notesController, 'Internal advice, follow-up instructions, review notes...'),
+                ],
+              ),
+              isActive: _currentStep >= 3,
+              state: _currentStep == 3 ? StepState.editing : StepState.indexed,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -687,8 +748,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Lab Investigations & Orders', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
-        const SizedBox(height: 12),
+
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(

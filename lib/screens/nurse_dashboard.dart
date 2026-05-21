@@ -13,6 +13,7 @@ import 'patients_view.dart';
 import 'appointments_view.dart';
 import 'doctors_view.dart';
 import 'nurse_profile_view.dart';
+import 'nurse_opd_assistance.dart';
 import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
@@ -244,6 +245,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         );
       case 4:
         return const NurseProfileView();
+      case 5:
+        return NurseOPDAssistanceScreen(isMobile: isMobile);
       default:
         return _buildDashboardView(isMobile);
     }
@@ -364,6 +367,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         3,
                         Icons.medical_services_outlined,
                         'Doctors',
+                      ),
+                      _buildSidebarItem(
+                        5,
+                        Icons.local_hospital_outlined,
+                        'OPD Assistance',
                       ),
                       _buildSidebarItem(4, Icons.person_outline, 'Profile'),
                       // _buildSidebarItem(4, Icons.home_outlined, 'Home Care'),
