@@ -35,6 +35,46 @@ class AppTheme {
   static const Color infoBgColor = infoBg;
   static const Color labelColor = textSecondaryColor;
 
+  static Color getStatusBgColor(String status) {
+    switch (status) {
+      case 'Confirmed':
+        return const Color(0xFFDBEAFE);
+      case 'Waiting':
+        return const Color(0xFFFEF3C7);
+      case 'In Consultation':
+        return const Color(0xFFEDE9FE);
+      case 'Completed':
+        return const Color(0xFFDCFCE7);
+      case 'No Show':
+      case 'No-Show':
+        return const Color(0xFFF3F4F6);
+      case 'Cancelled':
+        return const Color(0xFFFEE2E2);
+      default:
+        return const Color(0xFFF3F4F6);
+    }
+  }
+
+  static Color getStatusTextColor(String status) {
+    switch (status) {
+      case 'Confirmed':
+        return const Color(0xFF1E40AF);
+      case 'Waiting':
+        return const Color(0xFF92400E);
+      case 'In Consultation':
+        return const Color(0xFF5B21B6);
+      case 'Completed':
+        return const Color(0xFF166534);
+      case 'No Show':
+      case 'No-Show':
+        return const Color(0xFF374151);
+      case 'Cancelled':
+        return const Color(0xFF991B1B);
+      default:
+        return const Color(0xFF374151);
+    }
+  }
+
   // ── Layout Constants ──────────────────────────────────────────────────────
   static const double borderRadius = 12.0;
   static const double paddingSmall = 8.0;

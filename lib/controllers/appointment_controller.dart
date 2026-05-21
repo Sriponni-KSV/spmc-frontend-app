@@ -38,16 +38,36 @@ class AppointmentController {
     }
   }
 
-  Future<void> updateStatus(int id, String status) async {
+  Future<void> updateStatus(int id, String status, {String? cancellationReason}) async {
     try {
+      final body = <String, dynamic>{'status': status};
+      if (cancellationReason != null) {
+        body['cancellation_reason'] = cancellationReason;
+      }
       final response = await ApiService.patch(
         '$baseUrl/appointments/$id/status',
-        {'status': status},
+        body,
       );
-      final body = jsonDecode(response.body);
+      final responseBody = jsonDecode(response.body);
 
       if (response.statusCode != 200) {
-        throw Exception(body['message'] ?? 'Failed to update status');
+        throw Exception(responseBody['message'] ?? 'Failed to update status');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> updateVitals(int id, Map<String, dynamic> vitalsData) async {
+    try {
+      final response = await ApiService.patch(
+        '$baseUrl/appointments/$id/vitals',
+        vitalsData,
+      );
+      final responseBody = jsonDecode(response.body);
+
+      if (response.statusCode != 200) {
+        throw Exception(responseBody['message'] ?? 'Failed to update vitals');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
