@@ -224,7 +224,9 @@ class _NurseProfileViewState extends State<NurseProfileView> {
           readOnly: isReadOnly,
           keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
           maxLength: maxLength,
-          inputFormatters: isNumeric ? [FilteringTextInputFormatter.digitsOnly] : null,
+          inputFormatters: isNumeric
+              ? [FilteringTextInputFormatter.digitsOnly]
+              : (isReadOnly ? null : [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s./,()\-]'))]),
           mouseCursor: onTap != null 
               ? SystemMouseCursors.click 
               : (isReadOnly ? SystemMouseCursors.forbidden : null),
@@ -235,7 +237,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
             hintText: label,
             hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
             prefixIcon: Icon(icon, size: 20, color: AppTheme.iconColor),
-            suffixIcon: isReadOnly ? const Icon(Icons.lock_outline, size: 16, color: Colors.grey) : null,
+            suffixIcon: (isReadOnly && onTap == null) ? const Icon(Icons.lock_outline, size: 16, color: Colors.grey) : null,
             fillColor: isReadOnly ? const Color(0xFFF7FAFC) : Colors.white,
             filled: true,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.borderColor)),
@@ -293,6 +295,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
                 label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
                 style: AppTheme.primaryButton.copyWith(
+                  backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
                   minimumSize: MaterialStateProperty.all(const Size(0, 48)),
                 ),
               ),
@@ -843,17 +846,10 @@ class _NurseProfileViewState extends State<NurseProfileView> {
               children: [
                 OutlinedButton(
                   onPressed: () => setState(() => _isEditingProfile = false),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.grey),
-                    minimumSize: const Size(120, 48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                  style: AppTheme.cancelButton.copyWith(
+                    minimumSize: MaterialStateProperty.all(const Size(120, 48)),
                   ),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
-                  ),
+                  child: const Text('Cancel'),
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(

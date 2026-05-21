@@ -118,6 +118,22 @@ class AppointmentController {
     }
   }
 
+  Future<List<Map<String, dynamic>>> fetchConsultations() async {
+    try {
+      final response = await ApiService.get('$baseUrl/appointments/consultations');
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch consultations');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   // ─── Admin-only Methods ───────────────────────────────────────────────────
 
   /// Fetch appointments with optional filters (Admin/Super Admin only)
@@ -162,6 +178,11 @@ class AppointmentController {
     String? patientName,
     String? department,
     String? appointmentType,
+    int? bloodPressureSystolic,
+    int? bloodPressureDiastolic,
+    double? sugarLevel,
+    double? temperature,
+    String? reasonForVisit,
     required String overrideReason,
   }) async {
     try {
@@ -175,6 +196,11 @@ class AppointmentController {
       if (patientName != null) body['patient_name'] = patientName;
       if (department != null) body['department'] = department;
       if (appointmentType != null) body['appointment_type'] = appointmentType;
+      if (bloodPressureSystolic != null) body['blood_pressure_systolic'] = bloodPressureSystolic;
+      if (bloodPressureDiastolic != null) body['blood_pressure_diastolic'] = bloodPressureDiastolic;
+      if (sugarLevel != null) body['sugar_level'] = sugarLevel;
+      if (temperature != null) body['temperature'] = temperature;
+      if (reasonForVisit != null) body['reason_for_visit'] = reasonForVisit;
 
       final response = await ApiService.patch(
         '$baseUrl/admin-appointments/$id/override',

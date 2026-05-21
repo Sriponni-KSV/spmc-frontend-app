@@ -1000,9 +1000,8 @@ class _DoctorsViewState extends State<DoctorsView> {
                     children: [
                       OutlinedButton(
                         onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        style: AppTheme.cancelButton.copyWith(
+                          minimumSize: MaterialStateProperty.all(const Size(120, 48)),
                         ),
                         child: Text(canEdit ? 'Cancel' : 'Close'),
                       ),

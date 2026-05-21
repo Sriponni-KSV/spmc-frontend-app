@@ -21,6 +21,7 @@ import 'patients_view.dart';
 import '../utils/logout_helper.dart';
 import 'admin_appointment_management.dart';
 import 'opd_management.dart';
+import 'ipd_management.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -240,6 +241,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     TextFormField(
                       controller: nameCtrl,
                       decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'[a-zA-Z\s]'),
+                        ),
+                        LengthLimitingTextInputFormatter(30),
+                      ],
                       validator: (val) => val == null || val.trim().isEmpty ? 'Please enter a name' : null,
                     ),
                     const SizedBox(height: 16),
@@ -247,7 +254,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       controller: emailCtrl,
                       decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
                       keyboardType: TextInputType.emailAddress,
-                      validator: (val) => val == null || val.trim().isEmpty || !val.contains('@') ? 'Please enter a valid email' : null,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Please enter Email Address';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                          return 'Please enter a valid email address';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -316,8 +331,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              style: AppTheme.cancelButton,
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -384,8 +400,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+                style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
@@ -514,6 +531,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 5:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return OPDManagementScreen(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 6:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return IPDManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       default:
@@ -1126,6 +1148,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   _buildSidebarItem(3, Icons.security_outlined, 'Access Control'),
                   _buildSidebarItem(4, Icons.calendar_month_outlined, 'Appointments'),
                   _buildSidebarItem(5, Icons.monitor_heart_outlined, 'OPD Management'),
+                  _buildSidebarItem(6, Icons.hotel_outlined, 'IPD Management'),
                 ],
               ),
             ),
@@ -1135,6 +1158,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const Divider(color: AppTheme.borderColor, height: 1, thickness: 1),
               Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Consumer<AuthProvider>(
@@ -1669,6 +1693,12 @@ final AdminController _adminController = AdminController();
                           TextFormField(
                             controller: _nameController,
                             onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[a-zA-Z\s]'),
+                              ),
+                              LengthLimitingTextInputFormatter(30),
+                            ],
                             decoration: InputDecoration(
                               hintText: 'Enter full name',
                               hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
@@ -1681,7 +1711,7 @@ final AdminController _adminController = AdminController();
                               focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
-                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                            validator: (val) => val == null || val.isEmpty ? 'Please enter full name' : null,
                           ),
                         ],
                       ),
@@ -1709,7 +1739,15 @@ final AdminController _adminController = AdminController();
                               focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
-                            validator: (val) => val == null || val.isEmpty || !val.contains('@') ? 'Valid email required' : null,
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Please enter Email Address';
+                              }
+                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                                return 'Please enter a valid email address';
+                              }
+                              return null;
+                            },
                           ),
                         ],
                       ),
@@ -1751,9 +1789,9 @@ final AdminController _adminController = AdminController();
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
                             validator: (val) {
-                              if (val == null || val.isEmpty) return 'Required';
-                              if (val.length != 10) return 'Must be 10 digits';
-                              if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Digits only';
+                              if (val == null || val.isEmpty) return 'Please enter mobile number';
+                              if (val.length != 10) return 'Please enter 10 digit mobile number';
+                              if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Please enter digits only';
                               return null;
                             },
                           ),
@@ -1783,7 +1821,27 @@ final AdminController _adminController = AdminController();
                               focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
-                            validator: (val) => val == null || val.length < 6 ? 'Min. 6 characters' : null,
+                            validator: (val) {
+                              if (val == null || val.isEmpty) {
+                                return 'Please enter Password';
+                              }
+                              if (val.length < 8) {
+                                return 'Password must be at least 8 characters long';
+                              }
+                              if (!RegExp(r'(?=.*[a-z])').hasMatch(val)) {
+                                return 'Must contain at least one lowercase letter';
+                              }
+                              if (!RegExp(r'(?=.*[A-Z])').hasMatch(val)) {
+                                return 'Must contain at least one uppercase letter';
+                              }
+                              if (!RegExp(r'(?=.*\d)').hasMatch(val)) {
+                                return 'Must contain at least one number';
+                              }
+                              if (!RegExp(r'(?=.*[\W_])').hasMatch(val)) {
+                                return 'Must contain at least one special character';
+                              }
+                              return null;
+                            },
                           ),
                         ],
                       ),
@@ -1855,7 +1913,7 @@ final AdminController _adminController = AdminController();
                                         _selectedSpecializationId = val != null ? int.tryParse(val) : null;
                                       });
                                     },
-                                    validator: (val) => _selectedRole == 'Doctor' && val == null ? 'Required' : null,
+                                    validator: (val) => _selectedRole == 'Doctor' && val == null ? 'Please select specialization' : null,
                                   ),
                           ],
                         ),
@@ -1869,6 +1927,9 @@ final AdminController _adminController = AdminController();
                             const SizedBox(height: 10),
                             TextFormField(
                               controller: _licenseController,
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(30),
+                              ],
                               decoration: InputDecoration(
                                 hintText: 'Optional',
                                 hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
@@ -1892,8 +1953,9 @@ final AdminController _adminController = AdminController();
         ),
       ),
       actions: [
-        TextButton(
+        OutlinedButton(
           onPressed: _isLoading ? null : () => Navigator.pop(context),
+          style: AppTheme.cancelButton,
           child: const Text('Cancel'),
         ),
         ElevatedButton(

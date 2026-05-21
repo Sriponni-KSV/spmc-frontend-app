@@ -1362,8 +1362,9 @@ class _PatientsViewState extends State<PatientsView> {
               ),
             ),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+                style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
@@ -1792,6 +1793,12 @@ class _PatientsViewState extends State<PatientsView> {
                                 _buildQuickTextField(
                                   controller: nameCtrl,
                                   hint: 'Enter patient\'s full name',
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'[a-zA-Z\s]'),
+                                    ),
+                                    LengthLimitingTextInputFormatter(30),
+                                  ],
                                   validator: (val) => val == null || val.isEmpty
                                       ? 'Please enter Full Name'
                                       : null,
@@ -1803,10 +1810,12 @@ class _PatientsViewState extends State<PatientsView> {
                                   hint: 'Enter Email Address',
                                   keyboardType: TextInputType.emailAddress,
                                   validator: (val) {
-                                    if (val == null || val.isEmpty)
+                                    if (val == null || val.trim().isEmpty) {
                                       return 'Please enter Email Address';
-                                    if (!val.contains('@'))
-                                      return 'Please enter a valid Email Address';
+                                    }
+                                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                                      return 'Please enter a valid email address';
+                                    }
                                     return null;
                                   },
                                 ),
@@ -1822,6 +1831,12 @@ class _PatientsViewState extends State<PatientsView> {
                                           _buildQuickTextField(
                                             controller: nameCtrl,
                                             hint: 'Enter patient\'s full name',
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter.allow(
+                                                RegExp(r'[a-zA-Z\s]'),
+                                              ),
+                                              LengthLimitingTextInputFormatter(30),
+                                            ],
                                             validator: (val) =>
                                                 val == null || val.isEmpty
                                                 ? 'Please enter Full Name'
@@ -1845,10 +1860,12 @@ class _PatientsViewState extends State<PatientsView> {
                                             keyboardType:
                                                 TextInputType.emailAddress,
                                             validator: (val) {
-                                              if (val == null || val.isEmpty)
+                                              if (val == null || val.trim().isEmpty) {
                                                 return 'Please enter Email Address';
-                                              if (!val.contains('@'))
-                                                return 'Please enter a valid Email Address';
+                                              }
+                                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                                                return 'Please enter a valid email address';
+                                              }
                                               return null;
                                             },
                                           ),
@@ -2069,24 +2086,10 @@ class _PatientsViewState extends State<PatientsView> {
                                       height: 48,
                                       child: OutlinedButton(
                                         onPressed: () => Navigator.pop(context),
-                                        style: OutlinedButton.styleFrom(
-                                          padding: EdgeInsets.zero,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                          side: const BorderSide(
-                                            color: AppTheme.borderColor,
-                                          ),
+                                        style: AppTheme.cancelButton.copyWith(
+                                          minimumSize: MaterialStateProperty.all(const Size(double.infinity, 48)),
                                         ),
-                                        child: const Text(
-                                          'Cancel',
-                                          style: TextStyle(
-                                            color: AppTheme.textPrimaryColor,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
+                                        child: const Text('Cancel'),
                                       ),
                                     ),
                                   ),

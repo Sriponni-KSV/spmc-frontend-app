@@ -12,8 +12,9 @@ class LogoutHelper {
           title: const Text('Confirm Logout', style: TextStyle(fontWeight: FontWeight.bold)),
           content: const Text('Are you sure you want to logout?'),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: () => Navigator.pop(dialogContext),
+              style: AppTheme.cancelButton,
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -27,8 +28,17 @@ class LogoutHelper {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.dangerColor,
+                backgroundColor: AppTheme.logoRed,
                 foregroundColor: Colors.white,
+                minimumSize: const Size(130, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               child: const Text('Yes'),
             ),
