@@ -454,6 +454,7 @@ class _NewPatientRegistrationViewState
                           FilteringTextInputFormatter.allow(
                             RegExp(r'[a-zA-Z\s]'),
                           ),
+                          LengthLimitingTextInputFormatter(30),
                         ],
                         validator: (val) => val == null || val.isEmpty
                             ? 'Please enter Full Name'
@@ -474,10 +475,12 @@ class _NewPatientRegistrationViewState
                         hint: 'Enter Email Address',
                         keyboardType: TextInputType.emailAddress,
                         validator: (val) {
-                          if (val == null || val.isEmpty)
+                          if (val == null || val.trim().isEmpty) {
                             return 'Please enter Email Address';
-                          if (!val.contains('@'))
-                            return 'Please enter a valid Email Address';
+                          }
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                            return 'Please enter a valid email address';
+                          }
                           return null;
                         },
                       ),
@@ -570,6 +573,12 @@ class _NewPatientRegistrationViewState
                       _buildTextField(
                         controller: _emergencyContactNameController,
                         hint: 'Enter name',
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z\s]'),
+                          ),
+                          LengthLimitingTextInputFormatter(30),
+                        ],
                         validator: (val) => val == null || val.isEmpty
                             ? 'Please enter Emergency Contact Name'
                             : null,
@@ -590,6 +599,11 @@ class _NewPatientRegistrationViewState
                       _buildTextField(
                         controller: _emergencyContactRelationController,
                         hint: 'Enter Relationship',
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z\s]'),
+                          ),
+                        ],
                         validator: (val) => val == null || val.isEmpty
                             ? 'Please enter Relation'
                             : null,
@@ -1439,12 +1453,22 @@ class _NewPatientRegistrationViewState
               _buildTextField(
                 controller: _occupationController,
                 hint: 'Enter occupation',
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[a-zA-Z\s]'),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
               _buildLabel('Hobbies'),
               _buildTextField(
                 controller: _hobbiesController,
                 hint: 'Enter Physical Activities',
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[a-zA-Z\s]'),
+                  ),
+                ],
               ),
             ] else
               Row(
@@ -1457,6 +1481,11 @@ class _NewPatientRegistrationViewState
                         _buildTextField(
                           controller: _occupationController,
                           hint: 'Enter occupation',
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z\s]'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1470,6 +1499,11 @@ class _NewPatientRegistrationViewState
                         _buildTextField(
                           controller: _hobbiesController,
                           hint: 'Enter Physical Activities',
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z\s]'),
+                            ),
+                          ],
                         ),
                       ],
                     ),

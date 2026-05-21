@@ -701,8 +701,9 @@ class _AdminAppointmentManagementState
               ),
             ),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
               if (mode != 'view')
@@ -1669,4 +1670,5 @@ class _AdminAppointmentManagementState
       ),
     );
   }
+
 }

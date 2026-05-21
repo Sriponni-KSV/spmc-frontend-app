@@ -356,7 +356,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     final dayName = weekDays[_bookingDate!.weekday - 1];
 
     // 1. Check if day is available
-    if (_selectedDoctor!.availableDays != null &&
+    if (_selectedDoctor!.availableDays == null ||
         !_selectedDoctor!.availableDays!.contains(dayName)) {
       setState(() => _availableSlots = []);
       return;
@@ -380,6 +380,32 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     setState(() {
       _availableSlots = _generateSlotsForDoctor(_selectedDoctor!);
     });
+  }
+
+  bool _isDateSelectable(DateTime date) {
+    if (_selectedDoctor == null) return true; // Allow all days if no doctor is selected yet, or we could return false to force doctor selection. Returning true for better UX before validation.
+
+    final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final dayName = weekDays[date.weekday - 1];
+    final dateStr = DateFormat('dd/MM/yyyy').format(date);
+
+    bool isAvailable = false;
+    if (_selectedDoctor!.availableDays != null &&
+        _selectedDoctor!.availableDays!.contains(dayName)) {
+      isAvailable = true;
+    }
+
+    if (_selectedDoctor!.weeklyOffDays != null &&
+        _selectedDoctor!.weeklyOffDays!.contains(dayName)) {
+      isAvailable = false;
+    }
+
+    if (_selectedDoctor!.specificLeaveDates != null &&
+        _selectedDoctor!.specificLeaveDates!.contains(dateStr)) {
+      isAvailable = false;
+    }
+
+    return isAvailable;
   }
 
   List<String> _getFilteredTimeSlots() {
@@ -797,13 +823,24 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         controller: _dateController,
                         readOnly: true,
                         onTap: () async {
+                          bool hasAnyAvailable = _selectedDoctor?.availableDays?.isNotEmpty ?? false;
+                          DateTime initial = _bookingDate ?? DateTime.now();
+                          
+                          if (hasAnyAvailable) {
+                            for (int i = 0; i < 365; i++) {
+                              if (_isDateSelectable(initial)) break;
+                              initial = initial.add(const Duration(days: 1));
+                            }
+                          }
+
                           DateTime? picked = await showDatePicker(
                             context: context,
-                            initialDate: _bookingDate ?? DateTime.now(),
+                            initialDate: initial,
                             firstDate: DateTime.now(),
                             lastDate: DateTime.now().add(
                               const Duration(days: 365),
                             ),
+                            selectableDayPredicate: hasAnyAvailable ? _isDateSelectable : null,
                           );
                           if (picked != null) {
                             setState(() {
@@ -1459,14 +1496,24 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   controller: _dateController,
                                   readOnly: true,
                                   onTap: () async {
+                                    bool hasAnyAvailable = _selectedDoctor?.availableDays?.isNotEmpty ?? false;
+                                    DateTime initial = _bookingDate ?? DateTime.now();
+                                    
+                                    if (hasAnyAvailable) {
+                                      for (int i = 0; i < 365; i++) {
+                                        if (_isDateSelectable(initial)) break;
+                                        initial = initial.add(const Duration(days: 1));
+                                      }
+                                    }
+
                                     DateTime? picked = await showDatePicker(
                                       context: context,
-                                      initialDate:
-                                          _bookingDate ?? DateTime.now(),
+                                      initialDate: initial,
                                       firstDate: DateTime.now(),
                                       lastDate: DateTime.now().add(
                                         const Duration(days: 365),
                                       ),
+                                      selectableDayPredicate: hasAnyAvailable ? _isDateSelectable : null,
                                     );
                                     if (picked != null) {
                                       setState(() {
