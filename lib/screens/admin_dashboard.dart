@@ -1927,6 +1927,9 @@ final AdminController _adminController = AdminController();
                             const SizedBox(height: 10),
                             TextFormField(
                               controller: _licenseController,
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(30),
+                              ],
                               decoration: InputDecoration(
                                 hintText: 'Optional',
                                 hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
