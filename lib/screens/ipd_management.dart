@@ -27,12 +27,13 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
   List<Map<String, dynamic>> _admissions = [];
   List<PatientModel> _patients = [];
   List<UserModel> _doctors = [];
+  List<Map<String, dynamic>> _pendingAdmissions = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadData();
   }
 
@@ -50,6 +51,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
       final admissionsList = await _ipdController.fetchAdmissions();
       final patientsList = await _patientController.fetchPatients();
       final doctorsList = await _adminController.fetchStaff(role: 'Doctor');
+      final pendingList = await _ipdController.fetchPendingAdmissions();
       
       if (mounted) {
         setState(() {
@@ -57,6 +59,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
           _admissions = admissionsList;
           _patients = patientsList;
           _doctors = doctorsList;
+          _pendingAdmissions = pendingList;
           _isLoading = false;
         });
       }
@@ -90,6 +93,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                   child: TabBarView(
                     controller: _tabController,
                     children: [
+                      _buildPendingAdmissionsTab(),
                       _buildActiveAdmissionsTab(),
                       _buildBedAvailabilityTab(),
                       _buildDischargeHistoryTab(),
@@ -201,10 +205,36 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
         unselectedLabelColor: AppTheme.textSecondaryColor,
         indicatorColor: AppTheme.primaryColor,
         indicatorWeight: 3,
-        tabs: const [
-          Tab(text: 'Active Admissions'),
-          Tab(text: 'Bed Availability'),
-          Tab(text: 'Discharged History'),
+        tabs: [
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('Pending Intake'),
+                if (_pendingAdmissions.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      _pendingAdmissions.length.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const Tab(text: 'Active Wards'),
+          const Tab(text: 'Bed Wards & Grid'),
+          const Tab(text: 'Discharge History'),
         ],
       ),
     );
@@ -370,12 +400,126 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
     );
   }
 
-  void _showAdmitDialog() {
-    int? selectedPatientId;
+  Widget _buildPendingAdmissionsTab() {
+    if (_pendingAdmissions.isEmpty) {
+      return _buildEmptyState('No pending admissions from OPD.', Icons.done_all_outlined);
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(24),
+      itemCount: _pendingAdmissions.length,
+      itemBuilder: (context, index) {
+        final pending = _pendingAdmissions[index];
+        
+        return Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.red.shade100, width: 1.5),
+          ),
+          color: Colors.red.shade50.withOpacity(0.2),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade100.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.bed_outlined, color: Colors.red.shade700, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            pending['patient_name'] ?? 'Unknown Patient',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              pending['patient_display_id'] ?? 'ID-N/A',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red.shade900),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Gender: ${pending['patient_gender'] ?? "N/A"}  •  Age: ${pending['patient_age'] ?? "N/A"} yrs  •  Department: ${pending['department'] ?? "N/A"}',
+                        style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Recommending Doctor: Dr. ${pending['doctor_name']}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      if (pending['reason_for_visit'] != null && pending['reason_for_visit'].toString().isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Text(
+                            'Reason: ${pending['reason_for_visit']}',
+                            style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey.shade700),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _showAdmitDialog(
+                      preselectedPatientId: pending['patient_id'],
+                      preselectedDoctorName: pending['doctor_name'],
+                      preselectedReason: pending['reason_for_visit'],
+                      preselectedAppointmentId: pending['appointment_id'],
+                    );
+                  },
+                  icon: const Icon(Icons.hotel_outlined, size: 16, color: Colors.white),
+                  label: const Text('Allocate Bed & Admit', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAdmitDialog({
+    int? preselectedPatientId,
+    String? preselectedDoctorName,
+    String? preselectedReason,
+    int? preselectedAppointmentId,
+  }) {
+    int? selectedPatientId = preselectedPatientId;
     String? selectedBedNumber;
     String? selectedWardType;
-    String? selectedDoctorName;
-    final TextEditingController reasonController = TextEditingController();
+    String? selectedDoctorName = preselectedDoctorName;
+    final TextEditingController reasonController = TextEditingController(text: preselectedReason ?? '');
 
     List<String> availableBeds = [];
 
@@ -409,8 +553,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                     children: [
                       DropdownButtonFormField<int>(
                         decoration: const InputDecoration(labelText: 'Select Patient', border: OutlineInputBorder()),
+                        value: selectedPatientId,
                         items: _patients.map((p) => DropdownMenuItem<int>(value: p.id, child: Text('${p.name} (${p.patientId ?? p.id})'))).toList(),
-                        onChanged: (val) => setDialogState(() => selectedPatientId = val),
+                        onChanged: preselectedPatientId != null ? null : (val) => setDialogState(() => selectedPatientId = val),
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
@@ -456,6 +601,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                     try {
                       await _ipdController.createAdmission({
                         'patient_id': selectedPatientId,
+                        'appointment_id': preselectedAppointmentId,
                         'doctor_name': selectedDoctorName,
                         'bed_number': selectedBedNumber,
                         'ward_type': selectedWardType,

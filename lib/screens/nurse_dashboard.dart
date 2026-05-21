@@ -14,6 +14,7 @@ import 'appointments_view.dart';
 import 'doctors_view.dart';
 import 'nurse_profile_view.dart';
 import 'nurse_opd_assistance.dart';
+import 'ipd_management.dart';
 import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
@@ -247,6 +248,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return const NurseProfileView();
       case 5:
         return NurseOPDAssistanceScreen(isMobile: isMobile);
+      case 6:
+        return IPDManagementScreen(isMobile: isMobile);
       default:
         return _buildDashboardView(isMobile);
     }
@@ -372,6 +375,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         5,
                         Icons.local_hospital_outlined,
                         'OPD Assistance',
+                      ),
+                      _buildSidebarItem(
+                        6,
+                        Icons.bedroom_child_outlined,
+                        'IPD Wards & grid',
                       ),
                       _buildSidebarItem(4, Icons.person_outline, 'Profile'),
                       // _buildSidebarItem(4, Icons.home_outlined, 'Home Care'),

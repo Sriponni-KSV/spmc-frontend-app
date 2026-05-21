@@ -1872,6 +1872,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
     };
     final List<String> customLabsList = [];
     final customLabController = TextEditingController();
+    
+    // Admission state
+    bool recommendAdmission = false;
+    final reasonForAdmissionController = TextEditingController();
 
     showDialog(
       context: context,
@@ -2063,6 +2067,63 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: recommendAdmission ? Colors.red.shade50.withOpacity(0.4) : Colors.grey.shade50,
+                        border: Border.all(color: recommendAdmission ? Colors.red.shade200 : Colors.grey.shade200),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.bed_outlined, color: recommendAdmission ? Colors.red.shade800 : Colors.grey.shade600, size: 20),
+                              const SizedBox(width: 10),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Recommend IPD Admission',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                                    ),
+                                    Text(
+                                      'Mark patient for clinical handover to Inpatient Department',
+                                      style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Switch(
+                                value: recommendAdmission,
+                                activeColor: Colors.red.shade700,
+                                onChanged: (val) {
+                                  setDialogState(() {
+                                    recommendAdmission = val;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                          if (recommendAdmission) ...[
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: reasonForAdmissionController,
+                              maxLines: 2,
+                              decoration: InputDecoration(
+                                labelText: 'Reason for Admission',
+                                hintText: 'e.g. Severe respiratory distress requiring supplemental oxygen & constant monitoring',
+                                hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                                isDense: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -2578,6 +2639,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                         'medications': medicationsList,
                                         'lab_tests': finalLabs,
                                         'pharmacy_status': medicationsList.isNotEmpty ? 'Notified' : 'Pending',
+                                        'recommend_admission': recommendAdmission,
+                                        'reason_for_admission': reasonForAdmissionController.text.trim(),
                                       };
 
                                       await _appointmentController.saveConsultation(consultationData);
