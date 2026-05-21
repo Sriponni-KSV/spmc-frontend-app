@@ -172,6 +172,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  bool _isDoctorMatch(String docName, String userName) {
+    String clean(String s) {
+      s = s.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (s.startsWith('dr.')) s = s.substring(3).trim();
+      if (s.startsWith('dr ')) s = s.substring(2).trim();
+      if (s.contains(' - ')) s = s.split(' - ')[0].trim();
+      return s;
+    }
+    final cDoc = clean(docName);
+    final cUser = clean(userName);
+    if (cDoc.isEmpty || cUser.isEmpty) return false;
+    return cDoc == cUser || cDoc.contains(cUser) || cUser.contains(cDoc);
+  }
+
+  bool _isSameDay(String apptDateStr, DateTime date) {
+    try {
+      final cleanAppt = apptDateStr.replaceAll('-', '/').trim();
+      final target = DateFormat('dd/MM/yyyy').format(date);
+      if (cleanAppt == target || cleanAppt.startsWith(target)) return true;
+
+      // Fallback parse
+      final parts = cleanAppt.split('/');
+      if (parts.length == 3) {
+        if (parts[0].length == 4) { // yyyy/MM/dd
+          final parsedDate = DateTime.tryParse(cleanAppt.replaceAll('/', '-'));
+          if (parsedDate != null) {
+            return parsedDate.day == date.day &&
+                   parsedDate.month == date.month &&
+                   parsedDate.year == date.year;
+          }
+        } else { // dd/MM/yyyy
+          final day = int.tryParse(parts[0]);
+          final month = int.tryParse(parts[1]);
+          final year = int.tryParse(parts[2].split(' ')[0]);
+          if (day != null && month != null && year != null) {
+            return day == date.day && month == date.month && year == date.year;
+          }
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
   Future<void> _fetchDoctorData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
@@ -183,14 +226,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         setState(() {
           _doctorAppointments = allAppointments.where((appt) {
-            final docName = appt.doctorName.toLowerCase().trim();
-            final userName = (user?.fullname ?? '').toLowerCase().trim();
-
-            // Match exact name OR name before hyphen OR name before specialization
-            return docName == userName ||
-                docName.startsWith(userName + ' ') ||
-                (docName.contains(' - ') &&
-                    docName.split(' - ')[0].trim() == userName);
+            return _isDoctorMatch(appt.doctorName, user?.fullname ?? '');
           }).toList();
           _isLoading = false;
         });
@@ -2329,14 +2365,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildStatsRow(bool isMobile) {
     // Calculate real stats
     final now = DateTime.now();
-    final todayStr = DateFormat('dd/MM/yyyy').format(now);
 
     final int todayCount = _doctorAppointments
-        .where(
-          (a) =>
-              a.appointmentDate == todayStr ||
-              a.appointmentDate.startsWith(todayStr),
-        )
+        .where((a) => _isSameDay(a.appointmentDate, now))
         .length;
     final int confirmedCount = _doctorAppointments
         .where((a) => a.status == 'Confirmed' || a.status == 'Scheduled')
@@ -2456,9 +2487,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (a.status.toLowerCase() == 'cancelled') return false;
       if (_selectedDate == null) return true;
 
-      final String todayStr = DateFormat('dd/MM/yyyy').format(_selectedDate!);
-      return a.appointmentDate == todayStr ||
-          a.appointmentDate.startsWith(todayStr);
+      return _isSameDay(a.appointmentDate, _selectedDate!);
     }).toList();
 
     return Container(

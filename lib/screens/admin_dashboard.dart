@@ -21,6 +21,7 @@ import 'patients_view.dart';
 import '../utils/logout_helper.dart';
 import 'admin_appointment_management.dart';
 import 'opd_management.dart';
+import 'ipd_management.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -516,6 +517,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 5:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return OPDManagementScreen(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 6:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return IPDManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       default:
@@ -1128,6 +1134,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   _buildSidebarItem(3, Icons.security_outlined, 'Access Control'),
                   _buildSidebarItem(4, Icons.calendar_month_outlined, 'Appointments'),
                   _buildSidebarItem(5, Icons.monitor_heart_outlined, 'OPD Management'),
+                  _buildSidebarItem(6, Icons.hotel_outlined, 'IPD Management'),
                 ],
               ),
             ),
