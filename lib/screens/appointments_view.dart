@@ -107,7 +107,37 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             .map((e) => e['name'].toString())
             .where((name) => activeDoctorSpecializations.contains(name))
             .toList();
-        _availableSlots = [];
+
+        // Dynamically recalculate available slots if doctor and date are already selected
+        if (_selectedDoctor != null && _bookingDate != null) {
+          final foundDoctor = _doctors.where((d) => d.id == _selectedDoctor!.id).toList();
+          if (foundDoctor.isNotEmpty) {
+            _selectedDoctor = foundDoctor.first;
+          }
+          final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+          final dayName = weekDays[_bookingDate!.weekday - 1];
+          bool isDocAvailable = true;
+          if (_selectedDoctor!.availableDays != null &&
+              !_selectedDoctor!.availableDays!.contains(dayName)) {
+            isDocAvailable = false;
+          }
+          if (_selectedDoctor!.weeklyOffDays != null &&
+              _selectedDoctor!.weeklyOffDays!.contains(dayName)) {
+            isDocAvailable = false;
+          }
+          final dateStr = DateFormat('dd/MM/yyyy').format(_bookingDate!);
+          if (_selectedDoctor!.specificLeaveDates != null &&
+              _selectedDoctor!.specificLeaveDates!.contains(dateStr)) {
+            isDocAvailable = false;
+          }
+          if (isDocAvailable) {
+            _availableSlots = _generateSlotsForDoctor(_selectedDoctor!);
+          } else {
+            _availableSlots = [];
+          }
+        } else {
+          _availableSlots = [];
+        }
 
         // Set initial patient if provided
         if (widget.initialPatient != null) {
@@ -2807,6 +2837,32 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     );
   }
 
+  Widget _buildActionLabel(
+    IconData icon,
+    String label,
+    Color color, {
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap ?? () {},
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTableHeader(
     String label, {
     int flex = 1,
@@ -3046,34 +3102,26 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: () => _openViewDetailsDialog(context, appt),
-                    icon: const Icon(Icons.visibility, size: 12),
-                    label: const Text('View', style: TextStyle(fontSize: 11)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.primaryColor,
-                      side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(60, 32),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                    ),
+                  _buildActionLabel(
+                    Icons.visibility_outlined,
+                    'View',
+                    const Color(0xFF3182CE),
+                    onTap: () => _openViewDetailsDialog(context, appt),
                   ),
                   if (status == 'Confirmed') ...[
                     if (!hasVitals) ...[
-                      ElevatedButton.icon(
-                        onPressed: () => _openVitalsEntryDialog(context, appt),
-                        icon: const Icon(Icons.monitor_heart, size: 12, color: Colors.white),
-                        label: const Text('Add Vitals', style: TextStyle(fontSize: 11)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F766E),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: const Size(90, 32),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        ),
+                      _buildActionLabel(
+                        Icons.monitor_heart_outlined,
+                        'Add Vitals',
+                        const Color(0xFF0F766E),
+                        onTap: () => _openVitalsEntryDialog(context, appt),
                       ),
                     ],
-                    ElevatedButton(
-                      onPressed: () async {
+                    _buildActionLabel(
+                      Icons.hourglass_empty_outlined,
+                      'Mark Waiting',
+                      const Color(0xFF0D9488),
+                      onTap: () async {
                         if (!hasVitals) {
                           await _showVitalsMissingDialog(context, appt);
                           return;
@@ -3085,19 +3133,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
                         }
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D9488),
-                        minimumSize: const Size(80, 32),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      ),
-                      child: const Text(
-                        'Mark Waiting',
-                        style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
                     ),
-                    ElevatedButton(
-                      onPressed: () async {
+                    _buildActionLabel(
+                      Icons.cancel_outlined,
+                      'Cancel',
+                      Colors.redAccent,
+                      onTap: () async {
                         String? cancelReason;
                         await showDialog(
                           context: context,
@@ -3144,16 +3185,6 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           }
                         }
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        minimumSize: const Size(60, 32),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
                     ),
                   ] else
                     const Text('-', style: TextStyle(color: Colors.grey, fontSize: 16)),
