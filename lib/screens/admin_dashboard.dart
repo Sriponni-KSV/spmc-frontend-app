@@ -241,6 +241,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     TextFormField(
                       controller: nameCtrl,
                       decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'[a-zA-Z\s]'),
+                        ),
+                        LengthLimitingTextInputFormatter(30),
+                      ],
                       validator: (val) => val == null || val.trim().isEmpty ? 'Please enter a name' : null,
                     ),
                     const SizedBox(height: 16),
@@ -248,7 +254,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       controller: emailCtrl,
                       decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
                       keyboardType: TextInputType.emailAddress,
-                      validator: (val) => val == null || val.trim().isEmpty || !val.contains('@') ? 'Please enter a valid email' : null,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Please enter Email Address';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                          return 'Please enter a valid email address';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -1679,6 +1693,12 @@ final AdminController _adminController = AdminController();
                           TextFormField(
                             controller: _nameController,
                             onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[a-zA-Z\s]'),
+                              ),
+                              LengthLimitingTextInputFormatter(30),
+                            ],
                             decoration: InputDecoration(
                               hintText: 'Enter full name',
                               hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
@@ -1719,9 +1739,15 @@ final AdminController _adminController = AdminController();
                               focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
-                            validator: (val) => val == null || val.isEmpty
-                                ? 'Please enter email address'
-                                : (!val.contains('@') ? 'Please enter valid email address' : null),
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Please enter Email Address';
+                              }
+                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                                return 'Please enter a valid email address';
+                              }
+                              return null;
+                            },
                           ),
                         ],
                       ),
@@ -1795,9 +1821,27 @@ final AdminController _adminController = AdminController();
                               focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
-                            validator: (val) => val == null || val.isEmpty
-                                ? 'Please enter password'
-                                : (val.length < 6 ? 'Please enter min. 6 characters' : null),
+                            validator: (val) {
+                              if (val == null || val.isEmpty) {
+                                return 'Please enter Password';
+                              }
+                              if (val.length < 8) {
+                                return 'Password must be at least 8 characters long';
+                              }
+                              if (!RegExp(r'(?=.*[a-z])').hasMatch(val)) {
+                                return 'Must contain at least one lowercase letter';
+                              }
+                              if (!RegExp(r'(?=.*[A-Z])').hasMatch(val)) {
+                                return 'Must contain at least one uppercase letter';
+                              }
+                              if (!RegExp(r'(?=.*\d)').hasMatch(val)) {
+                                return 'Must contain at least one number';
+                              }
+                              if (!RegExp(r'(?=.*[\W_])').hasMatch(val)) {
+                                return 'Must contain at least one special character';
+                              }
+                              return null;
+                            },
                           ),
                         ],
                       ),

@@ -224,7 +224,9 @@ class _NurseProfileViewState extends State<NurseProfileView> {
           readOnly: isReadOnly,
           keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
           maxLength: maxLength,
-          inputFormatters: isNumeric ? [FilteringTextInputFormatter.digitsOnly] : null,
+          inputFormatters: isNumeric
+              ? [FilteringTextInputFormatter.digitsOnly]
+              : (isReadOnly ? null : [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s./,()\-]'))]),
           mouseCursor: onTap != null 
               ? SystemMouseCursors.click 
               : (isReadOnly ? SystemMouseCursors.forbidden : null),

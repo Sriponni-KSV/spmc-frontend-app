@@ -1793,6 +1793,12 @@ class _PatientsViewState extends State<PatientsView> {
                                 _buildQuickTextField(
                                   controller: nameCtrl,
                                   hint: 'Enter patient\'s full name',
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'[a-zA-Z\s]'),
+                                    ),
+                                    LengthLimitingTextInputFormatter(30),
+                                  ],
                                   validator: (val) => val == null || val.isEmpty
                                       ? 'Please enter Full Name'
                                       : null,
@@ -1804,10 +1810,12 @@ class _PatientsViewState extends State<PatientsView> {
                                   hint: 'Enter Email Address',
                                   keyboardType: TextInputType.emailAddress,
                                   validator: (val) {
-                                    if (val == null || val.isEmpty)
+                                    if (val == null || val.trim().isEmpty) {
                                       return 'Please enter Email Address';
-                                    if (!val.contains('@'))
-                                      return 'Please enter a valid Email Address';
+                                    }
+                                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                                      return 'Please enter a valid email address';
+                                    }
                                     return null;
                                   },
                                 ),
@@ -1823,6 +1831,12 @@ class _PatientsViewState extends State<PatientsView> {
                                           _buildQuickTextField(
                                             controller: nameCtrl,
                                             hint: 'Enter patient\'s full name',
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter.allow(
+                                                RegExp(r'[a-zA-Z\s]'),
+                                              ),
+                                              LengthLimitingTextInputFormatter(30),
+                                            ],
                                             validator: (val) =>
                                                 val == null || val.isEmpty
                                                 ? 'Please enter Full Name'
@@ -1846,10 +1860,12 @@ class _PatientsViewState extends State<PatientsView> {
                                             keyboardType:
                                                 TextInputType.emailAddress,
                                             validator: (val) {
-                                              if (val == null || val.isEmpty)
+                                              if (val == null || val.trim().isEmpty) {
                                                 return 'Please enter Email Address';
-                                              if (!val.contains('@'))
-                                                return 'Please enter a valid Email Address';
+                                              }
+                                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                                                return 'Please enter a valid email address';
+                                              }
                                               return null;
                                             },
                                           ),
