@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../core/routes/route_constants.dart';
+import '../utils/password_policy.dart';
+import 'package:flutter/services.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -225,6 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
           hint: 'Enter Password',
           icon: Icons.lock_outline,
           isPassword: true,
+          maxLength: 16,
           obscureText: _obscurePassword,
           onToggleVisibility: () {
             setState(() {
@@ -232,27 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
             });
           },
           onSubmitted: (_) => _handleLogin(),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter Password';
-            }
-            if (value.length < 8) {
-              return 'Password must be at least 8 characters long';
-            }
-            if (!RegExp(r'(?=.*[a-z])').hasMatch(value)) {
-              return 'Must contain at least one lowercase letter';
-            }
-            if (!RegExp(r'(?=.*[A-Z])').hasMatch(value)) {
-              return 'Must contain at least one uppercase letter';
-            }
-            if (!RegExp(r'(?=.*\d)').hasMatch(value)) {
-              return 'Must contain at least one number';
-            }
-            if (!RegExp(r'(?=.*[\W_])').hasMatch(value)) {
-              return 'Must contain at least one special character';
-            }
-            return null;
-          },
+          validator: PasswordPolicy.validatePassword,
         ),
         const SizedBox(height: 8),
 
@@ -340,6 +323,7 @@ class _LoginScreenState extends State<LoginScreen> {
     required IconData icon,
     bool isPassword = false,
     bool obscureText = false,
+    int? maxLength,
     VoidCallback? onToggleVisibility,
     String? Function(String?)? validator,
     void Function(String)? onSubmitted,
@@ -367,7 +351,10 @@ class _LoginScreenState extends State<LoginScreen> {
             fontSize: 14,
           ),
           validator: validator,
+          maxLength: maxLength,
+          inputFormatters: maxLength != null ? [LengthLimitingTextInputFormatter(maxLength)] : null,
           decoration: InputDecoration(
+            counterText: '',
             hintText: hint,
             hintStyle: const TextStyle(
               fontFamily: AppTheme.fontFamily,

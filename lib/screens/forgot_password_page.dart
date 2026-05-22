@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../utils/app_theme.dart';
 import '../controllers/auth_controller.dart';
 import '../core/routes/route_constants.dart';
+import '../utils/password_policy.dart';
+import 'package:flutter/services.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);
@@ -570,17 +572,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               fontFamily: AppTheme.fontFamily,
               fontSize: 14,
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter New Password';
-              }
-              if (value.length < 8) {
-                return 'Must be at least 8 characters';
-              }
-              return null;
-            },
+            validator: PasswordPolicy.validatePassword,
+            maxLength: 16,
+            inputFormatters: [LengthLimitingTextInputFormatter(16)],
             onFieldSubmitted: (_) => _nextStep(),
             decoration: InputDecoration(
+              counterText: '',
               hintText: 'Enter New Password',
               hintStyle: const TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -633,7 +630,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               return null;
             },
             onFieldSubmitted: (_) => _nextStep(),
+            maxLength: 16,
+            inputFormatters: [LengthLimitingTextInputFormatter(16)],
             decoration: InputDecoration(
+              counterText: '',
               hintText: 'Enter Confirm Password',
               hintStyle: const TextStyle(
                 fontFamily: AppTheme.fontFamily,

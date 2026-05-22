@@ -24,6 +24,7 @@ import 'admin_appointment_management.dart';
 import 'opd_management.dart';
 import 'admin_staff_profile_view.dart';
 import 'ipd_management.dart';
+import '../utils/password_policy.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -1592,6 +1593,7 @@ final AdminController _adminController = AdminController();
   @override
   void initState() {
     super.initState();
+    _passwordController.text = PasswordPolicy.generateSecurePassword();
     _loadSpecializations();
     _loadRoles();
   }
@@ -1864,20 +1866,38 @@ final AdminController _adminController = AdminController();
                             controller: _passwordController,
                             onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
                             obscureText: _obscurePassword,
+                            maxLength: 16,
+                            inputFormatters: [LengthLimitingTextInputFormatter(16)],
                             decoration: InputDecoration(
+                              counterText: '',
                               hintText: 'Enter password',
                               hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                  color: AppTheme.textSecondaryColor,
-                                  size: 20,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
+                              suffixIcon: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.refresh, color: AppTheme.primaryColor, size: 20),
+                                    tooltip: 'Regenerate Password',
+                                    onPressed: () {
+                                      setState(() {
+                                        _passwordController.text = PasswordPolicy.generateSecurePassword();
+                                        _obscurePassword = false;
+                                      });
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                      color: AppTheme.textSecondaryColor,
+                                      size: 20,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscurePassword = !_obscurePassword;
+                                      });
+                                    },
+                                  ),
+                                ],
                               ),
                               filled: true,
                               fillColor: AppTheme.backgroundColor,
@@ -1888,27 +1908,7 @@ final AdminController _adminController = AdminController();
                               focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
-                            validator: (val) {
-                              if (val == null || val.isEmpty) {
-                                return 'Please enter Password';
-                              }
-                              if (val.length < 8) {
-                                return 'Password must be at least 8 characters long';
-                              }
-                              if (!RegExp(r'(?=.*[a-z])').hasMatch(val)) {
-                                return 'Must contain at least one lowercase letter';
-                              }
-                              if (!RegExp(r'(?=.*[A-Z])').hasMatch(val)) {
-                                return 'Must contain at least one uppercase letter';
-                              }
-                              if (!RegExp(r'(?=.*\d)').hasMatch(val)) {
-                                return 'Must contain at least one number';
-                              }
-                              if (!RegExp(r'(?=.*[\W_])').hasMatch(val)) {
-                                return 'Must contain at least one special character';
-                              }
-                              return null;
-                            },
+                            validator: PasswordPolicy.validatePassword,
                           ),
                         ],
                       ),
