@@ -207,6 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
           label: 'Email Address',
           hint: 'Enter Email Address',
           icon: Icons.email_outlined,
+          maxLength: 50,
           onSubmitted: (_) => _handleLogin(),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {

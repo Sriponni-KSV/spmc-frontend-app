@@ -375,7 +375,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               return null;
             },
             onFieldSubmitted: (_) => _nextStep(),
+            maxLength: 50,
+            inputFormatters: [LengthLimitingTextInputFormatter(50)],
             decoration: const InputDecoration(
+              counterText: '',
               hintText: 'Enter Email Address',
               hintStyle: TextStyle(
                 fontFamily: AppTheme.fontFamily,
