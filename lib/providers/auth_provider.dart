@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../controllers/auth_controller.dart';
 import '../models/user_model.dart';
@@ -6,6 +7,22 @@ import '../services/token_service.dart';
 class AuthProvider extends ChangeNotifier {
 
   final AuthController _authController = AuthController();
+
+  Future<void> initializeSession() async {
+    try {
+      final token = await TokenService.getToken();
+      final userJson = await TokenService.getUser();
+      if (token != null && userJson != null) {
+        final Map<String, dynamic> userMap = jsonDecode(userJson);
+        _user = UserModel.fromJson(userMap);
+        notifyListeners();
+        // Asynchronously refresh live permissions from backend
+        refreshPermissions();
+      }
+    } catch (e) {
+      print('Failed to initialize session: $e');
+    }
+  }
 
   UserModel? _user;
   bool _isLoading = false;
@@ -44,6 +61,7 @@ class AuthProvider extends ChangeNotifier {
 
       if (user != null) {
         _user = user;
+        await TokenService.saveUser(jsonEncode(user.toJson()));
         _isLoading = false;
         notifyListeners();
         return true;
@@ -82,6 +100,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     await TokenService.deleteToken();
+    await TokenService.deleteUser();
     _user = null;
     notifyListeners();
   }

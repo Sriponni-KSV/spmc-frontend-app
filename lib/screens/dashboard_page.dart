@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
+import '../core/routes/route_constants.dart';
 import '../utils/app_theme.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
@@ -11,13 +13,13 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../widgets/nurse_widgets.dart' hide PatientModel;
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
-import 'login_page.dart';
 import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
 import '../utils/logout_helper.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  final int initialIndex;
+  const DashboardScreen({Key? key, this.initialIndex = 0}) : super(key: key);
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -63,8 +65,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialIndex;
     _initControllers();
     _fetchDoctorData();
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialIndex != oldWidget.initialIndex) {
+      setState(() {
+        _selectedIndex = widget.initialIndex;
+      });
+    }
   }
 
   void _initControllers() {
@@ -2209,10 +2222,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSidebarItem(int index, IconData icon, String label) {
     bool isSelected = _selectedIndex == index;
     return InkWell(
-      onTap: () => setState(() {
-        _selectedIndex = index;
+      onTap: () {
         _isEditingProfile = false;
-      }),
+        if (index == 0) {
+          context.go(AppRoutes.doctorDashboard);
+        } else if (index == 1) {
+          context.go(AppRoutes.doctorPatients);
+        } else if (index == 2) {
+          context.go(AppRoutes.doctorProfile);
+        } else {
+          context.go(AppRoutes.doctorDashboard);
+        }
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

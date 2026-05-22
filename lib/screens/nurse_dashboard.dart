@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
+import '../core/routes/route_constants.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart' hide PatientModel;
 import '../controllers/patient_controller.dart';
 import '../models/patient_model.dart';
-import 'login_page.dart';
 import 'new_patient_registration.dart';
 import 'patients_view.dart';
 import 'appointments_view.dart';
@@ -22,7 +23,15 @@ import '../utils/logout_helper.dart';
 import '../models/user_model.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
-  const NurseDashboardScreen({Key? key}) : super(key: key);
+  final int initialIndex;
+  final bool isRegisteringPatient;
+  final bool forceBooking;
+  const NurseDashboardScreen({
+    Key? key,
+    this.initialIndex = 0,
+    this.isRegisteringPatient = false,
+    this.forceBooking = false,
+  }) : super(key: key);
 
   @override
   State<NurseDashboardScreen> createState() => _NurseDashboardScreenState();
@@ -47,7 +56,24 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialIndex;
+    _isRegisteringPatient = widget.isRegisteringPatient;
+    _forceBookingForm = widget.forceBooking;
     _fetchData();
+  }
+
+  @override
+  void didUpdateWidget(covariant NurseDashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialIndex != oldWidget.initialIndex ||
+        widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
+        widget.forceBooking != oldWidget.forceBooking) {
+      setState(() {
+        _selectedIndex = widget.initialIndex;
+        _isRegisteringPatient = widget.isRegisteringPatient;
+        _forceBookingForm = widget.forceBooking;
+      });
+    }
   }
 
   Future<void> _fetchData() async {
@@ -90,15 +116,38 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   void _changePage(int index, {bool isRegistering = false, bool forceBooking = false}) {
     if (!mounted) return;
-    setState(() {
-      _selectedIndex = index;
-      _isRegisteringPatient = isRegistering;
-      _forceBookingForm = forceBooking;
-    });
-    
-    // Refresh data if switching to dashboard
-    if (index == 0) {
-      _fetchData();
+    switch (index) {
+      case 0:
+        context.go(AppRoutes.nurseDashboard);
+        break;
+      case 1:
+        if (isRegistering) {
+          context.go(AppRoutes.nurseNewPatient);
+        } else {
+          context.go(AppRoutes.nursePatients);
+        }
+        break;
+      case 2:
+        if (forceBooking) {
+          context.go(AppRoutes.nurseBookAppointment);
+        } else {
+          context.go(AppRoutes.nurseAppointments);
+        }
+        break;
+      case 3:
+        context.go(AppRoutes.nurseDoctors);
+        break;
+      case 4:
+        context.go(AppRoutes.nurseProfile);
+        break;
+      case 5:
+        context.go(AppRoutes.nurseOpd);
+        break;
+      case 6:
+        context.go(AppRoutes.nurseIpd);
+        break;
+      default:
+        context.go(AppRoutes.nurseDashboard);
     }
   }
 
@@ -830,7 +879,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 ),
               ),
               TextButton(
-                onPressed: () => setState(() => _selectedIndex = 1),
+                onPressed: () => _changePage(1),
                 child: const Text('View All'),
               ),
             ],
@@ -978,7 +1027,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 ),
               ),
               TextButton(
-                onPressed: () => setState(() => _selectedIndex = 2),
+                onPressed: () => _changePage(2),
                 child: const Text('View All'),
               ),
             ],

@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
-import '../utils/custom_app_bar.dart';
 import '../providers/auth_provider.dart';
-
-import 'dashboard_page.dart';
-import 'nurse_dashboard.dart';
-import 'admin_dashboard.dart';
-import 'forgot_password_page.dart';
+import '../core/routes/route_constants.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -47,19 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(content: Text('Welcome back, ${user.fullname}!'), backgroundColor: AppTheme.primaryColor),
       );
       
-      Widget nextScreen;
-      if (user.role == 'Nurse' || user.role == 'Head Nurse') {
-        nextScreen = const NurseDashboardScreen();
-      } else if (user.role == 'Admin' || user.role == 'Supervisor' || user.role == 'Super Admin') {
-        nextScreen = const AdminDashboardScreen();
-      } else {
-        nextScreen = const DashboardScreen(); // Doctor dashboard
-      }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => nextScreen),
-      );
+      context.go(AppRoutes.dashboard);
     }
   }
 
@@ -276,10 +260,7 @@ class _LoginScreenState extends State<LoginScreen> {
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
-              );
+              context.go(AppRoutes.forgotPassword);
             },
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.primaryColor,

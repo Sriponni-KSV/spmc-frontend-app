@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+import '../core/routes/route_constants.dart';
 import '../utils/app_theme.dart';
 import '../models/user_model.dart';
 import '../widgets/custom_dropdown_search.dart';
@@ -9,7 +11,6 @@ import '../providers/auth_provider.dart';
 import '../controllers/admin_controller.dart';
 import '../widgets/nurse_widgets.dart' hide PatientModel;
 import '../widgets/admin_widgets.dart';
-import 'login_page.dart';
 import 'package:http/http.dart' as http;  
 import 'dart:convert';                     
 import '../widgets/rbac_management.dart';
@@ -25,7 +26,8 @@ import 'admin_staff_profile_view.dart';
 import 'ipd_management.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
-  const AdminDashboardScreen({Key? key}) : super(key: key);
+  final int initialIndex;
+  const AdminDashboardScreen({Key? key, this.initialIndex = 0}) : super(key: key);
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -58,9 +60,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialIndex;
     _loadStaff();
     _loadRbacData();
     _fetchPatients();
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminDashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialIndex != oldWidget.initialIndex) {
+      setState(() {
+        _selectedIndex = widget.initialIndex;
+      });
+    }
   }
 
   Future<void> _fetchPatients() async {
@@ -82,14 +95,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       pageBuilder: (context, anim1, anim2) {
         return SearchOverlay(
           patients: _dbPatients.map((p) => p.toJson()).toList(),
-          onNewPatient: () => setState(() {
-            _selectedIndex = 2;
-            _viewingStaffProfile = null;
-          }),
-          onBookAppointment: () => setState(() {
-            _selectedIndex = 4;
-            _viewingStaffProfile = null;
-          }),
+          onNewPatient: () => context.go('${AppRoutes.adminDashboard}?tab=2'),
+          onBookAppointment: () => context.go('${AppRoutes.adminDashboard}?tab=4'),
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -1233,12 +1240,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildSidebarItem(int index, IconData icon, String label) {
     bool isSelected = _selectedIndex == index && !_isRegisteringPatient;
     return InkWell(
-      onTap: () => setState(() {
-        _selectedIndex = index;
-        _isRegisteringPatient = false;
-        _patientToComplete = null;
-        _viewingStaffProfile = null;
-      }),
+      onTap: () {
+        switch (index) {
+          case 0:
+            context.go(AppRoutes.adminDashboard);
+            break;
+          case 1:
+            context.go(AppRoutes.adminUsers);
+            break;
+          case 2:
+            context.go(AppRoutes.adminPatients);
+            break;
+          case 3:
+            context.go(AppRoutes.adminSettings);
+            break;
+          case 4:
+            context.go(AppRoutes.adminAppointments);
+            break;
+          case 5:
+            context.go(AppRoutes.adminOpd);
+            break;
+          case 6:
+            context.go(AppRoutes.adminIpd);
+            break;
+          default:
+            context.go(AppRoutes.adminDashboard);
+        }
+      },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
