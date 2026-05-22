@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_dropdown_search.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
@@ -2069,36 +2070,35 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     required String Function(T) itemLabel,
     required Function(T?) onChanged,
   }) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          hint: Text(
-            hint,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
-          ),
-          items: items
-              .map(
-                (e) => DropdownMenuItem<T>(
-                  value: e,
-                  child: Text(
-                    itemLabel(e),
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
-        ),
-      ),
+    final map = <String, String>{};
+    for (int i = 0; i < items.length; i++) {
+      map[i.toString()] = itemLabel(items[i]);
+    }
+    
+    String? selectedIndexString;
+    if (value != null) {
+      final idx = items.indexOf(value);
+      if (idx != -1) {
+        selectedIndexString = idx.toString();
+      }
+    }
+    
+    return CustomDropdownSearch(
+      label: hint,
+      value: selectedIndexString,
+      dropdownMap: map,
+      onChanged: (val) {
+        if (val != null) {
+          final idx = int.tryParse(val);
+          if (idx != null && idx >= 0 && idx < items.length) {
+            onChanged(items[idx]);
+          } else {
+            onChanged(null);
+          }
+        } else {
+          onChanged(null);
+        }
+      },
     );
   }
 
@@ -2333,29 +2333,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     if (isMobile) {
       return Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                isExpanded: true,
-                value: _selectedStatus,
-                items: ['All Status', 'Confirmed', 'Cancelled']
-                    .map(
-                      (e) => DropdownMenuItem(
-                        value: e,
-                        child: Text(e, style: const TextStyle(fontSize: 14)),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (val) => setState(() => _selectedStatus = val!),
-              ),
-            ),
+          CustomDropdownSearch(
+            label: '',
+            value: _selectedStatus,
+            dropdownItems: const ['All Status', 'Confirmed', 'Cancelled'],
+            height: 48,
+            onChanged: (val) {
+              if (val != null) setState(() => _selectedStatus = val);
+            },
           ),
           const SizedBox(height: 12),
           Container(
@@ -2413,26 +2398,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.borderColor),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedStatus,
-              items: ['All Status', 'Confirmed', 'Cancelled']
-                  .map(
-                    (e) => DropdownMenuItem(
-                      value: e,
-                      child: Text(e, style: const TextStyle(fontSize: 14)),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (val) => setState(() => _selectedStatus = val!),
-            ),
+        SizedBox(
+          width: 180,
+          child: CustomDropdownSearch(
+            label: '',
+            value: _selectedStatus,
+            dropdownItems: const ['All Status', 'Confirmed', 'Cancelled'],
+            height: 48,
+            onChanged: (val) {
+              if (val != null) setState(() => _selectedStatus = val);
+            },
           ),
         ),
         const SizedBox(width: 16),

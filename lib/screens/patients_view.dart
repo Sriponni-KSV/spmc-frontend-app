@@ -1640,28 +1640,12 @@ class _PatientsViewState extends State<PatientsView> {
           ),
         ),
         const SizedBox(height: 8),
-        Container(
+        CustomDropdownSearch(
+          label: '',
+          value: value,
+          dropdownItems: items,
           height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppTheme.borderColor),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: value,
-              icon: const Icon(Icons.keyboard_arrow_down, size: 20),
-              style: const TextStyle(
-                color: AppTheme.textPrimaryColor,
-                fontSize: 14,
-              ),
-              items: items.map((item) {
-                return DropdownMenuItem(value: item, child: Text(item));
-              }).toList(),
-              onChanged: onChanged,
-            ),
-          ),
+          onChanged: onChanged,
         ),
       ],
     );

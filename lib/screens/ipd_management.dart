@@ -7,6 +7,7 @@ import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../models/patient_model.dart';
 import '../models/user_model.dart';
+import '../widgets/custom_dropdown_search.dart';
 
 class IPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -46,28 +47,32 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
   Future<void> _loadData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
-    try {
-      final bedsList = await _ipdController.fetchBeds();
-      final admissionsList = await _ipdController.fetchAdmissions();
-      final patientsList = await _patientController.fetchPatients();
-      final doctorsList = await _adminController.fetchStaff(role: 'Doctor');
-      final pendingList = await _ipdController.fetchPendingAdmissions();
-      
-      if (mounted) {
-        setState(() {
-          _beds = bedsList;
-          _admissions = admissionsList;
-          _patients = patientsList;
-          _doctors = doctorsList;
-          _pendingAdmissions = pendingList;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
+
+    List<Map<String, dynamic>> bedsList = [];
+    List<Map<String, dynamic>> admissionsList = [];
+    List<PatientModel> patientsList = [];
+    List<UserModel> doctorsList = [];
+    List<Map<String, dynamic>> pendingList = [];
+    String? errorMsg;
+
+    try { bedsList = await _ipdController.fetchBeds(); } catch (e) { errorMsg = e.toString(); }
+    try { admissionsList = await _ipdController.fetchAdmissions(); } catch (e) { errorMsg ??= e.toString(); }
+    try { patientsList = await _patientController.fetchPatients(); } catch (_) {}
+    try { doctorsList = await _adminController.fetchStaff(role: 'Doctor'); } catch (_) {}
+    try { pendingList = await _ipdController.fetchPendingAdmissions(); } catch (e) { errorMsg ??= e.toString(); }
+
+    if (mounted) {
+      setState(() {
+        _beds = bedsList;
+        _admissions = admissionsList;
+        _patients = patientsList;
+        _doctors = doctorsList;
+        _pendingAdmissions = pendingList;
+        _isLoading = false;
+      });
+      if (errorMsg != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading IPD data: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Warning: $errorMsg'), backgroundColor: Colors.orange),
         );
       }
     }
@@ -551,30 +556,36 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      DropdownButtonFormField<int>(
-                        decoration: const InputDecoration(labelText: 'Select Patient', border: OutlineInputBorder()),
-                        value: selectedPatientId,
-                        items: _patients.map((p) => DropdownMenuItem<int>(value: p.id, child: Text('${p.name} (${p.patientId ?? p.id})'))).toList(),
-                        onChanged: preselectedPatientId != null ? null : (val) => setDialogState(() => selectedPatientId = val),
+                      CustomDropdownSearch(
+                        label: 'Select Patient',
+                        value: selectedPatientId?.toString(),
+                        dropdownMap: {
+                          for (var p in _patients) p.id.toString(): '${p.name} (${p.patientId ?? p.id})'
+                        },
+                        isEnabled: preselectedPatientId == null,
+                        onChanged: (val) {
+                          if (val != null) setDialogState(() => selectedPatientId = int.tryParse(val));
+                        },
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(labelText: 'Treating Doctor', border: OutlineInputBorder()),
+                      CustomDropdownSearch(
+                        label: 'Treating Doctor',
                         value: selectedDoctorName,
-                        items: _doctors.map((d) => DropdownMenuItem(value: d.fullname, child: Text(d.fullname))).toList(),
+                        dropdownItems: _doctors.map((d) => d.fullname).toList(),
                         onChanged: (val) => setDialogState(() => selectedDoctorName = val),
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(labelText: 'Ward Type', border: OutlineInputBorder()),
-                        items: ['General', 'Semi-Private', 'Private', 'ICU'].map((w) => DropdownMenuItem(value: w, child: Text(w))).toList(),
+                      CustomDropdownSearch(
+                        label: 'Ward Type',
+                        value: selectedWardType,
+                        dropdownItems: const ['General', 'Semi-Private', 'Private', 'ICU'],
                         onChanged: updateBedsForWard,
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(labelText: 'Select Available Bed', border: OutlineInputBorder()),
+                      CustomDropdownSearch(
+                        label: 'Select Available Bed',
                         value: selectedBedNumber,
-                        items: availableBeds.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
+                        dropdownItems: availableBeds,
                         onChanged: (val) => setDialogState(() => selectedBedNumber = val),
                       ),
                       const SizedBox(height: 16),

@@ -208,6 +208,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (dialogError != null)
                       Container(
@@ -231,24 +232,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ],
                         ),
                       ),
-                    if (user.staffUniqueId != null)
+                    if (user.staffUniqueId != null) ...[
+                      const Text('Staff ID', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                      const SizedBox(height: 10),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: TextFormField(
                           initialValue: user.staffUniqueId,
                           readOnly: true,
                           decoration: const InputDecoration(
-                            labelText: 'Staff ID',
+                            hintText: 'Staff ID',
                             prefixIcon: Icon(Icons.pin_outlined),
-                            fillColor: Color(0xFFF3F4F6),
+                            fillColor: Color(0xFFE5E7EB), // read-only color
                             filled: true,
                             helperText: 'Auto-generated ID',
                           ),
                         ),
                       ),
+                    ],
+                    const Text('Full Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                    const SizedBox(height: 10),
                     TextFormField(
                       controller: nameCtrl,
-                      decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
+                      decoration: const InputDecoration(hintText: 'Enter full name', prefixIcon: Icon(Icons.person_outline)),
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(
                           RegExp(r'[a-zA-Z\s]'),
@@ -258,9 +264,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       validator: (val) => val == null || val.trim().isEmpty ? 'Please enter a name' : null,
                     ),
                     const SizedBox(height: 16),
+                    const Text('Email Address', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                    const SizedBox(height: 10),
                     TextFormField(
                       controller: emailCtrl,
-                      decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
+                      decoration: const InputDecoration(hintText: 'Enter email address', prefixIcon: Icon(Icons.email_outlined)),
                       keyboardType: TextInputType.emailAddress,
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) {
@@ -273,10 +281,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
+                    const Text('Mobile Number', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                    const SizedBox(height: 10),
                     TextFormField(
                       controller: mobileCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'Mobile Number', 
+                        hintText: 'Enter mobile number', 
                         prefixIcon: Icon(Icons.phone_outlined),
                         counterText: "",
                       ),
@@ -297,10 +307,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     if (isLoadingRoles)
                       const Center(child: CircularProgressIndicator())
                     else
-                      DropdownButtonFormField<String>(
+                      CustomDropdownSearch(
+                        label: 'Role',
                         value: selectedRole,
-                        decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.badge_outlined)),
-                        items: availableRoles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                        dropdownItems: availableRoles,
                         onChanged: (val) {
                           if (val != null) {
                             setDialogState(() {
@@ -318,20 +328,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       if (isLoadingSpecializations)
                         const Center(child: CircularProgressIndicator())
                       else
-                        DropdownButtonFormField<int>(
-                          value: selectedSpecializationId,
-                          decoration: const InputDecoration(labelText: 'Specialization', prefixIcon: Icon(Icons.star_outline)),
-                          items: specializations.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['name']))).toList(),
-                          onChanged: (val) { if (val != null) setDialogState(() { selectedSpecializationId = val; dialogError = null; }); },
-                          validator: (val) => selectedRole == 'Doctor' && val == null ? 'Please select a specialization' : null,
+                        CustomDropdownSearch(
+                          label: 'Specialization',
+                          value: selectedSpecializationId?.toString(),
+                          dropdownMap: {
+                            for (var s in specializations) s['id'].toString(): s['name'].toString()
+                          },
+                          onChanged: (val) {
+                            if (val != null) {
+                              setDialogState(() {
+                                selectedSpecializationId = int.tryParse(val);
+                                dialogError = null;
+                              });
+                            }
+                          },
+                          validator: (val) => selectedRole == 'Doctor' && (val == null || val.isEmpty) ? 'Please select a specialization' : null,
                         ),
                     ],
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
+                    CustomDropdownSearch(
+                      label: 'Status',
                       value: selectedStatus,
-                      decoration: const InputDecoration(labelText: 'Status', prefixIcon: Icon(Icons.info_outline)),
-                      items: ['active', 'inactive', 'suspended'].map((s) => DropdownMenuItem(value: s, child: Text(s[0].toUpperCase() + s.substring(1)))).toList(),
-                      onChanged: (val) { if (val != null) setDialogState(() { selectedStatus = val; dialogError = null; }); },
+                      dropdownMap: const {
+                        'active': 'Active',
+                        'inactive': 'Inactive',
+                        'suspended': 'Suspended',
+                      },
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            selectedStatus = val;
+                            dialogError = null;
+                          });
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -374,7 +404,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   if (mounted) setDialogState(() => isSaving = false);
                 }
               },
-              style: ElevatedButton.styleFrom(minimumSize: const Size(100, 44)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.logoRed,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(120, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              ),
               child: isSaving
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Text('Save'),
@@ -435,7 +473,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     if (mounted) setDialogState(() => isDeleting = false);
                   }
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(120, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                ),
                 child: isDeleting
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                     : const Text('Delete'),

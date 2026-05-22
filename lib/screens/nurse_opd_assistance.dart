@@ -8,6 +8,7 @@ import '../controllers/appointment_controller.dart';
 import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../utils/date_formatter.dart';
+import '../widgets/custom_dropdown_search.dart';
 
 /// Nurse-only OPD Assistance screen.
 /// Flow: Patient Arrives → Mark Arrived → Record Vitals → Send to Doctor
@@ -851,86 +852,91 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                       else ...[
                         const Text('Select Patient', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
                         const SizedBox(height: 6),
-                        DropdownButtonFormField<PatientModel>(
-                          value: selectedPatient,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            hintText: 'Search or select patient...',
-                            prefixIcon: const Icon(Icons.person_outline, size: 18),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          ),
-                          items: allPatients.map((p) => DropdownMenuItem(value: p, child: Text('${p.name} (${p.patientId ?? "N/A"})', overflow: TextOverflow.ellipsis))).toList(),
-                          onChanged: (val) => setDialogState(() => selectedPatient = val),
-                          validator: (val) => val == null ? 'Please select patient' : null,
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Search or select patient...',
+                          value: selectedPatient?.id?.toString(),
+                          dropdownMap: {
+                            for (var p in allPatients) p.id.toString(): '${p.name} (${p.patientId ?? "N/A"})'
+                          },
+                          onChanged: (val) {
+                            if (val != null) {
+                              final id = int.tryParse(val);
+                              setDialogState(() {
+                                selectedPatient = allPatients.firstWhere((p) => p.id == id);
+                              });
+                            }
+                          },
+                          validator: (val) => val == null || val.isEmpty ? 'Please select patient' : null,
                         ),
                         const SizedBox(height: 16),
                         const Text('Assign Doctor', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
                         const SizedBox(height: 6),
-                        DropdownButtonFormField<UserModel>(
-                          value: selectedDoctor,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            hintText: 'Select doctor...',
-                            prefixIcon: const Icon(Icons.medical_services_outlined, size: 18),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          ),
-                          items: allDoctors.map((d) => DropdownMenuItem(value: d, child: Text(d.fullname, overflow: TextOverflow.ellipsis))).toList(),
-                          onChanged: (val) {
-                            setDialogState(() {
-                              selectedDoctor = val;
-                              selectedTime = null;
-                              if (val != null) {
-                                DateTime now = DateTime.now();
-                                final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                                final dayName = weekDays[now.weekday - 1];
-                                final dateStr = DateFormat('dd/MM/yyyy').format(now);
-
-                                bool isAvailable = false; // Default to unavailable unless explicitly available
-                                if (val.availableDays != null && val.availableDays!.contains(dayName)) {
-                                  isAvailable = true;
-                                } 
-                                
-                                if (val.weeklyOffDays != null && val.weeklyOffDays!.contains(dayName)) {
-                                  isAvailable = false;
-                                } 
-                                
-                                if (val.specificLeaveDates != null && val.specificLeaveDates!.contains(dateStr)) {
-                                  isAvailable = false;
-                                }
-
-                                if (!isAvailable) {
-                                  availableSlots = [];
-                                } else {
-                                  availableSlots = _generateSlotsForDoctor(val);
-                                  availableSlots = availableSlots.where((slot) {
-                                    // 1. Check if booked
-                                    bool isBooked = _appointments.any((a) => 
-                                        a.doctorName == val.fullname && 
-                                        a.appointmentTime == slot && 
-                                        a.status != 'Cancelled' && 
-                                        a.status != 'No-Show'
-                                    );
-                                    if (isBooked) return false;
-
-                                    // 2. Check if past time
-                                    try {
-                                      DateTime slotTime = DateFormat('hh:mm a').parse(slot);
-                                      DateTime fullSlotTime = DateTime(now.year, now.month, now.day, slotTime.hour, slotTime.minute);
-                                      // Only show slots that are strictly after current time
-                                      return fullSlotTime.isAfter(now);
-                                    } catch (e) {
-                                      return true;
-                                    }
-                                  }).toList();
-                                }
-                              } else {
-                                availableSlots = [];
-                              }
-                            });
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select doctor...',
+                          value: selectedDoctor?.id?.toString(),
+                          dropdownMap: {
+                            for (var d in allDoctors) d.id.toString(): d.fullname
                           },
-                          validator: (val) => val == null ? 'Please select doctor' : null,
+                          onChanged: (val) {
+                            if (val != null) {
+                              final id = int.tryParse(val);
+                              final doc = allDoctors.firstWhere((d) => d.id == id);
+                              setDialogState(() {
+                                selectedDoctor = doc;
+                                selectedTime = null;
+                                if (doc != null) {
+                                  DateTime now = DateTime.now();
+                                  final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                                  final dayName = weekDays[now.weekday - 1];
+                                  final dateStr = DateFormat('dd/MM/yyyy').format(now);
+
+                                  bool isAvailable = false; // Default to unavailable unless explicitly available
+                                  if (doc.availableDays != null && doc.availableDays!.contains(dayName)) {
+                                    isAvailable = true;
+                                  } 
+                                  
+                                  if (doc.weeklyOffDays != null && doc.weeklyOffDays!.contains(dayName)) {
+                                    isAvailable = false;
+                                  } 
+                                  
+                                  if (doc.specificLeaveDates != null && doc.specificLeaveDates!.contains(dateStr)) {
+                                    isAvailable = false;
+                                  }
+
+                                  if (!isAvailable) {
+                                    availableSlots = [];
+                                  } else {
+                                    availableSlots = _generateSlotsForDoctor(doc);
+                                    availableSlots = availableSlots.where((slot) {
+                                      // 1. Check if booked
+                                      bool isBooked = _appointments.any((a) => 
+                                          a.doctorName == doc.fullname && 
+                                          a.appointmentTime == slot && 
+                                          a.status != 'Cancelled' && 
+                                          a.status != 'No-Show'
+                                      );
+                                      if (isBooked) return false;
+
+                                      // 2. Check if past time
+                                      try {
+                                        DateTime slotTime = DateFormat('hh:mm a').parse(slot);
+                                        DateTime fullSlotTime = DateTime(now.year, now.month, now.day, slotTime.hour, slotTime.minute);
+                                        // Only show slots that are strictly after current time
+                                        return fullSlotTime.isAfter(now);
+                                      } catch (e) {
+                                        return true;
+                                      }
+                                    }).toList();
+                                  }
+                                } else {
+                                  availableSlots = [];
+                                }
+                              });
+                            }
+                          },
+                          validator: (val) => val == null || val.isEmpty ? 'Please select doctor' : null,
                         ),
                         const SizedBox(height: 16),
                         if (selectedDoctor != null) ...[

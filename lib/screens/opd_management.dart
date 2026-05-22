@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_dropdown_search.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
@@ -544,23 +545,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
       children: [
         Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
         const SizedBox(height: 6),
-        Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppTheme.borderColor),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: value,
-              icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-              style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 13),
-              items: items.map((item) => DropdownMenuItem(value: item, child: Text(item, overflow: TextOverflow.ellipsis))).toList(),
-              onChanged: onChanged,
-            ),
-          ),
+        CustomDropdownSearch(
+          label: '',
+          value: value,
+          dropdownItems: items,
+          height: 48,
+          onChanged: onChanged,
         ),
       ],
     );
@@ -1655,15 +1645,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
+              CustomDropdownSearch(
+                label: 'New Status',
                 value: overrideStatuses.contains(newStatus) ? newStatus : overrideStatuses[0],
-                decoration: const InputDecoration(labelText: 'New Status'),
-                items: overrideStatuses.map((s) {
-                  String display = s;
-                  if (s == 'Confirmed') display = 'Waiting (Not Triaged)';
-                  if (s == 'Checked-in') display = 'Waiting (Triage Complete)';
-                  return DropdownMenuItem(value: s, child: Text(display));
-                }).toList(),
+                dropdownMap: const {
+                  'Confirmed': 'Waiting (Not Triaged)',
+                  'Checked-in': 'Waiting (Triage Complete)',
+                  'In Consultation': 'In Consultation',
+                  'Completed': 'Completed',
+                  'Cancelled': 'Cancelled',
+                  'No-Show': 'No-Show',
+                },
                 onChanged: (val) {
                   if (val != null) setDialogState(() => newStatus = val);
                 },
@@ -1758,22 +1750,40 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                       if (isLoadingPatients)
                         const Center(child: Padding(padding: EdgeInsets.all(20.0), child: CircularProgressIndicator()))
                       else
-                        DropdownButtonFormField<PatientModel>(
-                          value: selectedPatient,
-                          isExpanded: true,
-                          decoration: const InputDecoration(labelText: 'Select Patient', prefixIcon: Icon(Icons.person_outline)),
-                          items: allPatients.map((p) => DropdownMenuItem(value: p, child: Text('${p.name} (${p.patientId ?? "N/A"})', overflow: TextOverflow.ellipsis))).toList(),
-                          onChanged: (val) => setDialogState(() => selectedPatient = val),
-                          validator: (val) => val == null ? 'Please select patient' : null,
+                        CustomDropdownSearch(
+                          label: 'Select Patient',
+                          hint: 'Search or select patient...',
+                          value: selectedPatient?.id?.toString(),
+                          dropdownMap: {
+                            for (var p in allPatients) p.id.toString(): '${p.name} (${p.patientId ?? "N/A"})'
+                          },
+                          onChanged: (val) {
+                            if (val != null) {
+                              final id = int.tryParse(val);
+                              setDialogState(() {
+                                selectedPatient = allPatients.firstWhere((p) => p.id == id);
+                              });
+                            }
+                          },
+                          validator: (val) => val == null || val.isEmpty ? 'Please select patient' : null,
                         ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<UserModel>(
-                        value: selectedDoctor,
-                        isExpanded: true,
-                        decoration: const InputDecoration(labelText: 'Assign Doctor', prefixIcon: Icon(Icons.medical_services_outlined)),
-                        items: _doctors.map((d) => DropdownMenuItem(value: d, child: Text(d.fullname, overflow: TextOverflow.ellipsis))).toList(),
-                        onChanged: (val) => setDialogState(() => selectedDoctor = val),
-                        validator: (val) => val == null ? 'Please select doctor' : null,
+                      CustomDropdownSearch(
+                        label: 'Assign Doctor',
+                        hint: 'Select doctor...',
+                        value: selectedDoctor?.id?.toString(),
+                        dropdownMap: {
+                          for (var d in _doctors) d.id.toString(): d.fullname
+                        },
+                        onChanged: (val) {
+                          if (val != null) {
+                            final id = int.tryParse(val);
+                            setDialogState(() {
+                              selectedDoctor = _doctors.firstWhere((d) => d.id == id);
+                            });
+                          }
+                        },
+                        validator: (val) => val == null || val.isEmpty ? 'Please select doctor' : null,
                       ),
                       const SizedBox(height: 16),
                       InkWell(
@@ -1835,7 +1845,16 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                           if (mounted) setDialogState(() => isSaving = false);
                         }
                       },
-                child: isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Register'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.logoRed,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(120, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                ),
+                child: isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Register'),
               ),
             ],
           );
@@ -2199,16 +2218,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                           Row(
                             children: [
                               Expanded(
-                                child: DropdownButtonFormField<String>(
+                                child: CustomDropdownSearch(
+                                  label: 'Frequency',
                                   value: selectedFrequency,
-                                  decoration: InputDecoration(
-                                    labelText: 'Frequency',
-                                    isDense: true,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                  ),
-                                  items: ['1-0-1', '1-0-0', '0-0-1', '1-1-1', 'Once daily', 'Twice daily', 'Thrice daily', 'As needed (PRN)']
-                                      .map((f) => DropdownMenuItem(value: f, child: Text(f, style: const TextStyle(fontSize: 12))))
-                                      .toList(),
+                                  dropdownItems: const ['1-0-1', '1-0-0', '0-0-1', '1-1-1', 'Once daily', 'Twice daily', 'Thrice daily', 'As needed (PRN)'],
                                   onChanged: (v) {
                                     if (v != null) setDialogState(() => selectedFrequency = v);
                                   },

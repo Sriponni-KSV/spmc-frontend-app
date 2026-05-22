@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_dropdown_search.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
@@ -1197,45 +1198,21 @@ class _DoctorsViewState extends State<DoctorsView> {
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textSecondaryColor,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: onChanged != null ? Colors.grey.shade50 : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.borderColor.withOpacity(0.8)),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                isExpanded: true,
-                value: value,
-                style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14),
-                disabledHint: value != null 
-                  ? Text(
-                      items.firstWhere((s) => s['id'] == value)['name'],
-                      style: const TextStyle(color: AppTheme.textPrimaryColor),
-                    )
-                  : null,
-                items: items.map((s) => DropdownMenuItem<int>(
-                  value: s['id'],
-                  child: Text(s['name']),
-                )).toList(),
-                onChanged: onChanged,
-              ),
-            ),
-          ),
-        ],
+      child: CustomDropdownSearch(
+        label: label,
+        value: value?.toString(),
+        dropdownMap: {
+          for (var item in items) item['id'].toString(): item['name'].toString()
+        },
+        onChanged: onChanged == null
+            ? null
+            : (val) {
+                if (val != null) {
+                  onChanged(int.tryParse(val));
+                } else {
+                  onChanged(null);
+                }
+              },
       ),
     );
   }
