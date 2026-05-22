@@ -30,6 +30,35 @@ class AuthController {
     }
   }
 
+  // ✅ Forgot Password
+  Future<void> forgotPassword(String email) async {
+    final response = await ApiService.post(
+      '$baseUrl/auth/forgot-password',
+      {'email': email},
+    );
+
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['error'] ?? 'User not found');
+    }
+  }
+
+  // ✅ Verify OTP
+  Future<void> verifyOtp(String email, String otp) async {
+    final response = await ApiService.post(
+      '$baseUrl/auth/verify-otp',
+      {
+        'email': email,
+        'otp': otp,
+      },
+    );
+
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['error'] ?? 'Invalid OTP');
+    }
+  }
+
   // ✅ Reset Password
   Future<void> resetPassword({
     required String email,

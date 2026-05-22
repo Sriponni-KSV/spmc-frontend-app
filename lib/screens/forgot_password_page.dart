@@ -62,18 +62,35 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     focusOut();
     if (_currentStep == 0) {
       if (_emailFormKey.currentState!.validate()) {
-        setState(() => _currentStep = 1);
-        _pageController.animateToPage(
-          1,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('OTP sent to email. Dummy OTP is 111111'),
-            backgroundColor: AppTheme.primaryColor,
-          ),
-        );
+        setState(() => _isLoading = true);
+        try {
+          await _authController.forgotPassword(_emailController.text.trim());
+          if (!mounted) return;
+          setState(() {
+            _currentStep = 1;
+            _isLoading = false;
+          });
+          _pageController.animateToPage(
+            1,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('OTP sent to your email.'),
+              backgroundColor: AppTheme.primaryColor,
+            ),
+          );
+        } catch (e) {
+          if (!mounted) return;
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceAll('Exception: ', '')),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
       }
     } else if (_currentStep == 1) {
       String fullOtp = _otpControllers.map((c) => c.text).join();
@@ -82,20 +99,26 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         return;
       }
 
-      if (fullOtp == '111111') {
+      setState(() => _isLoading = true);
+      try {
+        await _authController.verifyOtp(_emailController.text.trim(), fullOtp);
+        if (!mounted) return;
         setState(() {
           _otpErrorMessage = null;
           _currentStep = 2;
+          _isLoading = false;
         });
         _pageController.animateToPage(
           2,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
-      } else {
-        setState(
-          () => _otpErrorMessage = 'Invalid OTP entered. Please try again.',
-        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _otpErrorMessage = e.toString().replaceAll('Exception: ', '');
+        });
       }
     } else if (_currentStep == 2) {
       if (_passwordFormKey.currentState!.validate()) {
@@ -365,11 +388,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 32),
           ElevatedButton(
-            onPressed: _nextStep,
+            onPressed: _isLoading ? null : _nextStep,
             style: AppTheme.primaryButton.copyWith(
               minimumSize: MaterialStateProperty.all(const Size(double.infinity, 56)),
             ),
-            child: const Text('Send OTP'),
+            child: _isLoading && _currentStep == 0
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text('Send OTP'),
           ),
           const SizedBox(height: 16),
           TextButton(
@@ -422,13 +454,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Please enter the 6-digit OTP sent to your email. (Use 111111)',
+            'Please enter the 6-digit OTP sent to your email.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppTheme.textSecondaryColor,
             ),
           ),
-          const SizedBox(height: 32),
           const SizedBox(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -501,11 +532,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ],
           const SizedBox(height: 32),
           ElevatedButton(
-            onPressed: _nextStep,
+            onPressed: _isLoading ? null : _nextStep,
             style: AppTheme.primaryButton.copyWith(
               minimumSize: MaterialStateProperty.all(const Size(double.infinity, 56)),
             ),
-            child: const Text('Verify OTP'),
+            child: _isLoading && _currentStep == 1
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text('Verify OTP'),
           ),
         ],
       ),
