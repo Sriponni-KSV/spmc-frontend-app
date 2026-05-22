@@ -122,9 +122,7 @@ class _AdminAppointmentManagementState
         _apptCtrl.fetchAdminAppointments(
           date: dateStr,
           doctor: _filterDoctor,
-          status: _filterStatus == 'All'
-              ? null
-              : _filterStatus,
+          status: _filterStatus == 'All' ? null : _filterStatus,
           department: _filterDepartment,
         ),
         _adminCtrl.fetchStaff(role: 'Doctor'),
@@ -423,7 +421,9 @@ class _AdminAppointmentManagementState
                           'Appointment Type',
                           CustomDropdownSearch(
                             label: '',
-                            value: apptTypes.contains(appointmentType) ? appointmentType : null,
+                            value: apptTypes.contains(appointmentType)
+                                ? appointmentType
+                                : null,
                             dropdownItems: apptTypes,
                             onChanged: (v) => setS(() => appointmentType = v),
                           ),
@@ -433,7 +433,9 @@ class _AdminAppointmentManagementState
                           CustomDropdownSearch(
                             label: '',
                             hint: 'Select doctor',
-                            value: filteredDoctors.contains(selectedDoctor) ? selectedDoctor : null,
+                            value: filteredDoctors.contains(selectedDoctor)
+                                ? selectedDoctor
+                                : null,
                             dropdownItems: filteredDoctors,
                             onChanged: (v) => setS(() => selectedDoctor = v),
                           ),
@@ -631,7 +633,10 @@ class _AdminAppointmentManagementState
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 14,
+                    ),
                   ),
                   onPressed: isSaving
                       ? null
@@ -1197,12 +1202,12 @@ class _AdminAppointmentManagementState
                 ),
               )
             : CustomDropdownSearch(
-          label: '',
-          value: value,
-          dropdownItems: items,
-          height: 48,
-          onChanged: onChanged,
-        ),
+                label: '',
+                value: value,
+                dropdownItems: items,
+                height: 48,
+                onChanged: onChanged,
+              ),
       ],
     );
   }
@@ -1379,7 +1384,10 @@ class _AdminAppointmentManagementState
                                 if (appt.isRescheduled)
                                   Container(
                                     margin: const EdgeInsets.only(top: 2),
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 1,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFF3E8FF),
                                       borderRadius: BorderRadius.circular(4),
@@ -1564,5 +1572,4 @@ class _AdminAppointmentManagementState
       ),
     );
   }
-
 }
