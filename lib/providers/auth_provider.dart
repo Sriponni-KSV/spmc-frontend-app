@@ -71,6 +71,10 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return false;
       }
+    } on RequiresPasswordChangeException catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     } catch (e) {
       final err = e.toString().replaceFirst('Exception: ', '');
       _errorCode = err;
@@ -95,6 +99,39 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<bool> resetPassword({
+    required String email,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final user = await _authController.resetPassword(
+        email: email,
+        newPassword: newPassword,
+      );
+
+      if (user != null) {
+        _user = user;
+        await TokenService.saveUser(jsonEncode(user.toJson()));
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _isLoading = false;
+        notifyListeners();
+        return true; 
+      }
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      throw e;
     }
   }
 

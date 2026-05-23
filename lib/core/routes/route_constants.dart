@@ -3,6 +3,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String forgotPassword = '/forgot-password';
   static const String resetPassword = '/reset-password';
+  static const String forceChangePassword = '/force-change-password';
 
   // Common Protected Routes
   static const String dashboard = '/dashboard';

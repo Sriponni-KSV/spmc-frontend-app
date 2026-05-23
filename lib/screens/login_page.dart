@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../core/routes/route_constants.dart';
 import '../utils/password_policy.dart';
 import 'package:flutter/services.dart';
+import '../controllers/auth_controller.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -37,15 +38,25 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text.trim();
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.login(email: email, password: password);
+    try {
+      final success = await authProvider.login(email: email, password: password);
 
-    if (mounted && success) {
-      final user = authProvider.user!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Welcome back, ${user.fullname}!'), backgroundColor: AppTheme.primaryColor),
-      );
-      
-      context.go(AppRoutes.dashboard);
+      if (mounted && success) {
+        final user = authProvider.user!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Welcome back, ${user.fullname}!'), backgroundColor: AppTheme.primaryColor),
+        );
+        
+        context.go(AppRoutes.dashboard);
+      }
+    } on RequiresPasswordChangeException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message), backgroundColor: Colors.orange),
+        );
+        // Pass the email to the force change password screen
+        context.go('${AppRoutes.forceChangePassword}?email=${Uri.encodeComponent(email)}');
+      }
     }
   }
 

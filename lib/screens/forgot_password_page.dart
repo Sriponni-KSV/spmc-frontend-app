@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../utils/app_theme.dart';
 import '../controllers/auth_controller.dart';
+import '../providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 import '../core/routes/route_constants.dart';
 import '../utils/password_policy.dart';
 import 'package:flutter/services.dart';
@@ -124,7 +126,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (_passwordFormKey.currentState!.validate()) {
         setState(() => _isLoading = true);
         try {
-          await _authController.resetPassword(
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          await authProvider.resetPassword(
             email: _emailController.text.trim(),
             newPassword: _newPasswordController.text,
           );
@@ -135,7 +138,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          context.go(AppRoutes.login);
+          context.go(AppRoutes.dashboard);
         } catch (e) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(

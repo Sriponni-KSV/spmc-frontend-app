@@ -7,6 +7,7 @@ import '../../screens/admin_dashboard.dart';
 import '../../screens/dashboard_page.dart'; // Doctor Dashboard
 import '../../screens/forgot_password_page.dart';
 import '../../screens/login_page.dart';
+import '../../screens/force_change_password_screen.dart';
 import '../../screens/nurse_dashboard.dart';
 import 'route_constants.dart';
 import 'screens/not_found_screen.dart';
@@ -29,7 +30,8 @@ class AppRouter {
         final isLoggedIn = authProvider.user != null;
         final goingToPublic = state.matchedLocation == AppRoutes.login ||
             state.matchedLocation == AppRoutes.forgotPassword ||
-            state.matchedLocation == AppRoutes.resetPassword;
+            state.matchedLocation == AppRoutes.resetPassword ||
+            state.matchedLocation == AppRoutes.forceChangePassword;
 
         // 1. Unauthenticated Users: Redirect to Login
         if (!isLoggedIn) {
@@ -107,6 +109,13 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.resetPassword,
           builder: (context, state) => const ForgotPasswordScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.forceChangePassword,
+          builder: (context, state) {
+            final email = state.uri.queryParameters['email'] ?? '';
+            return ForceChangePasswordScreen(email: email);
+          },
         ),
 
         // --- Common Protected Route (redirects to role-specific dashboard) ---
