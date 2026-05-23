@@ -189,15 +189,10 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.lock_clock_outlined,
-              size: 48,
-              color: AppTheme.primaryColor,
+            padding: const EdgeInsets.all(16),
+            child: Image.asset(
+              'assets/image/full_logo.png',
+              height: 64,
             ),
           ),
           const SizedBox(height: 24),
@@ -256,6 +251,11 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
                         _otpFocusNodes[index + 1].requestFocus();
                       } else {
                         focusOut();
+                        // Automatically verify OTP
+                        String fullOtp = _otpControllers.map((c) => c.text).join();
+                        if (fullOtp.length == 6) {
+                          _nextStep();
+                        }
                       }
                     } else if (value.isEmpty && index > 0) {
                       _otpFocusNodes[index - 1].requestFocus();
@@ -347,15 +347,10 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_circle_outline,
-                size: 48,
-                color: AppTheme.primaryColor,
+              padding: const EdgeInsets.all(16),
+              child: Image.asset(
+                'assets/image/full_logo.png',
+                height: 64,
               ),
             ),
             const SizedBox(height: 24),
@@ -398,6 +393,7 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
                 fontSize: 14,
               ),
               validator: PasswordPolicy.validatePassword,
+              textInputAction: TextInputAction.next,
               decoration: InputDecoration(
                 counterText: '',
                 hintText: 'Enter New Password',
@@ -447,6 +443,8 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
                 }
                 return null;
               },
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _nextStep(),
               decoration: InputDecoration(
                 counterText: '',
                 hintText: 'Confirm New Password',
