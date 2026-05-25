@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/custom_dropdown_search.dart';
+import '../widgets/appointment_details_dialog.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
@@ -64,14 +65,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final data = await _appointmentController.fetchAdminAppointments(
         date: dateStr,
-        status: null, // Fetch all to filter locally by tabs
+        status: null,
         doctor: _selectedDoctor == 'All' ? null : _selectedDoctor,
       );
-      final consultationsData = await _appointmentController
-          .fetchConsultations();
+      final consultationsData = await _appointmentController.fetchConsultations();
+
       if (mounted) {
         setState(() {
-          _appointments = data;
+          _appointments = data.where(_isWalkIn).toList();
           _consultations = consultationsData;
           _isLoading = false;
         });
@@ -100,8 +101,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     }
   }
 
+  bool _isWalkIn(AppointmentModel appointment) {
+    final normalized = appointment.appointmentType
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s-]+'), '');
+    return normalized == 'walkin';
+  }
+
+  List<AppointmentModel> get _walkInAppointments =>
+      _appointments.where(_isWalkIn).toList();
+
   List<AppointmentModel> get _filteredAppointments {
-    List<AppointmentModel> apps = List.from(_appointments);
+    List<AppointmentModel> apps = List<AppointmentModel>.from(_walkInAppointments);
 
     // 1. Search Query Filter
     if (_searchQuery.isNotEmpty) {
@@ -153,9 +165,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   }
 
   int _getCountForTab(int tabIndex) {
+    final walkins = _walkInAppointments;
     switch (tabIndex) {
       case 0:
-        return _appointments
+        return walkins
             .where(
               (a) =>
                   a.status == 'Confirmed' ||
@@ -164,11 +177,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             )
             .length;
       case 1:
-        return _appointments.where((a) => a.status == 'In Consultation').length;
+        return walkins.where((a) => a.status == 'In Consultation').length;
       case 2:
-        return _appointments.where((a) => a.status == 'Completed').length;
+        return walkins.where((a) => a.status == 'Completed').length;
       case 3:
-        return _appointments
+        return walkins
             .where((a) => a.status == 'Cancelled' || a.status == 'No-Show')
             .length;
       default:
@@ -332,7 +345,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         children: [
           _buildStatCard(
             title: 'Total OPD Today',
-            count: _appointments.length,
+            count: _walkInAppointments.length,
             color: Colors.blue.shade700,
             icon: Icons.people_outline,
             onTap: null,
@@ -1110,29 +1123,145 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           ),
                         ),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showOverrideDialog(app),
-                        icon: const Icon(Icons.edit, size: 14),
-                        label: const Text(
-                          'Override Status',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                      if (app.status == 'Confirmed') ...[
+                        if (!_hasVitals(app))
+                          ElevatedButton.icon(
+                            onPressed: () => _openVitalsDialog(app),
+                            icon: const Icon(Icons.monitor_heart, size: 14),
+                            label: const Text(
+                              'Add Vitals',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0F766E),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ElevatedButton.icon(
+                          onPressed: () => _markWaiting(app),
+                          icon: const Icon(Icons.hourglass_empty, size: 14),
+                          label: const Text(
+                            'Mark Waiting',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D9488),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange.shade50,
-                          foregroundColor: Colors.orange.shade800,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
+                        ElevatedButton.icon(
+                          onPressed: () => _showCancelAppointmentDialog(app),
+                          icon: const Icon(Icons.cancel_outlined, size: 14),
+                          label: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade600,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
+                      if (app.status == 'Checked-in' || app.status == 'Waiting') ...[
+                        ElevatedButton.icon(
+                          onPressed: () => _openVitalsDialog(app),
+                          icon: const Icon(Icons.edit_note, size: 14),
+                          label: const Text(
+                            'Edit Vitals',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F766E),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () => _showCancelAppointmentDialog(app),
+                          icon: const Icon(Icons.cancel_outlined, size: 14),
+                          label: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade600,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (app.status == 'In Consultation') ...[
+                        ElevatedButton.icon(
+                          onPressed: () => _showConsultationWorkflowDialog(app),
+                          icon: const Icon(Icons.healing_outlined, size: 14),
+                          label: const Text(
+                            'Continue Consultation',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
@@ -1229,6 +1358,111 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           ),
           const SizedBox(height: 16),
           ElevatedButton(onPressed: _loadData, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+
+  bool _hasVitals(AppointmentModel app) {
+    return app.bloodPressureSystolic != null && app.temperature != null;
+  }
+
+  void _openVitalsDialog(AppointmentModel app) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AppointmentDetailsDialog(
+        appointment: app,
+        editVitalsOnly: true,
+        onRefresh: _loadData,
+      ),
+    );
+  }
+
+  Future<void> _markWaiting(AppointmentModel app) async {
+    if (!_hasVitals(app)) {
+      _openVitalsDialog(app);
+      return;
+    }
+
+    try {
+      await _appointmentController.updateStatus(app.id!, 'Waiting');
+      _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${app.patientName} marked as Waiting ✓'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _showCancelAppointmentDialog(AppointmentModel app) async {
+    final cancelReasonController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Appointment'),
+        content: TextField(
+          controller: cancelReasonController,
+          decoration: const InputDecoration(
+            hintText: 'Enter cancellation reason (required)',
+          ),
+          maxLines: 2,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Back'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (cancelReasonController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Reason is required')),
+                );
+                return;
+              }
+
+              Navigator.pop(ctx);
+              try {
+                await _appointmentController.updateStatus(
+                  app.id!,
+                  'Cancelled',
+                  cancellationReason: cancelReasonController.text.trim(),
+                );
+                _loadData();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${app.patientName} cancelled ✓'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Cancel Appointment'),
+          ),
         ],
       ),
     );
@@ -2074,10 +2308,56 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     );
   }
 
+  DateTime _parseTime(String timeStr) {
+    final timeParts = timeStr.split(' ');
+    final hms = timeParts[0].split(':');
+    int hour = int.parse(hms[0]);
+    int minute = hms.length > 1 ? int.parse(hms[1]) : 0;
+    if (timeParts.length > 1) {
+      if (timeParts[1].toUpperCase() == 'PM' && hour < 12) hour += 12;
+      if (timeParts[1].toUpperCase() == 'AM' && hour == 12) hour = 0;
+    }
+    return DateTime(2026, 1, 1, hour, minute);
+  }
+
+  List<String> _generateSlotsForDoctor(UserModel doctor) {
+    if (doctor.slotStartTime == null || doctor.slotEndTime == null) {
+      List<String> slots = [];
+      DateTime start = DateTime(2026, 1, 1, 9, 0);
+      DateTime end = DateTime(2026, 1, 1, 13, 0);
+      while (start.isBefore(end)) {
+        slots.add(DateFormat('hh:mm a').format(start));
+        start = start.add(const Duration(minutes: 30));
+      }
+      return slots;
+    }
+
+    int duration = 30;
+    if (doctor.slotDuration != null) {
+      duration = int.tryParse(doctor.slotDuration!.split(' ')[0]) ?? 30;
+    }
+
+    try {
+      DateTime start = _parseTime(doctor.slotStartTime!);
+      DateTime end = _parseTime(doctor.slotEndTime!);
+
+      List<String> slots = [];
+      DateTime current = start;
+      while (current.isBefore(end)) {
+        slots.add(DateFormat('hh:mm a').format(current));
+        current = current.add(Duration(minutes: duration));
+      }
+      return slots;
+    } catch (e) {
+      return [];
+    }
+  }
+
   void _showWalkInDialog() {
     PatientModel? selectedPatient;
     UserModel? selectedDoctor;
-    String time = DateFormat('hh:mm a').format(DateTime.now());
+    String? selectedTime;
+    List<String> availableSlots = [];
     bool isSaving = false;
     bool isLoadingPatients = false;
     List<PatientModel> allPatients = [];
@@ -2117,6 +2397,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (isLoadingPatients)
                         const Center(
@@ -2182,10 +2463,73 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         onChanged: (val) {
                           if (val != null) {
                             final id = int.tryParse(val);
+                            final doctor = _doctors.firstWhere(
+                              (d) => d.id == id,
+                            );
                             setDialogState(() {
-                              selectedDoctor = _doctors.firstWhere(
-                                (d) => d.id == id,
-                              );
+                              selectedDoctor = doctor;
+                              selectedTime = null;
+                              DateTime now = DateTime.now();
+                              final weekDays = [
+                                'Mon',
+                                'Tue',
+                                'Wed',
+                                'Thu',
+                                'Fri',
+                                'Sat',
+                                'Sun',
+                              ];
+                              final dayName = weekDays[now.weekday - 1];
+                              final dateStr = DateFormat(
+                                'dd/MM/yyyy',
+                              ).format(now);
+
+                              bool isAvailable = false;
+                              if (doctor.availableDays != null &&
+                                  doctor.availableDays!.contains(dayName)) {
+                                isAvailable = true;
+                              }
+                              if (doctor.weeklyOffDays != null &&
+                                  doctor.weeklyOffDays!.contains(dayName)) {
+                                isAvailable = false;
+                              }
+                              if (doctor.specificLeaveDates != null &&
+                                  doctor.specificLeaveDates!.contains(
+                                    dateStr,
+                                  )) {
+                                isAvailable = false;
+                              }
+
+                              if (!isAvailable) {
+                                availableSlots = [];
+                              } else {
+                                availableSlots = _generateSlotsForDoctor(
+                                  doctor,
+                                );
+                                availableSlots = availableSlots.where((slot) {
+                                  bool isBooked = _appointments.any(
+                                    (a) =>
+                                        a.doctorName == doctor.fullname &&
+                                        a.appointmentTime == slot &&
+                                        a.status != 'Cancelled' &&
+                                        a.status != 'No-Show',
+                                  );
+                                  if (isBooked) return false;
+                                  try {
+                                    DateTime slotTime = _parseTime(slot);
+                                    DateTime fullSlotTime = DateTime(
+                                      now.year,
+                                      now.month,
+                                      now.day,
+                                      slotTime.hour,
+                                      slotTime.minute,
+                                    );
+                                    return fullSlotTime.isAfter(now);
+                                  } catch (e) {
+                                    return true;
+                                  }
+                                }).toList();
+                              }
                             });
                           }
                         },
@@ -2194,48 +2538,79 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             : null,
                       ),
                       const SizedBox(height: 16),
-                      InkWell(
-                        onTap: () async {
-                          final pickedTime = await showTimePicker(
-                            context: context,
-                            initialTime: TimeOfDay.now(),
-                          );
-                          if (pickedTime != null) {
-                            final now = DateTime.now();
-                            final dt = DateTime(
-                              now.year,
-                              now.month,
-                              now.day,
-                              pickedTime.hour,
-                              pickedTime.minute,
-                            );
-                            setDialogState(
-                              () => time = DateFormat('hh:mm a').format(dt),
-                            );
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 15,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade400),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.access_time,
-                                size: 20,
-                                color: AppTheme.primaryColor,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(time, style: const TextStyle(fontSize: 16)),
-                            ],
+                      if (selectedDoctor != null) ...[
+                        const Text(
+                          'Available Time Slots (Today)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        if (availableSlots.isEmpty)
+                          const Text(
+                            'No slots available for this doctor today.',
+                            style: TextStyle(color: Colors.red, fontSize: 12),
+                          )
+                        else
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  childAspectRatio: 2.5,
+                                  crossAxisSpacing: 8,
+                                  mainAxisSpacing: 8,
+                                ),
+                            itemCount: availableSlots.length,
+                            itemBuilder: (context, index) {
+                              final slot = availableSlots[index];
+                              final isSelected = selectedTime == slot;
+                              return InkWell(
+                                onTap: () =>
+                                    setDialogState(() => selectedTime = slot),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFF0D9488)
+                                        : Colors.white,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? const Color(0xFF0D9488)
+                                          : AppTheme.borderColor,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    slot,
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : AppTheme.textPrimaryColor,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        if (selectedTime == null && availableSlots.isNotEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              'Please select a time slot',
+                              style: TextStyle(color: Colors.red, fontSize: 11),
+                            ),
+                          ),
+                      ],
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
@@ -2252,6 +2627,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     ? null
                     : () async {
                         if (!formKey.currentState!.validate()) return;
+                        if (selectedTime == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select a time slot'),
+                            ),
+                          );
+                          return;
+                        }
                         setDialogState(() => isSaving = true);
                         try {
                           final newApp = AppointmentModel(
@@ -2261,7 +2644,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 selectedDoctor!.specialization ?? 'General',
                             doctorName: selectedDoctor!.fullname,
                             appointmentDate: DateFormatter.toUi(DateTime.now()),
-                            appointmentTime: time,
+                            appointmentTime: selectedTime!,
                             status:
                                 'Confirmed', // Walk-ins go into queue in Confirmed state to be triaged
                             appointmentType: 'Walk-in',
@@ -3439,6 +3822,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
 
                                       await _appointmentController
                                           .saveConsultation(consultationData);
+                                      await _appointmentController.updateStatus(
+                                        app.id!,
+                                        'Completed',
+                                      );
                                       Navigator.pop(ctx);
                                       _loadData();
                                       if (mounted) {

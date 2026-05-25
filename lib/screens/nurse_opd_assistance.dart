@@ -60,10 +60,18 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
     try {
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final data = await _ctrl.fetchAdminAppointments(date: today);
-      if (mounted) setState(() { _appointments = data; _isLoading = false; });
+      if (mounted) setState(() { _appointments = data.where(_isWalkIn).toList(); _isLoading = false; });
     } catch (e) {
       if (mounted) setState(() { _error = e.toString().replaceAll('Exception: ', ''); _isLoading = false; });
     }
+  }
+
+  bool _isWalkIn(AppointmentModel appointment) {
+    final normalized = appointment.appointmentType
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s-]+'), '');
+    return normalized == 'walkin';
   }
 
   List<AppointmentModel> _forTab(int idx) {
@@ -508,11 +516,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
 
   Future<void> _markArrived(AppointmentModel app) async {
     try {
-      await _ctrl.adminOverrideAppointment(
-        id: app.id!,
-        status: 'Checked-in',
-        overrideReason: 'Patient arrived at OPD',
-      );
+      await _ctrl.updateStatus(app.id!, 'Checked-in');
       _load();
       _tabController.animateTo(1); // jump to Triaged tab
       if (mounted) {
@@ -534,11 +538,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
 
   Future<void> _sendToDoctor(AppointmentModel app) async {
     try {
-      await _ctrl.adminOverrideAppointment(
-        id: app.id!,
-        status: 'In Consultation',
-        overrideReason: 'Patient sent to consulting room',
-      );
+      await _ctrl.updateStatus(app.id!, 'In Consultation');
       _load();
       _tabController.animateTo(2); // jump to In Consultation tab
       if (mounted) {
@@ -699,16 +699,28 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                   : () async {
                       setS(() => isSaving = true);
                       try {
-                        await _ctrl.adminOverrideAppointment(
-                          id: app.id!,
-                          status: 'Checked-in',
-                          bloodPressureSystolic: int.tryParse(sysCtrl.text),
-                          bloodPressureDiastolic: int.tryParse(diaCtrl.text),
-                          sugarLevel: double.tryParse(sugCtrl.text),
-                          temperature: double.tryParse(tmpCtrl.text),
-                          reasonForVisit: cmpCtrl.text.trim(),
-                          overrideReason: 'Triage vitals recorded by nurse',
-                        );
+                        final vitalsData = <String, dynamic>{
+                          'reason_for_visit': cmpCtrl.text.trim(),
+                        };
+                        final bpSys = int.tryParse(sysCtrl.text);
+                        if (bpSys != null) {
+                          vitalsData['blood_pressure_systolic'] = bpSys;
+                        }
+                        final bpDia = int.tryParse(diaCtrl.text);
+                        if (bpDia != null) {
+                          vitalsData['blood_pressure_diastolic'] = bpDia;
+                        }
+                        final sugar = double.tryParse(sugCtrl.text);
+                        if (sugar != null) {
+                          vitalsData['sugar_level'] = sugar;
+                        }
+                        final temp = double.tryParse(tmpCtrl.text);
+                        if (temp != null) {
+                          vitalsData['temperature'] = temp;
+                        }
+
+                        await _ctrl.updateVitals(app.id!, vitalsData);
+                        await _ctrl.updateStatus(app.id!, 'Checked-in');
                         Navigator.pop(ctx);
                         _load();
                         _tabController.animateTo(1);

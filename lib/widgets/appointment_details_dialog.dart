@@ -356,7 +356,9 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
   }
 
   Widget _buildAppointmentDetailsCard(bool isMobile) {
-    final status = widget.appointment.status;
+    final status = widget.appointment.status == 'Checked-in'
+        ? 'Confirmed'
+        : widget.appointment.status;
     final statusColor = AppTheme.getStatusTextColor(status);
     final statusBg = AppTheme.getStatusBgColor(status);
 

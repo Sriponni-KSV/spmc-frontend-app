@@ -13,7 +13,7 @@ import 'patients_view.dart';
 import 'appointments_view.dart';
 import 'doctors_view.dart';
 import 'nurse_profile_view.dart';
-import 'nurse_opd_assistance.dart';
+import 'opd_management.dart';
 import 'ipd_management.dart';
 import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
@@ -247,7 +247,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 4:
         return const NurseProfileView();
       case 5:
-        return NurseOPDAssistanceScreen(isMobile: isMobile);
+        return OPDManagementScreen(isMobile: isMobile);
       case 6:
         return IPDManagementScreen(isMobile: isMobile);
       default:

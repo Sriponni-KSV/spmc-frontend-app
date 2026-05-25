@@ -573,7 +573,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     children: [
                       _buildFieldLabel('Select Patient *'),
                       _buildDropdown<PatientModel>(
-                        hint: 'Select a patient',
+                        hint: '',
                         value: _selectedPatient,
                         items: _patients,
                         itemLabel: (p) => p.name,
@@ -667,7 +667,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     children: [
                       _buildFieldLabel('Appointment Type *'),
                       _buildDropdown<String>(
-                        hint: 'Select type',
+                        hint: '',
                         value: _selectedApptType,
                         items: _apptTypes,
                         itemLabel: (s) => s,
@@ -692,7 +692,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     children: [
                       _buildFieldLabel('Department *'),
                       _buildDropdown<String>(
-                        hint: 'Select department',
+                        hint: '',
                         value: _selectedDept,
                         items: _departments,
                         itemLabel: (s) => s,
@@ -1185,7 +1185,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               children: [
                                 _buildFieldLabel('Select Patient *'),
                                 _buildDropdown<PatientModel>(
-                                  hint: 'Select a patient',
+                                  hint: '',
                                   value: _selectedPatient,
                                   items: _patients,
                                   itemLabel: (p) => p.name,
@@ -1290,7 +1290,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               children: [
                                 _buildFieldLabel('Appointment Type *'),
                                 _buildDropdown<String>(
-                                  hint: 'Select type',
+                                  hint: '',
                                   value: _selectedApptType,
                                   items: _apptTypes,
                                   itemLabel: (s) => s,
@@ -1315,7 +1315,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               children: [
                                 _buildFieldLabel('Department *'),
                                 _buildDropdown<String>(
-                                  hint: 'Select department',
+                                  hint: '',
                                   value: _selectedDept,
                                   items: _departments,
                                   itemLabel: (s) => s,

@@ -191,6 +191,7 @@ class _AdminAppointmentManagementState
     String? department = appt.department;
     String? appointmentType = appt.appointmentType;
     bool isSaving = false;
+    String? reasonError;
 
     List<String> availableStatuses = [
       'Confirmed',
@@ -547,13 +548,13 @@ class _AdminAppointmentManagementState
 
                       // Override reason (mandatory)
                       buildField(
-                        'Override Reason *',
+                        'Override Reason',
                         TextFormField(
                           controller: reasonCtrl,
                           maxLines: 3,
                           decoration: InputDecoration(
-                            hintText:
-                                'Enter reason for this override (required)',
+                            hintText: 'Enter reason for this override',
+                            errorText: reasonError,
                             contentPadding: const EdgeInsets.all(12),
                             fillColor: Colors.white,
                             filled: true,
@@ -576,7 +577,11 @@ class _AdminAppointmentManagementState
                               ),
                             ),
                           ),
-                          onChanged: (_) => setS(() {}),
+                          onChanged: (value) => setS(() {
+                            reasonError = value.trim().isEmpty
+                                ? 'Override reason is required.'
+                                : null;
+                          }),
                         ),
                       ),
 
@@ -625,9 +630,7 @@ class _AdminAppointmentManagementState
               if (mode != 'view')
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: mode == 'cancel'
-                        ? Colors.red
-                        : AppTheme.primaryColor,
+                    backgroundColor: AppTheme.logoRed,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(120, 48),
                     shape: RoundedRectangleBorder(
@@ -642,12 +645,9 @@ class _AdminAppointmentManagementState
                       ? null
                       : () async {
                           if (reasonCtrl.text.trim().isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Override reason is required.'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
+                            setS(() {
+                              reasonError = 'Override reason is required.';
+                            });
                             return;
                           }
                           setS(() => isSaving = true);

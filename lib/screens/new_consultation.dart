@@ -445,6 +445,10 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         await _appointmentController.saveConsultation(data);
       }
 
+      if (widget.appointment.id != null) {
+        await _appointmentController.updateStatus(widget.appointment.id!, 'Completed');
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
