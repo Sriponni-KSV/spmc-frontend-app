@@ -14,4 +14,16 @@ class TokenService {
   static Future<void> deleteToken() async {
     await _storage.delete(key: 'token');
   }
+
+  static Future<void> saveUser(String userJson) async {
+    await _storage.write(key: 'user', value: userJson);
+  }
+
+  static Future<String?> getUser() async {
+    return await _storage.read(key: 'user');
+  }
+
+  static Future<void> deleteUser() async {
+    await _storage.delete(key: 'user');
+  }
 }

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
-import '../utils/custom_app_bar.dart';
 import '../providers/auth_provider.dart';
-
-import 'dashboard_page.dart';
-import 'nurse_dashboard.dart';
-import 'admin_dashboard.dart';
-import 'forgot_password_page.dart';
+import '../core/routes/route_constants.dart';
+import '../utils/password_policy.dart';
+import 'package:flutter/services.dart';
+import '../controllers/auth_controller.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -39,27 +38,25 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text.trim();
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.login(email: email, password: password);
+    try {
+      final success = await authProvider.login(email: email, password: password);
 
-    if (mounted && success) {
-      final user = authProvider.user!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Welcome back, ${user.fullname}!'), backgroundColor: AppTheme.primaryColor),
-      );
-      
-      Widget nextScreen;
-      if (user.role == 'Nurse' || user.role == 'Head Nurse') {
-        nextScreen = const NurseDashboardScreen();
-      } else if (user.role == 'Admin' || user.role == 'Supervisor' || user.role == 'Super Admin') {
-        nextScreen = const AdminDashboardScreen();
-      } else {
-        nextScreen = const DashboardScreen(); // Doctor dashboard
+      if (mounted && success) {
+        final user = authProvider.user!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Welcome back, ${user.fullname}!'), backgroundColor: AppTheme.primaryColor),
+        );
+        
+        context.go(AppRoutes.dashboard);
       }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => nextScreen),
-      );
+    } on RequiresPasswordChangeException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message), backgroundColor: Colors.orange),
+        );
+        // Pass the email to the force change password screen
+        context.go('${AppRoutes.forceChangePassword}?email=${Uri.encodeComponent(email)}');
+      }
     }
   }
 
@@ -221,6 +218,7 @@ class _LoginScreenState extends State<LoginScreen> {
           label: 'Email Address',
           hint: 'Enter Email Address',
           icon: Icons.email_outlined,
+          maxLength: 50,
           onSubmitted: (_) => _handleLogin(),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
@@ -241,6 +239,7 @@ class _LoginScreenState extends State<LoginScreen> {
           hint: 'Enter Password',
           icon: Icons.lock_outline,
           isPassword: true,
+          maxLength: 16,
           obscureText: _obscurePassword,
           onToggleVisibility: () {
             setState(() {
@@ -248,27 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
             });
           },
           onSubmitted: (_) => _handleLogin(),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter Password';
-            }
-            if (value.length < 8) {
-              return 'Password must be at least 8 characters long';
-            }
-            if (!RegExp(r'(?=.*[a-z])').hasMatch(value)) {
-              return 'Must contain at least one lowercase letter';
-            }
-            if (!RegExp(r'(?=.*[A-Z])').hasMatch(value)) {
-              return 'Must contain at least one uppercase letter';
-            }
-            if (!RegExp(r'(?=.*\d)').hasMatch(value)) {
-              return 'Must contain at least one number';
-            }
-            if (!RegExp(r'(?=.*[\W_])').hasMatch(value)) {
-              return 'Must contain at least one special character';
-            }
-            return null;
-          },
+          validator: PasswordPolicy.validatePassword,
         ),
         const SizedBox(height: 8),
 
@@ -276,10 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
-              );
+              context.go(AppRoutes.forgotPassword);
             },
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.primaryColor,
@@ -359,6 +335,7 @@ class _LoginScreenState extends State<LoginScreen> {
     required IconData icon,
     bool isPassword = false,
     bool obscureText = false,
+    int? maxLength,
     VoidCallback? onToggleVisibility,
     String? Function(String?)? validator,
     void Function(String)? onSubmitted,
@@ -386,7 +363,10 @@ class _LoginScreenState extends State<LoginScreen> {
             fontSize: 14,
           ),
           validator: validator,
+          maxLength: maxLength,
+          inputFormatters: maxLength != null ? [LengthLimitingTextInputFormatter(maxLength)] : null,
           decoration: InputDecoration(
+            counterText: '',
             hintText: hint,
             hintStyle: const TextStyle(
               fontFamily: AppTheme.fontFamily,

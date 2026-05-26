@@ -232,7 +232,11 @@ class _NurseProfileViewState extends State<NurseProfileView> {
               ? SystemMouseCursors.click 
               : (isReadOnly ? SystemMouseCursors.forbidden : null),
           onTap: onTap,
-          style: TextStyle(color: isReadOnly ? AppTheme.textSecondaryColor.withOpacity(0.7) : AppTheme.textPrimaryColor),
+          style: TextStyle(
+            color: (isReadOnly && onTap == null) 
+                ? AppTheme.textSecondaryColor.withOpacity(0.7) 
+                : AppTheme.textPrimaryColor,
+          ),
           decoration: InputDecoration(
             counterText: '',
             hintText: label,

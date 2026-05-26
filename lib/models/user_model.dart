@@ -169,4 +169,19 @@ class UserModel {
     if (role == 'Super Admin') return true;
     return permissions.contains(permission);
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'fullname': fullname,
+      'email': email,
+      'role': role,
+      'status': status,
+      'is_deleted': isDeleted ? 1 : 0,
+      'staff_unique_id': staffUniqueId,
+      'mobile': mobile,
+      'token': token,
+      'permissions': permissions,
+    };
+  }
 }
