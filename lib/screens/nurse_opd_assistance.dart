@@ -77,7 +77,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
   List<AppointmentModel> _forTab(int idx) {
     final status = _tabs[idx]['status']!;
     return _appointments.where((a) {
-      final matchStatus = a.status == status;
+      final matchStatus = (status == 'Checked-in')
+          ? (a.status == 'Checked-in' || a.status == 'Waiting')
+          : a.status == status;
       if (_search.trim().isEmpty) return matchStatus;
       final q = _search.toLowerCase();
       return matchStatus &&
@@ -266,7 +268,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
 
     Color lineColor;
     if (isConfirmed)   lineColor = const Color(0xFF3B82F6);
-    else if (isCheckedIn) lineColor = const Color(0xFF0D9488);
+    else if (isCheckedIn || app.status == 'Waiting') lineColor = const Color(0xFF0D9488);
     else if (inConsult) lineColor = const Color(0xFFF59E0B);
     else lineColor = const Color(0xFF22C55E);
 
@@ -418,73 +420,56 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               runSpacing: 8,
               alignment: WrapAlignment.end,
               children: [
-                // Tab 0: Awaiting Arrival → Mark Arrived
                 if (isConfirmed) ...[
+                  if (!_hasVitals(app))
+                    OutlinedButton.icon(
+                      onPressed: () => _showTriageDialog(app),
+                      icon: const Icon(Icons.add_chart_outlined, size: 15),
+                      label: const Text('Capture Vitals', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0D9488),
+                        side: const BorderSide(color: Color(0xFF0D9488), width: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
                   ElevatedButton.icon(
-                    onPressed: () => _markArrived(app),
-                    icon: const Icon(Icons.where_to_vote_outlined, size: 15),
-                    label: const Text('Mark Arrived', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () => _markWaiting(app),
+                    icon: const Icon(Icons.hourglass_empty, size: 15),
+                    label: const Text('Mark Waiting', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
+                      backgroundColor: const Color(0xFF0D9488),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       elevation: 1,
                     ),
                   ),
-                ],
-
-                // Tab 1: Triaged/Waiting → Edit Vitals + Send to Doctor
-                if (isCheckedIn) ...[
                   ElevatedButton.icon(
-                    onPressed: () => _sendToDoctor(app),
-                    icon: const Icon(Icons.arrow_forward, size: 15),
-                    label: const Text('Send to Doctor', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () => _showCancelAppointmentDialog(app),
+                    icon: const Icon(Icons.cancel_outlined, size: 15),
+                    label: const Text('Cancel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
+                      backgroundColor: Colors.red.shade600,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       elevation: 1,
                     ),
                   ),
+                ] else ...[
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Text(
+                      '-',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ],
-
-                // Capture / Edit Vitals (Confirmed or Checked-in)
-                if (isConfirmed || isCheckedIn)
-                  OutlinedButton.icon(
-                    onPressed: () => _showTriageDialog(app),
-                    icon: Icon(isCheckedIn ? Icons.edit_note : Icons.add_chart_outlined, size: 15),
-                    label: Text(isCheckedIn ? 'Edit Vitals' : 'Capture Vitals',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0D9488),
-                      side: const BorderSide(color: Color(0xFF0D9488), width: 1.5),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-
-                // Read-only status chip for In Consultation / Completed
-                if (inConsult || isCompleted)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: lineColor.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: lineColor.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(width: 7, height: 7,
-                            decoration: BoxDecoration(color: lineColor, shape: BoxShape.circle)),
-                        const SizedBox(width: 6),
-                        Text(app.status,
-                            style: TextStyle(color: lineColor, fontSize: 12, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
               ],
             ),
           ],
@@ -514,15 +499,63 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
-  Future<void> _markArrived(AppointmentModel app) async {
+  bool _hasVitals(AppointmentModel app) {
+    return app.bloodPressureSystolic != null && app.temperature != null;
+  }
+
+  Future<void> _showVitalsMissingDialog(AppointmentModel appt) async {
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 28),
+              const SizedBox(width: 8),
+              const Text('Vitals Required', style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Text(
+            'Vitals must be recorded before changing the appointment status to "Waiting". Would you like to enter them now?',
+            style: TextStyle(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // close alert
+                _showTriageDialog(appt);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F766E),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              child: const Text('Enter Vitals Now', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _markWaiting(AppointmentModel app) async {
+    if (!_hasVitals(app)) {
+      await _showVitalsMissingDialog(app);
+      return;
+    }
+
     try {
-      await _ctrl.updateStatus(app.id!, 'Checked-in');
+      await _ctrl.updateStatus(app.id!, 'Waiting');
       _load();
       _tabController.animateTo(1); // jump to Triaged tab
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${app.patientName} marked as Arrived ✓'),
+            content: Text('${app.patientName} marked as Waiting ✓'),
             backgroundColor: Colors.green,
           ),
         );
@@ -536,26 +569,67 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
     }
   }
 
-  Future<void> _sendToDoctor(AppointmentModel app) async {
-    try {
-      await _ctrl.updateStatus(app.id!, 'In Consultation');
-      _load();
-      _tabController.animateTo(2); // jump to In Consultation tab
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${app.patientName} sent to Doctor ✓'),
-            backgroundColor: AppTheme.primaryColor,
+  Future<void> _showCancelAppointmentDialog(AppointmentModel app) async {
+    final cancelReasonController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Appointment'),
+        content: TextField(
+          controller: cancelReasonController,
+          decoration: const InputDecoration(
+            hintText: 'Enter cancellation reason (required)',
           ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-        );
-      }
-    }
+          maxLines: 2,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Back'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (cancelReasonController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Reason is required')),
+                );
+                return;
+              }
+
+              Navigator.pop(ctx);
+              try {
+                await _ctrl.updateStatus(
+                  app.id!,
+                  'Cancelled',
+                  cancellationReason: cancelReasonController.text.trim(),
+                );
+                _load();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${app.patientName} cancelled ✓'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Cancel Appointment'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showTriageDialog(AppointmentModel app) {

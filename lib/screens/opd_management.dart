@@ -1191,73 +1191,15 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             ),
                           ),
                         ),
-                      ],
-                      if (app.status == 'Checked-in' || app.status == 'Waiting') ...[
-                        ElevatedButton.icon(
-                          onPressed: () => _openVitalsDialog(app),
-                          icon: const Icon(Icons.edit_note, size: 14),
-                          label: const Text(
-                            'Edit Vitals',
+                      ] else ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: Text(
+                            '-',
                             style: TextStyle(
-                              fontSize: 12,
+                              color: Colors.grey,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0F766E),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: () => _showCancelAppointmentDialog(app),
-                          icon: const Icon(Icons.cancel_outlined, size: 14),
-                          label: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red.shade600,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (app.status == 'In Consultation') ...[
-                        ElevatedButton.icon(
-                          onPressed: () => _showConsultationWorkflowDialog(app),
-                          icon: const Icon(Icons.healing_outlined, size: 14),
-                          label: const Text(
-                            'Continue Consultation',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
                         ),
@@ -1379,9 +1321,48 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     );
   }
 
+  Future<void> _showVitalsMissingDialog(BuildContext context, AppointmentModel appt) async {
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 28),
+              const SizedBox(width: 8),
+              const Text('Vitals Required', style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Text(
+            'Vitals must be recorded before changing the appointment status to "Waiting". Would you like to enter them now?',
+            style: TextStyle(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // close alert
+                _openVitalsDialog(appt);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F766E),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              child: const Text('Enter Vitals Now', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _markWaiting(AppointmentModel app) async {
     if (!_hasVitals(app)) {
-      _openVitalsDialog(app);
+      await _showVitalsMissingDialog(context, app);
       return;
     }
 
