@@ -14,10 +14,12 @@ import '../widgets/custom_dropdown_search.dart';
 /// Flow: Patient Arrives → Mark Arrived → Record Vitals → Send to Doctor
 class NurseOPDAssistanceScreen extends StatefulWidget {
   final bool isMobile;
-  const NurseOPDAssistanceScreen({Key? key, required this.isMobile}) : super(key: key);
+  const NurseOPDAssistanceScreen({Key? key, required this.isMobile})
+    : super(key: key);
 
   @override
-  State<NurseOPDAssistanceScreen> createState() => _NurseOPDAssistanceScreenState();
+  State<NurseOPDAssistanceScreen> createState() =>
+      _NurseOPDAssistanceScreenState();
 }
 
 class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
@@ -35,10 +37,10 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
 
   // Tab labels + status filters
   static const _tabs = [
-    {'label': 'Awaiting Arrival',  'status': 'Confirmed'},
+    {'label': 'Awaiting Arrival', 'status': 'Confirmed'},
     {'label': 'Triaged / Waiting', 'status': 'Checked-in'},
-    {'label': 'In Consultation',   'status': 'In Consultation'},
-    {'label': 'Completed',         'status': 'Completed'},
+    {'label': 'In Consultation', 'status': 'In Consultation'},
+    {'label': 'Completed', 'status': 'Completed'},
   ];
 
   @override
@@ -56,13 +58,24 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
 
   Future<void> _load() async {
     if (!mounted) return;
-    setState(() { _isLoading = true; _error = null; });
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final data = await _ctrl.fetchAdminAppointments(date: today);
-      if (mounted) setState(() { _appointments = data.where(_isWalkIn).toList(); _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _appointments = data.where(_isWalkIn).toList();
+          _isLoading = false;
+        });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString().replaceAll('Exception: ', ''); _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _error = e.toString().replaceAll('Exception: ', '');
+          _isLoading = false;
+        });
     }
   }
 
@@ -74,9 +87,22 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
     return normalized == 'walkin';
   }
 
+  DateTime _sortDate(AppointmentModel appointment) {
+    return DateTime.tryParse(
+          appointment.createdAt ?? appointment.updatedAt ?? '',
+        ) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  int _newestFirst(AppointmentModel a, AppointmentModel b) {
+    final dateCompare = _sortDate(b).compareTo(_sortDate(a));
+    if (dateCompare != 0) return dateCompare;
+    return (b.id ?? 0).compareTo(a.id ?? 0);
+  }
+
   List<AppointmentModel> _forTab(int idx) {
     final status = _tabs[idx]['status']!;
-    return _appointments.where((a) {
+    final apps = _appointments.where((a) {
       final matchStatus = (status == 'Checked-in')
           ? (a.status == 'Checked-in' || a.status == 'Waiting')
           : a.status == status;
@@ -84,9 +110,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
       final q = _search.toLowerCase();
       return matchStatus &&
           (a.patientName.toLowerCase().contains(q) ||
-           (a.patientDisplayId?.toLowerCase().contains(q) ?? false) ||
-           a.doctorName.toLowerCase().contains(q));
+              (a.patientDisplayId?.toLowerCase().contains(q) ?? false) ||
+              a.doctorName.toLowerCase().contains(q));
     }).toList();
+    apps.sort(_newestFirst);
+    return apps;
   }
 
   @override
@@ -110,34 +138,60 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                       color: const Color(0xFF0D9488).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.local_hospital_outlined, color: Color(0xFF0D9488), size: 22),
+                    child: const Icon(
+                      Icons.local_hospital_outlined,
+                      color: Color(0xFF0D9488),
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('OPD Assistance', style: Theme.of(context).textTheme.displayLarge),
-                      const Text("Today's patient arrival & triage queue",
-                          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13)),
+                      Text(
+                        'OPD Assistance',
+                        style: Theme.of(context).textTheme.displayLarge,
+                      ),
+                      const Text(
+                        "Today's patient arrival & triage queue",
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ),
                   const Spacer(),
                   ElevatedButton.icon(
                     onPressed: _showWalkInDialog,
                     icon: const Icon(Icons.add, size: 16),
-                    label: Text(widget.isMobile ? 'Walk-in' : 'New Walk-in Entry', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    label: Text(
+                      widget.isMobile ? 'Walk-in' : 'New Walk-in Entry',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D9488),
+                      backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       elevation: 1,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
                     onPressed: _load,
-                    icon: const Icon(Icons.refresh, color: AppTheme.textSecondaryColor),
+                    icon: const Icon(
+                      Icons.refresh,
+                      color: AppTheme.textSecondaryColor,
+                    ),
                     tooltip: 'Refresh',
                   ),
                 ],
@@ -154,7 +208,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
-                    const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                    const Icon(
+                      Icons.search,
+                      size: 18,
+                      color: AppTheme.textSecondaryColor,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
@@ -162,7 +220,10 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         decoration: const InputDecoration(
                           border: InputBorder.none,
                           hintText: 'Search patient name or ID...',
-                          hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                          hintStyle: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondaryColor,
+                          ),
                           isDense: true,
                         ),
                       ),
@@ -178,7 +239,10 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                 labelColor: const Color(0xFF0D9488),
                 unselectedLabelColor: AppTheme.textSecondaryColor,
                 indicatorColor: const Color(0xFF0D9488),
-                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
                 tabs: List.generate(_tabs.length, (i) {
                   final count = _forTab(i).length;
                   return Tab(
@@ -188,13 +252,22 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         Text(_tabs[i]['label']!),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF0D9488).withOpacity(0.12),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Text('$count',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0D9488))),
+                          child: Text(
+                            '$count',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0D9488),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -211,11 +284,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _error != null
-                  ? _buildError()
-                  : TabBarView(
-                      controller: _tabController,
-                      children: List.generate(_tabs.length, (i) => _buildList(i)),
-                    ),
+              ? _buildError()
+              : TabBarView(
+                  controller: _tabController,
+                  children: List.generate(_tabs.length, (i) => _buildList(i)),
+                ),
         ),
       ],
     );
@@ -243,11 +316,19 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle_outline, size: 56,
-                color: AppTheme.textSecondaryColor.withOpacity(0.3)),
+            Icon(
+              Icons.check_circle_outline,
+              size: 56,
+              color: AppTheme.textSecondaryColor.withOpacity(0.3),
+            ),
             const SizedBox(height: 12),
-            Text('No patients in "${_tabs[tabIdx]['label']}"',
-                style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14)),
+            Text(
+              'No patients in "${_tabs[tabIdx]['label']}"',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+            ),
           ],
         ),
       );
@@ -261,16 +342,20 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
 
   Widget _buildCard(AppointmentModel app, int tabIdx) {
     final avatarColors = AppTheme.getAvatarColors(app.patientName);
-    final bool isConfirmed   = app.status == 'Confirmed';
-    final bool isCheckedIn   = app.status == 'Checked-in';
-    final bool inConsult     = app.status == 'In Consultation';
-    final bool isCompleted   = app.status == 'Completed';
+    final bool isConfirmed = app.status == 'Confirmed';
+    final bool isCheckedIn = app.status == 'Checked-in';
+    final bool inConsult = app.status == 'In Consultation';
+    final bool isCompleted = app.status == 'Completed';
 
     Color lineColor;
-    if (isConfirmed)   lineColor = const Color(0xFF3B82F6);
-    else if (isCheckedIn || app.status == 'Waiting') lineColor = const Color(0xFF0D9488);
-    else if (inConsult) lineColor = const Color(0xFFF59E0B);
-    else lineColor = const Color(0xFF22C55E);
+    if (isConfirmed)
+      lineColor = const Color(0xFF3B82F6);
+    else if (isCheckedIn || app.status == 'Waiting')
+      lineColor = const Color(0xFF0D9488);
+    else if (inConsult)
+      lineColor = const Color(0xFFF59E0B);
+    else
+      lineColor = const Color(0xFF22C55E);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -278,7 +363,13 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border(left: BorderSide(color: lineColor, width: 5)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -293,8 +384,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                   radius: 22,
                   backgroundColor: avatarColors['bg'],
                   child: Text(
-                    app.patientName.isNotEmpty ? app.patientName[0].toUpperCase() : 'P',
-                    style: TextStyle(color: avatarColors['text'], fontWeight: FontWeight.bold, fontSize: 18),
+                    app.patientName.isNotEmpty
+                        ? app.patientName[0].toUpperCase()
+                        : 'P',
+                    style: TextStyle(
+                      color: avatarColors['text'],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -305,21 +402,35 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                       Row(
                         children: [
                           Flexible(
-                            child: Text(app.patientName,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                            child: Text(
+                              app.patientName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
                           ),
                           if (app.patientDisplayId != null) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.grey.shade100,
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(color: Colors.grey.shade300),
                               ),
-                              child: Text(app.patientDisplayId!,
-                                  style: TextStyle(fontFamily: 'monospace', fontSize: 10,
-                                      fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                              child: Text(
+                                app.patientDisplayId!,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
                             ),
                           ],
                         ],
@@ -327,23 +438,46 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.medical_services_outlined, size: 13, color: AppTheme.textSecondaryColor),
+                          const Icon(
+                            Icons.medical_services_outlined,
+                            size: 13,
+                            color: AppTheme.textSecondaryColor,
+                          ),
                           const SizedBox(width: 4),
-                          Text('Dr. ${app.doctorName}',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                          Text(
+                            'Dr. ${app.doctorName}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
                           const SizedBox(width: 8),
-                          Text('• ${app.department}',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textMutedColor)),
+                          Text(
+                            '• ${app.department}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textMutedColor,
+                            ),
+                          ),
                         ],
                       ),
                       if (app.patientPhone != null) ...[
                         const SizedBox(height: 2),
                         Row(
                           children: [
-                            const Icon(Icons.phone_outlined, size: 13, color: AppTheme.textMutedColor),
+                            const Icon(
+                              Icons.phone_outlined,
+                              size: 13,
+                              color: AppTheme.textMutedColor,
+                            ),
                             const SizedBox(width: 4),
-                            Text(app.patientPhone!,
-                                style: const TextStyle(fontSize: 12, color: AppTheme.textMutedColor)),
+                            Text(
+                              app.patientPhone!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textMutedColor,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -352,7 +486,10 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                 ),
                 // Time pill
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: lineColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -362,8 +499,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                     children: [
                       Icon(Icons.access_time, size: 12, color: lineColor),
                       const SizedBox(width: 4),
-                      Text(app.appointmentTime,
-                          style: TextStyle(fontWeight: FontWeight.bold, color: lineColor, fontSize: 12)),
+                      Text(
+                        app.appointmentTime,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: lineColor,
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -371,24 +514,39 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
             ),
 
             // Vitals row (if any recorded)
-            if (app.bloodPressureSystolic != null || app.temperature != null || app.sugarLevel != null) ...[
+            if (app.bloodPressureSystolic != null ||
+                app.temperature != null ||
+                app.sugarLevel != null) ...[
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
                 children: [
                   if (app.bloodPressureSystolic != null)
-                    _vitalChip(Icons.speed, 'BP: ${app.bloodPressureSystolic}/${app.bloodPressureDiastolic ?? "--"} mmHg', Colors.blue.shade700),
+                    _vitalChip(
+                      Icons.speed,
+                      'BP: ${app.bloodPressureSystolic}/${app.bloodPressureDiastolic ?? "--"} mmHg',
+                      Colors.blue.shade700,
+                    ),
                   if (app.temperature != null)
-                    _vitalChip(Icons.thermostat_outlined, 'Temp: ${app.temperature} °F', Colors.orange.shade700),
+                    _vitalChip(
+                      Icons.thermostat_outlined,
+                      'Temp: ${app.temperature} °F',
+                      Colors.orange.shade700,
+                    ),
                   if (app.sugarLevel != null)
-                    _vitalChip(Icons.bloodtype_outlined, 'Sugar: ${app.sugarLevel} mg/dL', Colors.red.shade700),
+                    _vitalChip(
+                      Icons.bloodtype_outlined,
+                      'Sugar: ${app.sugarLevel} mg/dL',
+                      Colors.red.shade700,
+                    ),
                 ],
               ),
             ],
 
             // Complaint
-            if (app.reasonForVisit != null && app.reasonForVisit!.isNotEmpty) ...[
+            if (app.reasonForVisit != null &&
+                app.reasonForVisit!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(9),
@@ -402,8 +560,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                     Icon(Icons.notes, size: 13, color: Colors.grey.shade600),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text('Complaint: ${app.reasonForVisit}',
-                          style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey.shade700)),
+                      child: Text(
+                        'Complaint: ${app.reasonForVisit}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -421,39 +585,73 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               alignment: WrapAlignment.end,
               children: [
                 if (isConfirmed) ...[
-                  if (!_hasVitals(app))
-                    OutlinedButton.icon(
-                      onPressed: () => _showTriageDialog(app),
-                      icon: const Icon(Icons.add_chart_outlined, size: 15),
-                      label: const Text('Capture Vitals', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0D9488),
-                        side: const BorderSide(color: Color(0xFF0D9488), width: 1.5),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ElevatedButton.icon(
+                    onPressed: () => _showCancelAppointmentDialog(app),
+                    icon: const Icon(Icons.cancel_outlined, size: 15),
+                    label: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ElevatedButton.icon(
-                    onPressed: () => _markWaiting(app),
-                    icon: const Icon(Icons.hourglass_empty, size: 15),
-                    label: const Text('Mark Waiting', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D9488),
+                      backgroundColor: Colors.red.shade600,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 1,
+                    ),
+                  ),
+                ] else if (isCheckedIn || app.status == 'Waiting') ...[
+                  ElevatedButton.icon(
+                    onPressed: () => _showTriageDialog(app),
+                    icon: const Icon(Icons.edit_note, size: 15),
+                    label: const Text(
+                      'Edit Vitals',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F766E),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       elevation: 1,
                     ),
                   ),
                   ElevatedButton.icon(
                     onPressed: () => _showCancelAppointmentDialog(app),
                     icon: const Icon(Icons.cancel_outlined, size: 15),
-                    label: const Text('Cancel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    label: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red.shade600,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       elevation: 1,
                     ),
                   ),
@@ -491,7 +689,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
         children: [
           Icon(icon, size: 13, color: color),
           const SizedBox(width: 4),
-          Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -503,51 +708,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
     return app.bloodPressureSystolic != null && app.temperature != null;
   }
 
-  Future<void> _showVitalsMissingDialog(AppointmentModel appt) async {
-    await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 28),
-              const SizedBox(width: 8),
-              const Text('Vitals Required', style: TextStyle(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: const Text(
-            'Vitals must be recorded before changing the appointment status to "Waiting". Would you like to enter them now?',
-            style: TextStyle(fontSize: 14),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context); // close alert
-                _showTriageDialog(appt);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F766E),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              ),
-              child: const Text('Enter Vitals Now', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Future<void> _markWaiting(AppointmentModel app) async {
-    if (!_hasVitals(app)) {
-      await _showVitalsMissingDialog(app);
-      return;
-    }
-
     try {
       await _ctrl.updateStatus(app.id!, 'Waiting');
       _load();
@@ -616,7 +777,10 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                    SnackBar(
+                      content: Text(e.toString()),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
@@ -633,12 +797,21 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
   }
 
   void _showTriageDialog(AppointmentModel app) {
-    final sysCtrl  = TextEditingController(text: app.bloodPressureSystolic?.toString() ?? '');
-    final diaCtrl  = TextEditingController(text: app.bloodPressureDiastolic?.toString() ?? '');
-    final sugCtrl  = TextEditingController(text: app.sugarLevel?.toString() ?? '');
-    final tmpCtrl  = TextEditingController(text: app.temperature?.toString() ?? '');
-    final cmpCtrl  = TextEditingController(text: app.reasonForVisit ?? '');
-    bool isSaving  = false;
+    final sysCtrl = TextEditingController(
+      text: app.bloodPressureSystolic?.toString() ?? '',
+    );
+    final diaCtrl = TextEditingController(
+      text: app.bloodPressureDiastolic?.toString() ?? '',
+    );
+    final sugCtrl = TextEditingController(
+      text: app.sugarLevel?.toString() ?? '',
+    );
+    final tmpCtrl = TextEditingController(
+      text: app.temperature?.toString() ?? '',
+    );
+    final cmpCtrl = TextEditingController(text: app.reasonForVisit ?? '');
+    final formKey = GlobalKey<FormState>();
+    bool isSaving = false;
 
     showDialog(
       context: context,
@@ -647,7 +820,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
         builder: (ctx, setS) => AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
           title: Row(
             children: [
@@ -657,17 +832,32 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                   color: const Color(0xFF0D9488).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.add_chart_outlined, color: Color(0xFF0D9488), size: 20),
+                child: const Icon(
+                  Icons.add_chart_outlined,
+                  color: Color(0xFF0D9488),
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Capture Vitals', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text(app.patientName,
-                        style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12,
-                            fontWeight: FontWeight.normal)),
+                    const Text(
+                      'Capture Vitals',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      app.patientName,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -676,88 +866,167 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
           content: SizedBox(
             width: 460,
             child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 16),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
 
-                  // Blood Pressure
-                  const Text('Blood Pressure (mmHg)',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: sysCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Systolic', hintText: '120', isDense: true),
-                        ),
+                    // Blood Pressure
+                    const Text(
+                      'Blood Pressure (mmHg)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E40AF),
                       ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10),
-                        child: Text('/', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold,
-                            color: AppTheme.textSecondaryColor)),
-                      ),
-                      Expanded(
-                        child: TextFormField(
-                          controller: diaCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Diastolic', hintText: '80', isDense: true),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Sugar & Temperature side by side
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Sugar Level (mg/dL)',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: sugCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(hintText: '95.5', isDense: true),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: sysCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Systolic',
+                              hintText: '120',
+                              isDense: true,
                             ),
-                          ],
+                            autovalidateMode: AutovalidateMode.onUserInteraction,
+                            validator: (val) {
+                              final text = val?.trim() ?? '';
+                              if (text.isEmpty) {
+                                return 'Please enter BP systolic';
+                              }
+                              return int.tryParse(text) == null ? 'Enter a number' : null;
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Temperature (°F)',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: tmpCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(hintText: '98.6', isDense: true),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            '/',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textSecondaryColor,
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: diaCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Diastolic',
+                              hintText: '80',
+                              isDense: true,
+                            ),
+                            autovalidateMode: AutovalidateMode.onUserInteraction,
+                            validator: (val) {
+                              final text = val?.trim() ?? '';
+                              if (text.isEmpty) {
+                                return 'Please enter BP diastolic';
+                              }
+                              return int.tryParse(text) == null ? 'Enter a number' : null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
 
-                  // Chief Complaint
-                  const Text('Chief Complaint',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: cmpCtrl,
-                    maxLines: 3,
-                    decoration: const InputDecoration(hintText: 'Describe symptoms or reason for visit...'),
-                  ),
-                ],
+                    // Sugar & Temperature side by side
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Sugar Level (mg/dL)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF991B1B),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: sugCtrl,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                decoration: const InputDecoration(
+                                  hintText: '95.5',
+                                  isDense: true,
+                                ),
+                                autovalidateMode: AutovalidateMode.onUserInteraction,
+                                validator: (val) {
+                                  final text = val?.trim() ?? '';
+                                  if (text.isEmpty) {
+                                    return 'Please enter sugar level';
+                                  }
+                                  return double.tryParse(text) == null ? 'Enter a number' : null;
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Temperature (°F)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF92400E),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: tmpCtrl,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                decoration: const InputDecoration(
+                                  hintText: '98.6',
+                                  isDense: true,
+                                ),
+                                autovalidateMode: AutovalidateMode.onUserInteraction,
+                                validator: (val) {
+                                  final text = val?.trim() ?? '';
+                                  if (text.isEmpty) {
+                                    return 'Please enter temperature';
+                                  }
+                                  return double.tryParse(text) == null ? 'Enter a number' : null;
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Chief Complaint
+                    TextFormField(
+                      controller: cmpCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Chief Complaint',
+                        hintText: 'Describe symptoms or reason for visit...',
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -771,6 +1040,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               onPressed: isSaving
                   ? null
                   : () async {
+                      if (!formKey.currentState!.validate()) return;
                       setS(() => isSaving = true);
                       try {
                         final vitalsData = <String, dynamic>{
@@ -809,7 +1079,10 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                            SnackBar(
+                              content: Text(e.toString()),
+                              backgroundColor: Colors.red,
+                            ),
                           );
                         }
                       } finally {
@@ -817,13 +1090,25 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                       }
                     },
               icon: isSaving
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Icon(Icons.save_outlined, size: 16),
-              label: const Text('Save & Triage', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text(
+                'Save & Triage',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0D9488),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ],
@@ -889,6 +1174,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
     List<PatientModel> allPatients = [];
     List<UserModel> allDoctors = [];
     List<String> availableSlots = [];
+    final bpSysCtrl = TextEditingController();
+    final bpDiaCtrl = TextEditingController();
+    final sugarCtrl = TextEditingController();
+    final tempCtrl = TextEditingController();
+    final complaintCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -899,19 +1189,23 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
           if (allPatients.isEmpty && allDoctors.isEmpty && !isLoadingInitial) {
             setDialogState(() => isLoadingInitial = true);
             Future.wait([
-              _patientController.fetchPatients(),
-              _adminController.fetchStaff(role: 'Doctor')
-            ]).then((results) {
-              if (mounted) {
-                setDialogState(() {
-                  allPatients = results[0] as List<PatientModel>;
-                  allDoctors = (results[1] as List<UserModel>).where((d) => d.status.toLowerCase() == 'active').toList();
-                  isLoadingInitial = false;
+                  _patientController.fetchPatients(),
+                  _adminController.fetchStaff(role: 'Doctor'),
+                ])
+                .then((results) {
+                  if (mounted) {
+                    setDialogState(() {
+                      allPatients = results[0] as List<PatientModel>;
+                      allDoctors = (results[1] as List<UserModel>)
+                          .where((d) => d.status.toLowerCase() == 'active')
+                          .toList();
+                      isLoadingInitial = false;
+                    });
+                  }
+                })
+                .catchError((e) {
+                  if (mounted) setDialogState(() => isLoadingInitial = false);
                 });
-              }
-            }).catchError((e) {
-              if (mounted) setDialogState(() => isLoadingInitial = false);
-            });
           }
 
           return AlertDialog(
@@ -921,7 +1215,10 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               children: [
                 Icon(Icons.person_add_alt_1, color: Color(0xFF0D9488)),
                 SizedBox(width: 8),
-                Text('New Walk-in Entry', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text(
+                  'New Walk-in Entry',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
               ],
             ),
             content: SizedBox(
@@ -934,133 +1231,202 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (isLoadingInitial)
-                        const Center(child: Padding(padding: EdgeInsets.all(20.0), child: CircularProgressIndicator()))
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
                       else ...[
-                        const Text('Select Patient', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                        const Text(
+                          'Select Patient',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         CustomDropdownSearch(
                           label: '',
                           hint: 'Search or select patient...',
                           value: selectedPatient?.id?.toString(),
                           dropdownMap: {
-                            for (var p in allPatients) p.id.toString(): '${p.name} (${p.patientId ?? "N/A"})'
+                            for (var p in allPatients)
+                              p.id.toString():
+                                  '${p.name} (${p.patientId ?? "N/A"})',
                           },
                           onChanged: (val) {
                             if (val != null) {
                               final id = int.tryParse(val);
                               setDialogState(() {
-                                selectedPatient = allPatients.firstWhere((p) => p.id == id);
+                                selectedPatient = allPatients.firstWhere(
+                                  (p) => p.id == id,
+                                );
                               });
                             }
                           },
-                          validator: (val) => val == null || val.isEmpty ? 'Please select patient' : null,
+                          validator: (val) => val == null || val.isEmpty
+                              ? 'Please select patient'
+                              : null,
                         ),
                         const SizedBox(height: 16),
-                        const Text('Assign Doctor', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                        const Text(
+                          'Assign Doctor',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         CustomDropdownSearch(
                           label: '',
                           hint: 'Select doctor...',
-                          value: selectedDoctor?.id?.toString(),
+                          value: selectedDoctor?.id.toString(),
                           dropdownMap: {
-                            for (var d in allDoctors) d.id.toString(): d.fullname
+                            for (var d in allDoctors)
+                              d.id.toString(): d.fullname,
                           },
                           onChanged: (val) {
                             if (val != null) {
                               final id = int.tryParse(val);
-                              final doc = allDoctors.firstWhere((d) => d.id == id);
+                              final doc = allDoctors.firstWhere(
+                                (d) => d.id == id,
+                              );
                               setDialogState(() {
                                 selectedDoctor = doc;
                                 selectedTime = null;
-                                if (doc != null) {
-                                  DateTime now = DateTime.now();
-                                  final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                                  final dayName = weekDays[now.weekday - 1];
-                                  final dateStr = DateFormat('dd/MM/yyyy').format(now);
+                                DateTime now = DateTime.now();
+                                final weekDays = [
+                                  'Mon',
+                                  'Tue',
+                                  'Wed',
+                                  'Thu',
+                                  'Fri',
+                                  'Sat',
+                                  'Sun',
+                                ];
+                                final dayName = weekDays[now.weekday - 1];
+                                final dateStr = DateFormat(
+                                  'dd/MM/yyyy',
+                                ).format(now);
 
-                                  bool isAvailable = false; // Default to unavailable unless explicitly available
-                                  if (doc.availableDays != null && doc.availableDays!.contains(dayName)) {
-                                    isAvailable = true;
-                                  } 
-                                  
-                                  if (doc.weeklyOffDays != null && doc.weeklyOffDays!.contains(dayName)) {
-                                    isAvailable = false;
-                                  } 
-                                  
-                                  if (doc.specificLeaveDates != null && doc.specificLeaveDates!.contains(dateStr)) {
-                                    isAvailable = false;
-                                  }
+                                bool isAvailable =
+                                    false; // Default to unavailable unless explicitly available
+                                if (doc.availableDays != null &&
+                                    doc.availableDays!.contains(dayName)) {
+                                  isAvailable = true;
+                                }
 
-                                  if (!isAvailable) {
-                                    availableSlots = [];
-                                  } else {
-                                    availableSlots = _generateSlotsForDoctor(doc);
-                                    availableSlots = availableSlots.where((slot) {
-                                      // 1. Check if booked
-                                      bool isBooked = _appointments.any((a) => 
-                                          a.doctorName == doc.fullname && 
-                                          a.appointmentTime == slot && 
-                                          a.status != 'Cancelled' && 
-                                          a.status != 'No-Show'
-                                      );
-                                      if (isBooked) return false;
+                                if (doc.weeklyOffDays != null &&
+                                    doc.weeklyOffDays!.contains(dayName)) {
+                                  isAvailable = false;
+                                }
 
-                                      // 2. Check if past time
-                                      try {
-                                        DateTime slotTime = DateFormat('hh:mm a').parse(slot);
-                                        DateTime fullSlotTime = DateTime(now.year, now.month, now.day, slotTime.hour, slotTime.minute);
-                                        // Only show slots that are strictly after current time
-                                        return fullSlotTime.isAfter(now);
-                                      } catch (e) {
-                                        return true;
-                                      }
-                                    }).toList();
-                                  }
-                                } else {
+                                if (doc.specificLeaveDates != null &&
+                                    doc.specificLeaveDates!.contains(dateStr)) {
+                                  isAvailable = false;
+                                }
+
+                                if (!isAvailable) {
                                   availableSlots = [];
+                                } else {
+                                  availableSlots = _generateSlotsForDoctor(doc);
+                                  availableSlots = availableSlots.where((slot) {
+                                    // 1. Check if booked
+                                    bool isBooked = _appointments.any(
+                                      (a) =>
+                                          a.doctorName == doc.fullname &&
+                                          a.appointmentTime == slot &&
+                                          a.status != 'Cancelled' &&
+                                          a.status != 'No-Show',
+                                    );
+                                    if (isBooked) return false;
+
+                                    // 2. Check if past time
+                                    try {
+                                      DateTime slotTime = DateFormat(
+                                        'hh:mm a',
+                                      ).parse(slot);
+                                      DateTime fullSlotTime = DateTime(
+                                        now.year,
+                                        now.month,
+                                        now.day,
+                                        slotTime.hour,
+                                        slotTime.minute,
+                                      );
+                                      // Only show slots that are strictly after current time
+                                      return fullSlotTime.isAfter(now);
+                                    } catch (e) {
+                                      return true;
+                                    }
+                                  }).toList();
                                 }
                               });
                             }
                           },
-                          validator: (val) => val == null || val.isEmpty ? 'Please select doctor' : null,
+                          validator: (val) => val == null || val.isEmpty
+                              ? 'Please select doctor'
+                              : null,
                         ),
                         const SizedBox(height: 16),
                         if (selectedDoctor != null) ...[
-                          const Text('Available Time Slots (Today)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                          const Text(
+                            'Available Time Slots (Today)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           if (availableSlots.isEmpty)
-                            const Text('No slots available for this doctor today.', style: TextStyle(color: Colors.red, fontSize: 12))
+                            const Text(
+                              'No slots available for this doctor today.',
+                              style: TextStyle(color: Colors.red, fontSize: 12),
+                            )
                           else
                             GridView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                childAspectRatio: 2.5,
-                                crossAxisSpacing: 8,
-                                mainAxisSpacing: 8,
-                              ),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    childAspectRatio: 2.5,
+                                    crossAxisSpacing: 8,
+                                    mainAxisSpacing: 8,
+                                  ),
                               itemCount: availableSlots.length,
                               itemBuilder: (context, index) {
                                 final time = availableSlots[index];
                                 final isSelected = selectedTime == time;
                                 return InkWell(
-                                  onTap: () => setDialogState(() => selectedTime = time),
+                                  onTap: () =>
+                                      setDialogState(() => selectedTime = time),
                                   borderRadius: BorderRadius.circular(8),
                                   child: Container(
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      color: isSelected ? const Color(0xFF0D9488) : Colors.white,
+                                      color: isSelected
+                                          ? AppTheme.primaryColor
+                                          : Colors.white,
                                       border: Border.all(
-                                        color: isSelected ? const Color(0xFF0D9488) : AppTheme.borderColor,
+                                        color: isSelected
+                                            ? AppTheme.primaryColor
+                                            : AppTheme.borderColor,
                                       ),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
                                       time,
                                       style: TextStyle(
-                                        color: isSelected ? Colors.white : AppTheme.textPrimaryColor,
-                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : AppTheme.textPrimaryColor,
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -1071,10 +1437,228 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           if (selectedTime == null && availableSlots.isNotEmpty)
                             const Padding(
                               padding: EdgeInsets.only(top: 8.0),
-                              child: Text('Please select a time slot', style: TextStyle(color: Colors.red, fontSize: 11)),
+                              child: Text(
+                                'Please select a time slot',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 11,
+                                ),
+                              ),
                             ),
                         ],
-                      ]
+                        const SizedBox(height: 18),
+                        const Text(
+                          'Patient Intake Vitals',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text.rich(
+                                    TextSpan(
+                                      text: 'BP Systolic',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      children: const [
+                                        TextSpan(
+                                          text: ' *',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  TextFormField(
+                                    controller: bpSysCtrl,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      hintText: '120',
+                                      isDense: true,
+                                    ),
+                                    autovalidateMode:
+                                        AutovalidateMode.onUserInteraction,
+                                    validator: (val) {
+                                      final text = val?.trim() ?? '';
+                                      if (text.isEmpty) {
+                                        return 'Please enter BP systolic';
+                                      }
+                                      return int.tryParse(text) == null
+                                          ? 'Enter a number'
+                                          : null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text.rich(
+                                    TextSpan(
+                                      text: 'BP Diastolic',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      children: const [
+                                        TextSpan(
+                                          text: ' *',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  TextFormField(
+                                    controller: bpDiaCtrl,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      hintText: '80',
+                                      isDense: true,
+                                    ),
+                                    autovalidateMode:
+                                        AutovalidateMode.onUserInteraction,
+                                    validator: (val) {
+                                      final text = val?.trim() ?? '';
+                                      if (text.isEmpty) {
+                                        return 'Please enter BP diastolic';
+                                      }
+                                      return int.tryParse(text) == null
+                                          ? 'Enter a number'
+                                          : null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text.rich(
+                                    TextSpan(
+                                      text: 'Sugar Level',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      children: const [
+                                        TextSpan(
+                                          text: ' *',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  TextFormField(
+                                    controller: sugarCtrl,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    decoration: const InputDecoration(
+                                      hintText: '95.5 mg/dL',
+                                      isDense: true,
+                                    ),
+                                    autovalidateMode:
+                                        AutovalidateMode.onUserInteraction,
+                                    validator: (val) {
+                                      final text = val?.trim() ?? '';
+                                      if (text.isEmpty) {
+                                        return 'Please enter sugar level';
+                                      }
+                                      return double.tryParse(text) == null
+                                          ? 'Enter a number'
+                                          : null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text.rich(
+                                    TextSpan(
+                                      text: 'Temperature',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      children: const [
+                                        TextSpan(
+                                          text: ' *',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  TextFormField(
+                                    controller: tempCtrl,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    decoration: const InputDecoration(
+                                      hintText: '98.6 °F',
+                                      isDense: true,
+                                    ),
+                                    autovalidateMode:
+                                        AutovalidateMode.onUserInteraction,
+                                    validator: (val) {
+                                      final text = val?.trim() ?? '';
+                                      if (text.isEmpty) {
+                                        return 'Please enter temperature';
+                                      }
+                                      return double.tryParse(text) == null
+                                          ? 'Enter a number'
+                                          : null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Reason',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        TextFormField(
+                          controller: complaintCtrl,
+                          maxLines: 3,
+                          decoration: const InputDecoration(
+                            hintText:
+                                'Describe symptoms or reason for visit...',
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -1087,38 +1671,93 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                onPressed: (isSaving || selectedTime == null || selectedDoctor == null || selectedPatient == null)
+                onPressed:
+                    (isSaving ||
+                        selectedTime == null ||
+                        selectedDoctor == null ||
+                        selectedPatient == null)
                     ? null
                     : () async {
                         if (!formKey.currentState!.validate()) return;
                         setDialogState(() => isSaving = true);
                         try {
+                          final vitalsData = <String, dynamic>{
+                            'blood_pressure_systolic': int.parse(
+                              bpSysCtrl.text.trim(),
+                            ),
+                            'blood_pressure_diastolic': int.parse(
+                              bpDiaCtrl.text.trim(),
+                            ),
+                            'sugar_level': double.parse(sugarCtrl.text.trim()),
+                            'temperature': double.parse(tempCtrl.text.trim()),
+                            'reason_for_visit': complaintCtrl.text.trim(),
+                          };
                           final newApp = AppointmentModel(
                             patientId: selectedPatient!.id!,
                             patientName: selectedPatient!.name,
-                            department: selectedDoctor!.specialization ?? 'General',
+                            department:
+                                selectedDoctor!.specialization ?? 'General',
                             doctorName: selectedDoctor!.fullname,
                             appointmentDate: DateFormatter.toUi(DateTime.now()),
                             appointmentTime: selectedTime!,
-                            status: 'Confirmed', // Walk-ins go into queue in Confirmed state to be triaged
+                            bloodPressureSystolic:
+                                vitalsData['blood_pressure_systolic'] as int,
+                            bloodPressureDiastolic:
+                                vitalsData['blood_pressure_diastolic'] as int?,
+                            sugarLevel: vitalsData['sugar_level'] as double?,
+                            temperature: vitalsData['temperature'] as double,
+                            reasonForVisit: complaintCtrl.text.trim(),
+                            status: 'Confirmed',
                             appointmentType: 'Walk-in',
                           );
-                          await _ctrl.bookAppointment(newApp);
+                          final created = await _ctrl.bookAppointment(newApp);
+                          await _ctrl.updateVitals(created.id!, vitalsData);
+                          await _ctrl.updateStatus(created.id!, 'Waiting');
                           Navigator.pop(ctx);
                           _load();
-                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Walk-in registered successfully!'), backgroundColor: Colors.green));
+                          if (mounted)
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Walk-in registered and added to waiting!',
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
                         } catch (e) {
-                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                          if (mounted)
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString()),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
                         } finally {
                           if (mounted) setDialogState(() => isSaving = false);
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D9488),
+                  backgroundColor: AppTheme.primaryColor,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  minimumSize: const Size(120, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Register Walk-in'),
+                child: isSaving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Register Walk-in'),
               ),
             ],
           );

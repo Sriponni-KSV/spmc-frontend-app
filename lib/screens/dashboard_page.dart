@@ -267,6 +267,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  void _resumeConsultation(AppointmentModel appointment) {
+    if (!mounted) return;
+    setState(() {
+      _activeAppointment = appointment;
+    });
+  }
+
   Future<void> _fetchConsultations() async {
     if (!mounted) return;
     setState(() => _isLoadingConsultations = true);
@@ -2670,8 +2677,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Row(
               children: [
                 Expanded(flex: 3, child: _buildTableHeaderText('PATIENT')),
+                Expanded(flex: 2, child: _buildTableHeaderText('PATIENT ID')),
                 Expanded(flex: 2, child: _buildTableHeaderText('TYPE')),
                 Expanded(flex: 2, child: _buildTableHeaderText('TIME')),
+                Expanded(flex: 3, child: _buildTableHeaderText('REASON')),
                 Expanded(flex: 2, child: _buildTableHeaderText('STATUS')),
                 Expanded(flex: 2, child: SizedBox()), // Action column for alignment
               ],
@@ -2758,10 +2767,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (appt.status == 'Cancelled') statusColor = Colors.red;
     if (appt.status == 'Checked In') statusColor = Colors.blue;
 
+    final patientIdText = appt.patientDisplayId?.isNotEmpty == true
+        ? appt.patientDisplayId!
+        : appt.patientId.toString();
+    final reasonText = appt.reasonForVisit?.isNotEmpty == true
+        ? appt.reasonForVisit!
+        : 'N/A';
+
     return InkWell(
       onTap: () async {
         if (appt.status == 'Waiting') {
           await _startConsultation(appt);
+        } else if (appt.status == 'In Consultation') {
+          _resumeConsultation(appt);
         }
       },
       child: Padding(
@@ -2802,6 +2820,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
+            // Patient ID Column
+            Expanded(
+              flex: 2,
+              child: Text(
+                patientIdText,
+                style: const TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+
             // Type Column
             Expanded(
               flex: 2,
@@ -2823,6 +2853,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: AppTheme.textSecondaryColor,
                   fontSize: 13,
                 ),
+              ),
+            ),
+
+            // Reason Column
+            Expanded(
+              flex: 3,
+              child: Text(
+                reasonText,
+                style: const TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 13,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
 
@@ -2870,7 +2914,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       )
-                    : const SizedBox.shrink(),
+                    : appt.status == 'Confirmed'
+                        ? TextButton.icon(
+                            onPressed: null,
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.grey,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.medical_services_outlined, size: 16),
+                            label: const Text(
+                              'Take Consultation',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          )
+                        : appt.status == 'In Consultation'
+                            ? TextButton.icon(
+                                onPressed: () => _resumeConsultation(appt),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppTheme.secondaryColor,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
+                                icon: const Icon(Icons.play_circle_outline, size: 16),
+                                label: const Text(
+                                  'Resume Consultation',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
               ),
             ),
           ],

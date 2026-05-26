@@ -494,7 +494,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                     hint: 'e.g. 120',
                     isNumeric: true,
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Required';
+                      if (val == null || val.trim().isEmpty) return 'Please enter BP systolic';
                       final num = int.tryParse(val.trim());
                       if (num == null) return 'Must be integer';
                       if (num < 40 || num > 250) return 'Invalid systolic';
@@ -510,7 +510,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                     hint: 'e.g. 80',
                     isNumeric: true,
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Required';
+                      if (val == null || val.trim().isEmpty) return 'Please enter BP diastolic';
                       final num = int.tryParse(val.trim());
                       if (num == null) return 'Must be integer';
                       if (num < 30 || num > 180) return 'Invalid diastolic';
@@ -526,11 +526,11 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                 Expanded(
                   child: _buildVitalInputField(
                     controller: _sugarCtrl,
-                    label: 'Sugar Level (mg/dL)',
+                    label: 'Sugar Level (mg/dL) *',
                     hint: 'e.g. 95',
                     isNumeric: true,
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) return null;
+                      if (val == null || val.trim().isEmpty) return 'Please enter sugar level';
                       final num = double.tryParse(val.trim());
                       if (num == null) return 'Invalid sugar';
                       return null;
@@ -545,7 +545,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                     hint: 'e.g. 98.6',
                     isNumeric: true,
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Required';
+                      if (val == null || val.trim().isEmpty) return 'Please enter temperature';
                       final num = double.tryParse(val.trim());
                       if (num == null) return 'Must be decimal';
                       if (num < 90 || num > 115) return 'Invalid temp';
@@ -558,11 +558,11 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
             const SizedBox(height: 16),
             _buildVitalInputField(
               controller: _complaintsCtrl,
-              label: 'Reason for Visit / Complaints *',
+              label: 'Reason for Visit *',
               hint: 'Describe patient complaints...',
               maxLines: 3,
               validator: (val) {
-                if (val == null || val.trim().isEmpty) return 'Required';
+                if (val == null || val.trim().isEmpty) return 'Please enter reason for visit';
                 return null;
               },
             ),
@@ -619,7 +619,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
           const Divider(height: 1),
           const SizedBox(height: 12),
           const Text(
-            'Reason for Visit / Complaints',
+            'Reason for Visit',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 6),
@@ -644,15 +644,28 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
     int maxLines = 1,
     String? Function(String?)? validator,
   }) {
+    final bool hasAsterisk = label.endsWith(' *');
+    final String displayLabel = hasAsterisk ? label.substring(0, label.length - 2) : label;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF475569),
+        Text.rich(
+          TextSpan(
+            text: displayLabel,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF475569),
+            ),
+            children: hasAsterisk
+                ? const [
+                    TextSpan(
+                      text: ' *',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ]
+                : const [],
           ),
         ),
         const SizedBox(height: 6),

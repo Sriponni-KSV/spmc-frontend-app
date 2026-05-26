@@ -68,7 +68,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         status: null,
         doctor: _selectedDoctor == 'All' ? null : _selectedDoctor,
       );
-      final consultationsData = await _appointmentController.fetchConsultations();
+      final consultationsData = await _appointmentController
+          .fetchConsultations();
 
       if (mounted) {
         setState(() {
@@ -109,11 +110,26 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     return normalized == 'walkin';
   }
 
+  DateTime _sortDate(AppointmentModel appointment) {
+    return DateTime.tryParse(
+          appointment.createdAt ?? appointment.updatedAt ?? '',
+        ) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  int _newestFirst(AppointmentModel a, AppointmentModel b) {
+    final dateCompare = _sortDate(b).compareTo(_sortDate(a));
+    if (dateCompare != 0) return dateCompare;
+    return (b.id ?? 0).compareTo(a.id ?? 0);
+  }
+
   List<AppointmentModel> get _walkInAppointments =>
       _appointments.where(_isWalkIn).toList();
 
   List<AppointmentModel> get _filteredAppointments {
-    List<AppointmentModel> apps = List<AppointmentModel>.from(_walkInAppointments);
+    List<AppointmentModel> apps = List<AppointmentModel>.from(
+      _walkInAppointments,
+    );
 
     // 1. Search Query Filter
     if (_searchQuery.isNotEmpty) {
@@ -125,16 +141,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
       }).toList();
     }
 
-    // 2. Sort Chronologically by Time
-    apps.sort((a, b) {
-      try {
-        final timeA = DateFormat('hh:mm a').parse(a.appointmentTime);
-        final timeB = DateFormat('hh:mm a').parse(b.appointmentTime);
-        return timeA.compareTo(timeB);
-      } catch (e) {
-        return 0;
-      }
-    });
+    apps.sort(_newestFirst);
 
     return apps;
   }
@@ -1002,11 +1009,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     ),
                   ),
 
-                  // Triage / Vitals Pill Summary
-                  if (tabIndex == 0)
-                    _buildTriageBadge(isTriaged)
-                  else
-                    _buildStatusBadge(app.status),
+                  // Status Pill Summary
+                  _buildStatusBadge(app.status),
                 ],
               ),
               const Divider(height: 16),
@@ -1124,51 +1128,6 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         ),
                       ),
                       if (app.status == 'Confirmed') ...[
-                        if (!_hasVitals(app))
-                          ElevatedButton.icon(
-                            onPressed: () => _openVitalsDialog(app),
-                            icon: const Icon(Icons.monitor_heart, size: 14),
-                            label: const Text(
-                              'Add Vitals',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0F766E),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        ElevatedButton.icon(
-                          onPressed: () => _markWaiting(app),
-                          icon: const Icon(Icons.hourglass_empty, size: 14),
-                          label: const Text(
-                            'Mark Waiting',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D9488),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
                         ElevatedButton.icon(
                           onPressed: () => _showCancelAppointmentDialog(app),
                           icon: const Icon(Icons.cancel_outlined, size: 14),
@@ -1188,18 +1147,6 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ] else ...[
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          child: Text(
-                            '-',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
@@ -1321,17 +1268,29 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     );
   }
 
-  Future<void> _showVitalsMissingDialog(BuildContext context, AppointmentModel appt) async {
+  Future<void> _showVitalsMissingDialog(
+    BuildContext context,
+    AppointmentModel appt,
+  ) async {
     await showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           title: Row(
             children: [
-              const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 28),
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.amber,
+                size: 28,
+              ),
               const SizedBox(width: 8),
-              const Text('Vitals Required', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'Vitals Required',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           content: const Text(
@@ -1350,9 +1309,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0F766E),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
-              child: const Text('Enter Vitals Now', style: TextStyle(color: Colors.white)),
+              child: const Text(
+                'Enter Vitals Now',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
@@ -1361,11 +1325,6 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   }
 
   Future<void> _markWaiting(AppointmentModel app) async {
-    if (!_hasVitals(app)) {
-      await _showVitalsMissingDialog(context, app);
-      return;
-    }
-
     try {
       await _appointmentController.updateStatus(app.id!, 'Waiting');
       _loadData();
@@ -1433,7 +1392,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                    SnackBar(
+                      content: Text(e.toString()),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
@@ -1804,14 +1766,15 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0F5A8E),
+                            backgroundColor: AppTheme.logoRed,
                             foregroundColor: Colors.white,
+                            minimumSize: const Size(120, 48),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 24,
-                              vertical: 12,
+                              vertical: 14,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                           child: const Text(
@@ -2342,6 +2305,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     bool isSaving = false;
     bool isLoadingPatients = false;
     List<PatientModel> allPatients = [];
+    final bpSysCtrl = TextEditingController();
+    final bpDiaCtrl = TextEditingController();
+    final sugarCtrl = TextEditingController();
+    final tempCtrl = TextEditingController();
+    final complaintCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -2437,7 +2405,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       CustomDropdownSearch(
                         label: '',
                         hint: 'Select doctor...',
-                        value: selectedDoctor?.id?.toString(),
+                        value: selectedDoctor?.id.toString(),
                         dropdownMap: {
                           for (var d in _doctors) d.id.toString(): d.fullname,
                         },
@@ -2557,11 +2525,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? const Color(0xFF0D9488)
+                                        ? AppTheme.primaryColor
                                         : Colors.white,
                                     border: Border.all(
                                       color: isSelected
-                                          ? const Color(0xFF0D9488)
+                                          ? AppTheme.primaryColor
                                           : AppTheme.borderColor,
                                     ),
                                     borderRadius: BorderRadius.circular(8),
@@ -2591,6 +2559,217 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             ),
                           ),
                       ],
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Patient Intake Vitals',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text.rich(
+                                  TextSpan(
+                                    text: 'BP Systolic',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    children: const [
+                                      TextSpan(
+                                        text: ' *',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                TextFormField(
+                                  controller: bpSysCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    hintText: '120',
+                                    isDense: true,
+                                  ),
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
+                                  validator: (val) {
+                                    final text = val?.trim() ?? '';
+                                    if (text.isEmpty) {
+                                      return 'Please enter BP systolic';
+                                    }
+                                    return int.tryParse(text) == null
+                                        ? 'Enter a number'
+                                        : null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text.rich(
+                                  TextSpan(
+                                    text: 'BP Diastolic',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    children: const [
+                                      TextSpan(
+                                        text: ' *',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                TextFormField(
+                                  controller: bpDiaCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    hintText: '80',
+                                    isDense: true,
+                                  ),
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
+                                  validator: (val) {
+                                    final text = val?.trim() ?? '';
+                                    if (text.isEmpty) {
+                                      return 'Please enter BP diastolic';
+                                    }
+                                    return int.tryParse(text) == null
+                                        ? 'Enter a number'
+                                        : null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text.rich(
+                                  TextSpan(
+                                    text: 'Sugar Level',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    children: const [
+                                      TextSpan(
+                                        text: ' *',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                TextFormField(
+                                  controller: sugarCtrl,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  decoration: const InputDecoration(
+                                    hintText: '95.5 mg/dL',
+                                    isDense: true,
+                                  ),
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
+                                  validator: (val) {
+                                    final text = val?.trim() ?? '';
+                                    if (text.isEmpty) {
+                                      return 'Please enter sugar level';
+                                    }
+                                    return double.tryParse(text) == null
+                                        ? 'Enter a number'
+                                        : null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text.rich(
+                                  TextSpan(
+                                    text: 'Temperature',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    children: const [
+                                      TextSpan(
+                                        text: ' *',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                TextFormField(
+                                  controller: tempCtrl,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  decoration: const InputDecoration(
+                                    hintText: '98.6 °F',
+                                    isDense: true,
+                                  ),
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
+                                  validator: (val) {
+                                    final text = val?.trim() ?? '';
+                                    if (text.isEmpty) {
+                                      return 'Please enter temperature';
+                                    }
+                                    return double.tryParse(text) == null
+                                        ? 'Enter a number'
+                                        : null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Reason',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      TextFormField(
+                        controller: complaintCtrl,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          hintText: 'Describe symptoms or reason for visit...',
+                        ),
+                      ),
                       const SizedBox(height: 16),
                     ],
                   ),
@@ -2618,6 +2797,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         }
                         setDialogState(() => isSaving = true);
                         try {
+                          final vitalsData = <String, dynamic>{
+                            'blood_pressure_systolic': int.parse(
+                              bpSysCtrl.text.trim(),
+                            ),
+                            'blood_pressure_diastolic': int.parse(
+                              bpDiaCtrl.text.trim(),
+                            ),
+                            'sugar_level': double.parse(sugarCtrl.text.trim()),
+                            'temperature': double.parse(tempCtrl.text.trim()),
+                            'reason_for_visit': complaintCtrl.text.trim(),
+                          };
                           final newApp = AppointmentModel(
                             patientId: selectedPatient!.id!,
                             patientName: selectedPatient!.name,
@@ -2626,18 +2816,33 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             doctorName: selectedDoctor!.fullname,
                             appointmentDate: DateFormatter.toUi(DateTime.now()),
                             appointmentTime: selectedTime!,
-                            status:
-                                'Confirmed', // Walk-ins go into queue in Confirmed state to be triaged
+                            bloodPressureSystolic:
+                                vitalsData['blood_pressure_systolic'] as int,
+                            bloodPressureDiastolic:
+                                vitalsData['blood_pressure_diastolic'] as int?,
+                            sugarLevel: vitalsData['sugar_level'] as double?,
+                            temperature: vitalsData['temperature'] as double,
+                            reasonForVisit: complaintCtrl.text.trim(),
+                            status: 'Confirmed',
                             appointmentType: 'Walk-in',
                           );
-                          await _appointmentController.bookAppointment(newApp);
+                          final created = await _appointmentController
+                              .bookAppointment(newApp);
+                          await _appointmentController.updateVitals(
+                            created.id!,
+                            vitalsData,
+                          );
+                          await _appointmentController.updateStatus(
+                            created.id!,
+                            'Waiting',
+                          );
                           Navigator.pop(ctx);
                           _loadData();
                           if (mounted)
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                  'Walk-in registered successfully',
+                                  'Walk-in registered and added to waiting',
                                 ),
                                 backgroundColor: Colors.green,
                               ),

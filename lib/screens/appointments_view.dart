@@ -2551,6 +2551,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 _buildTableHeader('Time', flex: 2),
                 _buildTableHeader('Date', flex: 2),
                 _buildTableHeader('Patient', flex: 3),
+                _buildTableHeader('Patient ID', flex: 2),
                 _buildTableHeader('Type', flex: 2),
                 _buildTableHeader('Department', flex: 2),
                 _buildTableHeader('Doctor', flex: 3),
@@ -2912,6 +2913,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     final date = appt.appointmentDate;
     final patientName = appt.patientName;
     final patientInitials = _getInitials(appt.patientName);
+    final patientIdText = appt.patientDisplayId?.isNotEmpty == true
+        ? appt.patientDisplayId!
+        : appt.patientId.toString();
     final doctorName = appt.doctorName;
     final doctorDisplayId = appt.doctorDisplayId;
     final type = appt.appointmentType;
@@ -3026,6 +3030,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   ),
                 ),
               ],
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              patientIdText,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF475569),
+              ),
             ),
           ),
           Expanded(

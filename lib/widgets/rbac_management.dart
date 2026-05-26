@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../controllers/admin_controller.dart';
 import '../providers/auth_provider.dart';
+import 'custom_dropdown_search.dart';
 
 class RbacManagementWidget extends StatefulWidget {
   final bool isMobile;
-  const RbacManagementWidget({Key? key, required this.isMobile}) : super(key: key);
+  const RbacManagementWidget({Key? key, required this.isMobile})
+    : super(key: key);
 
   @override
   State<RbacManagementWidget> createState() => _RbacManagementWidgetState();
@@ -29,12 +30,33 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
     });
   }
 
-  void _showAddRoleDialog(BuildContext context, List<dynamic> permissions) {
-    final nameCtrl = TextEditingController();
+  void _showAddRoleDialog(
+    BuildContext context,
+    List<dynamic> permissions,
+    List<dynamic> existingRoles,
+  ) {
     final descCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool isSaving = false;
     List<int> selectedPermissions = [];
+    String? selectedRoleName;
+
+    final existingRoleNames = existingRoles
+        .map((role) => role['role_name'].toString())
+        .toSet();
+    const predefinedRoleNames = [
+      'Super Admin',
+      'Admin',
+      'Receptionist',
+      'Doctor',
+      'Nurse',
+      'Lab Technician',
+      'Pharmacist',
+      'Billing Executive',
+    ];
+    final availableRoleNames = predefinedRoleNames
+        .where((role) => !existingRoleNames.contains(role))
+        .toList();
 
     showDialog(
       context: context,
@@ -42,40 +64,92 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           return AlertDialog(
-            title: const Text('Create New Role', style: TextStyle(fontWeight: FontWeight.bold)),
+            title: const Text(
+              'Create New Role',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width > 500 ? 500 : MediaQuery.of(context).size.width * 0.9,
+              width: MediaQuery.of(context).size.width > 500
+                  ? 500
+                  : MediaQuery.of(context).size.width * 0.9,
               child: SingleChildScrollView(
                 child: Form(
                   key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      TextFormField(
-                        controller: nameCtrl,
-                        decoration: const InputDecoration(labelText: 'Role Name', prefixIcon: Icon(Icons.badge_outlined)),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[a-zA-Z\s]'),
+                      if (availableRoleNames.isEmpty)
+                        const Text(
+                          'All predefined roles are already created.',
+                          style: TextStyle(color: AppTheme.textSecondaryColor),
+                        )
+                      else ...[
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Role Name',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                            ),
                           ),
-                        ],
-                        validator: (val) => val == null || val.trim().isEmpty ? 'Please enter a role name' : null,
-                      ),
+                        ),
+                        const SizedBox(height: 4),
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select role',
+                          dropdownItems: availableRoleNames,
+                          value: selectedRoleName,
+                          onChanged: (value) {
+                            setDialogState(() {
+                              selectedRoleName = value;
+                            });
+                          },
+                          validator: (value) => value == null || value.isEmpty
+                              ? 'Please select a role'
+                              : null,
+                        ),
+                      ],
                       const SizedBox(height: 16),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Description',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
                       TextFormField(
                         controller: descCtrl,
-                        decoration: const InputDecoration(labelText: 'Description', prefixIcon: Icon(Icons.description_outlined)),
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.description_outlined),
+                          hintText: 'Enter role description',
+                        ),
                       ),
                       const SizedBox(height: 24),
-                      const Text('Select Permissions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text(
+                        'Select Permissions',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: permissions.map((p) {
-                          final isSelected = selectedPermissions.contains(p['id']);
+                          final isSelected = selectedPermissions.contains(
+                            p['id'],
+                          );
                           return FilterChip(
-                            label: Text(p['display_name'] ?? p['permission_name']),
+                            label: Text(
+                              p['display_name'] ?? p['permission_name'],
+                            ),
                             selected: isSelected,
                             onSelected: (selected) {
                               setDialogState(() {
@@ -105,7 +179,10 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                   backgroundColor: AppTheme.logoRed,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(130, 48),
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -114,34 +191,49 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                onPressed: isSaving ? null : () async {
-                  if (!formKey.currentState!.validate()) return;
-                  setDialogState(() => isSaving = true);
-                  try {
-                    await _adminController.createRoleRbac(
-                      nameCtrl.text.trim(),
-                      descCtrl.text.trim(),
-                      selectedPermissions,
-                    );
-                    if (mounted) {
-                      Navigator.pop(ctx);
-                      _loadRbacData();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Role created successfully!'), backgroundColor: Colors.green.shade600),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
-                      );
-                    }
-                  } finally {
-                    if (mounted) setDialogState(() => isSaving = false);
-                  }
-                },
+                onPressed: (isSaving || availableRoleNames.isEmpty)
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setDialogState(() => isSaving = true);
+                        try {
+                          await _adminController.createRoleRbac(
+                            selectedRoleName!.trim(),
+                            descCtrl.text.trim(),
+                            selectedPermissions,
+                          );
+                          if (mounted) {
+                            Navigator.pop(ctx);
+                            _loadRbacData();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Role created successfully!'),
+                                backgroundColor: Colors.green.shade600,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString()),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setDialogState(() => isSaving = false);
+                        }
+                      },
                 child: isSaving
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
                     : const Text('Save'),
               ),
             ],
@@ -151,10 +243,19 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
     );
   }
 
-  void _showEditRoleDialog(BuildContext context, Map<String, dynamic> role, List<dynamic> permissions, List<dynamic> rolePermissions) {
+  void _showEditRoleDialog(
+    BuildContext context,
+    Map<String, dynamic> role,
+    List<dynamic> permissions,
+    List<dynamic> rolePermissions,
+  ) {
     bool isSaving = false;
     List<int> selectedPermissions = rolePermissions
-        .where((rp) => int.parse(rp['role_id'].toString()) == int.parse(role['id'].toString()))
+        .where(
+          (rp) =>
+              int.parse(rp['role_id'].toString()) ==
+              int.parse(role['id'].toString()),
+        )
         .map<int>((rp) => int.parse(rp['permission_id'].toString()))
         .toList();
 
@@ -164,22 +265,37 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           return AlertDialog(
-            title: Text("Edit ${role['role_name']} Permissions", style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(
+              "Edit ${role['role_name']} Permissions",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width > 500 ? 500 : MediaQuery.of(context).size.width * 0.9,
+              width: MediaQuery.of(context).size.width > 500
+                  ? 500
+                  : MediaQuery.of(context).size.width * 0.9,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Select Permissions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Text(
+                      'Select Permissions',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: permissions.map((p) {
-                        final isSelected = selectedPermissions.contains(p['id']);
+                        final isSelected = selectedPermissions.contains(
+                          p['id'],
+                        );
                         return FilterChip(
-                          label: Text(p['display_name'] ?? p['permission_name']),
+                          label: Text(
+                            p['display_name'] ?? p['permission_name'],
+                          ),
                           selected: isSelected,
                           onSelected: (selected) {
                             setDialogState(() {
@@ -208,7 +324,10 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                   backgroundColor: AppTheme.logoRed,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(130, 48),
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -217,35 +336,55 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                onPressed: isSaving ? null : () async {
-                  setDialogState(() => isSaving = true);
-                  try {
-                    await _adminController.updateRolePermissions(
-                      role['id'],
-                      selectedPermissions,
-                    );
-                    if (mounted) {
-                      Navigator.pop(ctx);
-                      _loadRbacData();
-                      // Refresh current user's permissions in case their own role was updated
-                      Provider.of<AuthProvider>(context, listen: false).refreshPermissions();
-                      
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Permissions updated successfully!'), backgroundColor: Colors.green.shade600),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
-                      );
-                    }
-                  } finally {
-                    if (mounted) setDialogState(() => isSaving = false);
-                  }
-                },
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        setDialogState(() => isSaving = true);
+                        try {
+                          await _adminController.updateRolePermissions(
+                            role['id'],
+                            selectedPermissions,
+                          );
+                          if (mounted) {
+                            Navigator.pop(ctx);
+                            _loadRbacData();
+                            // Refresh current user's permissions in case their own role was updated
+                            Provider.of<AuthProvider>(
+                              context,
+                              listen: false,
+                            ).refreshPermissions();
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Permissions updated successfully!',
+                                ),
+                                backgroundColor: Colors.green.shade600,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString()),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setDialogState(() => isSaving = false);
+                        }
+                      },
                 child: isSaving
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
                     : const Text('Save'),
               ),
             ],
@@ -261,8 +400,13 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Delete Role', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: Text("Are you sure you want to delete ${role['role_name']}?"),
+          title: const Text(
+            'Delete Role',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            "Are you sure you want to delete ${role['role_name']}?",
+          ),
           actions: [
             OutlinedButton(
               onPressed: isDeleting ? null : () => Navigator.pop(ctx),
@@ -270,27 +414,35 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: isDeleting ? null : () async {
-                setDialogState(() => isDeleting = true);
-                try {
-                  await _adminController.deleteRole(role['id']);
-                  if (mounted) {
-                    Navigator.pop(ctx);
-                    _loadRbacData();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Role deleted successfully!'), backgroundColor: Colors.green.shade600),
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
-                    );
-                  }
-                } finally {
-                  if (mounted) setDialogState(() => isDeleting = false);
-                }
-              },
+              onPressed: isDeleting
+                  ? null
+                  : () async {
+                      setDialogState(() => isDeleting = true);
+                      try {
+                        await _adminController.deleteRole(role['id']);
+                        if (mounted) {
+                          Navigator.pop(ctx);
+                          _loadRbacData();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Role deleted successfully!'),
+                              backgroundColor: Colors.green.shade600,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(e.toString()),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setDialogState(() => isDeleting = false);
+                      }
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,
                 foregroundColor: Colors.white,
@@ -298,10 +450,20 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 14,
+                ),
               ),
               child: isDeleting
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
                   : const Text('Delete'),
             ),
           ],
@@ -313,7 +475,10 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
   @override
   Widget build(BuildContext context) {
     final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
-    final bool isSuperAdmin = currentUser?.role == 'Super Admin' || currentUser?.role == 'Admin' || (currentUser?.hasPermission('Manage Roles') ?? false);
+    final bool isSuperAdmin =
+        currentUser?.role == 'Super Admin' ||
+        currentUser?.role == 'Admin' ||
+        (currentUser?.hasPermission('Manage Roles') ?? false);
 
     return FutureBuilder<Map<String, dynamic>>(
       future: _rbacFuture,
@@ -322,7 +487,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text("Error loading RBAC data: ${snapshot.error}"));
+          return Center(
+            child: Text("Error loading RBAC data: ${snapshot.error}"),
+          );
         }
 
         final data = snapshot.data ?? {};
@@ -332,19 +499,26 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
         roles.sort((a, b) {
           int indexA = orderedRoles.indexOf(a['role_name']);
           int indexB = orderedRoles.indexOf(b['role_name']);
-          if (indexA == -1 && indexB == -1) return a['role_name'].compareTo(b['role_name']);
+          if (indexA == -1 && indexB == -1)
+            return a['role_name'].compareTo(b['role_name']);
           if (indexA == -1) return 1;
           if (indexB == -1) return -1;
           return indexA.compareTo(indexB);
         });
         final permissions = (data['permissions'] as List<dynamic>?) ?? [];
-        final rolePermissions = (data['rolePermissions'] as List<dynamic>?) ?? [];
+        final rolePermissions =
+            (data['rolePermissions'] as List<dynamic>?) ?? [];
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              padding: EdgeInsets.fromLTRB(widget.isMobile ? 16 : 24, widget.isMobile ? 16 : 24, widget.isMobile ? 16 : 24, 0),
+              padding: EdgeInsets.fromLTRB(
+                widget.isMobile ? 16 : 24,
+                widget.isMobile ? 16 : 24,
+                widget.isMobile ? 16 : 24,
+                0,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -352,25 +526,49 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Access Control (RBAC)', style: TextStyle(fontSize: widget.isMobile ? 22 : 28, fontWeight: FontWeight.bold)),
+                        Text(
+                          'Access Control (RBAC)',
+                          style: TextStyle(
+                            fontSize: widget.isMobile ? 22 : 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        const Text('Manage roles and assign specific permissions', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13)),
+                        const Text(
+                          'Manage roles and assign specific permissions',
+                          style: TextStyle(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   if (isSuperAdmin) ...[
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
-                      onPressed: () => _showAddRoleDialog(context, permissions),
+                      onPressed: () =>
+                          _showAddRoleDialog(context, permissions, roles),
                       icon: const Icon(Icons.add_moderator, size: 18),
-                      label: Text(widget.isMobile ? 'Add' : 'Create Role', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      label: Text(
+                        widget.isMobile ? 'Add' : 'Create Role',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.dangerColor,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         minimumSize: const Size(0, 48),
-                        padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 12 : 20, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: widget.isMobile ? 12 : 20,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ],
@@ -384,18 +582,23 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+                  border: Border.all(
+                    color: AppTheme.borderColor.withOpacity(0.5),
+                  ),
                 ),
                 child: ListView.separated(
                   itemCount: roles.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1, color: AppTheme.borderColor),
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1, color: AppTheme.borderColor),
                   itemBuilder: (context, index) {
                     final role = roles[index];
                     final rolePermIds = rolePermissions
                         .where((rp) => rp['role_id'] == role['id'])
                         .map((rp) => rp['permission_id'])
                         .toList();
-                    final rolePerms = permissions.where((p) => rolePermIds.contains(p['id'])).toList();
+                    final rolePerms = permissions
+                        .where((p) => rolePermIds.contains(p['id']))
+                        .toList();
 
                     return Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -405,41 +608,102 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(role['role_name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
-                              if (isSuperAdmin && role['role_name'] != 'Super Admin')
+                              Text(
+                                role['role_name'],
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                              if (isSuperAdmin &&
+                                  role['role_name'] != 'Super Admin')
                                 Row(
                                   children: [
                                     IconButton(
-                                      icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor, size: 20),
-                                      onPressed: () => _showEditRoleDialog(context, role, permissions, rolePermissions),
+                                      icon: const Icon(
+                                        Icons.edit_outlined,
+                                        color: AppTheme.primaryColor,
+                                        size: 20,
+                                      ),
+                                      onPressed: () => _showEditRoleDialog(
+                                        context,
+                                        role,
+                                        permissions,
+                                        rolePermissions,
+                                      ),
                                     ),
                                     IconButton(
-                                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                                      onPressed: () => _showDeleteRoleDialog(context, role),
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.redAccent,
+                                        size: 20,
+                                      ),
+                                      onPressed: () =>
+                                          _showDeleteRoleDialog(context, role),
                                     ),
                                   ],
                                 ),
                             ],
                           ),
-                          if (role['description'] != null && role['description'].toString().isNotEmpty) ...[
+                          if (role['description'] != null &&
+                              role['description'].toString().isNotEmpty) ...[
                             const SizedBox(height: 4),
-                            Text(role['description'], style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
+                            Text(
+                              role['description'],
+                              style: const TextStyle(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 12,
+                              ),
+                            ),
                           ],
                           const SizedBox(height: 12),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: rolePerms.isEmpty 
-                                ? [const Text('No permissions assigned', style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic))]
-                                : rolePerms.map((p) => Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.purple.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.purple.withOpacity(0.3)),
+                            children: rolePerms.isEmpty
+                                ? [
+                                    const Text(
+                                      'No permissions assigned',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                        fontStyle: FontStyle.italic,
+                                      ),
                                     ),
-                                    child: Text(p['display_name'] ?? p['permission_name'], style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
-                                  )).toList(),
+                                  ]
+                                : rolePerms
+                                      .map(
+                                        (p) => Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.purple.withOpacity(
+                                              0.1,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.purple.withOpacity(
+                                                0.3,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            p['display_name'] ??
+                                                p['permission_name'],
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.purple,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
                           ),
                         ],
                       ),

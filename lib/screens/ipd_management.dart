@@ -30,13 +30,12 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   List<Map<String, dynamic>> _admissions = [];
   List<PatientModel> _patients = [];
   List<UserModel> _doctors = [];
-  List<Map<String, dynamic>> _pendingAdmissions = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadData();
   }
 
@@ -54,7 +53,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
     List<Map<String, dynamic>> admissionsList = [];
     List<PatientModel> patientsList = [];
     List<UserModel> doctorsList = [];
-    List<Map<String, dynamic>> pendingList = [];
     String? errorMsg;
 
     try {
@@ -73,11 +71,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
     try {
       doctorsList = await _adminController.fetchStaff(role: 'Doctor');
     } catch (_) {}
-    try {
-      pendingList = await _ipdController.fetchPendingAdmissions();
-    } catch (e) {
-      errorMsg ??= e.toString();
-    }
 
     if (mounted) {
       setState(() {
@@ -85,7 +78,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         _admissions = admissionsList;
         _patients = patientsList;
         _doctors = doctorsList;
-        _pendingAdmissions = pendingList;
         _isLoading = false;
       });
       if (errorMsg != null) {
@@ -123,7 +115,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildPendingAdmissionsTab(),
                       _buildActiveAdmissionsTab(),
                       _buildBedAvailabilityTab(),
                       _buildDischargeHistoryTab(),
@@ -172,20 +163,14 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
             icon: const Icon(Icons.person_add_outlined, size: 18),
             label: const Text(
               'Admit Patient',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.dangerColor,
               foregroundColor: Colors.white,
               elevation: 0,
               minimumSize: const Size(120, 48),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -308,37 +293,8 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         indicatorColor: AppTheme.primaryColor,
         indicatorWeight: 3,
         tabs: [
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('Pending Intake'),
-                if (_pendingAdmissions.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerColor,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      _pendingAdmissions.length.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
           const Tab(text: 'Active Wards'),
-          const Tab(text: 'Bed Wards & Grid'),
+          const Tab(text: 'Bed Availability'),
           const Tab(text: 'Discharge History'),
         ],
       ),
@@ -457,79 +413,148 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   }
 
   Widget _buildBedAvailabilityTab() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(24),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 5,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.3,
-      ),
-      itemCount: _beds.length,
-      itemBuilder: (context, index) {
-        final bed = _beds[index];
-        final bool isAvail = bed['status'] == 'Available';
-        final Color cardColor = isAvail
-            ? Colors.green.shade50
-            : Colors.red.shade50;
-        final Color borderColor = isAvail
-            ? Colors.green.shade300
-            : Colors.red.shade300;
-        final Color textColor = isAvail
-            ? Colors.green.shade800
-            : Colors.red.shade800;
+    final Map<String, List<Map<String, dynamic>>> groupedBeds = {};
+    final wardOrder = ['General', 'Semi-Private', 'Private', 'ICU'];
 
-        return Container(
-          decoration: BoxDecoration(
-            color: cardColor,
-            border: Border.all(color: borderColor),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    for (var ward in wardOrder) {
+      groupedBeds[ward] = [];
+    }
+
+    for (var bed in _beds) {
+      final ward = bed['ward_type'] ?? 'Other';
+      groupedBeds.putIfAbsent(ward, () => []).add(bed);
+    }
+
+    groupedBeds.removeWhere((key, value) => value.isEmpty);
+
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: groupedBeds.entries.map((entry) {
+        final wardName = entry.key;
+        final wardBeds = entry.value;
+
+        final totalBeds = wardBeds.length;
+        final availableBeds = wardBeds
+            .where((b) => b['status'] == 'Available')
+            .length;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12, top: 16),
+              child: Row(
                 children: [
+                  Icon(
+                    wardName == 'ICU' ? Icons.local_hospital : Icons.king_bed,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
                   Text(
-                    bed['bed_number'],
-                    style: TextStyle(
+                    '$wardName Ward',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: textColor,
+                      color: AppTheme.textPrimaryColor,
                     ),
                   ),
-                  Icon(Icons.king_bed, color: textColor, size: 20),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Ward: ${bed['ward_type']}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: textColor.withOpacity(0.8),
-                      fontWeight: FontWeight.w600,
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    bed['status'],
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$availableBeds / $totalBeds Available',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 130,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 1.6,
+              ),
+              itemCount: wardBeds.length,
+              itemBuilder: (context, index) {
+                final bed = wardBeds[index];
+                final bool isAvail = bed['status'] == 'Available';
+                final Color cardColor = isAvail
+                    ? const Color(0xFFE8F5E9)
+                    : const Color(0xFFFFEBEE);
+                final Color borderColor = isAvail
+                    ? const Color(0xFF81C784)
+                    : const Color(0xFFE57373);
+                final Color textColor = isAvail
+                    ? const Color(0xFF2E7D32)
+                    : const Color(0xFFC62828);
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    border: Border.all(color: borderColor, width: 1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            bed['bed_number'],
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
+                          ),
+                          Icon(
+                            Icons.king_bed_outlined,
+                            color: textColor.withOpacity(0.7),
+                            size: 16,
+                          ),
+                        ],
+                      ),
+                      Text(
+                        isAvail ? 'Available' : 'Occupied',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+          ],
         );
-      },
+      }).toList(),
     );
   }
 
@@ -604,177 +629,13 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
     );
   }
 
-  Widget _buildPendingAdmissionsTab() {
-    if (_pendingAdmissions.isEmpty) {
-      return _buildEmptyState(
-        'No pending admissions from OPD.',
-        Icons.done_all_outlined,
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(24),
-      itemCount: _pendingAdmissions.length,
-      itemBuilder: (context, index) {
-        final pending = _pendingAdmissions[index];
-
-        return Card(
-          elevation: 0,
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.red.shade100, width: 1.5),
-          ),
-          color: Colors.red.shade50.withOpacity(0.2),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade100.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.bed_outlined,
-                    color: Colors.red.shade700,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            pending['patient_name'] ?? 'Unknown Patient',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              pending['patient_display_id'] ?? 'ID-N/A',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red.shade900,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Gender: ${pending['patient_gender'] ?? "N/A"}  •  Age: ${pending['patient_age'] ?? "N/A"} yrs  •  Department: ${pending['department'] ?? "N/A"}',
-                        style: const TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Recommending Doctor: Dr. ${pending['doctor_name']}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (pending['reason_for_visit'] != null &&
-                          pending['reason_for_visit']
-                              .toString()
-                              .isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: Text(
-                            'Reason: ${pending['reason_for_visit']}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontStyle: FontStyle.italic,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    _showAdmitDialog(
-                      preselectedPatientId: pending['patient_id'],
-                      preselectedDoctorName: pending['doctor_name'],
-                      preselectedReason: pending['reason_for_visit'],
-                      preselectedAppointmentId: pending['appointment_id'],
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.hotel_outlined,
-                    size: 16,
-                    color: Colors.white,
-                  ),
-                  label: const Text(
-                    'Allocate Bed & Admit',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade700,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showAdmitDialog({
-    int? preselectedPatientId,
-    String? preselectedDoctorName,
-    String? preselectedReason,
-    int? preselectedAppointmentId,
-  }) {
-    int? selectedPatientId = preselectedPatientId;
+  void _showAdmitDialog() {
+    int? selectedPatientId;
     String? selectedBedNumber;
     String? selectedWardType;
-    String? selectedDoctorName = preselectedDoctorName;
-    final TextEditingController reasonController = TextEditingController(
-      text: preselectedReason ?? '',
-    );
+    String? selectedDoctorName;
+    final TextEditingController reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
 
     List<String> availableBeds = [];
 
@@ -818,158 +679,215 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
               content: SingleChildScrollView(
                 child: SizedBox(
                   width: 480,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Select Patient',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      CustomDropdownSearch(
-                        label: '',
-                        hint: 'Select Patient',
-                        value: selectedPatientId?.toString(),
-                        dropdownMap: {
-                          for (var p in _patients)
-                            p.id.toString():
-                                '${p.name} (${p.patientId ?? p.id})',
-                        },
-                        isEnabled: preselectedPatientId == null,
-                        onChanged: (val) {
-                          if (val != null)
-                            setDialogState(
-                              () => selectedPatientId = int.tryParse(val),
-                            );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      const SizedBox(height: 16),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Treating Doctor',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      CustomDropdownSearch(
-                        label: '',
-                        hint: 'Select Treating Doctor',
-                        value: selectedDoctorName,
-                        dropdownItems: _doctors.map((d) => d.fullname).toList(),
-                        onChanged: (val) =>
-                            setDialogState(() => selectedDoctorName = val),
-                      ),
-                      const SizedBox(height: 16),
-                      const SizedBox(height: 16),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Ward Type',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      CustomDropdownSearch(
-                        label: '',
-                        hint: 'Select Ward Type',
-                        value: selectedWardType,
-                        dropdownItems: const [
-                          'General',
-                          'Semi-Private',
-                          'Private',
-                          'ICU',
-                        ],
-                        onChanged: updateBedsForWard,
-                      ),
-                      const SizedBox(height: 16),
-                      const SizedBox(height: 16),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Select Available Bed',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      CustomDropdownSearch(
-                        label: '',
-                        hint: 'Select Available Bed',
-                        value: selectedBedNumber,
-                        dropdownItems: availableBeds,
-                        onChanged: (val) =>
-                            setDialogState(() => selectedBedNumber = val),
-                      ),
-                      const SizedBox(height: 16),
-                      const SizedBox(height: 16),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Reason for Admission',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: reasonController,
-                        maxLines: 2,
-                        decoration: InputDecoration(
-                          hintText: 'Reason for Admission',
-                          hintStyle: const TextStyle(
-                            color: Color(0xFFCBD5E0),
-                            fontSize: 11,
-                          ),
-                          filled: true,
-                          fillColor: AppTheme.backgroundColor,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: Color(0xFFE2E8F0),
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text.rich(
+                            TextSpan(
+                              text: 'Select Patient',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
                             ),
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: Color(0xFFE2E8F0),
+                        ),
+                        const SizedBox(height: 10),
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select Patient',
+                          value: selectedPatientId?.toString(),
+                          dropdownMap: {
+                            for (var p in _patients)
+                              p.id.toString():
+                                  '${p.name} (${p.patientId ?? p.id})',
+                          },
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return 'Please select a patient';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) {
+                            if (val != null) {
+                              setDialogState(
+                                () => selectedPatientId = int.tryParse(val),
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text.rich(
+                            TextSpan(
+                              text: 'Treating Doctor',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
                             ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 16,
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select Treating Doctor',
+                          value: selectedDoctorName,
+                          dropdownItems: _doctors
+                              .map((d) => d.fullname)
+                              .toList(),
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return 'Please select a treating doctor';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) =>
+                              setDialogState(() => selectedDoctorName = val),
+                        ),
+                        const SizedBox(height: 16),
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text.rich(
+                            TextSpan(
+                              text: 'Ward Type',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select Ward Type',
+                          value: selectedWardType,
+                          dropdownItems: const [
+                            'General',
+                            'Semi-Private',
+                            'Private',
+                            'ICU',
+                          ],
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return 'Please select a ward type';
+                            }
+                            return null;
+                          },
+                          onChanged: updateBedsForWard,
+                        ),
+                        const SizedBox(height: 16),
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text.rich(
+                            TextSpan(
+                              text: 'Select Available Bed',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select Available Bed',
+                          value: selectedBedNumber,
+                          dropdownItems: availableBeds,
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return 'Please select an available bed';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) =>
+                              setDialogState(() => selectedBedNumber = val),
+                        ),
+                        const SizedBox(height: 16),
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Reason for Admission',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: reasonController,
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            hintText: 'Reason for Admission',
+                            hintStyle: const TextStyle(
+                              color: Color(0xFFCBD5E0),
+                              fontSize: 11,
+                            ),
+                            filled: true,
+                            fillColor: AppTheme.backgroundColor,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -981,23 +899,13 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    if (selectedPatientId == null ||
-                        selectedBedNumber == null ||
-                        selectedDoctorName == null ||
-                        selectedDoctorName!.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please fill all required fields'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
+                    if (!formKey.currentState!.validate()) {
                       return;
                     }
 
                     try {
                       await _ipdController.createAdmission({
                         'patient_id': selectedPatientId,
-                        'appointment_id': preselectedAppointmentId,
                         'doctor_name': selectedDoctorName,
                         'bed_number': selectedBedNumber,
                         'ward_type': selectedWardType,
@@ -1021,7 +929,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.logoRed,
+                    backgroundColor: AppTheme.dangerColor,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(120, 48),
                   ),

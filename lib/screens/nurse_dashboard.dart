@@ -88,14 +88,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     super.dispose();
   }
 
-  void _changePage(int index, {bool isRegistering = false, bool forceBooking = false}) {
+  void _changePage(
+    int index, {
+    bool isRegistering = false,
+    bool forceBooking = false,
+  }) {
     if (!mounted) return;
     setState(() {
       _selectedIndex = index;
       _isRegisteringPatient = isRegistering;
       _forceBookingForm = forceBooking;
     });
-    
+
     // Refresh data if switching to dashboard
     if (index == 0) {
       _fetchData();
@@ -288,11 +292,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 const SizedBox(width: 24),
                 Expanded(
                   flex: 1,
-                  child: Column(
-                    children: [
-                      _buildUpcomingAppointments(),
-                    ],
-                  ),
+                  child: Column(children: [_buildUpcomingAppointments()]),
                 ),
               ],
             ),
@@ -379,7 +379,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                       _buildSidebarItem(
                         6,
                         Icons.bedroom_child_outlined,
-                        'IPD Wards & grid',
+                        'IPD Management',
                       ),
                       _buildSidebarItem(4, Icons.person_outline, 'Profile'),
                       // _buildSidebarItem(4, Icons.home_outlined, 'Home Care'),
@@ -399,7 +399,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Divider(color: AppTheme.borderColor, height: 1, thickness: 1),
+                  const Divider(
+                    color: AppTheme.borderColor,
+                    height: 1,
+                    thickness: 1,
+                  ),
                   // User Profile Area
                   Padding(
                     padding: const EdgeInsets.all(24.0),
@@ -410,15 +414,23 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                               Container(
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: AppTheme.borderColor),
+                                  border: Border.all(
+                                    color: AppTheme.borderColor,
+                                  ),
                                 ),
                                 child: CircleAvatar(
-                                  backgroundColor: AppTheme.getAvatarColors(user.fullname)['bg'],
+                                  backgroundColor: AppTheme.getAvatarColors(
+                                    user.fullname,
+                                  )['bg'],
                                   radius: 18,
                                   child: Text(
-                                    user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                                    user.fullname.isNotEmpty
+                                        ? user.fullname[0].toUpperCase()
+                                        : '?',
                                     style: TextStyle(
-                                      color: AppTheme.getAvatarColors(user.fullname)['text'],
+                                      color: AppTheme.getAvatarColors(
+                                        user.fullname,
+                                      )['text'],
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                     ),
@@ -548,8 +560,15 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 decoration: InputDecoration(
                   isCollapsed: true,
                   hintText: isMobile ? 'Search...' : 'Quick search...',
-                  hintStyle: const TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
-                  prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                  hintStyle: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    size: 18,
+                    color: AppTheme.textSecondaryColor,
+                  ),
                   prefixIconConstraints: const BoxConstraints(
                     minWidth: 40,
                     minHeight: 40,
@@ -626,7 +645,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     final int todaysApptsCount = _dbAppointments
         .where(
           (a) =>
-              (a.appointmentDate == today || a.appointmentDate.startsWith(today)) &&
+              (a.appointmentDate == today ||
+                  a.appointmentDate.startsWith(today)) &&
               a.status.toLowerCase() != 'cancelled',
         )
         .length;
