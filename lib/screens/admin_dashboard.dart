@@ -147,7 +147,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     List<String> availableRoles = [];
     bool isLoadingRoles = false;
     String? dialogError;
-    
+
     // Initial sync
     if (!availableRoles.contains(selectedRole)) {
       availableRoles.add(selectedRole);
@@ -161,238 +161,396 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           // Initialize specializations once if needed
           if (specializations.isEmpty && !isLoadingSpecializations) {
             setDialogState(() => isLoadingSpecializations = true);
-            _adminController.fetchSpecializations().then((specs) {
-              setDialogState(() {
-                specializations = specs;
-                isLoadingSpecializations = false;
-              });
-            }).catchError((e) {
-              setDialogState(() => isLoadingSpecializations = false);
-            });
+            _adminController
+                .fetchSpecializations()
+                .then((specs) {
+                  setDialogState(() {
+                    specializations = specs;
+                    isLoadingSpecializations = false;
+                  });
+                })
+                .catchError((e) {
+                  setDialogState(() => isLoadingSpecializations = false);
+                });
           }
 
           // Initialize roles dynamically
           if (availableRoles.length <= 1 && !isLoadingRoles) {
             setDialogState(() => isLoadingRoles = true);
-            _adminController.fetchRbacData().then((rbacData) {
-              setDialogState(() {
-                final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
-                final currentUserRole = Provider.of<AuthProvider>(ctx, listen: false).user?.role;
-                
-                // Allow Super Admin to assign any role. Admin can only assign Doctor/Nurse
-                final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse'];
-                availableRoles = rolesList.map((r) => r['role_name'].toString()).where((r) {
-                   if (currentUserRole == 'Super Admin') return true;
-                   return r == 'Doctor' || r == 'Nurse' || r == selectedRole;
-                }).toList();
-                availableRoles.sort((a, b) {
-                  int indexA = orderedRoles.indexOf(a);
-                  int indexB = orderedRoles.indexOf(b);
-                  if (indexA == -1 && indexB == -1) return a.compareTo(b);
-                  if (indexA == -1) return 1;
-                  if (indexB == -1) return -1;
-                  return indexA.compareTo(indexB);
+            _adminController
+                .fetchRbacData()
+                .then((rbacData) {
+                  setDialogState(() {
+                    final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
+                    final currentUserRole = Provider.of<AuthProvider>(
+                      ctx,
+                      listen: false,
+                    ).user?.role;
+
+                    // Allow Super Admin to assign any role. Admin can only assign Doctor/Nurse
+                    final orderedRoles = [
+                      'Super Admin',
+                      'Admin',
+                      'Doctor',
+                      'Nurse',
+                    ];
+                    availableRoles = rolesList
+                        .map((r) => r['role_name'].toString())
+                        .where((r) {
+                          if (currentUserRole == 'Super Admin') return true;
+                          return r == 'Doctor' ||
+                              r == 'Nurse' ||
+                              r == selectedRole;
+                        })
+                        .toList();
+                    availableRoles.sort((a, b) {
+                      int indexA = orderedRoles.indexOf(a);
+                      int indexB = orderedRoles.indexOf(b);
+                      if (indexA == -1 && indexB == -1) return a.compareTo(b);
+                      if (indexA == -1) return 1;
+                      if (indexB == -1) return -1;
+                      return indexA.compareTo(indexB);
+                    });
+
+                    if (!availableRoles.contains(selectedRole)) {
+                      availableRoles.add(selectedRole);
+                    }
+                    isLoadingRoles = false;
+                  });
+                })
+                .catchError((e) {
+                  setDialogState(() => isLoadingRoles = false);
                 });
-                
-                if (!availableRoles.contains(selectedRole)) {
-                  availableRoles.add(selectedRole);
-                }
-                isLoadingRoles = false;
-              });
-            }).catchError((e) {
-              setDialogState(() => isLoadingRoles = false);
-            });
           }
           return AlertDialog(
             backgroundColor: Colors.white,
             surfaceTintColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-            title: const Text('Edit Staff', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: SizedBox(
-            width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width * 0.9,
-            child: SingleChildScrollView(
-              child: Form(
-                key: editFormKey,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (dialogError != null)
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                dialogError!,
-                                style: const TextStyle(color: Colors.red, fontSize: 13),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+            title: const Text(
+              'Edit Staff',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width > 500
+                  ? 450
+                  : MediaQuery.of(context).size.width * 0.9,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: editFormKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (dialogError != null)
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: Colors.redAccent,
+                                size: 20,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (user.staffUniqueId != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: TextFormField(
-                          initialValue: user.staffUniqueId,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Staff ID',
-                            prefixIcon: Icon(Icons.pin_outlined),
-                            fillColor: Color(0xFFF3F4F6),
-                            filled: true,
-                            helperText: 'Auto-generated ID',
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  dialogError!,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    TextFormField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-Z\s]'),
+                      if (user.staffUniqueId != null) ...[
+                        const Text(
+                          'Staff ID',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
                         ),
-                        LengthLimitingTextInputFormatter(30),
+                        const SizedBox(height: 10),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: TextFormField(
+                            initialValue: user.staffUniqueId,
+                            readOnly: true,
+                            decoration: const InputDecoration(
+                              hintText: 'Staff ID',
+                              prefixIcon: Icon(Icons.pin_outlined),
+                              fillColor: Color(0xFFE5E7EB), // read-only color
+                              filled: true,
+                              helperText: 'Auto-generated ID',
+                            ),
+                          ),
+                        ),
                       ],
-                      validator: (val) => val == null || val.trim().isEmpty ? 'Please enter a name' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: emailCtrl,
-                      decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'Please enter Email Address';
-                        }
-                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
-                          return 'Please enter a valid email address';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: mobileCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Mobile Number', 
-                        prefixIcon: Icon(Icons.phone_outlined),
-                        counterText: "",
+                      const Text(
+                        'Full Name',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
                       ),
-                      keyboardType: TextInputType.phone,
-                      maxLength: 10,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(10),
-                      ],
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) return 'Please enter a mobile number';
-                        if (val.trim().length != 10) return 'Mobile number must be 10 digits';
-                        if (!RegExp(r'^[0-9]+$').hasMatch(val.trim())) return 'Please enter digits only';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    if (isLoadingRoles)
-                      const Center(child: CircularProgressIndicator())
-                    else
-                      DropdownButtonFormField<String>(
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter full name',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z\s]'),
+                          ),
+                          LengthLimitingTextInputFormatter(30),
+                        ],
+                        validator: (val) => val == null || val.trim().isEmpty
+                            ? 'Please enter a name'
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Email Address',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: emailCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter email address',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Please enter Email Address';
+                          }
+                          if (!RegExp(
+                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                          ).hasMatch(val.trim())) {
+                            return 'Please enter a valid email address';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Mobile Number',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: mobileCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter mobile number',
+                          prefixIcon: Icon(Icons.phone_outlined),
+                          counterText: "",
+                        ),
+                        keyboardType: TextInputType.phone,
+                        maxLength: 10,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty)
+                            return 'Please enter a mobile number';
+                          if (val.trim().length != 10)
+                            return 'Mobile number must be 10 digits';
+                          if (!RegExp(r'^[0-9]+$').hasMatch(val.trim()))
+                            return 'Please enter digits only';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      if (isLoadingRoles)
+                        const Center(child: CircularProgressIndicator())
+                      else
+                        const Text(
+                          'Role',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
+                        ),
+
+                      const SizedBox(height: 10),
+
+                      CustomDropdownSearch(
+                        label: '',
                         value: selectedRole,
-                        decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.badge_outlined)),
-                        items: availableRoles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                        dropdownItems: availableRoles,
                         onChanged: (val) {
                           if (val != null) {
                             setDialogState(() {
                               selectedRole = val;
-                              dialogError = null; // Clear error on change
-                              if (selectedRole != 'Doctor') {
-                                selectedSpecializationId = null;
-                              }
                             });
                           }
                         },
                       ),
-                    if (selectedRole == 'Doctor') ...[
+                      if (selectedRole == 'Doctor') ...[
+                        const SizedBox(height: 16),
+                        if (isLoadingSpecializations)
+                          const Center(child: CircularProgressIndicator())
+                        else
+                          CustomDropdownSearch(
+                            label: 'Specialization',
+                            value: selectedSpecializationId?.toString(),
+                            dropdownMap: {
+                              for (var s in specializations)
+                                s['id'].toString(): s['name'].toString(),
+                            },
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() {
+                                  selectedSpecializationId = int.tryParse(val);
+                                  dialogError = null;
+                                });
+                              }
+                            },
+                            validator: (val) =>
+                                selectedRole == 'Doctor' &&
+                                    (val == null || val.isEmpty)
+                                ? 'Please select a specialization'
+                                : null,
+                          ),
+                      ],
                       const SizedBox(height: 16),
-                      if (isLoadingSpecializations)
-                        const Center(child: CircularProgressIndicator())
-                      else
-                        DropdownButtonFormField<int>(
-                          value: selectedSpecializationId,
-                          decoration: const InputDecoration(labelText: 'Specialization', prefixIcon: Icon(Icons.star_outline)),
-                          items: specializations.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['name']))).toList(),
-                          onChanged: (val) { if (val != null) setDialogState(() { selectedSpecializationId = val; dialogError = null; }); },
-                          validator: (val) => selectedRole == 'Doctor' && val == null ? 'Please select a specialization' : null,
+                      const Text(
+                        'Status',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
                         ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      CustomDropdownSearch(
+                        label: '',
+                        value: selectedStatus,
+                        dropdownMap: const {
+                          'active': 'Active',
+                          'inactive': 'Inactive',
+                          'suspended': 'Suspended',
+                        },
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() {
+                              selectedStatus = val;
+                            });
+                          }
+                        },
+                      ),
                     ],
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: selectedStatus,
-                      decoration: const InputDecoration(labelText: 'Status', prefixIcon: Icon(Icons.info_outline)),
-                      items: ['active', 'inactive', 'suspended'].map((s) => DropdownMenuItem(value: s, child: Text(s[0].toUpperCase() + s.substring(1)))).toList(),
-                      onChanged: (val) { if (val != null) setDialogState(() { selectedStatus = val; dialogError = null; }); },
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-          actions: [
-            OutlinedButton(
-              onPressed: isSaving ? null : () => Navigator.pop(ctx),
-              style: AppTheme.cancelButton,
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: isSaving ? null : () async {
-                if (!editFormKey.currentState!.validate()) return;
-                setDialogState(() => isSaving = true);
-                try {
-                  await _adminController.updateStaff(
-                    id: user.id,
-                    fullname: nameCtrl.text.trim(),
-                    email: emailCtrl.text.trim(),
-                    mobile: mobileCtrl.text.trim(),
-                    role: selectedRole,
-                    status: selectedStatus,
-                    medicalLicense: null,
-                    specializationId: selectedRole == 'Doctor' ? selectedSpecializationId : null,
-                  );
-                  if (mounted) {
-                    Navigator.pop(ctx);
-                    _loadStaff();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${nameCtrl.text.trim()} updated successfully!'), backgroundColor: Colors.green.shade600),
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    setDialogState(() => dialogError = e.toString().replaceFirst('Exception: ', ''));
-                  }
-                } finally {
-                  if (mounted) setDialogState(() => isSaving = false);
-                }
-              },
-              style: ElevatedButton.styleFrom(minimumSize: const Size(100, 44)),
-              child: isSaving
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Save'),
-            ),
-          ],
-        );
-      },
-    ),
-  );
-}
+            actions: [
+              OutlinedButton(
+                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                style: AppTheme.cancelButton,
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (!editFormKey.currentState!.validate()) return;
+                        setDialogState(() => isSaving = true);
+                        try {
+                          await _adminController.updateStaff(
+                            id: user.id,
+                            fullname: nameCtrl.text.trim(),
+                            email: emailCtrl.text.trim(),
+                            mobile: mobileCtrl.text.trim(),
+                            role: selectedRole,
+                            status: selectedStatus,
+                            medicalLicense: null,
+                            specializationId: selectedRole == 'Doctor'
+                                ? selectedSpecializationId
+                                : null,
+                          );
+                          if (mounted) {
+                            Navigator.pop(ctx);
+                            _loadStaff();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '${nameCtrl.text.trim()} updated successfully!',
+                                ),
+                                backgroundColor: Colors.green.shade600,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            setDialogState(
+                              () => dialogError = e.toString().replaceFirst(
+                                'Exception: ',
+                                '',
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setDialogState(() => isSaving = false);
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.logoRed,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(120, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                ),
+                child: isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   void _showDeleteConfirmation(BuildContext context, UserModel user) {
     showDialog(
@@ -403,15 +561,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           builder: (ctx, setDialogState) => AlertDialog(
             backgroundColor: Colors.white,
             surfaceTintColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-            title: const Text('Delete Staff', style: TextStyle(fontWeight: FontWeight.bold)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+            title: const Text(
+              'Delete Staff',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             content: RichText(
               text: TextSpan(
                 style: const TextStyle(color: Colors.black87, fontSize: 15),
                 children: [
                   const TextSpan(text: 'Are you sure you want to delete '),
-                  TextSpan(text: user.fullname, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const TextSpan(text: '? This will deactivate their account and hide them from active lists.'),
+                  TextSpan(
+                    text: user.fullname,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const TextSpan(
+                    text:
+                        '? This will deactivate their account and hide them from active lists.',
+                  ),
                 ],
               ),
             ),
@@ -422,30 +591,56 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                onPressed: isDeleting ? null : () async {
-                  setDialogState(() => isDeleting = true);
-                  try {
-                    await _adminController.deleteStaff(user.id);
-                    if (mounted) {
-                      Navigator.pop(ctx);
-                      _loadStaff();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${user.fullname} deleted.'), backgroundColor: Colors.green.shade600),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
-                      );
-                    }
-                  } finally {
-                    if (mounted) setDialogState(() => isDeleting = false);
-                  }
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                onPressed: isDeleting
+                    ? null
+                    : () async {
+                        setDialogState(() => isDeleting = true);
+                        try {
+                          await _adminController.deleteStaff(user.id);
+                          if (mounted) {
+                            Navigator.pop(ctx);
+                            _loadStaff();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${user.fullname} deleted.'),
+                                backgroundColor: Colors.green.shade600,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString()),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setDialogState(() => isDeleting = false);
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(120, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                ),
                 child: isDeleting
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
                     : const Text('Delete'),
               ),
             ],
@@ -479,7 +674,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             children: [
               // Sidebar (only on desktop)
               if (!isMobile) _buildSidebar(context),
-              
+
               // Main Content Area
               Expanded(
                 child: Column(
@@ -629,7 +824,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             // ── Header: Title + Register Button ──
             Container(
-              padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, isMobile ? 16 : 24, isMobile ? 16 : 24, 0),
+              padding: EdgeInsets.fromLTRB(
+                isMobile ? 16 : 24,
+                isMobile ? 16 : 24,
+                isMobile ? 16 : 24,
+                0,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -652,62 +852,90 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ],
                     ),
                   ),
-                    if (Provider.of<AuthProvider>(context, listen: false).user?.hasPermission('manage_users') ?? false) ...[
-                      const SizedBox(width: 12),
-                      // Show Deleted Toggle
-                      Container(
-                        decoration: BoxDecoration(
-                          color: _showDeleted ? Colors.red.withOpacity(0.1) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _showDeleted ? Colors.red.withOpacity(0.3) : AppTheme.borderColor),
+                  if (Provider.of<AuthProvider>(
+                        context,
+                        listen: false,
+                      ).user?.hasPermission('manage_users') ??
+                      false) ...[
+                    const SizedBox(width: 12),
+                    // Show Deleted Toggle
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _showDeleted
+                            ? Colors.red.withOpacity(0.1)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _showDeleted
+                              ? Colors.red.withOpacity(0.3)
+                              : AppTheme.borderColor,
                         ),
-                        child: InkWell(
-                          onTap: () {
-                            setState(() => _showDeleted = !_showDeleted);
-                            _loadStaff();
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  _showDeleted ? Icons.delete_sweep : Icons.delete_outline,
-                                  size: 18,
-                                  color: _showDeleted ? Colors.red : AppTheme.textSecondaryColor,
-                                ),
-                                if (!isMobile) ...[
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Show Deleted',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: _showDeleted ? Colors.red : AppTheme.textSecondaryColor,
-                                    ),
+                      ),
+                      child: InkWell(
+                        onTap: () {
+                          setState(() => _showDeleted = !_showDeleted);
+                          _loadStaff();
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _showDeleted
+                                    ? Icons.delete_sweep
+                                    : Icons.delete_outline,
+                                size: 18,
+                                color: _showDeleted
+                                    ? Colors.red
+                                    : AppTheme.textSecondaryColor,
+                              ),
+                              if (!isMobile) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Show Deleted',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: _showDeleted
+                                        ? Colors.red
+                                        : AppTheme.textSecondaryColor,
                                   ),
-                                ],
+                                ),
                               ],
-                            ),
+                            ],
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed: () => _showAddUserDialog(context),
-                        icon: const Icon(Icons.person_add_outlined, size: 18),
-                        label: Text(isMobile ? 'Add' : 'Register Staff', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.dangerColor,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          minimumSize: const Size(120, 48),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _showAddUserDialog(context),
+                      icon: const Icon(Icons.person_add_outlined, size: 18),
+                      label: Text(
+                        isMobile ? 'Add' : 'Register Staff',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
                         ),
                       ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.dangerColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        minimumSize: const Size(120, 48),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -723,22 +951,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 future: _rbacFuture,
                 builder: (context, rbacSnapshot) {
                   if (rbacSnapshot.connectionState == ConnectionState.waiting) {
-                    return const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()));
+                    return const SizedBox(
+                      height: 48,
+                      child: Center(child: CircularProgressIndicator()),
+                    );
                   }
-                  
+
                   final filterRoles = ['All'];
                   if (rbacSnapshot.hasData) {
-                    final rolesList = rbacSnapshot.data!['roles'] as List<dynamic>? ?? [];
-                    final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
-                    
-                    List<String> dbRoles = rolesList.map((r) => r['role_name'].toString()).toList();
-                    
+                    final rolesList =
+                        rbacSnapshot.data!['roles'] as List<dynamic>? ?? [];
+                    final currentUser = Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    ).user;
+
+                    List<String> dbRoles = rolesList
+                        .map((r) => r['role_name'].toString())
+                        .toList();
+
                     // Filter roles based on requester's role
                     if (currentUser?.role == 'Admin') {
-                      dbRoles = dbRoles.where((r) => r != 'Super Admin').toList();
+                      dbRoles = dbRoles
+                          .where((r) => r != 'Super Admin')
+                          .toList();
                     }
 
-                    final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse'];
+                    final orderedRoles = [
+                      'Super Admin',
+                      'Admin',
+                      'Doctor',
+                      'Nurse',
+                    ];
                     dbRoles.sort((a, b) {
                       int indexA = orderedRoles.indexOf(a);
                       int indexB = orderedRoles.indexOf(b);
@@ -766,14 +1010,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             padding: const EdgeInsets.only(right: 8),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(20),
-                              onTap: () => setState(() => _selectedRoleFilter = role),
+                              onTap: () =>
+                                  setState(() => _selectedRoleFilter = role),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
-                                padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 18, vertical: 10),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isMobile ? 14 : 18,
+                                  vertical: 10,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: isActive ? AppTheme.primaryColor : Colors.white,
+                                  color: isActive
+                                      ? AppTheme.primaryColor
+                                      : Colors.white,
                                   borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: isActive ? AppTheme.primaryColor : AppTheme.borderColor),
+                                  border: Border.all(
+                                    color: isActive
+                                        ? AppTheme.primaryColor
+                                        : AppTheme.borderColor,
+                                  ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -781,22 +1035,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     Text(
                                       role,
                                       style: TextStyle(
-                                        color: isActive ? Colors.white : AppTheme.textSecondaryColor,
-                                        fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                        color: isActive
+                                            ? Colors.white
+                                            : AppTheme.textSecondaryColor,
+                                        fontWeight: isActive
+                                            ? FontWeight.bold
+                                            : FontWeight.w500,
                                         fontSize: 13,
                                       ),
                                     ),
                                     const SizedBox(width: 6),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: isActive ? Colors.white.withOpacity(0.2) : AppTheme.backgroundColor,
+                                        color: isActive
+                                            ? Colors.white.withOpacity(0.2)
+                                            : AppTheme.backgroundColor,
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: Text(
                                         '$count',
                                         style: TextStyle(
-                                          color: isActive ? Colors.white : AppTheme.textSecondaryColor,
+                                          color: isActive
+                                              ? Colors.white
+                                              : AppTheme.textSecondaryColor,
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -811,7 +1076,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                     ),
                   );
-                }
+                },
               ),
             ),
 
@@ -829,7 +1094,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildStaffContent(AsyncSnapshot<List<UserModel>> snapshot, List<UserModel> staff, bool isMobile) {
+  Widget _buildStaffContent(
+    AsyncSnapshot<List<UserModel>> snapshot,
+    List<UserModel> staff,
+    bool isMobile,
+  ) {
     if (snapshot.connectionState == ConnectionState.waiting) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -840,9 +1109,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
             const SizedBox(height: 12),
-            const Text('Failed to load staff data', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
+            const Text(
+              'Failed to load staff data',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text('${snapshot.error}', style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
+            Text(
+              '${snapshot.error}',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 12,
+              ),
+            ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: _loadStaff,
@@ -858,13 +1139,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.people_outline, color: AppTheme.textSecondaryColor.withOpacity(0.4), size: 64),
+            Icon(
+              Icons.people_outline,
+              color: AppTheme.textSecondaryColor.withOpacity(0.4),
+              size: 64,
+            ),
             const SizedBox(height: 12),
-            const Text('No staff found', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            const Text(
+              'No staff found',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            ),
             const SizedBox(height: 4),
             Text(
-              _selectedRoleFilter == 'All' ? 'Register your first staff member.' : 'No $_selectedRoleFilter found.',
-              style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+              _selectedRoleFilter == 'All'
+                  ? 'Register your first staff member.'
+                  : 'No $_selectedRoleFilter found.',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 13,
+              ),
             ),
           ],
         ),
@@ -897,120 +1190,245 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minWidth: constraints.maxWidth),
                     child: DataTable(
-                horizontalMargin: 24,
-                columnSpacing: 32,
-                headingRowHeight: 56,
-                dataRowMinHeight: 60,
-                dataRowMaxHeight: 68,
-                headingRowColor: WidgetStateProperty.all(const Color(0xFFEDF2F7)),
-                headingTextStyle: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF64748B), fontSize: 13),
-                columns: [
-                  const DataColumn(label: Text('Staff ID')),
-                  const DataColumn(label: Text('Name')),
-                  const DataColumn(label: Text('Role')),
-                  if (_selectedRoleFilter == 'Doctor')
-                    const DataColumn(label: Text('Specialization')),
-                  const DataColumn(label: Text('Status')),
-                  const DataColumn(label: Text('Actions')),
-                ],
-                rows: staff.map((user) {
-                  Color roleColor;
-                  switch (user.role) {
-                    case 'Doctor': roleColor = const Color(0xFF6366F1); break;
-                    case 'Nurse': roleColor = const Color(0xFF14B8A6); break;
-                    case 'Admin': roleColor = const Color(0xFFF59E0B); break;
-                    case 'Super Admin': roleColor = const Color(0xFFEC4899); break;
-                    default: roleColor = Colors.grey; break;
-                  }
-                  return DataRow(
-                    cells: [
-                      DataCell(Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(user.staffUniqueId ?? '\u2014', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13, fontFamily: 'monospace')),
-                      )),
-                      DataCell(Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircleAvatar(
-                            radius: 16,
-                            backgroundColor: roleColor.withOpacity(0.1),
-                            child: Text(
-                              user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
-                              style: TextStyle(color: roleColor, fontWeight: FontWeight.bold, fontSize: 14),
+                      horizontalMargin: 24,
+                      columnSpacing: 32,
+                      headingRowHeight: 56,
+                      dataRowMinHeight: 60,
+                      dataRowMaxHeight: 68,
+                      headingRowColor: WidgetStateProperty.all(
+                        const Color(0xFFEDF2F7),
+                      ),
+                      headingTextStyle: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                        fontSize: 13,
+                      ),
+                      columns: [
+                        const DataColumn(label: Text('Staff ID')),
+                        const DataColumn(label: Text('Name')),
+                        const DataColumn(label: Text('Role')),
+                        if (_selectedRoleFilter == 'Doctor')
+                          const DataColumn(label: Text('Specialization')),
+                        const DataColumn(label: Text('Status')),
+                        const DataColumn(label: Text('Actions')),
+                      ],
+                      rows: staff.map((user) {
+                        Color roleColor;
+                        switch (user.role) {
+                          case 'Doctor':
+                            roleColor = const Color(0xFF6366F1);
+                            break;
+                          case 'Nurse':
+                            roleColor = const Color(0xFF14B8A6);
+                            break;
+                          case 'Admin':
+                            roleColor = const Color(0xFFF59E0B);
+                            break;
+                          case 'Super Admin':
+                            roleColor = const Color(0xFFEC4899);
+                            break;
+                          default:
+                            roleColor = Colors.grey;
+                            break;
+                        }
+                        return DataRow(
+                          cells: [
+                            DataCell(
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(
+                                    0.05,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  user.staffUniqueId ?? '\u2014',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryColor,
+                                    fontSize: 13,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                              Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
-                            ],
-                          ),
-                        ],
-                      )),
-                      DataCell(Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: roleColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(user.role, style: TextStyle(color: roleColor, fontSize: 12, fontWeight: FontWeight.w600)),
-                      )),
-                      if (_selectedRoleFilter == 'Doctor')
-                        DataCell(Text(user.specialization ?? '\u2014', style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13))),
-                      DataCell(Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: user.status == 'active' ? Colors.green.withOpacity(0.1) : (user.status == 'suspended' ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1)),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(width: 6, height: 6, decoration: BoxDecoration(color: user.status == 'active' ? Colors.green : (user.status == 'suspended' ? Colors.red : Colors.grey), shape: BoxShape.circle)),
-                            const SizedBox(width: 6),
-                            Text(user.status[0].toUpperCase() + user.status.substring(1), style: TextStyle(color: user.status == 'active' ? Colors.green : (user.status == 'suspended' ? Colors.red : Colors.grey), fontSize: 12, fontWeight: FontWeight.w600)),
+                            DataCell(
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: roleColor.withOpacity(0.1),
+                                    child: Text(
+                                      user.fullname.isNotEmpty
+                                          ? user.fullname[0].toUpperCase()
+                                          : '?',
+                                      style: TextStyle(
+                                        color: roleColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        user.fullname,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      Text(
+                                        user.email,
+                                        style: const TextStyle(
+                                          color: AppTheme.textSecondaryColor,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            DataCell(
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: roleColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  user.role,
+                                  style: TextStyle(
+                                    color: roleColor,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (_selectedRoleFilter == 'Doctor')
+                              DataCell(
+                                Text(
+                                  user.specialization ?? '\u2014',
+                                  style: const TextStyle(
+                                    color: AppTheme.textSecondaryColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            DataCell(
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: user.status == 'active'
+                                      ? Colors.green.withOpacity(0.1)
+                                      : (user.status == 'suspended'
+                                            ? Colors.red.withOpacity(0.1)
+                                            : Colors.grey.withOpacity(0.1)),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: user.status == 'active'
+                                            ? Colors.green
+                                            : (user.status == 'suspended'
+                                                  ? Colors.red
+                                                  : Colors.grey),
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      user.status[0].toUpperCase() +
+                                          user.status.substring(1),
+                                      style: TextStyle(
+                                        color: user.status == 'active'
+                                            ? Colors.green
+                                            : (user.status == 'suspended'
+                                                  ? Colors.red
+                                                  : Colors.grey),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.visibility_outlined,
+                                      size: 18,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                    onPressed: () => setState(
+                                      () => _viewingStaffProfile = user,
+                                    ),
+                                  ),
+                                  if (user.role != 'Super Admin') ...[
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.edit_outlined,
+                                        size: 18,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                      onPressed: () =>
+                                          _showEditDialog(context, user),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        size: 18,
+                                        color: Colors.redAccent,
+                                      ),
+                                      onPressed: () => _showDeleteConfirmation(
+                                        context,
+                                        user,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
                           ],
-                        ),
-                      )),
-                      DataCell(Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.visibility_outlined, size: 18, color: AppTheme.primaryColor),
-                            onPressed: () => setState(() => _viewingStaffProfile = user),
-                          ),
-                          if (user.role != 'Super Admin') ...[
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
-                              onPressed: () => _showEditDialog(context, user),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
-                              onPressed: () => _showDeleteConfirmation(context, user),
-                            ),
-                          ],
-                        ],
-                      )),
-                    ],
-                  );
-                }).toList(),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
-      );
-     },
-    ),
-   ),
-  );
-}
+      ),
+    );
+  }
+
   Widget _buildStaffCards(List<UserModel> staff) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1019,14 +1437,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         final user = staff[index];
         Color roleColor;
         switch (user.role) {
-          case 'Doctor': roleColor = const Color(0xFF6366F1); break;
-          case 'Nurse': roleColor = const Color(0xFF14B8A6); break;
-          case 'Admin': roleColor = const Color(0xFFF59E0B); break;
-          case 'Super Admin': roleColor = const Color(0xFFEC4899); break;
-          default: roleColor = Colors.grey; break;
+          case 'Doctor':
+            roleColor = const Color(0xFF6366F1);
+            break;
+          case 'Nurse':
+            roleColor = const Color(0xFF14B8A6);
+            break;
+          case 'Admin':
+            roleColor = const Color(0xFFF59E0B);
+            break;
+          case 'Super Admin':
+            roleColor = const Color(0xFFEC4899);
+            break;
+          default:
+            roleColor = Colors.grey;
+            break;
         }
 
-        final statusColor = user.status == 'active' ? Colors.green : (user.status == 'suspended' ? Colors.red : Colors.grey);
+        final statusColor = user.status == 'active'
+            ? Colors.green
+            : (user.status == 'suspended' ? Colors.red : Colors.grey);
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -1034,7 +1464,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           decoration: BoxDecoration(
             color: user.isDeleted ? Colors.red.withOpacity(0.02) : Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: user.isDeleted ? Colors.red.withOpacity(0.2) : AppTheme.borderColor.withOpacity(0.4)),
+            border: Border.all(
+              color: user.isDeleted
+                  ? Colors.red.withOpacity(0.2)
+                  : AppTheme.borderColor.withOpacity(0.4),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1045,8 +1479,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     radius: 20,
                     backgroundColor: roleColor.withOpacity(0.1),
                     child: Text(
-                      user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
-                      style: TextStyle(color: roleColor, fontWeight: FontWeight.bold),
+                      user.fullname.isNotEmpty
+                          ? user.fullname[0].toUpperCase()
+                          : '?',
+                      style: TextStyle(
+                        color: roleColor,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1056,28 +1495,63 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       children: [
                         Row(
                           children: [
-                            Text(user.fullname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                            Text(
+                              user.fullname,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
                             if (user.isDeleted) ...[
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(4)),
-                                child: const Text('DELETED', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'DELETED',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ],
                           ],
                         ),
-                        Text(user.email, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
+                        Text(
+                          user.email,
+                          style: const TextStyle(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: roleColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(user.role, style: TextStyle(color: roleColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      user.role,
+                      style: TextStyle(
+                        color: roleColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1088,20 +1562,54 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Staff ID', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
-                      Text(user.staffUniqueId ?? '\u2014', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'monospace')),
+                      const Text(
+                        'Staff ID',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontSize: 11,
+                        ),
+                      ),
+                      Text(
+                        user.staffUniqueId ?? '\u2014',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
                     ],
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text('Status', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
+                      const Text(
+                        'Status',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontSize: 11,
+                        ),
+                      ),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(width: 6, height: 6, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: statusColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
                           const SizedBox(width: 6),
-                          Text(user.status[0].toUpperCase() + user.status.substring(1), style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text(
+                            user.status[0].toUpperCase() +
+                                user.status.substring(1),
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -1114,7 +1622,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton.icon(
-                    onPressed: () => setState(() => _viewingStaffProfile = user),
+                    onPressed: () =>
+                        setState(() => _viewingStaffProfile = user),
                     icon: const Icon(Icons.visibility_outlined, size: 18),
                     label: const Text('View'),
                   ),
@@ -1128,8 +1637,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: () => _showDeleteConfirmation(context, user),
-                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
-                      label: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: Colors.redAccent,
+                      ),
+                      label: const Text(
+                        'Delete',
+                        style: TextStyle(color: Colors.redAccent),
+                      ),
                     ),
                   ],
                 ],
@@ -1141,22 +1657,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-
-
   Widget _buildSidebar(BuildContext context) {
     return Container(
       width: 260,
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(right: BorderSide(color: AppTheme.borderColor, width: 1)),
+        border: Border(
+          right: BorderSide(color: AppTheme.borderColor, width: 1),
+        ),
       ),
       child: Column(
         children: [
           // Logo Section
           Container(
-            padding: const EdgeInsets.only(left: 24, top: 0, bottom: 0, right: 24),
+            padding: const EdgeInsets.only(
+              left: 24,
+              top: 0,
+              bottom: 0,
+              right: 24,
+            ),
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1)),
+              border: Border(
+                bottom: BorderSide(color: AppTheme.borderColor, width: 1),
+              ),
             ),
             child: Row(
               children: [
@@ -1175,12 +1698,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Column(
                 children: [
-                  _buildSidebarItem(0, Icons.admin_panel_settings_outlined, 'Control Panel'),
-                  _buildSidebarItem(1, Icons.people_outline, 'Staff Management'),
-                  _buildSidebarItem(2, Icons.sick_outlined, 'Patient Management'),
-                  _buildSidebarItem(3, Icons.security_outlined, 'Access Control'),
-                  _buildSidebarItem(4, Icons.calendar_month_outlined, 'Appointments'),
-                  _buildSidebarItem(5, Icons.monitor_heart_outlined, 'OPD Management'),
+                  _buildSidebarItem(
+                    0,
+                    Icons.admin_panel_settings_outlined,
+                    'Control Panel',
+                  ),
+                  _buildSidebarItem(
+                    1,
+                    Icons.people_outline,
+                    'Staff Management',
+                  ),
+                  _buildSidebarItem(
+                    2,
+                    Icons.sick_outlined,
+                    'Patient Management',
+                  ),
+                  _buildSidebarItem(
+                    3,
+                    Icons.security_outlined,
+                    'Access Control',
+                  ),
+                  _buildSidebarItem(
+                    4,
+                    Icons.calendar_month_outlined,
+                    'Appointments',
+                  ),
+                  _buildSidebarItem(
+                    5,
+                    Icons.monitor_heart_outlined,
+                    'OPD Management',
+                  ),
                   _buildSidebarItem(6, Icons.hotel_outlined, 'IPD Management'),
                 ],
               ),
@@ -1191,7 +1738,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Divider(color: AppTheme.borderColor, height: 1, thickness: 1),
+              const Divider(
+                color: AppTheme.borderColor,
+                height: 1,
+                thickness: 1,
+              ),
               Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Consumer<AuthProvider>(
@@ -1203,7 +1754,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         const CircleAvatar(
                           backgroundColor: AppTheme.primaryColor,
                           radius: 18,
-                          child: Icon(Icons.person, color: Colors.white, size: 20),
+                          child: Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1212,19 +1767,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             children: [
                               Text(
                                 user.fullname,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
                                 user.role,
-                                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
-                          onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
+                          icon: const Icon(
+                            Icons.logout,
+                            size: 18,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                          onPressed: () => LogoutHelper.showLogoutConfirmation(
+                            context,
+                            auth,
+                          ),
                         ),
                       ],
                     );
@@ -1272,17 +1840,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withOpacity(0.1) : Colors.transparent,
+          color: isSelected
+              ? AppTheme.primaryColor.withOpacity(0.1)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           children: [
-            Icon(icon, color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor, size: 22),
+            Icon(
+              icon,
+              color: isSelected
+                  ? AppTheme.primaryColor
+                  : AppTheme.textSecondaryColor,
+              size: 22,
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
-                label, 
-                style: TextStyle(color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                label,
+                style: TextStyle(
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : AppTheme.textSecondaryColor,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1331,8 +1912,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 decoration: InputDecoration(
                   isCollapsed: true,
                   hintText: isMobile ? 'Search...' : 'Quick search...',
-                  hintStyle: const TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
-                  prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                  hintStyle: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    size: 18,
+                    color: AppTheme.textSecondaryColor,
+                  ),
                   prefixIconConstraints: const BoxConstraints(
                     minWidth: 40,
                     minHeight: 40,
@@ -1382,7 +1970,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text('Share', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Share',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -1401,9 +1992,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(user != null ? 'Hello, ${user.fullname}' : 'Admin Dashboard', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+        Text(
+          user != null ? 'Hello, ${user.fullname}' : 'Admin Dashboard',
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 4),
-        Text('Manage system operations and staff provisioning', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14)),
+        Text(
+          'Manage system operations and staff provisioning',
+          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+        ),
       ],
     );
   }
@@ -1414,27 +2011,98 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         spacing: 16,
         runSpacing: 16,
         children: [
-          _buildStatCard('Total Staff', '24', '+2', Icons.badge_outlined, Colors.blueGrey, isMobile),
-          _buildStatCard('Active Sessions', '5', 'Live', Icons.online_prediction, Colors.green, isMobile),
-          _buildStatCard('System Health', '98%', 'Optimal', Icons.speed, Colors.indigo, isMobile),
-          _buildStatCard('Security Alerts', '0', 'Safe', Icons.security, Colors.teal, isMobile),
+          _buildStatCard(
+            'Total Staff',
+            '24',
+            '+2',
+            Icons.badge_outlined,
+            Colors.blueGrey,
+            isMobile,
+          ),
+          _buildStatCard(
+            'Active Sessions',
+            '5',
+            'Live',
+            Icons.online_prediction,
+            Colors.green,
+            isMobile,
+          ),
+          _buildStatCard(
+            'System Health',
+            '98%',
+            'Optimal',
+            Icons.speed,
+            Colors.indigo,
+            isMobile,
+          ),
+          _buildStatCard(
+            'Security Alerts',
+            '0',
+            'Safe',
+            Icons.security,
+            Colors.teal,
+            isMobile,
+          ),
         ],
       );
     }
     return Row(
       children: [
-        Expanded(child: _buildStatCard('Total Staff', '24', '+2', Icons.badge_outlined, Colors.blueGrey, isMobile)),
+        Expanded(
+          child: _buildStatCard(
+            'Total Staff',
+            '24',
+            '+2',
+            Icons.badge_outlined,
+            Colors.blueGrey,
+            isMobile,
+          ),
+        ),
         const SizedBox(width: 16),
-        Expanded(child: _buildStatCard('Active Sessions', '5', 'Live', Icons.online_prediction, Colors.green, isMobile)),
+        Expanded(
+          child: _buildStatCard(
+            'Active Sessions',
+            '5',
+            'Live',
+            Icons.online_prediction,
+            Colors.green,
+            isMobile,
+          ),
+        ),
         const SizedBox(width: 16),
-        Expanded(child: _buildStatCard('System Health', '98%', 'Optimal', Icons.speed, Colors.indigo, isMobile)),
+        Expanded(
+          child: _buildStatCard(
+            'System Health',
+            '98%',
+            'Optimal',
+            Icons.speed,
+            Colors.indigo,
+            isMobile,
+          ),
+        ),
         const SizedBox(width: 16),
-        Expanded(child: _buildStatCard('Security Alerts', '0', 'Safe', Icons.security, Colors.teal, isMobile)),
+        Expanded(
+          child: _buildStatCard(
+            'Security Alerts',
+            '0',
+            'Safe',
+            Icons.security,
+            Colors.teal,
+            isMobile,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildStatCard(String title, String value, String sub, IconData icon, Color color, bool isMobile) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    String sub,
+    IconData icon,
+    Color color,
+    bool isMobile,
+  ) {
     return StatCard(
       title: title,
       value: value,
@@ -1449,7 +2117,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1457,11 +2128,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
               SizedBox(width: 8),
-              Text('System Alerts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(
+                'System Alerts',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildAlertItem(Colors.orange.shade50, Colors.orange.shade900, 'Database backup planned for tonight at 02:00 AM', 'System'),
+          _buildAlertItem(
+            Colors.orange.shade50,
+            Colors.orange.shade900,
+            'Database backup planned for tonight at 02:00 AM',
+            'System',
+          ),
         ],
       ),
     );
@@ -1470,12 +2149,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildAlertItem(Color bg, Color textColor, String text, String type) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(child: Text(text, style: TextStyle(color: textColor, fontWeight: FontWeight.w600, fontSize: 13))),
-          Text(type, style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 11)),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Text(
+            type,
+            style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 11),
+          ),
         ],
       ),
     );
@@ -1488,39 +2182,67 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       decoration: BoxDecoration(
         color: AppTheme.primaryColor,
         borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppTheme.primaryColor, Color(0xFF0D4D7A)]),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.primaryColor, Color(0xFF0D4D7A)],
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Administrative Actions', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text(
+            'Administrative Actions',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
           const SizedBox(height: 20),
-          _buildActionButton(Icons.person_add_outlined, 'Register New Staff', () => _showAddUserDialog(context)),
-          _buildActionButton(Icons.settings_suggest_outlined, 'System Configuration', () {}),
-          _buildActionButton(Icons.backup_outlined, 'Manual Database Backup', () {}),
+          _buildActionButton(
+            Icons.person_add_outlined,
+            'Register New Staff',
+            () => _showAddUserDialog(context),
+          ),
+          _buildActionButton(
+            Icons.settings_suggest_outlined,
+            'System Configuration',
+            () {},
+          ),
+          _buildActionButton(
+            Icons.backup_outlined,
+            'Manual Database Backup',
+            () {},
+          ),
         ],
       ),
     );
   }
 
   Widget _buildActionButton(IconData icon, String label, VoidCallback onTap) {
-    return QuickActionButton(
-      icon: icon,
-      label: label,
-      onTap: onTap,
-    );
+    return QuickActionButton(icon: icon, label: label, onTap: onTap);
   }
 
   Widget _buildUserManagementInfo() {
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Staff Performance Overview', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          Text(
+            'Staff Performance Overview',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
           SizedBox(height: 16),
-          Text('User statistics, audit logs, and system access history will be integrated here.', style: TextStyle(color: AppTheme.textSecondaryColor)),
+          Text(
+            'User statistics, audit logs, and system access history will be integrated here.',
+            style: TextStyle(color: AppTheme.textSecondaryColor),
+          ),
           SizedBox(height: 120), // Placeholder space
         ],
       ),
@@ -1530,11 +2252,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildSystemStatus() {
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('System Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const Text(
+            'System Status',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
           const SizedBox(height: 16),
           _buildStatusRow('Backend API', 'Online', Colors.green),
           _buildStatusRow('PostgreSQL DB', 'Connected', Colors.green),
@@ -1550,12 +2278,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.labelColor)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: AppTheme.labelColor),
+          ),
           Row(
             children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
               const SizedBox(width: 8),
-              Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+              Text(
+                value,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
             ],
           ),
         ],
@@ -1578,7 +2320,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
   final _mobileController = TextEditingController();
   final _passwordController = TextEditingController();
   final _licenseController = TextEditingController();
-final AdminController _adminController = AdminController();
+  final AdminController _adminController = AdminController();
 
   String? _selectedRole;
   List<String> _roles = ['Doctor', 'Nurse'];
@@ -1603,15 +2345,18 @@ final AdminController _adminController = AdminController();
     try {
       final rbacData = await _adminController.fetchRbacData();
       final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
-      
+
       if (mounted) {
-        final currentUserRole = Provider.of<AuthProvider>(context, listen: false).user?.role;
+        final currentUserRole = Provider.of<AuthProvider>(
+          context,
+          listen: false,
+        ).user?.role;
         setState(() {
           _roles = rolesList.map((r) => r['role_name'].toString()).where((r) {
-             if (currentUserRole == 'Super Admin') return true;
-             return r == 'Doctor' || r == 'Nurse';
+            if (currentUserRole == 'Super Admin') return true;
+            return r == 'Doctor' || r == 'Nurse';
           }).toList();
-          
+
           final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse'];
           _roles.sort((a, b) {
             int indexA = orderedRoles.indexOf(a);
@@ -1621,9 +2366,9 @@ final AdminController _adminController = AdminController();
             if (indexB == -1) return -1;
             return indexA.compareTo(indexB);
           });
-          
+
           if (_selectedRole != null && !_roles.contains(_selectedRole)) {
-             _selectedRole = null;
+            _selectedRole = null;
           }
           _isLoadingRoles = false;
         });
@@ -1632,7 +2377,10 @@ final AdminController _adminController = AdminController();
       if (mounted) {
         setState(() => _isLoadingRoles = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading roles: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error loading roles: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -1650,7 +2398,10 @@ final AdminController _adminController = AdminController();
       if (mounted) {
         setState(() => _isLoadingSpecializations = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading specializations: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error loading specializations: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -1666,34 +2417,40 @@ final AdminController _adminController = AdminController();
     super.dispose();
   }
 
- Future<void> _createUser() async {
-  if (!_formKey.currentState!.validate()) return;
-  setState(() => _isLoading = true);
+  Future<void> _createUser() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
 
-  try {
-    await _adminController.createStaff(
-      fullname: _nameController.text.trim(),
-      email: _emailController.text.trim(),
-      mobile: _mobileController.text.trim(),
-      password: _passwordController.text.trim(),
-      role: _selectedRole ?? '',
-      medicalLicense: _licenseController.text.trim(),
-      specializationId: _selectedRole == 'Doctor' ? _selectedSpecializationId : null,
-    );
+    try {
+      await _adminController.createStaff(
+        fullname: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        mobile: _mobileController.text.trim(),
+        password: _passwordController.text.trim(),
+        role: _selectedRole ?? '',
+        medicalLicense: _licenseController.text.trim(),
+        specializationId: _selectedRole == 'Doctor'
+            ? _selectedSpecializationId
+            : null,
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('User created successfully'), backgroundColor: Colors.green),
-    );
-    Navigator.pop(context);
-
-  } catch (e) {
-    if (mounted) {
-      setState(() => _errorMessage = e.toString().replaceFirst('Exception: ', ''));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('User created successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        setState(
+          () => _errorMessage = e.toString().replaceFirst('Exception: ', ''),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -1701,9 +2458,17 @@ final AdminController _adminController = AdminController();
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      title: const Text('Register New Staff', style: TextStyle(fontFamily: AppTheme.fontFamily, fontWeight: FontWeight.bold)),
+      title: const Text(
+        'Register New Staff',
+        style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
       content: SizedBox(
-        width: MediaQuery.of(context).size.width > 640 ? 600 : MediaQuery.of(context).size.width * 0.9,
+        width: MediaQuery.of(context).size.width > 640
+            ? 600
+            : MediaQuery.of(context).size.width * 0.9,
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
@@ -1723,12 +2488,19 @@ final AdminController _adminController = AdminController();
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             _errorMessage!,
-                            style: const TextStyle(color: Colors.red, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ],
@@ -1745,11 +2517,21 @@ final AdminController _adminController = AdminController();
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Full Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                          const Text(
+                            'Full Name',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black,
+                            ),
+                          ),
                           const SizedBox(height: 10),
                           TextFormField(
                             controller: _nameController,
-                            onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
+                            onChanged: (_) {
+                              if (_errorMessage != null)
+                                setState(() => _errorMessage = null);
+                            },
                             inputFormatters: [
                               FilteringTextInputFormatter.allow(
                                 RegExp(r'[a-zA-Z\s]'),
@@ -1758,17 +2540,46 @@ final AdminController _adminController = AdminController();
                             ],
                             decoration: InputDecoration(
                               hintText: 'Enter full name',
-                              hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
+                              hintStyle: const TextStyle(
+                                color: Color(0xFFCBD5E0),
+                                fontSize: 11,
+                              ),
                               filled: true,
                               fillColor: AppTheme.backgroundColor,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.primaryColor)),
-                              errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
-                              focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Colors.red),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Colors.red),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
                             ),
-                            validator: (val) => val == null || val.isEmpty ? 'Please enter full name' : null,
+                            validator: (val) => val == null || val.isEmpty
+                                ? 'Please enter full name'
+                                : null,
                           ),
                         ],
                       ),
@@ -1778,29 +2589,68 @@ final AdminController _adminController = AdminController();
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Email Address', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                          const Text(
+                            'Email Address',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black,
+                            ),
+                          ),
                           const SizedBox(height: 10),
                           TextFormField(
                             controller: _emailController,
-                            onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
+                            onChanged: (_) {
+                              if (_errorMessage != null)
+                                setState(() => _errorMessage = null);
+                            },
                             keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
                               hintText: 'Enter email address',
-                              hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
+                              hintStyle: const TextStyle(
+                                color: Color(0xFFCBD5E0),
+                                fontSize: 11,
+                              ),
                               filled: true,
                               fillColor: AppTheme.backgroundColor,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.primaryColor)),
-                              errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
-                              focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Colors.red),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Colors.red),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
                             ),
                             validator: (val) {
                               if (val == null || val.trim().isEmpty) {
                                 return 'Please enter Email Address';
                               }
-                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                              if (!RegExp(
+                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                              ).hasMatch(val.trim())) {
                                 return 'Please enter a valid email address';
                               }
                               return null;
@@ -1821,11 +2671,21 @@ final AdminController _adminController = AdminController();
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Mobile Number', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                          const Text(
+                            'Mobile Number',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black,
+                            ),
+                          ),
                           const SizedBox(height: 10),
                           TextFormField(
                             controller: _mobileController,
-                            onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
+                            onChanged: (_) {
+                              if (_errorMessage != null)
+                                setState(() => _errorMessage = null);
+                            },
                             keyboardType: TextInputType.phone,
                             maxLength: 10,
                             inputFormatters: [
@@ -1834,21 +2694,51 @@ final AdminController _adminController = AdminController();
                             ],
                             decoration: InputDecoration(
                               hintText: 'Enter 10-digit number',
-                              hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
+                              hintStyle: const TextStyle(
+                                color: Color(0xFFCBD5E0),
+                                fontSize: 11,
+                              ),
                               counterText: '',
                               filled: true,
                               fillColor: AppTheme.backgroundColor,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.primaryColor)),
-                              errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
-                              focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Colors.red),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Colors.red),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
                             ),
                             validator: (val) {
-                              if (val == null || val.isEmpty) return 'Please enter mobile number';
-                              if (val.length != 10) return 'Please enter 10 digit mobile number';
-                              if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Please enter digits only';
+                              if (val == null || val.isEmpty)
+                                return 'Please enter mobile number';
+                              if (val.length != 10)
+                                return 'Please enter 10 digit mobile number';
+                              if (!RegExp(r'^[0-9]+$').hasMatch(val))
+                                return 'Please enter digits only';
                               return null;
                             },
                           ),
@@ -1860,11 +2750,21 @@ final AdminController _adminController = AdminController();
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                          const Text(
+                            'Password',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black,
+                            ),
+                          ),
                           const SizedBox(height: 10),
                           TextFormField(
                             controller: _passwordController,
-                            onChanged: (_) { if (_errorMessage != null) setState(() => _errorMessage = null); },
+                            onChanged: (_) {
+                              if (_errorMessage != null)
+                                setState(() => _errorMessage = null);
+                            },
                             obscureText: _obscurePassword,
                             maxLength: 16,
                             inputFormatters: [LengthLimitingTextInputFormatter(16)],
@@ -1901,12 +2801,36 @@ final AdminController _adminController = AdminController();
                               ),
                               filled: true,
                               fillColor: AppTheme.backgroundColor,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.primaryColor)),
-                              errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
-                              focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Colors.red),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Colors.red),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
                             ),
                             validator: PasswordPolicy.validatePassword,
                           ),
@@ -1918,7 +2842,14 @@ final AdminController _adminController = AdminController();
                 const SizedBox(height: 20),
 
                 // ── Row 3: Role (full width) ──
-                const Text('Role', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                const Text(
+                  'Role',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 _isLoadingRoles
                     ? const Center(child: CircularProgressIndicator())
@@ -1944,7 +2875,9 @@ final AdminController _adminController = AdminController();
                             });
                           }
                         },
-                        validator: (val) => val == null || val.isEmpty ? 'Please select a role' : null,
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'Please select a role'
+                            : null,
                       ),
 
                 // ── Row 4: Specialization | Medical License (Doctor only) ──
@@ -1957,18 +2890,29 @@ final AdminController _adminController = AdminController();
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Specialization', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                            const Text(
+                              'Specialization',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                            ),
                             const SizedBox(height: 10),
                             _isLoadingSpecializations
-                                ? const Center(child: CircularProgressIndicator())
+                                ? const Center(
+                                    child: CircularProgressIndicator(),
+                                  )
                                 : CustomDropdownSearch(
                                     label: '',
                                     hint: 'Select specialization',
                                     dropdownMap: {
                                       for (var spec in _specializations)
-                                        spec['id'].toString(): spec['name'].toString()
+                                        spec['id'].toString(): spec['name']
+                                            .toString(),
                                     },
-                                    value: _selectedSpecializationId?.toString(),
+                                    value: _selectedSpecializationId
+                                        ?.toString(),
                                     fillColor: AppTheme.backgroundColor,
                                     popupBgColor: Colors.white,
                                     borderColor: const Color(0xFFE2E8F0),
@@ -1977,10 +2921,15 @@ final AdminController _adminController = AdminController();
                                     hintFontSize: 11,
                                     onChanged: (val) {
                                       setState(() {
-                                        _selectedSpecializationId = val != null ? int.tryParse(val) : null;
+                                        _selectedSpecializationId = val != null
+                                            ? int.tryParse(val)
+                                            : null;
                                       });
                                     },
-                                    validator: (val) => _selectedRole == 'Doctor' && val == null ? 'Please select specialization' : null,
+                                    validator: (val) =>
+                                        _selectedRole == 'Doctor' && val == null
+                                        ? 'Please select specialization'
+                                        : null,
                                   ),
                           ],
                         ),
@@ -1990,7 +2939,14 @@ final AdminController _adminController = AdminController();
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Medical License', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
+                            const Text(
+                              'Medical License',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                            ),
                             const SizedBox(height: 10),
                             TextFormField(
                               controller: _licenseController,
@@ -1999,13 +2955,34 @@ final AdminController _adminController = AdminController();
                               ],
                               decoration: InputDecoration(
                                 hintText: 'Optional',
-                                hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
+                                hintStyle: const TextStyle(
+                                  color: Color(0xFFCBD5E0),
+                                  fontSize: 11,
+                                ),
                                 filled: true,
                                 fillColor: AppTheme.backgroundColor,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.primaryColor)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
                               ),
                             ),
                           ],
@@ -2033,7 +3010,14 @@ final AdminController _adminController = AdminController();
             minimumSize: const Size(120, 48),
           ),
           child: _isLoading
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
               : const Text('Create Staff'),
         ),
       ],
@@ -2052,10 +3036,12 @@ class AdminPatientManagementWrapper extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<AdminPatientManagementWrapper> createState() => _AdminPatientManagementWrapperState();
+  State<AdminPatientManagementWrapper> createState() =>
+      _AdminPatientManagementWrapperState();
 }
 
-class _AdminPatientManagementWrapperState extends State<AdminPatientManagementWrapper> {
+class _AdminPatientManagementWrapperState
+    extends State<AdminPatientManagementWrapper> {
   List<PatientModel> _dbPatients = [];
   bool _isLoading = false;
   String? _error;
@@ -2093,7 +3079,11 @@ class _AdminPatientManagementWrapperState extends State<AdminPatientManagementWr
       onRegisterPatient: widget.onRegister,
       onBookAppointment: (_) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Booking appointments from Admin Dashboard is currently not supported.')),
+          const SnackBar(
+            content: Text(
+              'Booking appointments from Admin Dashboard is currently not supported.',
+            ),
+          ),
         );
       },
     );

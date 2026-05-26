@@ -5,6 +5,7 @@ import '../utils/app_theme.dart';
 import '../models/appointment_model.dart';
 import '../controllers/patient_controller.dart';
 import '../controllers/appointment_controller.dart';
+import '../widgets/custom_dropdown_search.dart';
 
 class NewConsultationView extends StatefulWidget {
   final AppointmentModel appointment;
@@ -444,6 +445,10 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         await _appointmentController.saveConsultation(data);
       }
 
+      if (widget.appointment.id != null) {
+        await _appointmentController.updateStatus(widget.appointment.id!, 'Completed');
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -629,33 +634,14 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Frequency', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black)),
-                    const SizedBox(height: 6),
-                    Container(
-                      height: 38,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: AppTheme.borderColor),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _freqController.text.isEmpty ? '1-0-1' : _freqController.text,
-                          isExpanded: true,
-                          style: const TextStyle(fontSize: 12, color: Colors.black),
-                          items: ['1-0-1', '1-0-0', '0-0-1', '1-1-1', 'Once daily', 'Twice daily', 'Thrice daily', 'As needed (PRN)']
-                              .map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
-                          onChanged: (v) {
-                            if (v != null) setState(() => _freqController.text = v);
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
+                child: CustomDropdownSearch(
+                  label: 'Frequency',
+                  value: _freqController.text.isEmpty ? '1-0-1' : _freqController.text,
+                  dropdownItems: const ['1-0-1', '1-0-0', '0-0-1', '1-1-1', 'Once daily', 'Twice daily', 'Thrice daily', 'As needed (PRN)'],
+                  height: 38,
+                  onChanged: (v) {
+                    if (v != null) setState(() => _freqController.text = v);
+                  },
                 ),
               ),
               const SizedBox(width: 8),

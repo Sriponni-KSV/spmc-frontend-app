@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../controllers/nurse/nurse_controller.dart';
+import '../widgets/custom_dropdown_search.dart';
 
 class NurseProfileView extends StatefulWidget {
   const NurseProfileView({Key? key}) : super(key: key);
@@ -741,26 +742,22 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 _buildProfileTextField('Shift End Time', _slotEndController, Icons.logout_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotEndController)),
                 fieldSpacing,
                  Column(
-                   crossAxisAlignment: CrossAxisAlignment.start,
-                   children: [
-                     const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
-                      style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.event_available_outlined, size: 20),
-                        fillColor: AppTheme.backgroundColor,
-                        filled: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
-                      ),
-                      items: ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 14)))).toList(),
-                      onChanged: (v) => _shiftTypeController.text = v ?? '',
-                    ),
-                  ],
-                ),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
+                     const SizedBox(height: 8),
+                     CustomDropdownSearch(
+                       label: '',
+                       value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
+                       dropdownItems: const ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'],
+                       onChanged: (v) {
+                         if (v != null) {
+                           _shiftTypeController.text = v;
+                         }
+                       },
+                     ),
+                   ],
+                 ),
               ] else ...[
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -771,26 +768,22 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     const SizedBox(width: 16),
                     Expanded(
                        child: Column(
-                         crossAxisAlignment: CrossAxisAlignment.start,
-                         children: [
-                           const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<String>(
-                            value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
-                            style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
-                            decoration: InputDecoration(
-                              prefixIcon: const Icon(Icons.event_available_outlined, size: 20),
-                              fillColor: AppTheme.backgroundColor,
-                              filled: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.withOpacity(0.2))),
-                            ),
-                            items: ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 14)))).toList(),
-                            onChanged: (v) => _shiftTypeController.text = v ?? '',
-                          ),
-                        ],
-                      ),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
+                           const SizedBox(height: 8),
+                           CustomDropdownSearch(
+                             label: '',
+                             value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
+                             dropdownItems: const ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'],
+                             onChanged: (v) {
+                               if (v != null) {
+                                 _shiftTypeController.text = v;
+                               }
+                             },
+                           ),
+                         ],
+                       ),
                     ),
                   ],
                 ),

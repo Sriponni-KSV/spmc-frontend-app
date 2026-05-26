@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_dropdown_search.dart';
+import '../widgets/appointment_details_dialog.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
@@ -12,13 +14,15 @@ import '../utils/date_formatter.dart';
 
 class OPDManagementScreen extends StatefulWidget {
   final bool isMobile;
-  const OPDManagementScreen({Key? key, required this.isMobile}) : super(key: key);
+  const OPDManagementScreen({Key? key, required this.isMobile})
+    : super(key: key);
 
   @override
   State<OPDManagementScreen> createState() => _OPDManagementScreenState();
 }
 
-class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTickerProviderStateMixin {
+class _OPDManagementScreenState extends State<OPDManagementScreen>
+    with SingleTickerProviderStateMixin {
   final AppointmentController _appointmentController = AppointmentController();
   final AdminController _adminController = AdminController();
   final PatientController _patientController = PatientController();
@@ -61,13 +65,15 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final data = await _appointmentController.fetchAdminAppointments(
         date: dateStr,
-        status: null, // Fetch all to filter locally by tabs
+        status: null,
         doctor: _selectedDoctor == 'All' ? null : _selectedDoctor,
       );
-      final consultationsData = await _appointmentController.fetchConsultations();
+      final consultationsData = await _appointmentController
+          .fetchConsultations();
+
       if (mounted) {
         setState(() {
-          _appointments = data;
+          _appointments = data.where(_isWalkIn).toList();
           _consultations = consultationsData;
           _isLoading = false;
         });
@@ -96,8 +102,34 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
     }
   }
 
+  bool _isWalkIn(AppointmentModel appointment) {
+    final normalized = appointment.appointmentType
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s-]+'), '');
+    return normalized == 'walkin';
+  }
+
+  DateTime _sortDate(AppointmentModel appointment) {
+    return DateTime.tryParse(
+          appointment.createdAt ?? appointment.updatedAt ?? '',
+        ) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  int _newestFirst(AppointmentModel a, AppointmentModel b) {
+    final dateCompare = _sortDate(b).compareTo(_sortDate(a));
+    if (dateCompare != 0) return dateCompare;
+    return (b.id ?? 0).compareTo(a.id ?? 0);
+  }
+
+  List<AppointmentModel> get _walkInAppointments =>
+      _appointments.where(_isWalkIn).toList();
+
   List<AppointmentModel> get _filteredAppointments {
-    List<AppointmentModel> apps = List.from(_appointments);
+    List<AppointmentModel> apps = List<AppointmentModel>.from(
+      _walkInAppointments,
+    );
 
     // 1. Search Query Filter
     if (_searchQuery.isNotEmpty) {
@@ -109,16 +141,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
       }).toList();
     }
 
-    // 2. Sort Chronologically by Time
-    apps.sort((a, b) {
-      try {
-        final timeA = DateFormat('hh:mm a').parse(a.appointmentTime);
-        final timeB = DateFormat('hh:mm a').parse(b.appointmentTime);
-        return timeA.compareTo(timeB);
-      } catch (e) {
-        return 0;
-      }
-    });
+    apps.sort(_newestFirst);
 
     return apps;
   }
@@ -127,28 +150,47 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
     final baseApps = _filteredAppointments;
     switch (tabIndex) {
       case 0: // Waiting (Confirmed / Checked-in / Waiting)
-        return baseApps.where((a) => a.status == 'Confirmed' || a.status == 'Checked-in' || a.status == 'Waiting').toList();
+        return baseApps
+            .where(
+              (a) =>
+                  a.status == 'Confirmed' ||
+                  a.status == 'Checked-in' ||
+                  a.status == 'Waiting',
+            )
+            .toList();
       case 1: // In Consultation
         return baseApps.where((a) => a.status == 'In Consultation').toList();
       case 2: // Completed
         return baseApps.where((a) => a.status == 'Completed').toList();
       case 3: // Cancelled & No-Show
-        return baseApps.where((a) => a.status == 'Cancelled' || a.status == 'No-Show').toList();
+        return baseApps
+            .where((a) => a.status == 'Cancelled' || a.status == 'No-Show')
+            .toList();
       default:
         return [];
     }
   }
 
   int _getCountForTab(int tabIndex) {
+    final walkins = _walkInAppointments;
     switch (tabIndex) {
       case 0:
-        return _appointments.where((a) => a.status == 'Confirmed' || a.status == 'Checked-in' || a.status == 'Waiting').length;
+        return walkins
+            .where(
+              (a) =>
+                  a.status == 'Confirmed' ||
+                  a.status == 'Checked-in' ||
+                  a.status == 'Waiting',
+            )
+            .length;
       case 1:
-        return _appointments.where((a) => a.status == 'In Consultation').length;
+        return walkins.where((a) => a.status == 'In Consultation').length;
       case 2:
-        return _appointments.where((a) => a.status == 'Completed').length;
+        return walkins.where((a) => a.status == 'Completed').length;
       case 3:
-        return _appointments.where((a) => a.status == 'Cancelled' || a.status == 'No-Show').length;
+        return walkins
+            .where((a) => a.status == 'Cancelled' || a.status == 'No-Show')
+            .length;
       default:
         return 0;
     }
@@ -190,19 +232,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                    ? _buildErrorView()
-                    : TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildTabQueueList(0),
-                          _buildTabQueueList(1),
-                          _buildTabQueueList(2),
-                          _buildTabQueueList(3),
-                          _buildPrescriptionsTab(),
-                          _buildLabTestsTab(),
-                          _buildPharmacyTab(),
-                        ],
-                      ),
+                ? _buildErrorView()
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildTabQueueList(0),
+                      _buildTabQueueList(1),
+                      _buildTabQueueList(2),
+                      _buildTabQueueList(3),
+                      _buildPrescriptionsTab(),
+                      _buildLabTestsTab(),
+                      _buildPharmacyTab(),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -211,11 +253,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
 
   Widget _buildHeader() {
     return Container(
-      margin: EdgeInsets.fromLTRB(widget.isMobile ? 16 : 24, 24, widget.isMobile ? 16 : 24, 8),
+      margin: EdgeInsets.fromLTRB(
+        widget.isMobile ? 16 : 24,
+        24,
+        widget.isMobile ? 16 : 24,
+        8,
+      ),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppTheme.primaryColor, AppTheme.primaryColor.withOpacity(0.85)],
+          colors: [
+            AppTheme.primaryColor,
+            AppTheme.primaryColor.withOpacity(0.85),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -238,7 +288,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.local_hospital_outlined, color: Colors.white, size: 24),
+                    Icon(
+                      Icons.local_hospital_outlined,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'OPD Queue Management',
@@ -265,7 +319,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
           ElevatedButton.icon(
             onPressed: () => _showWalkInDialog(),
             icon: const Icon(Icons.add, size: 18),
-            label: Text(widget.isMobile ? 'Walk-in' : 'New Walk-in Entry', style: const TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(
+              widget.isMobile ? 'Walk-in' : 'New Walk-in Entry',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: AppTheme.primaryColor,
@@ -273,7 +330,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
               shadowColor: Colors.black26,
               minimumSize: const Size(120, 48),
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ],
@@ -284,13 +343,16 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
   Widget _buildStatsRow() {
     return Container(
       height: 90,
-      margin: EdgeInsets.symmetric(horizontal: widget.isMobile ? 16 : 24, vertical: 8),
+      margin: EdgeInsets.symmetric(
+        horizontal: widget.isMobile ? 16 : 24,
+        vertical: 8,
+      ),
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
           _buildStatCard(
             title: 'Total OPD Today',
-            count: _appointments.length,
+            count: _walkInAppointments.length,
             color: Colors.blue.shade700,
             icon: Icons.people_outline,
             onTap: null,
@@ -425,9 +487,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
       margin: EdgeInsets.symmetric(horizontal: widget.isMobile ? 16 : 24),
       child: Row(
         children: [
-          Expanded(
-            child: _buildSearchBar(),
-          ),
+          Expanded(child: _buildSearchBar()),
           const SizedBox(width: 12),
           _buildFilterToggle(),
         ],
@@ -446,14 +506,21 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+          const Icon(
+            Icons.search,
+            size: 18,
+            color: AppTheme.textSecondaryColor,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
               onChanged: (v) => setState(() => _searchQuery = v),
               decoration: const InputDecoration(
                 hintText: 'Search patient name, ID, or phone...',
-                hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondaryColor,
+                ),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
@@ -486,7 +553,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
               color: AppTheme.textPrimaryColor,
             ),
             const SizedBox(width: 8),
-            const Text('Filters', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const Text(
+              'Filters',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
           ],
         ),
       ),
@@ -495,7 +565,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
 
   Widget _buildFilterPanel() {
     return Container(
-      margin: EdgeInsets.only(left: widget.isMobile ? 16 : 24, right: widget.isMobile ? 16 : 24, top: 12),
+      margin: EdgeInsets.only(
+        left: widget.isMobile ? 16 : 24,
+        right: widget.isMobile ? 16 : 24,
+        top: 12,
+      ),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -542,25 +616,21 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textSecondaryColor,
+          ),
+        ),
         const SizedBox(height: 6),
-        Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppTheme.borderColor),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: value,
-              icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-              style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 13),
-              items: items.map((item) => DropdownMenuItem(value: item, child: Text(item, overflow: TextOverflow.ellipsis))).toList(),
-              onChanged: onChanged,
-            ),
-          ),
+        CustomDropdownSearch(
+          label: '',
+          value: value,
+          dropdownItems: items,
+          height: 48,
+          onChanged: onChanged,
         ),
       ],
     );
@@ -716,11 +786,18 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.assignment_turned_in_outlined, size: 48, color: AppTheme.textMutedColor.withOpacity(0.4)),
+            Icon(
+              Icons.assignment_turned_in_outlined,
+              size: 48,
+              color: AppTheme.textMutedColor.withOpacity(0.4),
+            ),
             const SizedBox(height: 12),
             const Text(
               'No patients in this state currently.',
-              style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+              style: TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
             ),
           ],
         ),
@@ -739,8 +816,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
 
   Widget _buildAppointmentItemCard(AppointmentModel app, int tabIndex) {
     final avatarColor = AppTheme.getAvatarColors(app.patientName);
-    final bool isTriaged = app.status == 'Checked-in' || app.status == 'Waiting';
-    
+    final bool isTriaged =
+        app.status == 'Checked-in' || app.status == 'Waiting';
+
     // Status colors
     Color statusColor;
     switch (app.status) {
@@ -779,9 +857,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
         borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(color: statusColor, width: 6),
-            ),
+            border: Border(left: BorderSide(color: statusColor, width: 6)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
@@ -794,7 +870,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                   Column(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -802,7 +881,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.access_time, size: 12, color: statusColor),
+                            Icon(
+                              Icons.access_time,
+                              size: 12,
+                              color: statusColor,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               app.appointmentTime,
@@ -820,7 +903,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                         radius: 20,
                         backgroundColor: avatarColor['bg'],
                         child: Text(
-                          app.patientName.isNotEmpty ? app.patientName[0].toUpperCase() : 'P',
+                          app.patientName.isNotEmpty
+                              ? app.patientName[0].toUpperCase()
+                              : 'P',
                           style: TextStyle(
                             color: avatarColor['text'],
                             fontWeight: FontWeight.bold,
@@ -850,11 +935,16 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                             if (app.patientDisplayId != null) ...[
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade100,
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                  ),
                                 ),
                                 child: Text(
                                   app.patientDisplayId!,
@@ -872,7 +962,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            const Icon(Icons.medical_services_outlined, size: 14, color: AppTheme.textSecondaryColor),
+                            const Icon(
+                              Icons.medical_services_outlined,
+                              size: 14,
+                              color: AppTheme.textSecondaryColor,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               'Dr. ${app.doctorName}',
@@ -896,7 +990,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                         if (app.patientPhone != null)
                           Row(
                             children: [
-                              const Icon(Icons.phone_outlined, size: 14, color: AppTheme.textMutedColor),
+                              const Icon(
+                                Icons.phone_outlined,
+                                size: 14,
+                                color: AppTheme.textMutedColor,
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 app.patientPhone!,
@@ -911,11 +1009,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                     ),
                   ),
 
-                  // Triage / Vitals Pill Summary
-                  if (tabIndex == 0)
-                    _buildTriageBadge(isTriaged)
-                  else
-                    _buildStatusBadge(app.status),
+                  // Status Pill Summary
+                  _buildStatusBadge(app.status),
                 ],
               ),
               const Divider(height: 16),
@@ -928,10 +1023,16 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Show Vitals values if they exist (BP, Temp, Sugar)
-                        if (app.bloodPressureSystolic != null || app.temperature != null || app.sugarLevel != null) ...[
+                        if (app.bloodPressureSystolic != null ||
+                            app.temperature != null ||
+                            app.sugarLevel != null) ...[
                           const Text(
                             'Patient Vitals:',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textSecondaryColor,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Wrap(
@@ -960,7 +1061,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                           ),
                           const SizedBox(height: 8),
                         ],
-                        if (app.reasonForVisit != null && app.reasonForVisit!.isNotEmpty) ...[
+                        if (app.reasonForVisit != null &&
+                            app.reasonForVisit!.isNotEmpty) ...[
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
@@ -970,7 +1072,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.notes, size: 14, color: Colors.grey.shade600),
+                                Icon(
+                                  Icons.notes,
+                                  size: 14,
+                                  color: Colors.grey.shade600,
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -996,30 +1102,55 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                     runSpacing: 8,
                     alignment: WrapAlignment.end,
                     children: [
-
                       OutlinedButton.icon(
                         onPressed: () => _showVisitDetails(app),
                         icon: const Icon(Icons.visibility_outlined, size: 16),
-                        label: const Text('View Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: const Text(
+                          'View Details',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.primaryColor,
-                          side: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          side: const BorderSide(
+                            color: AppTheme.primaryColor,
+                            width: 1.5,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showOverrideDialog(app),
-                        icon: const Icon(Icons.edit, size: 14),
-                        label: const Text('Override Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange.shade50,
-                          foregroundColor: Colors.orange.shade800,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      if (app.status == 'Confirmed') ...[
+                        ElevatedButton.icon(
+                          onPressed: () => _showCancelAppointmentDialog(app),
+                          icon: const Icon(Icons.cancel_outlined, size: 14),
+                          label: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade600,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ],
@@ -1081,7 +1212,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
 
   Widget _buildStatusBadge(String status) {
     final color = _getStatusColor(status);
-    final label = (status == 'Checked-in' || status == 'Confirmed') ? 'Waiting' : status;
+    final label = (status == 'Checked-in' || status == 'Confirmed')
+        ? 'Waiting'
+        : status;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1108,7 +1241,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
         children: [
           const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
           const SizedBox(height: 16),
-          Text(_error ?? 'An error occurred', style: const TextStyle(color: Colors.redAccent)),
+          Text(
+            _error ?? 'An error occurred',
+            style: const TextStyle(color: Colors.redAccent),
+          ),
           const SizedBox(height: 16),
           ElevatedButton(onPressed: _loadData, child: const Text('Retry')),
         ],
@@ -1116,9 +1252,166 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
     );
   }
 
+  bool _hasVitals(AppointmentModel app) {
+    return app.bloodPressureSystolic != null && app.temperature != null;
+  }
+
+  void _openVitalsDialog(AppointmentModel app) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AppointmentDetailsDialog(
+        appointment: app,
+        editVitalsOnly: true,
+        onRefresh: _loadData,
+      ),
+    );
+  }
+
+  Future<void> _showVitalsMissingDialog(
+    BuildContext context,
+    AppointmentModel appt,
+  ) async {
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: Row(
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.amber,
+                size: 28,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Vitals Required',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Vitals must be recorded before changing the appointment status to "Waiting". Would you like to enter them now?',
+            style: TextStyle(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // close alert
+                _openVitalsDialog(appt);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F766E),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              child: const Text(
+                'Enter Vitals Now',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _markWaiting(AppointmentModel app) async {
+    try {
+      await _appointmentController.updateStatus(app.id!, 'Waiting');
+      _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${app.patientName} marked as Waiting ✓'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _showCancelAppointmentDialog(AppointmentModel app) async {
+    final cancelReasonController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Appointment'),
+        content: TextField(
+          controller: cancelReasonController,
+          decoration: const InputDecoration(
+            hintText: 'Enter cancellation reason (required)',
+          ),
+          maxLines: 2,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Back'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (cancelReasonController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Reason is required')),
+                );
+                return;
+              }
+
+              Navigator.pop(ctx);
+              try {
+                await _appointmentController.updateStatus(
+                  app.id!,
+                  'Cancelled',
+                  cancellationReason: cancelReasonController.text.trim(),
+                );
+                _loadData();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${app.patientName} cancelled ✓'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(e.toString()),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Cancel Appointment'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── Dialogs ─────────────────────────────────────────────────────────────
-
-
 
   void _showVisitDetails(AppointmentModel app) {
     Map<String, dynamic>? consultation;
@@ -1129,30 +1422,35 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           if (isLoadingConsul) {
-            _appointmentController.fetchConsultationsByPatient(app.patientId).then((consuls) {
-              if (mounted) {
-                final match = consuls.firstWhere(
-                  (c) => c['appointment_id'] == app.id,
-                  orElse: () => <String, dynamic>{},
-                );
-                setDialogState(() {
-                  if (match.isNotEmpty) {
-                    consultation = match;
+            _appointmentController
+                .fetchConsultationsByPatient(app.patientId)
+                .then((consuls) {
+                  if (mounted) {
+                    final match = consuls.firstWhere(
+                      (c) => c['appointment_id'] == app.id,
+                      orElse: () => <String, dynamic>{},
+                    );
+                    setDialogState(() {
+                      if (match.isNotEmpty) {
+                        consultation = match;
+                      }
+                      isLoadingConsul = false;
+                    });
                   }
-                  isLoadingConsul = false;
+                })
+                .catchError((e) {
+                  if (mounted) {
+                    setDialogState(() {
+                      isLoadingConsul = false;
+                    });
+                  }
                 });
-              }
-            }).catchError((e) {
-              if (mounted) {
-                setDialogState(() {
-                  isLoadingConsul = false;
-                });
-              }
-            });
           }
 
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             backgroundColor: Colors.white,
             child: SizedBox(
               width: 800,
@@ -1162,7 +1460,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                 children: [
                   // Premium Card Header
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 20,
+                    ),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         colors: [Color(0xFF0F5A8E), Color(0xFF063A60)],
@@ -1185,7 +1486,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                 color: Colors.white.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.assignment_outlined, color: Colors.white, size: 24),
+                              child: const Icon(
+                                Icons.assignment_outlined,
+                                color: Colors.white,
+                                size: 24,
+                              ),
                             ),
                             const SizedBox(width: 16),
                             Column(
@@ -1193,12 +1498,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                               children: [
                                 Text(
                                   app.patientName,
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   'ID: ${app.patientDisplayId ?? 'N/A'} • Contact: ${app.patientPhone ?? 'N/A'}',
-                                  style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.8)),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white.withOpacity(0.8),
+                                  ),
                                 ),
                               ],
                             ),
@@ -1225,29 +1537,58 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Appointment Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+                                const Text(
+                                  'Appointment Details',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
                                 const SizedBox(height: 12),
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade50,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.grey.shade200),
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
+                                    ),
                                   ),
                                   child: Column(
                                     children: [
-                                      _detailItem('Assigned Doctor', app.doctorName),
+                                      _detailItem(
+                                        'Assigned Doctor',
+                                        app.doctorName,
+                                      ),
                                       _detailItem('Department', app.department),
-                                      _detailItem('Date / Time', '${app.appointmentDate} • ${app.appointmentTime}'),
-                                      _detailItem('Session Status', app.status == 'Checked-in' ? 'Waiting' : app.status),
+                                      _detailItem(
+                                        'Date / Time',
+                                        '${app.appointmentDate} • ${app.appointmentTime}',
+                                      ),
+                                      _detailItem(
+                                        'Session Status',
+                                        app.status == 'Checked-in'
+                                            ? 'Waiting'
+                                            : app.status,
+                                      ),
                                     ],
                                   ),
                                 ),
                                 const SizedBox(height: 20),
 
                                 // Vitals Card
-                                if (app.bloodPressureSystolic != null || app.temperature != null || app.sugarLevel != null) ...[
-                                  const Text('Patient Vitals', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+                                if (app.bloodPressureSystolic != null ||
+                                    app.temperature != null ||
+                                    app.sugarLevel != null) ...[
+                                  const Text(
+                                    'Patient Vitals',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
                                   const SizedBox(height: 12),
                                   Row(
                                     children: [
@@ -1261,7 +1602,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                             Colors.red,
                                           ),
                                         ),
-                                      if (app.bloodPressureSystolic != null && (app.temperature != null || app.sugarLevel != null))
+                                      if (app.bloodPressureSystolic != null &&
+                                          (app.temperature != null ||
+                                              app.sugarLevel != null))
                                         const SizedBox(width: 8),
                                       if (app.temperature != null)
                                         Expanded(
@@ -1273,7 +1616,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                             Colors.orange,
                                           ),
                                         ),
-                                      if (app.temperature != null && app.sugarLevel != null)
+                                      if (app.temperature != null &&
+                                          app.sugarLevel != null)
                                         const SizedBox(width: 8),
                                       if (app.sugarLevel != null)
                                         Expanded(
@@ -1290,20 +1634,35 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                   const SizedBox(height: 20),
                                 ],
 
-                                if (app.reasonForVisit != null && app.reasonForVisit!.isNotEmpty) ...[
-                                  const Text('Reason for Visit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+                                if (app.reasonForVisit != null &&
+                                    app.reasonForVisit!.isNotEmpty) ...[
+                                  const Text(
+                                    'Reason for Visit',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
                                   const SizedBox(height: 8),
                                   Container(
                                     width: double.infinity,
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color: Colors.amber.shade50,
-                                      border: Border.all(color: Colors.amber.shade100),
+                                      border: Border.all(
+                                        color: Colors.amber.shade100,
+                                      ),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
                                       app.reasonForVisit!,
-                                      style: TextStyle(fontSize: 13, color: Colors.amber.shade900, height: 1.4, fontWeight: FontWeight.w500),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.amber.shade900,
+                                        height: 1.4,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -1312,7 +1671,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                           ),
                           const SizedBox(width: 24),
                           // Vertical Divider
-                          Container(width: 1, height: 480, color: Colors.grey.shade200),
+                          Container(
+                            width: 1,
+                            height: 480,
+                            color: Colors.grey.shade200,
+                          ),
                           const SizedBox(width: 24),
 
                           // Right Column: Clinical Consult findings / Status Timeline Log
@@ -1322,30 +1685,63 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 if (app.status == 'Completed') ...[
-                                  const Text('Clinical Consultation Findings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+                                  const Text(
+                                    'Clinical Consultation Findings',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
                                   const SizedBox(height: 12),
                                   if (isLoadingConsul)
-                                    const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+                                    const Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    )
                                   else if (consultation == null)
-                                    const Text('No consultation details recorded yet.', style: TextStyle(fontSize: 13, color: Colors.grey))
+                                    const Text(
+                                      'No consultation details recorded yet.',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey,
+                                      ),
+                                    )
                                   else ...[
                                     _buildConsultationSummary(consultation!),
                                   ],
                                   const SizedBox(height: 24),
                                 ],
 
-                                const Text('Status Timeline Log', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+                                const Text(
+                                  'Status Timeline Log',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
                                 const SizedBox(height: 12),
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade50,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.grey.shade200),
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
+                                    ),
                                   ),
                                   child: app.changesLog != null
                                       ? _buildTimeline(app.changesLog)
-                                      : const Text('No status changes recorded yet.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                                      : const Text(
+                                          'No status changes recorded yet.',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.textSecondaryColor,
+                                          ),
+                                        ),
                                 ),
                               ],
                             ),
@@ -1360,7 +1756,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade50,
-                      border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                      border: Border(
+                        top: BorderSide(color: Colors.grey.shade200),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -1368,12 +1766,21 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0F5A8E),
+                            backgroundColor: AppTheme.logoRed,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            minimumSize: const Size(120, 48),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          child: const Text('Close Details', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'Close Details',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
@@ -1387,7 +1794,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
     );
   }
 
-  Widget _buildVitalPillCard(String label, String value, String unit, IconData icon, Color color) {
+  Widget _buildVitalPillCard(
+    String label,
+    String value,
+    String unit,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
       decoration: BoxDecoration(
@@ -1399,13 +1812,23 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 6),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
           const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
-          Text(unit, style: TextStyle(fontSize: 9, color: Colors.grey.shade500)),
+          Text(
+            unit,
+            style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+          ),
         ],
       ),
     );
@@ -1421,7 +1844,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
       ),
       child: Text(
         '$label: $value',
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.primaryColor,
+        ),
       ),
     );
   }
@@ -1431,28 +1858,43 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (c['symptoms'] != null && c['symptoms'].toString().isNotEmpty) ...[
-          const Text('Subjective Symptoms:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          const Text(
+            'Subjective Symptoms:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
           Text(c['symptoms'].toString(), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
         ],
         if (c['diagnosis'] != null && c['diagnosis'].toString().isNotEmpty) ...[
-          const Text('Diagnosis / Impression:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          const Text(
+            'Diagnosis / Impression:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
           Text(c['diagnosis'].toString(), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
         ],
         if (c['notes'] != null && c['notes'].toString().isNotEmpty) ...[
-          const Text('Doctor\'s Notes:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          const Text(
+            'Doctor\'s Notes:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
           Text(c['notes'].toString(), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
         ],
         if (c['medications'] != null) ...[
-          const Text('Prescribed Medications:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          const Text(
+            'Prescribed Medications:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
           const SizedBox(height: 4),
           _buildMedicationList(c['medications']),
         ],
         if (c['lab_tests'] != null) ...[
           const SizedBox(height: 8),
-          const Text('Ordered Lab Tests:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          const Text(
+            'Ordered Lab Tests:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
           const SizedBox(height: 4),
           _buildLabTestsList(c['lab_tests']),
         ],
@@ -1460,7 +1902,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
           const SizedBox(height: 12),
           Row(
             children: [
-              const Text('Pharmacy Status: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              const Text(
+                'Pharmacy Status: ',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
               _buildPharmacyStatusBadge(c['pharmacy_status'].toString()),
             ],
           ),
@@ -1483,7 +1928,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
     }
 
     if (labs.isEmpty) {
-      return const Text('No lab tests ordered.', style: TextStyle(fontSize: 13, color: Colors.grey));
+      return const Text(
+        'No lab tests ordered.',
+        style: TextStyle(fontSize: 13, color: Colors.grey),
+      );
     }
 
     return Wrap(
@@ -1500,7 +1948,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.science_outlined, size: 12, color: Colors.blue.shade800),
+              Icon(
+                Icons.science_outlined,
+                size: 12,
+                color: Colors.blue.shade800,
+              ),
               const SizedBox(width: 4),
               Text(
                 l.toString(),
@@ -1532,7 +1984,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
       ),
       child: Text(
         status,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: text),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: text,
+        ),
       ),
     );
   }
@@ -1551,7 +2007,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
     }
 
     if (meds.isEmpty) {
-      return const Text('No medications prescribed.', style: TextStyle(fontSize: 13, color: Colors.grey));
+      return const Text(
+        'No medications prescribed.',
+        style: TextStyle(fontSize: 13, color: Colors.grey),
+      );
     }
 
     return Column(
@@ -1570,9 +2029,21 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
           ),
           child: Row(
             children: [
-              const Icon(Icons.medication, size: 14, color: AppTheme.primaryColor),
+              const Icon(
+                Icons.medication,
+                size: 14,
+                color: AppTheme.primaryColor,
+              ),
               const SizedBox(width: 8),
-              Expanded(child: Text(display, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+              Expanded(
+                child: Text(
+                  display,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -1585,8 +2056,22 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          SizedBox(width: 80, child: Text('$label:', style: const TextStyle(color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600))),
-          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500))),
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
         ],
       ),
     );
@@ -1605,8 +2090,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
         } catch (_) {}
         String text = 'Updated';
         if (change is Map && change.containsKey('status')) {
-          final from = change['status']['from'] == 'Checked-in' ? 'Waiting' : change['status']['from'];
-          final to = change['status']['to'] == 'Checked-in' ? 'Waiting' : change['status']['to'];
+          final from = change['status']['from'] == 'Checked-in'
+              ? 'Waiting'
+              : change['status']['from'];
+          final to = change['status']['to'] == 'Checked-in'
+              ? 'Waiting'
+              : change['status']['to'];
           text = 'Status: $from → $to';
         }
         return Padding(
@@ -1616,7 +2105,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
             children: [
               Column(
                 children: [
-                  const Icon(Icons.circle, size: 10, color: AppTheme.primaryColor),
+                  const Icon(
+                    Icons.circle,
+                    size: 10,
+                    color: AppTheme.primaryColor,
+                  ),
                   Container(width: 2, height: 20, color: AppTheme.borderColor),
                 ],
               ),
@@ -1626,7 +2119,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (dt != null)
-                      Text(DateFormat('dd MMM, hh:mm a').format(dt.toLocal()), style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                      Text(
+                        DateFormat('dd MMM, hh:mm a').format(dt.toLocal()),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
                     Text(text, style: const TextStyle(fontSize: 13)),
                   ],
                 ),
@@ -1644,26 +2143,40 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
     bool isSaving = false;
 
     // Remove All from status selections
-    final overrideStatuses = ['Confirmed', 'Checked-in', 'In Consultation', 'Completed', 'Cancelled', 'No-Show'];
+    final overrideStatuses = [
+      'Confirmed',
+      'Checked-in',
+      'In Consultation',
+      'Completed',
+      'Cancelled',
+      'No-Show',
+    ];
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Admin Status Override', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text(
+            'Admin Status Override',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
-                value: overrideStatuses.contains(newStatus) ? newStatus : overrideStatuses[0],
-                decoration: const InputDecoration(labelText: 'New Status'),
-                items: overrideStatuses.map((s) {
-                  String display = s;
-                  if (s == 'Confirmed') display = 'Waiting (Not Triaged)';
-                  if (s == 'Checked-in') display = 'Waiting (Triage Complete)';
-                  return DropdownMenuItem(value: s, child: Text(display));
-                }).toList(),
+              CustomDropdownSearch(
+                label: 'New Status',
+                value: overrideStatuses.contains(newStatus)
+                    ? newStatus
+                    : overrideStatuses[0],
+                dropdownMap: const {
+                  'Confirmed': 'Waiting (Not Triaged)',
+                  'Checked-in': 'Waiting (Triage Complete)',
+                  'In Consultation': 'In Consultation',
+                  'Completed': 'Completed',
+                  'Cancelled': 'Cancelled',
+                  'No-Show': 'No-Show',
+                },
                 onChanged: (val) {
                   if (val != null) setDialogState(() => newStatus = val);
                 },
@@ -1690,7 +2203,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                   ? null
                   : () async {
                       if (reasonController.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please provide a reason')));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please provide a reason'),
+                          ),
+                        );
                         return;
                       }
                       setDialogState(() => isSaving = true);
@@ -1702,14 +2219,32 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                         );
                         Navigator.pop(ctx);
                         _loadData();
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status updated successfully'), backgroundColor: Colors.green));
+                        if (mounted)
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Status updated successfully'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
                       } catch (e) {
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                        if (mounted)
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(e.toString()),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
                       } finally {
                         if (mounted) setDialogState(() => isSaving = false);
                       }
                     },
-              child: isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Confirm'),
+              child: isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Confirm'),
             ),
           ],
         ),
@@ -1717,13 +2252,64 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
     );
   }
 
+  DateTime _parseTime(String timeStr) {
+    final timeParts = timeStr.split(' ');
+    final hms = timeParts[0].split(':');
+    int hour = int.parse(hms[0]);
+    int minute = hms.length > 1 ? int.parse(hms[1]) : 0;
+    if (timeParts.length > 1) {
+      if (timeParts[1].toUpperCase() == 'PM' && hour < 12) hour += 12;
+      if (timeParts[1].toUpperCase() == 'AM' && hour == 12) hour = 0;
+    }
+    return DateTime(2026, 1, 1, hour, minute);
+  }
+
+  List<String> _generateSlotsForDoctor(UserModel doctor) {
+    if (doctor.slotStartTime == null || doctor.slotEndTime == null) {
+      List<String> slots = [];
+      DateTime start = DateTime(2026, 1, 1, 9, 0);
+      DateTime end = DateTime(2026, 1, 1, 13, 0);
+      while (start.isBefore(end)) {
+        slots.add(DateFormat('hh:mm a').format(start));
+        start = start.add(const Duration(minutes: 30));
+      }
+      return slots;
+    }
+
+    int duration = 30;
+    if (doctor.slotDuration != null) {
+      duration = int.tryParse(doctor.slotDuration!.split(' ')[0]) ?? 30;
+    }
+
+    try {
+      DateTime start = _parseTime(doctor.slotStartTime!);
+      DateTime end = _parseTime(doctor.slotEndTime!);
+
+      List<String> slots = [];
+      DateTime current = start;
+      while (current.isBefore(end)) {
+        slots.add(DateFormat('hh:mm a').format(current));
+        current = current.add(Duration(minutes: duration));
+      }
+      return slots;
+    } catch (e) {
+      return [];
+    }
+  }
+
   void _showWalkInDialog() {
     PatientModel? selectedPatient;
     UserModel? selectedDoctor;
-    String time = DateFormat('hh:mm a').format(DateTime.now());
+    String? selectedTime;
+    List<String> availableSlots = [];
     bool isSaving = false;
     bool isLoadingPatients = false;
     List<PatientModel> allPatients = [];
+    final bpSysCtrl = TextEditingController();
+    final bpDiaCtrl = TextEditingController();
+    final sugarCtrl = TextEditingController();
+    final tempCtrl = TextEditingController();
+    final complaintCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -1733,20 +2319,26 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
         builder: (ctx, setDialogState) {
           if (allPatients.isEmpty && !isLoadingPatients) {
             setDialogState(() => isLoadingPatients = true);
-            _patientController.fetchPatients().then((p) {
-              if (mounted) {
-                setDialogState(() {
-                  allPatients = p;
-                  isLoadingPatients = false;
+            _patientController
+                .fetchPatients()
+                .then((p) {
+                  if (mounted) {
+                    setDialogState(() {
+                      allPatients = p;
+                      isLoadingPatients = false;
+                    });
+                  }
+                })
+                .catchError((e) {
+                  if (mounted) setDialogState(() => isLoadingPatients = false);
                 });
-              }
-            }).catchError((e) {
-              if (mounted) setDialogState(() => isLoadingPatients = false);
-            });
           }
 
           return AlertDialog(
-            title: const Text('Quick Walk-in Entry', style: TextStyle(fontWeight: FontWeight.bold)),
+            title: const Text(
+              'Quick Walk-in Entry',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             content: SizedBox(
               width: 450,
               child: SingleChildScrollView(
@@ -1754,49 +2346,431 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                   key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (isLoadingPatients)
-                        const Center(child: Padding(padding: EdgeInsets.all(20.0), child: CircularProgressIndicator()))
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
                       else
-                        DropdownButtonFormField<PatientModel>(
-                          value: selectedPatient,
-                          isExpanded: true,
-                          decoration: const InputDecoration(labelText: 'Select Patient', prefixIcon: Icon(Icons.person_outline)),
-                          items: allPatients.map((p) => DropdownMenuItem(value: p, child: Text('${p.name} (${p.patientId ?? "N/A"})', overflow: TextOverflow.ellipsis))).toList(),
-                          onChanged: (val) => setDialogState(() => selectedPatient = val),
-                          validator: (val) => val == null ? 'Please select patient' : null,
-                        ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<UserModel>(
-                        value: selectedDoctor,
-                        isExpanded: true,
-                        decoration: const InputDecoration(labelText: 'Assign Doctor', prefixIcon: Icon(Icons.medical_services_outlined)),
-                        items: _doctors.map((d) => DropdownMenuItem(value: d, child: Text(d.fullname, overflow: TextOverflow.ellipsis))).toList(),
-                        onChanged: (val) => setDialogState(() => selectedDoctor = val),
-                        validator: (val) => val == null ? 'Please select doctor' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      InkWell(
-                        onTap: () async {
-                          final pickedTime = await showTimePicker(context: context, initialTime: TimeOfDay.now());
-                          if (pickedTime != null) {
-                            final now = DateTime.now();
-                            final dt = DateTime(now.year, now.month, now.day, pickedTime.hour, pickedTime.minute);
-                            setDialogState(() => time = DateFormat('hh:mm a').format(dt));
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
-                          decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400), borderRadius: BorderRadius.circular(4)),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.access_time, size: 20, color: AppTheme.primaryColor),
-                              const SizedBox(width: 12),
-                              Text(time, style: const TextStyle(fontSize: 16)),
-                            ],
+                        const Text(
+                          'Select Patient',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
                           ),
                         ),
+
+                      const SizedBox(height: 10),
+
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: 'Search or select patient...',
+                        value: selectedPatient?.id?.toString(),
+                        dropdownMap: {
+                          for (var p in allPatients)
+                            p.id.toString():
+                                '${p.name} (${p.patientId ?? "N/A"})',
+                        },
+                        onChanged: (val) {
+                          if (val != null) {
+                            final id = int.tryParse(val);
+                            setDialogState(() {
+                              selectedPatient = allPatients.firstWhere(
+                                (p) => p.id == id,
+                              );
+                            });
+                          }
+                        },
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'Please select patient'
+                            : null,
                       ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Assign Doctor',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: 'Select doctor...',
+                        value: selectedDoctor?.id.toString(),
+                        dropdownMap: {
+                          for (var d in _doctors) d.id.toString(): d.fullname,
+                        },
+                        onChanged: (val) {
+                          if (val != null) {
+                            final id = int.tryParse(val);
+                            final doctor = _doctors.firstWhere(
+                              (d) => d.id == id,
+                            );
+                            setDialogState(() {
+                              selectedDoctor = doctor;
+                              selectedTime = null;
+                              DateTime now = DateTime.now();
+                              final weekDays = [
+                                'Mon',
+                                'Tue',
+                                'Wed',
+                                'Thu',
+                                'Fri',
+                                'Sat',
+                                'Sun',
+                              ];
+                              final dayName = weekDays[now.weekday - 1];
+                              final dateStr = DateFormat(
+                                'dd/MM/yyyy',
+                              ).format(now);
+
+                              bool isAvailable = false;
+                              if (doctor.availableDays != null &&
+                                  doctor.availableDays!.contains(dayName)) {
+                                isAvailable = true;
+                              }
+                              if (doctor.weeklyOffDays != null &&
+                                  doctor.weeklyOffDays!.contains(dayName)) {
+                                isAvailable = false;
+                              }
+                              if (doctor.specificLeaveDates != null &&
+                                  doctor.specificLeaveDates!.contains(
+                                    dateStr,
+                                  )) {
+                                isAvailable = false;
+                              }
+
+                              if (!isAvailable) {
+                                availableSlots = [];
+                              } else {
+                                availableSlots = _generateSlotsForDoctor(
+                                  doctor,
+                                );
+                                availableSlots = availableSlots.where((slot) {
+                                  bool isBooked = _appointments.any(
+                                    (a) =>
+                                        a.doctorName == doctor.fullname &&
+                                        a.appointmentTime == slot &&
+                                        a.status != 'Cancelled' &&
+                                        a.status != 'No-Show',
+                                  );
+                                  if (isBooked) return false;
+                                  try {
+                                    DateTime slotTime = _parseTime(slot);
+                                    DateTime fullSlotTime = DateTime(
+                                      now.year,
+                                      now.month,
+                                      now.day,
+                                      slotTime.hour,
+                                      slotTime.minute,
+                                    );
+                                    return fullSlotTime.isAfter(now);
+                                  } catch (e) {
+                                    return true;
+                                  }
+                                }).toList();
+                              }
+                            });
+                          }
+                        },
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'Please select doctor'
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      if (selectedDoctor != null) ...[
+                        const Text(
+                          'Available Time Slots (Today)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (availableSlots.isEmpty)
+                          const Text(
+                            'No slots available for this doctor today.',
+                            style: TextStyle(color: Colors.red, fontSize: 12),
+                          )
+                        else
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  childAspectRatio: 2.5,
+                                  crossAxisSpacing: 8,
+                                  mainAxisSpacing: 8,
+                                ),
+                            itemCount: availableSlots.length,
+                            itemBuilder: (context, index) {
+                              final slot = availableSlots[index];
+                              final isSelected = selectedTime == slot;
+                              return InkWell(
+                                onTap: () =>
+                                    setDialogState(() => selectedTime = slot),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? AppTheme.primaryColor
+                                        : Colors.white,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? AppTheme.primaryColor
+                                          : AppTheme.borderColor,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    slot,
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : AppTheme.textPrimaryColor,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        if (selectedTime == null && availableSlots.isNotEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              'Please select a time slot',
+                              style: TextStyle(color: Colors.red, fontSize: 11),
+                            ),
+                          ),
+                      ],
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Patient Intake Vitals',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text.rich(
+                                  TextSpan(
+                                    text: 'BP Systolic',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    children: const [
+                                      TextSpan(
+                                        text: ' *',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                TextFormField(
+                                  controller: bpSysCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    hintText: '120',
+                                    isDense: true,
+                                  ),
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
+                                  validator: (val) {
+                                    final text = val?.trim() ?? '';
+                                    if (text.isEmpty) {
+                                      return 'Please enter BP systolic';
+                                    }
+                                    return int.tryParse(text) == null
+                                        ? 'Enter a number'
+                                        : null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text.rich(
+                                  TextSpan(
+                                    text: 'BP Diastolic',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    children: const [
+                                      TextSpan(
+                                        text: ' *',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                TextFormField(
+                                  controller: bpDiaCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    hintText: '80',
+                                    isDense: true,
+                                  ),
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
+                                  validator: (val) {
+                                    final text = val?.trim() ?? '';
+                                    if (text.isEmpty) {
+                                      return 'Please enter BP diastolic';
+                                    }
+                                    return int.tryParse(text) == null
+                                        ? 'Enter a number'
+                                        : null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text.rich(
+                                  TextSpan(
+                                    text: 'Sugar Level',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    children: const [
+                                      TextSpan(
+                                        text: ' *',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                TextFormField(
+                                  controller: sugarCtrl,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  decoration: const InputDecoration(
+                                    hintText: '95.5 mg/dL',
+                                    isDense: true,
+                                  ),
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
+                                  validator: (val) {
+                                    final text = val?.trim() ?? '';
+                                    if (text.isEmpty) {
+                                      return 'Please enter sugar level';
+                                    }
+                                    return double.tryParse(text) == null
+                                        ? 'Enter a number'
+                                        : null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text.rich(
+                                  TextSpan(
+                                    text: 'Temperature',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    children: const [
+                                      TextSpan(
+                                        text: ' *',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                TextFormField(
+                                  controller: tempCtrl,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  decoration: const InputDecoration(
+                                    hintText: '98.6 °F',
+                                    isDense: true,
+                                  ),
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
+                                  validator: (val) {
+                                    final text = val?.trim() ?? '';
+                                    if (text.isEmpty) {
+                                      return 'Please enter temperature';
+                                    }
+                                    return double.tryParse(text) == null
+                                        ? 'Enter a number'
+                                        : null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Reason',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      TextFormField(
+                        controller: complaintCtrl,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          hintText: 'Describe symptoms or reason for visit...',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
@@ -1813,29 +2787,100 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                     ? null
                     : () async {
                         if (!formKey.currentState!.validate()) return;
+                        if (selectedTime == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select a time slot'),
+                            ),
+                          );
+                          return;
+                        }
                         setDialogState(() => isSaving = true);
                         try {
+                          final vitalsData = <String, dynamic>{
+                            'blood_pressure_systolic': int.parse(
+                              bpSysCtrl.text.trim(),
+                            ),
+                            'blood_pressure_diastolic': int.parse(
+                              bpDiaCtrl.text.trim(),
+                            ),
+                            'sugar_level': double.parse(sugarCtrl.text.trim()),
+                            'temperature': double.parse(tempCtrl.text.trim()),
+                            'reason_for_visit': complaintCtrl.text.trim(),
+                          };
                           final newApp = AppointmentModel(
                             patientId: selectedPatient!.id!,
                             patientName: selectedPatient!.name,
-                            department: selectedDoctor!.specialization ?? 'General',
+                            department:
+                                selectedDoctor!.specialization ?? 'General',
                             doctorName: selectedDoctor!.fullname,
                             appointmentDate: DateFormatter.toUi(DateTime.now()),
-                            appointmentTime: time,
-                            status: 'Confirmed', // Walk-ins go into queue in Confirmed state to be triaged
+                            appointmentTime: selectedTime!,
+                            bloodPressureSystolic:
+                                vitalsData['blood_pressure_systolic'] as int,
+                            bloodPressureDiastolic:
+                                vitalsData['blood_pressure_diastolic'] as int?,
+                            sugarLevel: vitalsData['sugar_level'] as double?,
+                            temperature: vitalsData['temperature'] as double,
+                            reasonForVisit: complaintCtrl.text.trim(),
+                            status: 'Confirmed',
                             appointmentType: 'Walk-in',
                           );
-                          await _appointmentController.bookAppointment(newApp);
+                          final created = await _appointmentController
+                              .bookAppointment(newApp);
+                          await _appointmentController.updateVitals(
+                            created.id!,
+                            vitalsData,
+                          );
+                          await _appointmentController.updateStatus(
+                            created.id!,
+                            'Waiting',
+                          );
                           Navigator.pop(ctx);
                           _loadData();
-                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Walk-in registered successfully'), backgroundColor: Colors.green));
+                          if (mounted)
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Walk-in registered and added to waiting',
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
                         } catch (e) {
-                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                          if (mounted)
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString()),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
                         } finally {
                           if (mounted) setDialogState(() => isSaving = false);
                         }
                       },
-                child: isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Register'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.logoRed,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(120, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                ),
+                child: isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text('Register'),
               ),
             ],
           );
@@ -1872,7 +2917,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
     };
     final List<String> customLabsList = [];
     final customLabController = TextEditingController();
-    
+
     // Admission state
     bool recommendAdmission = false;
     final reasonForAdmissionController = TextEditingController();
@@ -1886,11 +2931,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
             return Container(width: 24, height: 2, color: Colors.grey.shade300);
           }
 
-          Widget _buildDialogVitalBadge(IconData icon, String label, String value, Color color) {
+          Widget _buildDialogVitalBadge(
+            IconData icon,
+            String label,
+            String value,
+            Color color,
+          ) {
             return Expanded(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 8,
+                ),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(8),
@@ -1903,12 +2956,20 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                     const SizedBox(height: 4),
                     Text(
                       label,
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       value,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade800),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade800,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -1933,7 +2994,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isActive ? stepColor.withOpacity(0.12) : Colors.transparent,
+                      color: isActive
+                          ? stepColor.withOpacity(0.12)
+                          : Colors.transparent,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: stepColor,
@@ -1952,7 +3015,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                      color: isActive ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+                      color: isActive
+                          ? AppTheme.primaryColor
+                          : AppTheme.textSecondaryColor,
                     ),
                   ),
                 ],
@@ -1972,9 +3037,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                 children: [
                   buildStepIndicator(0, 'Intake', Icons.notes),
                   _buildLine(),
-                  buildStepIndicator(1, 'Diagnosis', Icons.health_and_safety_outlined),
+                  buildStepIndicator(
+                    1,
+                    'Diagnosis',
+                    Icons.health_and_safety_outlined,
+                  ),
                   _buildLine(),
-                  buildStepIndicator(2, 'Prescriptions', Icons.medication_outlined),
+                  buildStepIndicator(
+                    2,
+                    'Prescriptions',
+                    Icons.medication_outlined,
+                  ),
                   _buildLine(),
                   buildStepIndicator(3, 'Lab Orders', Icons.science_outlined),
                   _buildLine(),
@@ -1993,7 +3066,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                   children: [
                     const Text(
                       'Patient Intake Vitals',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: AppTheme.textPrimaryColor,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Container(
@@ -2006,15 +3083,24 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (app.reasonForVisit != null && app.reasonForVisit!.isNotEmpty) ...[
+                          if (app.reasonForVisit != null &&
+                              app.reasonForVisit!.isNotEmpty) ...[
                             Row(
                               children: [
-                                const Icon(Icons.notes, size: 14, color: Colors.blueGrey),
+                                const Icon(
+                                  Icons.notes,
+                                  size: 14,
+                                  color: Colors.blueGrey,
+                                ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
                                     'Complaint: ${app.reasonForVisit}',
-                                    style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: AppTheme.textSecondaryColor),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontStyle: FontStyle.italic,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -2024,27 +3110,55 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              _buildDialogVitalBadge(Icons.speed, 'BP', '${app.bloodPressureSystolic ?? "--"}/${app.bloodPressureDiastolic ?? "--"} mmHg', Colors.blue.shade700),
-                              _buildDialogVitalBadge(Icons.thermostat_outlined, 'Temp', '${app.temperature ?? "--"} °F', Colors.orange.shade700),
-                              _buildDialogVitalBadge(Icons.bloodtype_outlined, 'Sugar', '${app.sugarLevel ?? "--"} mg/dL', Colors.red.shade700),
+                              _buildDialogVitalBadge(
+                                Icons.speed,
+                                'BP',
+                                '${app.bloodPressureSystolic ?? "--"}/${app.bloodPressureDiastolic ?? "--"} mmHg',
+                                Colors.blue.shade700,
+                              ),
+                              _buildDialogVitalBadge(
+                                Icons.thermostat_outlined,
+                                'Temp',
+                                '${app.temperature ?? "--"} °F',
+                                Colors.orange.shade700,
+                              ),
+                              _buildDialogVitalBadge(
+                                Icons.bloodtype_outlined,
+                                'Sugar',
+                                '${app.sugarLevel ?? "--"} mg/dL',
+                                Colors.red.shade700,
+                              ),
                             ],
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text('Subjective Symptoms & History', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                    const Text(
+                      'Subjective Symptoms & History',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: symptomsController,
                       maxLines: 5,
                       decoration: InputDecoration(
-                        hintText: 'Describe clinical history, symptoms reported by patient...',
+                        hintText:
+                            'Describe clinical history, symptoms reported by patient...',
                         prefixIcon: const Icon(Icons.psychology_outlined),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                          borderSide: const BorderSide(
+                            color: AppTheme.primaryColor,
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -2055,17 +3169,32 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Clinical Diagnosis (Mandatory)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                    const Text(
+                      'Clinical Diagnosis (Mandatory)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: diagnosisController,
                       decoration: InputDecoration(
-                        hintText: 'e.g. Acute Pharyngitis, Type 2 Diabetes Mellitus',
-                        prefixIcon: const Icon(Icons.health_and_safety_outlined),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        hintText:
+                            'e.g. Acute Pharyngitis, Type 2 Diabetes Mellitus',
+                        prefixIcon: const Icon(
+                          Icons.health_and_safety_outlined,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                          borderSide: const BorderSide(
+                            color: AppTheme.primaryColor,
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -2073,15 +3202,27 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: recommendAdmission ? Colors.red.shade50.withOpacity(0.4) : Colors.grey.shade50,
-                        border: Border.all(color: recommendAdmission ? Colors.red.shade200 : Colors.grey.shade200),
+                        color: recommendAdmission
+                            ? Colors.red.shade50.withOpacity(0.4)
+                            : Colors.grey.shade50,
+                        border: Border.all(
+                          color: recommendAdmission
+                              ? Colors.red.shade200
+                              : Colors.grey.shade200,
+                        ),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.bed_outlined, color: recommendAdmission ? Colors.red.shade800 : Colors.grey.shade600, size: 20),
+                              Icon(
+                                Icons.bed_outlined,
+                                color: recommendAdmission
+                                    ? Colors.red.shade800
+                                    : Colors.grey.shade600,
+                                size: 20,
+                              ),
                               const SizedBox(width: 10),
                               const Expanded(
                                 child: Column(
@@ -2089,11 +3230,18 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                   children: [
                                     Text(
                                       'Recommend IPD Admission',
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: AppTheme.textPrimaryColor,
+                                      ),
                                     ),
                                     Text(
                                       'Mark patient for clinical handover to Inpatient Department',
-                                      style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppTheme.textSecondaryColor,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -2116,10 +3264,16 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                               maxLines: 2,
                               decoration: InputDecoration(
                                 labelText: 'Reason for Admission',
-                                hintText: 'e.g. Severe respiratory distress requiring supplemental oxygen & constant monitoring',
-                                hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                                hintText:
+                                    'e.g. Severe respiratory distress requiring supplemental oxygen & constant monitoring',
+                                hintStyle: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade400,
+                                ),
                                 isDense: true,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
                             ),
                           ],
@@ -2127,18 +3281,31 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text('Clinical Recommendations & Advice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                    const Text(
+                      'Clinical Recommendations & Advice',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: notesController,
                       maxLines: 5,
                       decoration: InputDecoration(
-                        hintText: 'Enter clinical observations, advice, or review notes...',
+                        hintText:
+                            'Enter clinical observations, advice, or review notes...',
                         prefixIcon: const Icon(Icons.comment_bank_outlined),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                          borderSide: const BorderSide(
+                            color: AppTheme.primaryColor,
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -2161,9 +3328,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.medication, color: AppTheme.primaryColor, size: 18),
+                              const Icon(
+                                Icons.medication,
+                                color: AppTheme.primaryColor,
+                                size: 18,
+                              ),
                               const SizedBox(width: 8),
-                              const Text('Add New Medication', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              const Text(
+                                'Add New Medication',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -2177,7 +3354,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                     labelText: 'Drug Name',
                                     hintText: 'Paracetamol',
                                     isDense: true,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -2189,7 +3368,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                     labelText: 'Dosage',
                                     hintText: '500 mg',
                                     isDense: true,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -2199,18 +3380,24 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                           Row(
                             children: [
                               Expanded(
-                                child: DropdownButtonFormField<String>(
+                                child: CustomDropdownSearch(
+                                  label: 'Frequency',
                                   value: selectedFrequency,
-                                  decoration: InputDecoration(
-                                    labelText: 'Frequency',
-                                    isDense: true,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                  ),
-                                  items: ['1-0-1', '1-0-0', '0-0-1', '1-1-1', 'Once daily', 'Twice daily', 'Thrice daily', 'As needed (PRN)']
-                                      .map((f) => DropdownMenuItem(value: f, child: Text(f, style: const TextStyle(fontSize: 12))))
-                                      .toList(),
+                                  dropdownItems: const [
+                                    '1-0-1',
+                                    '1-0-0',
+                                    '0-0-1',
+                                    '1-1-1',
+                                    'Once daily',
+                                    'Twice daily',
+                                    'Thrice daily',
+                                    'As needed (PRN)',
+                                  ],
                                   onChanged: (v) {
-                                    if (v != null) setDialogState(() => selectedFrequency = v);
+                                    if (v != null)
+                                      setDialogState(
+                                        () => selectedFrequency = v,
+                                      );
                                   },
                                 ),
                               ),
@@ -2222,20 +3409,24 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                     labelText: 'Duration',
                                     hintText: '5 days',
                                     isDense: true,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 10),
                               ElevatedButton(
                                 onPressed: () {
-                                  if (drugNameController.text.trim().isEmpty) return;
+                                  if (drugNameController.text.trim().isEmpty)
+                                    return;
                                   setDialogState(() {
                                     medicationsList.add({
                                       'name': drugNameController.text.trim(),
                                       'dosage': dosageController.text.trim(),
                                       'frequency': selectedFrequency,
-                                      'duration': durationController.text.trim(),
+                                      'duration': durationController.text
+                                          .trim(),
                                     });
                                     drugNameController.clear();
                                     dosageController.clear();
@@ -2245,8 +3436,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppTheme.secondaryColor,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                 ),
                                 child: const Icon(Icons.add),
                               ),
@@ -2256,7 +3452,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text('Prescribed Medications List:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                    const Text(
+                      'Prescribed Medications List:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Container(
                       height: 140,
@@ -2269,9 +3472,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.medication_outlined, size: 28, color: Colors.grey.shade300),
+                                  Icon(
+                                    Icons.medication_outlined,
+                                    size: 28,
+                                    color: Colors.grey.shade300,
+                                  ),
                                   const SizedBox(height: 6),
-                                  Text('No medications prescribed yet.', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                                  Text(
+                                    'No medications prescribed yet.',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade400,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ],
                               ),
                             )
@@ -2283,13 +3496,21 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                   final m = medicationsList[idx];
                                   return Container(
                                     margin: const EdgeInsets.only(bottom: 6),
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
-                                      border: Border.all(color: Colors.grey.shade200),
+                                      border: Border.all(
+                                        color: Colors.grey.shade200,
+                                      ),
                                       borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
-                                        BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 4),
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.01),
+                                          blurRadius: 4,
+                                        ),
                                       ],
                                     ),
                                     child: Row(
@@ -2297,32 +3518,54 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                         Container(
                                           padding: const EdgeInsets.all(6),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.primaryColor.withOpacity(0.1),
+                                            color: AppTheme.primaryColor
+                                                .withOpacity(0.1),
                                             shape: BoxShape.circle,
                                           ),
-                                          child: const Icon(Icons.medication, size: 14, color: AppTheme.primaryColor),
+                                          child: const Icon(
+                                            Icons.medication,
+                                            size: 14,
+                                            color: AppTheme.primaryColor,
+                                          ),
                                         ),
                                         const SizedBox(width: 10),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 m['name'] ?? '',
-                                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.bold,
+                                                  color:
+                                                      AppTheme.textPrimaryColor,
+                                                ),
                                               ),
                                               const SizedBox(height: 2),
                                               Text(
                                                 '${m['dosage']} | ${m['frequency']} | ${m['duration']}',
-                                                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppTheme
+                                                      .textSecondaryColor,
+                                                ),
                                               ),
                                             ],
                                           ),
                                         ),
                                         IconButton(
-                                          icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            size: 18,
+                                            color: Colors.redAccent,
+                                          ),
                                           onPressed: () {
-                                            setDialogState(() => medicationsList.removeAt(idx));
+                                            setDialogState(
+                                              () =>
+                                                  medicationsList.removeAt(idx),
+                                            );
                                           },
                                         ),
                                       ],
@@ -2339,7 +3582,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Select Standard Investigations:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                    const Text(
+                      'Select Standard Investigations:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
                     const SizedBox(height: 10),
                     Container(
                       height: 160,
@@ -2352,11 +3602,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                         child: ListView(
                           children: standardLabs.keys.map((test) {
                             return CheckboxListTile(
-                              title: Text(test, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                              title: Text(
+                                test,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                               value: standardLabs[test],
                               dense: true,
                               activeColor: AppTheme.primaryColor,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
                               controlAffinity: ListTileControlAffinity.leading,
                               onChanged: (v) {
                                 if (v != null) {
@@ -2378,7 +3636,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                               labelText: 'Other Custom Lab Test',
                               hintText: 'e.g. Vitamin D3',
                               isDense: true,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
                         ),
@@ -2387,15 +3647,22 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                           onPressed: () {
                             if (customLabController.text.trim().isEmpty) return;
                             setDialogState(() {
-                              customLabsList.add(customLabController.text.trim());
+                              customLabsList.add(
+                                customLabController.text.trim(),
+                              );
                               customLabController.clear();
                             });
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryColor,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 16,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                           child: const Text('Add'),
                         ),
@@ -2408,9 +3675,20 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                         runSpacing: 6,
                         children: customLabsList.map((l) {
                           return Chip(
-                            label: Text(l, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                            label: Text(
+                              l,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
                             backgroundColor: AppTheme.primaryLight,
-                            deleteIcon: const Icon(Icons.close, size: 12, color: AppTheme.primaryColor),
+                            deleteIcon: const Icon(
+                              Icons.close,
+                              size: 12,
+                              color: AppTheme.primaryColor,
+                            ),
                             onDeleted: () {
                               setDialogState(() => customLabsList.remove(l));
                             },
@@ -2433,12 +3711,20 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                         color: const Color(0xFF0D9488).withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.check_circle_outline, size: 48, color: Color(0xFF0D9488)),
+                      child: const Icon(
+                        Icons.check_circle_outline,
+                        size: 48,
+                        color: Color(0xFF0D9488),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     const Text(
                       'Ready to Complete Consultation',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0D9488)),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Color(0xFF0D9488),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     const Padding(
@@ -2446,7 +3732,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                       child: Text(
                         'This will save the clinical logs, record the diagnosis, order lab tests, and dispatch prescriptions to the pharmacy dispensing dashboard automatically.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, height: 1.4),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondaryColor,
+                          height: 1.4,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -2462,26 +3752,49 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.local_pharmacy_outlined, color: Color(0xFF065F46), size: 18),
+                              const Icon(
+                                Icons.local_pharmacy_outlined,
+                                color: Color(0xFF065F46),
+                                size: 18,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 medicationsList.isEmpty
                                     ? 'No Medications Prescribed'
                                     : 'Prescription Status: Ready to Dispatch',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46)),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Color(0xFF065F46),
+                                ),
                               ),
                             ],
                           ),
-                          standardLabs.values.contains(true) || customLabsList.isNotEmpty ? const Divider(color: Color(0xFFA7F3D0), height: 20) : const SizedBox.shrink(),
-                          if (standardLabs.values.contains(true) || customLabsList.isNotEmpty)
+                          standardLabs.values.contains(true) ||
+                                  customLabsList.isNotEmpty
+                              ? const Divider(
+                                  color: Color(0xFFA7F3D0),
+                                  height: 20,
+                                )
+                              : const SizedBox.shrink(),
+                          if (standardLabs.values.contains(true) ||
+                              customLabsList.isNotEmpty)
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.science_outlined, color: Color(0xFF065F46), size: 18),
+                                const Icon(
+                                  Icons.science_outlined,
+                                  color: Color(0xFF065F46),
+                                  size: 18,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Lab Orders: Ready to Order',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46)),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Color(0xFF065F46),
+                                  ),
                                 ),
                               ],
                             ),
@@ -2507,7 +3820,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
           }
 
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             elevation: 10,
             child: Container(
               width: 580,
@@ -2521,7 +3836,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                 children: [
                   // Title Banner
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         colors: [AppTheme.primaryColor, Color(0xFF0F766E)],
@@ -2535,7 +3853,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.healing_outlined, color: Colors.white, size: 22),
+                        const Icon(
+                          Icons.healing_outlined,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
@@ -2544,18 +3866,29 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                             children: [
                               const Text(
                                 'Clinical Consultation Findings',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 'Patient: ${app.patientName} (${app.patientDisplayId ?? "No ID"})',
-                                style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.9)),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white.withOpacity(0.9),
+                                ),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                           onPressed: () => Navigator.pop(ctx),
                         ),
                       ],
@@ -2575,10 +3908,15 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
 
                   // Footer/Actions Bar
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade50,
-                      border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                      border: Border(
+                        top: BorderSide(color: Colors.grey.shade200),
+                      ),
                       borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(16),
                         bottomRight: Radius.circular(16),
@@ -2589,13 +3927,18 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                       children: [
                         if (activeStep > 0) ...[
                           OutlinedButton.icon(
-                            onPressed: isSaving ? null : () => setDialogState(() => activeStep--),
+                            onPressed: isSaving
+                                ? null
+                                : () => setDialogState(() => activeStep--),
                             icon: const Icon(Icons.arrow_back, size: 14),
                             label: const Text('Back'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.textSecondaryColor,
                               side: BorderSide(color: Colors.grey.shade300),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -2606,7 +3949,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.textSecondaryColor,
                               side: BorderSide(color: Colors.grey.shade300),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                             ),
                             child: const Text('Cancel'),
                           ),
@@ -2618,9 +3964,18 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                               : () async {
                                   if (activeStep < 4) {
                                     // Validation for Step 2
-                                    if (activeStep == 1 && diagnosisController.text.trim().isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Please enter a diagnosis to proceed.')),
+                                    if (activeStep == 1 &&
+                                        diagnosisController.text
+                                            .trim()
+                                            .isEmpty) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Please enter a diagnosis to proceed.',
+                                          ),
+                                        ),
                                       );
                                       return;
                                     }
@@ -2633,46 +3988,93 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                                       final consultationData = {
                                         'appointment_id': app.id,
                                         'patient_id': app.patientId,
-                                        'symptoms': symptomsController.text.trim(),
-                                        'diagnosis': diagnosisController.text.trim(),
+                                        'symptoms': symptomsController.text
+                                            .trim(),
+                                        'diagnosis': diagnosisController.text
+                                            .trim(),
                                         'notes': notesController.text.trim(),
                                         'medications': medicationsList,
                                         'lab_tests': finalLabs,
-                                        'pharmacy_status': medicationsList.isNotEmpty ? 'Notified' : 'Pending',
-                                        'recommend_admission': recommendAdmission,
-                                        'reason_for_admission': reasonForAdmissionController.text.trim(),
+                                        'pharmacy_status':
+                                            medicationsList.isNotEmpty
+                                            ? 'Notified'
+                                            : 'Pending',
+                                        'recommend_admission':
+                                            recommendAdmission,
+                                        'reason_for_admission':
+                                            reasonForAdmissionController.text
+                                                .trim(),
                                       };
 
-                                      await _appointmentController.saveConsultation(consultationData);
+                                      await _appointmentController
+                                          .saveConsultation(consultationData);
+                                      await _appointmentController.updateStatus(
+                                        app.id!,
+                                        'Completed',
+                                      );
                                       Navigator.pop(ctx);
                                       _loadData();
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Consultation completed successfully!'), backgroundColor: Colors.green),
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Consultation completed successfully!',
+                                            ),
+                                            backgroundColor: Colors.green,
+                                          ),
                                         );
                                       }
                                     } catch (e) {
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(e.toString()),
+                                            backgroundColor: Colors.red,
+                                          ),
                                         );
                                       }
                                     } finally {
-                                      if (mounted) setDialogState(() => isSaving = false);
+                                      if (mounted)
+                                        setDialogState(() => isSaving = false);
                                     }
                                   }
                                 },
                           icon: isSaving
                               ? const SizedBox.shrink()
-                              : Icon(activeStep == 4 ? Icons.check : Icons.arrow_forward, size: 14),
+                              : Icon(
+                                  activeStep == 4
+                                      ? Icons.check
+                                      : Icons.arrow_forward,
+                                  size: 14,
+                                ),
                           label: isSaving
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : Text(activeStep == 4 ? 'Complete Consultation' : 'Next'),
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  activeStep == 4
+                                      ? 'Complete Consultation'
+                                      : 'Next',
+                                ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryColor,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
                       ],
@@ -2704,7 +4106,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
 
     if (prescriptions.isEmpty) {
       return const Center(
-        child: Text('No prescriptions generated today.', style: TextStyle(color: Colors.grey)),
+        child: Text(
+          'No prescriptions generated today.',
+          style: TextStyle(color: Colors.grey),
+        ),
       );
     }
 
@@ -2735,20 +4140,40 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(c['patient_name'] ?? 'Unknown Patient', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    Text(DateFormat('dd/MM/yyyy').format(DateTime.parse(c['created_at'] ?? DateTime.now().toString())), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(
+                      c['patient_name'] ?? 'Unknown Patient',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      DateFormat('dd/MM/yyyy').format(
+                        DateTime.parse(
+                          c['created_at'] ?? DateTime.now().toString(),
+                        ),
+                      ),
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('ID: ${c['patient_display_id'] ?? 'N/A'} • Doctor: ${c['doctor_name'] ?? 'N/A'}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                Text(
+                  'ID: ${c['patient_display_id'] ?? 'N/A'} • Doctor: ${c['doctor_name'] ?? 'N/A'}',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
                 const Divider(height: 24),
-                const Text('Prescribed Medications:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                const Text(
+                  'Prescribed Medications:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
                 const SizedBox(height: 8),
                 Column(
                   children: meds.map<Widget>((m) {
                     String display = m.toString();
                     if (m is Map) {
-                      display = '${m['name']} - ${m['dosage']} (${m['frequency']})';
+                      display =
+                          '${m['name']} - ${m['dosage']} (${m['frequency']})';
                     }
                     return Container(
                       margin: const EdgeInsets.only(bottom: 4),
@@ -2760,9 +4185,18 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.medication, size: 14, color: AppTheme.primaryColor),
+                          const Icon(
+                            Icons.medication,
+                            size: 14,
+                            color: AppTheme.primaryColor,
+                          ),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(display, style: const TextStyle(fontSize: 12))),
+                          Expanded(
+                            child: Text(
+                              display,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
                         ],
                       ),
                     );
@@ -2793,7 +4227,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
 
     if (labOrders.isEmpty) {
       return const Center(
-        child: Text('No lab tests ordered today.', style: TextStyle(color: Colors.grey)),
+        child: Text(
+          'No lab tests ordered today.',
+          style: TextStyle(color: Colors.grey),
+        ),
       );
     }
 
@@ -2824,21 +4261,43 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(c['patient_name'] ?? 'Unknown Patient', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    Text(DateFormat('dd/MM/yyyy').format(DateTime.parse(c['created_at'] ?? DateTime.now().toString())), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(
+                      c['patient_name'] ?? 'Unknown Patient',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      DateFormat('dd/MM/yyyy').format(
+                        DateTime.parse(
+                          c['created_at'] ?? DateTime.now().toString(),
+                        ),
+                      ),
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('ID: ${c['patient_display_id'] ?? 'N/A'} • Doctor: ${c['doctor_name'] ?? 'N/A'}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                Text(
+                  'ID: ${c['patient_display_id'] ?? 'N/A'} • Doctor: ${c['doctor_name'] ?? 'N/A'}',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
                 const Divider(height: 24),
-                const Text('Ordered Tests:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                const Text(
+                  'Ordered Tests:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
                   children: labs.map<Widget>((l) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade50,
                         border: Border.all(color: Colors.blue.shade100),
@@ -2847,11 +4306,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.science_outlined, size: 12, color: Colors.blue.shade800),
+                          Icon(
+                            Icons.science_outlined,
+                            size: 12,
+                            color: Colors.blue.shade800,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             l.toString(),
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade800,
+                            ),
                           ),
                         ],
                       ),
@@ -2885,7 +4352,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
 
     if (pharmacyNotifications.isEmpty) {
       return const Center(
-        child: Text('No pharmacy notifications today.', style: TextStyle(color: Colors.grey)),
+        child: Text(
+          'No pharmacy notifications today.',
+          style: TextStyle(color: Colors.grey),
+        ),
       );
     }
 
@@ -2919,20 +4389,33 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(c['patient_name'] ?? 'Unknown Patient', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(
+                      c['patient_name'] ?? 'Unknown Patient',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
                     _buildPharmacyStatusBadge(status),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('ID: ${c['patient_display_id'] ?? 'N/A'} • Doctor: ${c['doctor_name'] ?? 'N/A'}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                Text(
+                  'ID: ${c['patient_display_id'] ?? 'N/A'} • Doctor: ${c['doctor_name'] ?? 'N/A'}',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
                 const Divider(height: 24),
-                const Text('Medications:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                const Text(
+                  'Medications:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
                 const SizedBox(height: 8),
                 Column(
                   children: meds.map<Widget>((m) {
                     String display = m.toString();
                     if (m is Map) {
-                      display = '${m['name']} - ${m['dosage']} (${m['frequency']})';
+                      display =
+                          '${m['name']} - ${m['dosage']} (${m['frequency']})';
                     }
                     return Container(
                       margin: const EdgeInsets.only(bottom: 4),
@@ -2944,9 +4427,18 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.medication, size: 14, color: AppTheme.primaryColor),
+                          const Icon(
+                            Icons.medication,
+                            size: 14,
+                            color: AppTheme.primaryColor,
+                          ),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(display, style: const TextStyle(fontSize: 12))),
+                          Expanded(
+                            child: Text(
+                              display,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
                         ],
                       ),
                     );
@@ -2960,21 +4452,30 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                       ElevatedButton.icon(
                         onPressed: () async {
                           try {
-                            await _appointmentController.updateConsultation(c['id'], {
-                              'symptoms': c['symptoms'],
-                              'diagnosis': c['diagnosis'],
-                              'medications': c['medications'],
-                              'notes': c['notes'],
-                              'lab_tests': c['lab_tests'],
-                              'pharmacy_status': 'Dispensed',
-                            });
+                            await _appointmentController
+                                .updateConsultation(c['id'], {
+                                  'symptoms': c['symptoms'],
+                                  'diagnosis': c['diagnosis'],
+                                  'medications': c['medications'],
+                                  'notes': c['notes'],
+                                  'lab_tests': c['lab_tests'],
+                                  'pharmacy_status': 'Dispensed',
+                                });
                             _loadData();
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Medications dispensed successfully!'), backgroundColor: Colors.green),
+                              const SnackBar(
+                                content: Text(
+                                  'Medications dispensed successfully!',
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
                             );
                           } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error dispensing: $e'), backgroundColor: Colors.red),
+                              SnackBar(
+                                content: Text('Error dispensing: $e'),
+                                backgroundColor: Colors.red,
+                              ),
                             );
                           }
                         },
@@ -2983,8 +4484,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0F5A8E),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                         ),
                       ),
                     ],
@@ -2998,4 +4504,3 @@ class _OPDManagementScreenState extends State<OPDManagementScreen> with SingleTi
     );
   }
 }
-
