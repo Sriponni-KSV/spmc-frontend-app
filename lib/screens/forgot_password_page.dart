@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../utils/app_theme.dart';
 import '../controllers/auth_controller.dart';
+import '../providers/auth_provider.dart';
+import 'package:provider/provider.dart';
+import '../core/routes/route_constants.dart';
+import '../utils/password_policy.dart';
+import 'package:flutter/services.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);
@@ -58,18 +64,35 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     focusOut();
     if (_currentStep == 0) {
       if (_emailFormKey.currentState!.validate()) {
-        setState(() => _currentStep = 1);
-        _pageController.animateToPage(
-          1,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('OTP sent to email. Dummy OTP is 111111'),
-            backgroundColor: AppTheme.primaryColor,
-          ),
-        );
+        setState(() => _isLoading = true);
+        try {
+          await _authController.forgotPassword(_emailController.text.trim());
+          if (!mounted) return;
+          setState(() {
+            _currentStep = 1;
+            _isLoading = false;
+          });
+          _pageController.animateToPage(
+            1,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('OTP sent to your email.'),
+              backgroundColor: AppTheme.primaryColor,
+            ),
+          );
+        } catch (e) {
+          if (!mounted) return;
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceAll('Exception: ', '')),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
       }
     } else if (_currentStep == 1) {
       String fullOtp = _otpControllers.map((c) => c.text).join();
@@ -78,26 +101,33 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         return;
       }
 
-      if (fullOtp == '111111') {
+      setState(() => _isLoading = true);
+      try {
+        await _authController.verifyOtp(_emailController.text.trim(), fullOtp);
+        if (!mounted) return;
         setState(() {
           _otpErrorMessage = null;
           _currentStep = 2;
+          _isLoading = false;
         });
         _pageController.animateToPage(
           2,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
-      } else {
-        setState(
-          () => _otpErrorMessage = 'Invalid OTP entered. Please try again.',
-        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _otpErrorMessage = e.toString().replaceAll('Exception: ', '');
+        });
       }
     } else if (_currentStep == 2) {
       if (_passwordFormKey.currentState!.validate()) {
         setState(() => _isLoading = true);
         try {
-          await _authController.resetPassword(
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          await authProvider.resetPassword(
             email: _emailController.text.trim(),
             newPassword: _newPasswordController.text,
           );
@@ -108,7 +138,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.pop(context);
+          context.go(AppRoutes.dashboard);
         } catch (e) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -348,7 +378,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               return null;
             },
             onFieldSubmitted: (_) => _nextStep(),
+            maxLength: 50,
+            inputFormatters: [LengthLimitingTextInputFormatter(50)],
             decoration: const InputDecoration(
+              counterText: '',
               hintText: 'Enter Email Address',
               hintStyle: TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -361,15 +394,24 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 32),
           ElevatedButton(
-            onPressed: _nextStep,
+            onPressed: _isLoading ? null : _nextStep,
             style: AppTheme.primaryButton.copyWith(
               minimumSize: MaterialStateProperty.all(const Size(double.infinity, 56)),
             ),
-            child: const Text('Send OTP'),
+            child: _isLoading && _currentStep == 0
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text('Send OTP'),
           ),
           const SizedBox(height: 16),
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => context.go(AppRoutes.login),
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.textSecondaryColor,
               overlayColor: Colors.transparent,
@@ -418,13 +460,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Please enter the 6-digit OTP sent to your email. (Use 111111)',
+            'Please enter the 6-digit OTP sent to your email.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppTheme.textSecondaryColor,
             ),
           ),
-          const SizedBox(height: 32),
           const SizedBox(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -497,11 +538,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ],
           const SizedBox(height: 32),
           ElevatedButton(
-            onPressed: _nextStep,
+            onPressed: _isLoading ? null : _nextStep,
             style: AppTheme.primaryButton.copyWith(
               minimumSize: MaterialStateProperty.all(const Size(double.infinity, 56)),
             ),
-            child: const Text('Verify OTP'),
+            child: _isLoading && _currentStep == 1
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text('Verify OTP'),
           ),
         ],
       ),
@@ -568,17 +618,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               fontFamily: AppTheme.fontFamily,
               fontSize: 14,
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter New Password';
-              }
-              if (value.length < 8) {
-                return 'Must be at least 8 characters';
-              }
-              return null;
-            },
+            validator: PasswordPolicy.validatePassword,
+            maxLength: 16,
+            inputFormatters: [LengthLimitingTextInputFormatter(16)],
             onFieldSubmitted: (_) => _nextStep(),
             decoration: InputDecoration(
+              counterText: '',
               hintText: 'Enter New Password',
               hintStyle: const TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -631,7 +676,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               return null;
             },
             onFieldSubmitted: (_) => _nextStep(),
+            maxLength: 16,
+            inputFormatters: [LengthLimitingTextInputFormatter(16)],
             decoration: InputDecoration(
+              counterText: '',
               hintText: 'Enter Confirm Password',
               hintStyle: const TextStyle(
                 fontFamily: AppTheme.fontFamily,

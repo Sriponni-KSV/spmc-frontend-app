@@ -5,6 +5,13 @@ import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/token_service.dart';
 
+class RequiresPasswordChangeException implements Exception {
+  final String message;
+  RequiresPasswordChangeException(this.message);
+  @override
+  String toString() => message;
+}
+
 class AuthController {
   String get baseUrl => dotenv.env['BASE_URL']!;
 
@@ -23,6 +30,9 @@ class AuthController {
     final data = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
+      if (data['requiresPasswordChange'] == true) {
+        throw RequiresPasswordChangeException(data['message'] ?? 'Password change required');
+      }
       await TokenService.saveToken(data['token']);
       return UserModel.fromJson(data['user']);
     } else {
@@ -30,8 +40,50 @@ class AuthController {
     }
   }
 
+  // ✅ Forgot Password
+  Future<void> forgotPassword(String email) async {
+    final response = await ApiService.post(
+      '$baseUrl/auth/forgot-password',
+      {'email': email},
+    );
+
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['error'] ?? 'User not found');
+    }
+  }
+
+  // ✅ Resend OTP
+  Future<void> resendOtp(String email) async {
+    final response = await ApiService.post(
+      '$baseUrl/auth/resend-otp',
+      {'email': email},
+    );
+
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['error'] ?? 'Failed to resend OTP');
+    }
+  }
+
+  // ✅ Verify OTP
+  Future<void> verifyOtp(String email, String otp) async {
+    final response = await ApiService.post(
+      '$baseUrl/auth/verify-otp',
+      {
+        'email': email,
+        'otp': otp,
+      },
+    );
+
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['error'] ?? 'Invalid OTP');
+    }
+  }
+
   // ✅ Reset Password
-  Future<void> resetPassword({
+  Future<UserModel?> resetPassword({
     required String email,
     required String newPassword,
   }) async {
@@ -43,7 +95,14 @@ class AuthController {
       },
     );
 
-    if (response.statusCode != 200) {
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['token'] != null && data['user'] != null) {
+        await TokenService.saveToken(data['token']);
+        return UserModel.fromJson(data['user']);
+      }
+      return null;
+    } else {
       final data = jsonDecode(response.body);
       throw Exception(data['error'] ?? 'Failed to reset password');
     }

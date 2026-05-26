@@ -7,17 +7,20 @@ import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../models/patient_model.dart';
 import '../models/user_model.dart';
+import '../widgets/custom_dropdown_search.dart';
 
 class IPDManagementScreen extends StatefulWidget {
   final bool isMobile;
 
-  const IPDManagementScreen({Key? key, required this.isMobile}) : super(key: key);
+  const IPDManagementScreen({Key? key, required this.isMobile})
+    : super(key: key);
 
   @override
   State<IPDManagementScreen> createState() => _IPDManagementScreenState();
 }
 
-class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTickerProviderStateMixin {
+class _IPDManagementScreenState extends State<IPDManagementScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final IpdController _ipdController = IpdController();
   final PatientController _patientController = PatientController();
@@ -27,13 +30,12 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
   List<Map<String, dynamic>> _admissions = [];
   List<PatientModel> _patients = [];
   List<UserModel> _doctors = [];
-  List<Map<String, dynamic>> _pendingAdmissions = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadData();
   }
 
@@ -46,36 +48,56 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
   Future<void> _loadData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
+
+    List<Map<String, dynamic>> bedsList = [];
+    List<Map<String, dynamic>> admissionsList = [];
+    List<PatientModel> patientsList = [];
+    List<UserModel> doctorsList = [];
+    String? errorMsg;
+
     try {
-      final bedsList = await _ipdController.fetchBeds();
-      final admissionsList = await _ipdController.fetchAdmissions();
-      final patientsList = await _patientController.fetchPatients();
-      final doctorsList = await _adminController.fetchStaff(role: 'Doctor');
-      final pendingList = await _ipdController.fetchPendingAdmissions();
-      
-      if (mounted) {
-        setState(() {
-          _beds = bedsList;
-          _admissions = admissionsList;
-          _patients = patientsList;
-          _doctors = doctorsList;
-          _pendingAdmissions = pendingList;
-          _isLoading = false;
-        });
-      }
+      bedsList = await _ipdController.fetchBeds();
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
+      errorMsg = e.toString();
+    }
+    try {
+      admissionsList = await _ipdController.fetchAdmissions();
+    } catch (e) {
+      errorMsg ??= e.toString();
+    }
+    try {
+      patientsList = await _patientController.fetchPatients();
+    } catch (_) {}
+    try {
+      doctorsList = await _adminController.fetchStaff(role: 'Doctor');
+    } catch (_) {}
+
+    if (mounted) {
+      setState(() {
+        _beds = bedsList;
+        _admissions = admissionsList;
+        _patients = patientsList;
+        _doctors = doctorsList;
+        _isLoading = false;
+      });
+      if (errorMsg != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading IPD data: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Warning: $errorMsg'),
+            backgroundColor: Colors.orange,
+          ),
         );
       }
     }
   }
 
-  int get _admittedCount => _admissions.where((a) => a['status'] == 'Admitted').length;
-  int get _availableBedsCount => _beds.where((b) => b['status'] == 'Available').length;
-  int get _icuOccupancy => _admissions.where((a) => a['status'] == 'Admitted' && a['ward_type'] == 'ICU').length;
+  int get _admittedCount =>
+      _admissions.where((a) => a['status'] == 'Admitted').length;
+  int get _availableBedsCount =>
+      _beds.where((b) => b['status'] == 'Available').length;
+  int get _icuOccupancy => _admissions
+      .where((a) => a['status'] == 'Admitted' && a['ward_type'] == 'ICU')
+      .length;
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +115,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildPendingAdmissionsTab(),
                       _buildActiveAdmissionsTab(),
                       _buildBedAvailabilityTab(),
                       _buildDischargeHistoryTab(),
@@ -107,7 +128,12 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
 
   Widget _buildHeader() {
     return Container(
-      padding: EdgeInsets.fromLTRB(widget.isMobile ? 16 : 24, 24, widget.isMobile ? 16 : 24, 8),
+      padding: EdgeInsets.fromLTRB(
+        widget.isMobile ? 16 : 24,
+        24,
+        widget.isMobile ? 16 : 24,
+        8,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -125,19 +151,29 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
               const SizedBox(height: 4),
               const Text(
                 'Monitor bed assignments, nursing charts, and patient discharges',
-                style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
           ElevatedButton.icon(
             onPressed: () => _showAdmitDialog(),
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Admit Patient', style: TextStyle(fontWeight: FontWeight.bold)),
+            icon: const Icon(Icons.person_add_outlined, size: 18),
+            label: const Text(
+              'Admit Patient',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.dangerColor,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              elevation: 0,
+              minimumSize: const Size(120, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ],
@@ -150,17 +186,47 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
         children: [
-          Expanded(child: _buildStatCard('Currently Admitted', _admittedCount.toString(), 'Patients in Wards', Icons.bedroom_child_outlined, Colors.blue)),
+          Expanded(
+            child: _buildStatCard(
+              'Currently Admitted',
+              _admittedCount.toString(),
+              'Patients in Wards',
+              Icons.bedroom_child_outlined,
+              Colors.blue,
+            ),
+          ),
           const SizedBox(width: 16),
-          Expanded(child: _buildStatCard('Available Beds', '$_availableBedsCount/${_beds.length}', 'Ready for intake', Icons.hotel_outlined, Colors.green)),
+          Expanded(
+            child: _buildStatCard(
+              'Available Beds',
+              '$_availableBedsCount/${_beds.length}',
+              'Ready for intake',
+              Icons.hotel_outlined,
+              Colors.green,
+            ),
+          ),
           const SizedBox(width: 16),
-          Expanded(child: _buildStatCard('ICU Occupancy', _icuOccupancy.toString(), 'Critical cases', Icons.local_hospital_outlined, Colors.red)),
+          Expanded(
+            child: _buildStatCard(
+              'ICU Occupancy',
+              _icuOccupancy.toString(),
+              'Critical cases',
+              Icons.local_hospital_outlined,
+              Colors.red,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String title, String value, String sub, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    String sub,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -172,7 +238,10 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(width: 16),
@@ -180,11 +249,27 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(sub, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                Text(
+                  sub,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                ),
               ],
             ),
           ),
@@ -197,7 +282,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1)),
+        border: Border(
+          bottom: BorderSide(color: AppTheme.borderColor, width: 1),
+        ),
       ),
       child: TabBar(
         controller: _tabController,
@@ -206,34 +293,8 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
         indicatorColor: AppTheme.primaryColor,
         indicatorWeight: 3,
         tabs: [
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('Pending Intake'),
-                if (_pendingAdmissions.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerColor,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      _pendingAdmissions.length.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
           const Tab(text: 'Active Wards'),
-          const Tab(text: 'Bed Wards & Grid'),
+          const Tab(text: 'Bed Availability'),
           const Tab(text: 'Discharge History'),
         ],
       ),
@@ -243,36 +304,68 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
   Widget _buildActiveAdmissionsTab() {
     final active = _admissions.where((a) => a['status'] == 'Admitted').toList();
     if (active.isEmpty) {
-      return _buildEmptyState('No active admissions.', Icons.hotel_class_outlined);
+      return _buildEmptyState(
+        'No active admissions.',
+        Icons.hotel_class_outlined,
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.all(24),
       itemCount: active.length,
       itemBuilder: (context, index) {
         final adm = active[index];
-        final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(adm['admission_date']));
+        final dateStr = DateFormat(
+          'dd/MM/yyyy HH:mm',
+        ).format(DateTime.parse(adm['admission_date']));
         return Card(
           elevation: 0,
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 CircleAvatar(
                   backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                  child: Text(adm['patient_name']?[0].toUpperCase() ?? 'P', style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    adm['patient_name']?[0].toUpperCase() ?? 'P',
+                    style: const TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(adm['patient_name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(
+                        adm['patient_name'] ?? 'Unknown',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text('Bed: ${adm['bed_number']} (${adm['ward_type']}) • Admitted: $dateStr', style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
+                      Text(
+                        'Bed: ${adm['bed_number']} (${adm['ward_type']}) • Admitted: $dateStr',
+                        style: const TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontSize: 12,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text('Treating Doctor: ${adm['doctor_name']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      Text(
+                        'Treating Doctor: ${adm['doctor_name']}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -281,15 +374,33 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                   children: [
                     ElevatedButton.icon(
                       onPressed: () => _showNursingDashboard(adm),
-                      icon: const Icon(Icons.edit_note, size: 16, color: Colors.white),
-                      label: const Text('Nursing Station', style: TextStyle(color: Colors.white, fontSize: 12)),
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F5A8E)),
+                      icon: const Icon(
+                        Icons.edit_note,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Nursing Station',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F5A8E),
+                      ),
                     ),
                     OutlinedButton.icon(
                       onPressed: () => _showDischargeDialog(adm),
-                      icon: const Icon(Icons.logout, size: 16, color: Colors.red),
-                      label: const Text('Discharge', style: TextStyle(color: Colors.red, fontSize: 12)),
-                      style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red)),
+                      icon: const Icon(
+                        Icons.logout,
+                        size: 16,
+                        color: Colors.red,
+                      ),
+                      label: const Text(
+                        'Discharge',
+                        style: TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.red),
+                      ),
                     ),
                   ],
                 ),
@@ -302,57 +413,155 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
   }
 
   Widget _buildBedAvailabilityTab() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(24),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 5,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.3,
-      ),
-      itemCount: _beds.length,
-      itemBuilder: (context, index) {
-        final bed = _beds[index];
-        final bool isAvail = bed['status'] == 'Available';
-        final Color cardColor = isAvail ? Colors.green.shade50 : Colors.red.shade50;
-        final Color borderColor = isAvail ? Colors.green.shade300 : Colors.red.shade300;
-        final Color textColor = isAvail ? Colors.green.shade800 : Colors.red.shade800;
+    final Map<String, List<Map<String, dynamic>>> groupedBeds = {};
+    final wardOrder = ['General', 'Semi-Private', 'Private', 'ICU'];
 
-        return Container(
-          decoration: BoxDecoration(
-            color: cardColor,
-            border: Border.all(color: borderColor),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    for (var ward in wardOrder) {
+      groupedBeds[ward] = [];
+    }
+
+    for (var bed in _beds) {
+      final ward = bed['ward_type'] ?? 'Other';
+      groupedBeds.putIfAbsent(ward, () => []).add(bed);
+    }
+
+    groupedBeds.removeWhere((key, value) => value.isEmpty);
+
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: groupedBeds.entries.map((entry) {
+        final wardName = entry.key;
+        final wardBeds = entry.value;
+
+        final totalBeds = wardBeds.length;
+        final availableBeds = wardBeds
+            .where((b) => b['status'] == 'Available')
+            .length;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12, top: 16),
+              child: Row(
                 children: [
-                  Text(bed['bed_number'], style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
-                  Icon(Icons.king_bed, color: textColor, size: 20),
+                  Icon(
+                    wardName == 'ICU' ? Icons.local_hospital : Icons.king_bed,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$wardName Ward',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$availableBeds / $totalBeds Available',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Ward: ${bed['ward_type']}', style: TextStyle(fontSize: 11, color: textColor.withOpacity(0.8), fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 2),
-                  Text(bed['status'], style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor)),
-                ],
+            ),
+
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 130,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 1.6,
               ),
-            ],
-          ),
+              itemCount: wardBeds.length,
+              itemBuilder: (context, index) {
+                final bed = wardBeds[index];
+                final bool isAvail = bed['status'] == 'Available';
+                final Color cardColor = isAvail
+                    ? const Color(0xFFE8F5E9)
+                    : const Color(0xFFFFEBEE);
+                final Color borderColor = isAvail
+                    ? const Color(0xFF81C784)
+                    : const Color(0xFFE57373);
+                final Color textColor = isAvail
+                    ? const Color(0xFF2E7D32)
+                    : const Color(0xFFC62828);
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    border: Border.all(color: borderColor, width: 1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            bed['bed_number'],
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
+                          ),
+                          Icon(
+                            Icons.king_bed_outlined,
+                            color: textColor.withOpacity(0.7),
+                            size: 16,
+                          ),
+                        ],
+                      ),
+                      Text(
+                        isAvail ? 'Available' : 'Occupied',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+          ],
         );
-      },
+      }).toList(),
     );
   }
 
   Widget _buildDischargeHistoryTab() {
-    final discharged = _admissions.where((a) => a['status'] == 'Discharged').toList();
+    final discharged = _admissions
+        .where((a) => a['status'] == 'Discharged')
+        .toList();
     if (discharged.isEmpty) {
       return _buildEmptyState('No discharged records.', Icons.history);
     }
@@ -361,21 +570,35 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
       itemCount: discharged.length,
       itemBuilder: (context, index) {
         final adm = discharged[index];
-        final dischargeDateStr = adm['discharge_date'] != null 
-            ? DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(adm['discharge_date']))
+        final dischargeDateStr = adm['discharge_date'] != null
+            ? DateFormat(
+                'dd/MM/yyyy HH:mm',
+              ).format(DateTime.parse(adm['discharge_date']))
             : '--';
         return Card(
           elevation: 0,
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
           child: ListTile(
             contentPadding: const EdgeInsets.all(16),
             leading: CircleAvatar(
               backgroundColor: Colors.grey.shade100,
-              child: const Icon(Icons.assignment_turned_in, color: Colors.green),
+              child: const Icon(
+                Icons.assignment_turned_in,
+                color: Colors.green,
+              ),
             ),
-            title: Text(adm['patient_name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Bed: ${adm['bed_number']} • Discharged: $dischargeDateStr\nDoctor: ${adm['doctor_name']}', style: const TextStyle(height: 1.5, fontSize: 12)),
+            title: Text(
+              adm['patient_name'] ?? 'Unknown',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Bed: ${adm['bed_number']} • Discharged: $dischargeDateStr\nDoctor: ${adm['doctor_name']}',
+              style: const TextStyle(height: 1.5, fontSize: 12),
+            ),
             trailing: TextButton.icon(
               onPressed: () => _showDischargeSummaryView(adm),
               icon: const Icon(Icons.description_outlined, size: 16),
@@ -394,132 +617,25 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
         children: [
           Icon(icon, size: 48, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          Text(text, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14)),
+          Text(
+            text,
+            style: const TextStyle(
+              color: AppTheme.textSecondaryColor,
+              fontSize: 14,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildPendingAdmissionsTab() {
-    if (_pendingAdmissions.isEmpty) {
-      return _buildEmptyState('No pending admissions from OPD.', Icons.done_all_outlined);
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(24),
-      itemCount: _pendingAdmissions.length,
-      itemBuilder: (context, index) {
-        final pending = _pendingAdmissions[index];
-        
-        return Card(
-          elevation: 0,
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.red.shade100, width: 1.5),
-          ),
-          color: Colors.red.shade50.withOpacity(0.2),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade100.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.bed_outlined, color: Colors.red.shade700, size: 24),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            pending['patient_name'] ?? 'Unknown Patient',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              pending['patient_display_id'] ?? 'ID-N/A',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red.shade900),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Gender: ${pending['patient_gender'] ?? "N/A"}  •  Age: ${pending['patient_age'] ?? "N/A"} yrs  •  Department: ${pending['department'] ?? "N/A"}',
-                        style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Recommending Doctor: Dr. ${pending['doctor_name']}',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                      if (pending['reason_for_visit'] != null && pending['reason_for_visit'].toString().isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: Text(
-                            'Reason: ${pending['reason_for_visit']}',
-                            style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey.shade700),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    _showAdmitDialog(
-                      preselectedPatientId: pending['patient_id'],
-                      preselectedDoctorName: pending['doctor_name'],
-                      preselectedReason: pending['reason_for_visit'],
-                      preselectedAppointmentId: pending['appointment_id'],
-                    );
-                  },
-                  icon: const Icon(Icons.hotel_outlined, size: 16, color: Colors.white),
-                  label: const Text('Allocate Bed & Admit', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade700,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showAdmitDialog({
-    int? preselectedPatientId,
-    String? preselectedDoctorName,
-    String? preselectedReason,
-    int? preselectedAppointmentId,
-  }) {
-    int? selectedPatientId = preselectedPatientId;
+  void _showAdmitDialog() {
+    int? selectedPatientId;
     String? selectedBedNumber;
     String? selectedWardType;
-    String? selectedDoctorName = preselectedDoctorName;
-    final TextEditingController reasonController = TextEditingController(text: preselectedReason ?? '');
+    String? selectedDoctorName;
+    final TextEditingController reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
 
     List<String> availableBeds = [];
 
@@ -534,7 +650,11 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                 selectedBedNumber = null;
                 if (ward != null) {
                   availableBeds = _beds
-                      .where((b) => b['ward_type'] == ward && b['status'] == 'Available')
+                      .where(
+                        (b) =>
+                            b['ward_type'] == ward &&
+                            b['status'] == 'Available',
+                      )
                       .map((b) => b['bed_number'].toString())
                       .toList();
                 } else {
@@ -544,64 +664,248 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
             }
 
             return AlertDialog(
-              title: const Text('Admit Patient to IPD', style: TextStyle(fontWeight: FontWeight.bold)),
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+              title: const Text(
+                'Admit Patient to IPD',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               content: SingleChildScrollView(
                 child: SizedBox(
                   width: 480,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DropdownButtonFormField<int>(
-                        decoration: const InputDecoration(labelText: 'Select Patient', border: OutlineInputBorder()),
-                        value: selectedPatientId,
-                        items: _patients.map((p) => DropdownMenuItem<int>(value: p.id, child: Text('${p.name} (${p.patientId ?? p.id})'))).toList(),
-                        onChanged: preselectedPatientId != null ? null : (val) => setDialogState(() => selectedPatientId = val),
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(labelText: 'Treating Doctor', border: OutlineInputBorder()),
-                        value: selectedDoctorName,
-                        items: _doctors.map((d) => DropdownMenuItem(value: d.fullname, child: Text(d.fullname))).toList(),
-                        onChanged: (val) => setDialogState(() => selectedDoctorName = val),
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(labelText: 'Ward Type', border: OutlineInputBorder()),
-                        items: ['General', 'Semi-Private', 'Private', 'ICU'].map((w) => DropdownMenuItem(value: w, child: Text(w))).toList(),
-                        onChanged: updateBedsForWard,
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(labelText: 'Select Available Bed', border: OutlineInputBorder()),
-                        value: selectedBedNumber,
-                        items: availableBeds.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
-                        onChanged: (val) => setDialogState(() => selectedBedNumber = val),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: reasonController,
-                        maxLines: 2,
-                        decoration: const InputDecoration(labelText: 'Reason for Admission', border: OutlineInputBorder()),
-                      ),
-                    ],
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text.rich(
+                            TextSpan(
+                              text: 'Select Patient',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select Patient',
+                          value: selectedPatientId?.toString(),
+                          dropdownMap: {
+                            for (var p in _patients)
+                              p.id.toString():
+                                  '${p.name} (${p.patientId ?? p.id})',
+                          },
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return 'Please select a patient';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) {
+                            if (val != null) {
+                              setDialogState(
+                                () => selectedPatientId = int.tryParse(val),
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text.rich(
+                            TextSpan(
+                              text: 'Treating Doctor',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select Treating Doctor',
+                          value: selectedDoctorName,
+                          dropdownItems: _doctors
+                              .map((d) => d.fullname)
+                              .toList(),
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return 'Please select a treating doctor';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) =>
+                              setDialogState(() => selectedDoctorName = val),
+                        ),
+                        const SizedBox(height: 16),
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text.rich(
+                            TextSpan(
+                              text: 'Ward Type',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select Ward Type',
+                          value: selectedWardType,
+                          dropdownItems: const [
+                            'General',
+                            'Semi-Private',
+                            'Private',
+                            'ICU',
+                          ],
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return 'Please select a ward type';
+                            }
+                            return null;
+                          },
+                          onChanged: updateBedsForWard,
+                        ),
+                        const SizedBox(height: 16),
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text.rich(
+                            TextSpan(
+                              text: 'Select Available Bed',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select Available Bed',
+                          value: selectedBedNumber,
+                          dropdownItems: availableBeds,
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return 'Please select an available bed';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) =>
+                              setDialogState(() => selectedBedNumber = val),
+                        ),
+                        const SizedBox(height: 16),
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Reason for Admission',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: reasonController,
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            hintText: 'Reason for Admission',
+                            hintStyle: const TextStyle(
+                              color: Color(0xFFCBD5E0),
+                              fontSize: 11,
+                            ),
+                            filled: true,
+                            fillColor: AppTheme.backgroundColor,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: AppTheme.cancelButton,
+                  child: const Text('Cancel'),
+                ),
                 ElevatedButton(
                   onPressed: () async {
-                    if (selectedPatientId == null || selectedBedNumber == null || selectedDoctorName == null || selectedDoctorName!.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please fill all required fields'), backgroundColor: Colors.red),
-                      );
+                    if (!formKey.currentState!.validate()) {
                       return;
                     }
 
                     try {
                       await _ipdController.createAdmission({
                         'patient_id': selectedPatientId,
-                        'appointment_id': preselectedAppointmentId,
                         'doctor_name': selectedDoctorName,
                         'bed_number': selectedBedNumber,
                         'ward_type': selectedWardType,
@@ -610,14 +914,25 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                       Navigator.pop(context);
                       _loadData();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Patient Admitted Successfully!'), backgroundColor: Colors.green),
+                        const SnackBar(
+                          content: Text('Patient Admitted Successfully!'),
+                          backgroundColor: Colors.green,
+                        ),
                       );
                     } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                        SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: Colors.red,
+                        ),
                       );
                     }
                   },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.dangerColor,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(120, 48),
+                  ),
                   child: const Text('Confirm Admission'),
                 ),
               ],
@@ -653,7 +968,10 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: Text('Nursing Chart: ${admission['patient_name']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              title: Text(
+                'Nursing Chart: ${admission['patient_name']}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               content: SizedBox(
                 width: 600,
                 height: 500,
@@ -667,51 +985,118 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Add Daily Update Vitals', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor)),
+                            const Text(
+                              'Add Daily Update Vitals',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
                             const SizedBox(height: 12),
-                            TextField(controller: nurseController, decoration: const InputDecoration(labelText: 'Nurse Name', isDense: true, border: OutlineInputBorder())),
+                            TextField(
+                              controller: nurseController,
+                              decoration: const InputDecoration(
+                                labelText: 'Nurse Name',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
                             const SizedBox(height: 10),
-                            TextField(controller: bpController, decoration: const InputDecoration(labelText: 'Blood Pressure (mmHg)', isDense: true, border: OutlineInputBorder())),
+                            TextField(
+                              controller: bpController,
+                              decoration: const InputDecoration(
+                                labelText: 'Blood Pressure (mmHg)',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
                             const SizedBox(height: 10),
-                            TextField(controller: tempController, decoration: const InputDecoration(labelText: 'Temperature (°F)', isDense: true, border: OutlineInputBorder())),
+                            TextField(
+                              controller: tempController,
+                              decoration: const InputDecoration(
+                                labelText: 'Temperature (°F)',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
                             const SizedBox(height: 10),
-                            TextField(controller: sugarController, decoration: const InputDecoration(labelText: 'Sugar Level (mg/dL)', isDense: true, border: OutlineInputBorder())),
+                            TextField(
+                              controller: sugarController,
+                              decoration: const InputDecoration(
+                                labelText: 'Sugar Level (mg/dL)',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
                             const SizedBox(height: 10),
-                            TextField(controller: pulseController, decoration: const InputDecoration(labelText: 'Pulse Rate (bpm)', isDense: true, border: OutlineInputBorder())),
+                            TextField(
+                              controller: pulseController,
+                              decoration: const InputDecoration(
+                                labelText: 'Pulse Rate (bpm)',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
                             const SizedBox(height: 10),
-                            TextField(controller: notesController, maxLines: 2, decoration: const InputDecoration(labelText: 'Clinical Notes', isDense: true, border: OutlineInputBorder())),
+                            TextField(
+                              controller: notesController,
+                              maxLines: 2,
+                              decoration: const InputDecoration(
+                                labelText: 'Clinical Notes',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
                             const SizedBox(height: 16),
                             ElevatedButton(
                               onPressed: () async {
-                                if (nurseController.text.trim().isEmpty || notesController.text.trim().isEmpty) {
+                                if (nurseController.text.trim().isEmpty ||
+                                    notesController.text.trim().isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Nurse name and clinical notes required'), backgroundColor: Colors.red),
+                                    const SnackBar(
+                                      content: Text(
+                                        'Nurse name and clinical notes required',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
                                   );
                                   return;
                                 }
 
                                 try {
-                                  await _ipdController.addDailyUpdate(admission['id'], {
-                                    'nurse_name': nurseController.text.trim(),
-                                    'temperature': tempController.text.trim(),
-                                    'blood_pressure': bpController.text.trim(),
-                                    'sugar_level': sugarController.text.trim(),
-                                    'pulse': pulseController.text.trim(),
-                                    'notes': notesController.text.trim(),
-                                  });
-                                  
+                                  await _ipdController.addDailyUpdate(
+                                    admission['id'],
+                                    {
+                                      'nurse_name': nurseController.text.trim(),
+                                      'temperature': tempController.text.trim(),
+                                      'blood_pressure': bpController.text
+                                          .trim(),
+                                      'sugar_level': sugarController.text
+                                          .trim(),
+                                      'pulse': pulseController.text.trim(),
+                                      'notes': notesController.text.trim(),
+                                    },
+                                  );
+
                                   // Reload local list
-                                  final freshAdms = await _ipdController.fetchAdmissions();
-                                  final freshAdm = freshAdms.firstWhere((element) => element['id'] == admission['id']);
-                                  
+                                  final freshAdms = await _ipdController
+                                      .fetchAdmissions();
+                                  final freshAdm = freshAdms.firstWhere(
+                                    (element) =>
+                                        element['id'] == admission['id'],
+                                  );
+
                                   setDialogState(() {
                                     admission = freshAdm;
                                     if (freshAdm['daily_updates'] is List) {
                                       updates = freshAdm['daily_updates'];
                                     } else {
-                                      updates = jsonDecode(freshAdm['daily_updates']);
+                                      updates = jsonDecode(
+                                        freshAdm['daily_updates'],
+                                      );
                                     }
-                                    
+
                                     // Clear vitals inputs
                                     bpController.clear();
                                     tempController.clear();
@@ -723,12 +1108,20 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                                   _loadData(); // Sync parent dashboard
                                 } catch (e) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+                                    SnackBar(
+                                      content: Text('Failed: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
                                   );
                                 }
                               },
-                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                              child: const Text('Record Vitals / Update', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                              ),
+                              child: const Text(
+                                'Record Vitals / Update',
+                                style: TextStyle(color: Colors.white),
+                              ),
                             ),
                           ],
                         ),
@@ -741,38 +1134,97 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Admitted Vitals History', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const Text(
+                            'Admitted Vitals History',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
                           const SizedBox(height: 10),
                           Expanded(
                             child: updates.isEmpty
-                                ? const Center(child: Text('No entries recorded yet.', style: TextStyle(color: Colors.grey, fontSize: 11)))
+                                ? const Center(
+                                    child: Text(
+                                      'No entries recorded yet.',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  )
                                 : ListView.builder(
                                     itemCount: updates.length,
                                     itemBuilder: (context, idx) {
                                       final item = updates[idx];
-                                      final dateParsed = DateTime.parse(item['date']);
-                                      final displayDate = DateFormat('dd/MM HH:mm').format(dateParsed);
+                                      final dateParsed = DateTime.parse(
+                                        item['date'],
+                                      );
+                                      final displayDate = DateFormat(
+                                        'dd/MM HH:mm',
+                                      ).format(dateParsed);
                                       return Card(
                                         color: Colors.grey.shade50,
                                         elevation: 0,
-                                        margin: const EdgeInsets.only(bottom: 8),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: Colors.grey.shade200)),
+                                        margin: const EdgeInsets.only(
+                                          bottom: 8,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          side: BorderSide(
+                                            color: Colors.grey.shade200,
+                                          ),
+                                        ),
                                         child: Padding(
                                           padding: const EdgeInsets.all(8.0),
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
                                                 children: [
-                                                  Text(displayDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryColor)),
-                                                  Text('By: ${item['nurse_name']}', style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontStyle: FontStyle.italic)),
+                                                  Text(
+                                                    displayDate,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 11,
+                                                      color:
+                                                          AppTheme.primaryColor,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    'By: ${item['nurse_name']}',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                      fontStyle:
+                                                          FontStyle.italic,
+                                                    ),
+                                                  ),
                                                 ],
                                               ),
                                               const SizedBox(height: 6),
-                                              Text('BP: ${item['blood_pressure']} | Temp: ${item['temperature']}°F | Sugar: ${item['sugar_level']}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                              Text(
+                                                'BP: ${item['blood_pressure']} | Temp: ${item['temperature']}°F | Sugar: ${item['sugar_level']}',
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
                                               const SizedBox(height: 4),
-                                              Text(item['notes'] ?? '', style: const TextStyle(fontSize: 11)),
+                                              Text(
+                                                item['notes'] ?? '',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                ),
+                                              ),
                                             ],
                                           ),
                                         ),
@@ -787,7 +1239,10 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                 ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
               ],
             );
           },
@@ -803,21 +1258,28 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Discharge Patient: ${admission['patient_name']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(
+            'Discharge Patient: ${admission['patient_name']}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           content: SizedBox(
             width: 450,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Bed Number: ${admission['bed_number']} (${admission['ward_type']})', style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  'Bed Number: ${admission['bed_number']} (${admission['ward_type']})',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: summaryController,
                   maxLines: 4,
                   decoration: const InputDecoration(
                     labelText: 'Discharge Summary / Patient Advice',
-                    hintText: 'Describe patient condition, prescribed medications on discharge, and review date...',
+                    hintText:
+                        'Describe patient condition, prescribed medications on discharge, and review date...',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -825,31 +1287,49 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               onPressed: () async {
                 if (summaryController.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Discharge summary is required'), backgroundColor: Colors.red),
+                    const SnackBar(
+                      content: Text('Discharge summary is required'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                   return;
                 }
 
                 try {
-                  await _ipdController.dischargePatient(admission['id'], summaryController.text.trim());
+                  await _ipdController.dischargePatient(
+                    admission['id'],
+                    summaryController.text.trim(),
+                  );
                   Navigator.pop(context);
                   _loadData();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Patient Discharged Successfully!'), backgroundColor: Colors.green),
+                    const SnackBar(
+                      content: Text('Patient Discharged Successfully!'),
+                      backgroundColor: Colors.green,
+                    ),
                   );
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Confirm Discharge', style: TextStyle(color: Colors.white)),
+              child: const Text(
+                'Confirm Discharge',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
@@ -858,8 +1338,12 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
   }
 
   void _showDischargeSummaryView(Map<String, dynamic> admission) {
-    final admitDate = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(admission['admission_date']));
-    final dischargeDate = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(admission['discharge_date']));
+    final admitDate = DateFormat(
+      'dd/MM/yyyy HH:mm',
+    ).format(DateTime.parse(admission['admission_date']));
+    final dischargeDate = DateFormat(
+      'dd/MM/yyyy HH:mm',
+    ).format(DateTime.parse(admission['discharge_date']));
 
     showDialog(
       context: context,
@@ -869,7 +1353,10 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
             children: [
               Icon(Icons.receipt_long, color: AppTheme.primaryColor),
               SizedBox(width: 8),
-              Text('Discharge Summary Card', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                'Discharge Summary Card',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           content: SizedBox(
@@ -879,26 +1366,52 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSummaryLabel('Patient Name', admission['patient_name']),
-                  _buildSummaryLabel('Gender / Age', '${admission['patient_gender'] ?? '--'} / ${admission['patient_age'] ?? '--'} yrs'),
-                  _buildSummaryLabel('Treating Doctor', admission['doctor_name']),
-                  _buildSummaryLabel('Bed Number', '${admission['bed_number']} (${admission['ward_type']})'),
+                  _buildSummaryLabel(
+                    'Gender / Age',
+                    '${admission['patient_gender'] ?? '--'} / ${admission['patient_age'] ?? '--'} yrs',
+                  ),
+                  _buildSummaryLabel(
+                    'Treating Doctor',
+                    admission['doctor_name'],
+                  ),
+                  _buildSummaryLabel(
+                    'Bed Number',
+                    '${admission['bed_number']} (${admission['ward_type']})',
+                  ),
                   _buildSummaryLabel('Admission Date', admitDate),
                   _buildSummaryLabel('Discharge Date', dischargeDate),
                   const Divider(height: 24),
-                  const Text('Discharge Advice & Summary:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor)),
+                  const Text(
+                    'Discharge Advice & Summary:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade200)),
-                    child: Text(admission['discharge_summary'] ?? 'No summary recorded.', style: const TextStyle(fontSize: 13, height: 1.4)),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Text(
+                      admission['discharge_summary'] ?? 'No summary recorded.',
+                      style: const TextStyle(fontSize: 13, height: 1.4),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
           ],
         );
       },
@@ -911,8 +1424,23 @@ class _IPDManagementScreenState extends State<IPDManagementScreen> with SingleTi
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 140, child: Text('$label:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textSecondaryColor))),
-          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+          SizedBox(
+            width: 140,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: AppTheme.textSecondaryColor,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ),
         ],
       ),
     );

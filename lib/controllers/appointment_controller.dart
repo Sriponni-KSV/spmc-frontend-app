@@ -22,7 +22,7 @@ class AppointmentController {
     }
   }
 
-  Future<void> bookAppointment(AppointmentModel appointment) async {
+  Future<AppointmentModel> bookAppointment(AppointmentModel appointment) async {
     try {
       final response = await ApiService.post(
         '$baseUrl/appointments',
@@ -33,12 +33,18 @@ class AppointmentController {
       if (response.statusCode != 201) {
         throw Exception(body['message'] ?? 'Failed to book appointment');
       }
+
+      return AppointmentModel.fromJson(body['data']);
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
 
-  Future<void> updateStatus(int id, String status, {String? cancellationReason}) async {
+  Future<void> updateStatus(
+    int id,
+    String status, {
+    String? cancellationReason,
+  }) async {
     try {
       final body = <String, dynamic>{'status': status};
       if (cancellationReason != null) {
@@ -90,7 +96,10 @@ class AppointmentController {
     }
   }
 
-  Future<void> updateConsultation(int consultationId, Map<String, dynamic> consultationData) async {
+  Future<void> updateConsultation(
+    int consultationId,
+    Map<String, dynamic> consultationData,
+  ) async {
     try {
       final response = await ApiService.put(
         '$baseUrl/appointments/consultation/$consultationId',
@@ -106,14 +115,20 @@ class AppointmentController {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchConsultationsByPatient(int patientId) async {
+  Future<List<Map<String, dynamic>>> fetchConsultationsByPatient(
+    int patientId,
+  ) async {
     try {
-      final response = await ApiService.get('$baseUrl/appointments/consultation/patient/$patientId');
+      final response = await ApiService.get(
+        '$baseUrl/appointments/consultation/patient/$patientId',
+      );
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200 && body['success'] == true) {
         final List data = body['data'] ?? [];
-        return data.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e)).toList();
+        return data
+            .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
+            .toList();
       } else {
         throw Exception(body['message'] ?? 'Failed to fetch consultations');
       }
@@ -121,17 +136,26 @@ class AppointmentController {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
-  Future<List<Map<String, dynamic>>> fetchConsultationsByDoctor(String doctorName) async {
+
+  Future<List<Map<String, dynamic>>> fetchConsultationsByDoctor(
+    String doctorName,
+  ) async {
     try {
       final encodedName = Uri.encodeComponent(doctorName);
-      final response = await ApiService.get('$baseUrl/appointments/consultation/doctor/$encodedName');
+      final response = await ApiService.get(
+        '$baseUrl/appointments/consultation/doctor/$encodedName',
+      );
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200 && body['success'] == true) {
         final List data = body['data'] ?? [];
-        return data.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e)).toList();
+        return data
+            .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
+            .toList();
       } else {
-        throw Exception(body['message'] ?? 'Failed to fetch doctor consultations');
+        throw Exception(
+          body['message'] ?? 'Failed to fetch doctor consultations',
+        );
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
@@ -140,12 +164,16 @@ class AppointmentController {
 
   Future<List<Map<String, dynamic>>> fetchConsultations() async {
     try {
-      final response = await ApiService.get('$baseUrl/appointments/consultations');
+      final response = await ApiService.get(
+        '$baseUrl/appointments/consultations',
+      );
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200 && body['success'] == true) {
         final List data = body['data'] ?? [];
-        return data.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e)).toList();
+        return data
+            .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
+            .toList();
       } else {
         throw Exception(body['message'] ?? 'Failed to fetch consultations');
       }
@@ -168,10 +196,12 @@ class AppointmentController {
       if (date != null && date.isNotEmpty) params['date'] = date;
       if (doctor != null && doctor.isNotEmpty) params['doctor'] = doctor;
       if (status != null && status != 'All') params['status'] = status;
-      if (department != null && department != 'All') params['department'] = department;
+      if (department != null && department != 'All')
+        params['department'] = department;
 
-      final uri = Uri.parse('$baseUrl/admin-appointments')
-          .replace(queryParameters: params.isEmpty ? null : params);
+      final uri = Uri.parse(
+        '$baseUrl/admin-appointments',
+      ).replace(queryParameters: params.isEmpty ? null : params);
 
       final response = await ApiService.get(uri.toString());
       final body = jsonDecode(response.body);
@@ -206,9 +236,7 @@ class AppointmentController {
     required String overrideReason,
   }) async {
     try {
-      final body = <String, dynamic>{
-        'override_reason': overrideReason,
-      };
+      final body = <String, dynamic>{'override_reason': overrideReason};
       if (status != null) body['status'] = status;
       if (doctorName != null) body['doctor_name'] = doctorName;
       if (appointmentDate != null) body['appointment_date'] = appointmentDate;
@@ -216,8 +244,10 @@ class AppointmentController {
       if (patientName != null) body['patient_name'] = patientName;
       if (department != null) body['department'] = department;
       if (appointmentType != null) body['appointment_type'] = appointmentType;
-      if (bloodPressureSystolic != null) body['blood_pressure_systolic'] = bloodPressureSystolic;
-      if (bloodPressureDiastolic != null) body['blood_pressure_diastolic'] = bloodPressureDiastolic;
+      if (bloodPressureSystolic != null)
+        body['blood_pressure_systolic'] = bloodPressureSystolic;
+      if (bloodPressureDiastolic != null)
+        body['blood_pressure_diastolic'] = bloodPressureDiastolic;
       if (sugarLevel != null) body['sugar_level'] = sugarLevel;
       if (temperature != null) body['temperature'] = temperature;
       if (reasonForVisit != null) body['reason_for_visit'] = reasonForVisit;
@@ -230,7 +260,8 @@ class AppointmentController {
 
       if (response.statusCode != 200) {
         throw Exception(
-            responseBody['message'] ?? 'Failed to apply admin override');
+          responseBody['message'] ?? 'Failed to apply admin override',
+        );
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
@@ -240,8 +271,7 @@ class AppointmentController {
   /// Fetch a single appointment by ID with audit fields (Admin/Super Admin only)
   Future<AppointmentModel> fetchAdminAppointmentById(int id) async {
     try {
-      final response =
-          await ApiService.get('$baseUrl/admin-appointments/$id');
+      final response = await ApiService.get('$baseUrl/admin-appointments/$id');
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200 && body['success'] == true) {

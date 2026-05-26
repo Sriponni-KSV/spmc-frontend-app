@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
-import 'login_page.dart';
+import '../providers/auth_provider.dart';
+import '../core/routes/route_constants.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -42,17 +45,12 @@ class _SplashScreenState extends State<SplashScreen>
 
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                const LoginScreen(),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
-            transitionDuration: const Duration(milliseconds: 800),
-          ),
-        );
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        if (authProvider.user != null) {
+          context.go(AppRoutes.dashboard);
+        } else {
+          context.go(AppRoutes.login);
+        }
       }
     });
   }

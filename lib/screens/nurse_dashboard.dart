@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
+import '../core/routes/route_constants.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart' hide PatientModel;
 import '../controllers/patient_controller.dart';
 import '../models/patient_model.dart';
-import 'login_page.dart';
 import 'new_patient_registration.dart';
 import 'patients_view.dart';
 import 'appointments_view.dart';
 import 'doctors_view.dart';
 import 'nurse_profile_view.dart';
-import 'nurse_opd_assistance.dart';
+import 'opd_management.dart';
 import 'ipd_management.dart';
 import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
@@ -22,7 +23,15 @@ import '../utils/logout_helper.dart';
 import '../models/user_model.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
-  const NurseDashboardScreen({Key? key}) : super(key: key);
+  final int initialIndex;
+  final bool isRegisteringPatient;
+  final bool forceBooking;
+  const NurseDashboardScreen({
+    Key? key,
+    this.initialIndex = 0,
+    this.isRegisteringPatient = false,
+    this.forceBooking = false,
+  }) : super(key: key);
 
   @override
   State<NurseDashboardScreen> createState() => _NurseDashboardScreenState();
@@ -47,7 +56,24 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialIndex;
+    _isRegisteringPatient = widget.isRegisteringPatient;
+    _forceBookingForm = widget.forceBooking;
     _fetchData();
+  }
+
+  @override
+  void didUpdateWidget(covariant NurseDashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialIndex != oldWidget.initialIndex ||
+        widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
+        widget.forceBooking != oldWidget.forceBooking) {
+      setState(() {
+        _selectedIndex = widget.initialIndex;
+        _isRegisteringPatient = widget.isRegisteringPatient;
+        _forceBookingForm = widget.forceBooking;
+      });
+    }
   }
 
   Future<void> _fetchData() async {
@@ -88,17 +114,44 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     super.dispose();
   }
 
-  void _changePage(int index, {bool isRegistering = false, bool forceBooking = false}) {
+  void _changePage(
+    int index, {
+    bool isRegistering = false,
+    bool forceBooking = false,
+  }) {
     if (!mounted) return;
-    setState(() {
-      _selectedIndex = index;
-      _isRegisteringPatient = isRegistering;
-      _forceBookingForm = forceBooking;
-    });
-    
-    // Refresh data if switching to dashboard
-    if (index == 0) {
-      _fetchData();
+    switch (index) {
+      case 0:
+        context.go(AppRoutes.nurseDashboard);
+        break;
+      case 1:
+        if (isRegistering) {
+          context.go(AppRoutes.nurseNewPatient);
+        } else {
+          context.go(AppRoutes.nursePatients);
+        }
+        break;
+      case 2:
+        if (forceBooking) {
+          context.go(AppRoutes.nurseBookAppointment);
+        } else {
+          context.go(AppRoutes.nurseAppointments);
+        }
+        break;
+      case 3:
+        context.go(AppRoutes.nurseDoctors);
+        break;
+      case 4:
+        context.go(AppRoutes.nurseProfile);
+        break;
+      case 5:
+        context.go(AppRoutes.nurseOpd);
+        break;
+      case 6:
+        context.go(AppRoutes.nurseIpd);
+        break;
+      default:
+        context.go(AppRoutes.nurseDashboard);
     }
   }
 
@@ -247,7 +300,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 4:
         return const NurseProfileView();
       case 5:
-        return NurseOPDAssistanceScreen(isMobile: isMobile);
+        return OPDManagementScreen(isMobile: isMobile);
       case 6:
         return IPDManagementScreen(isMobile: isMobile);
       default:
@@ -288,11 +341,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 const SizedBox(width: 24),
                 Expanded(
                   flex: 1,
-                  child: Column(
-                    children: [
-                      _buildUpcomingAppointments(),
-                    ],
-                  ),
+                  child: Column(children: [_buildUpcomingAppointments()]),
                 ),
               ],
             ),
@@ -379,7 +428,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                       _buildSidebarItem(
                         6,
                         Icons.bedroom_child_outlined,
-                        'IPD Wards & grid',
+                        'IPD Management',
                       ),
                       _buildSidebarItem(4, Icons.person_outline, 'Profile'),
                       // _buildSidebarItem(4, Icons.home_outlined, 'Home Care'),
@@ -399,7 +448,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Divider(color: AppTheme.borderColor, height: 1, thickness: 1),
+                  const Divider(
+                    color: AppTheme.borderColor,
+                    height: 1,
+                    thickness: 1,
+                  ),
                   // User Profile Area
                   Padding(
                     padding: const EdgeInsets.all(24.0),
@@ -410,15 +463,23 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                               Container(
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: AppTheme.borderColor),
+                                  border: Border.all(
+                                    color: AppTheme.borderColor,
+                                  ),
                                 ),
                                 child: CircleAvatar(
-                                  backgroundColor: AppTheme.getAvatarColors(user.fullname)['bg'],
+                                  backgroundColor: AppTheme.getAvatarColors(
+                                    user.fullname,
+                                  )['bg'],
                                   radius: 18,
                                   child: Text(
-                                    user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                                    user.fullname.isNotEmpty
+                                        ? user.fullname[0].toUpperCase()
+                                        : '?',
                                     style: TextStyle(
-                                      color: AppTheme.getAvatarColors(user.fullname)['text'],
+                                      color: AppTheme.getAvatarColors(
+                                        user.fullname,
+                                      )['text'],
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                     ),
@@ -548,8 +609,15 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 decoration: InputDecoration(
                   isCollapsed: true,
                   hintText: isMobile ? 'Search...' : 'Quick search...',
-                  hintStyle: const TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
-                  prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                  hintStyle: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    size: 18,
+                    color: AppTheme.textSecondaryColor,
+                  ),
                   prefixIconConstraints: const BoxConstraints(
                     minWidth: 40,
                     minHeight: 40,
@@ -626,7 +694,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     final int todaysApptsCount = _dbAppointments
         .where(
           (a) =>
-              (a.appointmentDate == today || a.appointmentDate.startsWith(today)) &&
+              (a.appointmentDate == today ||
+                  a.appointmentDate.startsWith(today)) &&
               a.status.toLowerCase() != 'cancelled',
         )
         .length;
@@ -830,7 +899,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 ),
               ),
               TextButton(
-                onPressed: () => setState(() => _selectedIndex = 1),
+                onPressed: () => _changePage(1),
                 child: const Text('View All'),
               ),
             ],
@@ -978,7 +1047,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 ),
               ),
               TextButton(
-                onPressed: () => setState(() => _selectedIndex = 2),
+                onPressed: () => _changePage(2),
                 child: const Text('View All'),
               ),
             ],

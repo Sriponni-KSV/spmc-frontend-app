@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_dropdown_search.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
@@ -572,7 +573,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     children: [
                       _buildFieldLabel('Select Patient *'),
                       _buildDropdown<PatientModel>(
-                        hint: 'Select a patient',
+                        hint: '',
                         value: _selectedPatient,
                         items: _patients,
                         itemLabel: (p) => p.name,
@@ -666,7 +667,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     children: [
                       _buildFieldLabel('Appointment Type *'),
                       _buildDropdown<String>(
-                        hint: 'Select type',
+                        hint: '',
                         value: _selectedApptType,
                         items: _apptTypes,
                         itemLabel: (s) => s,
@@ -691,7 +692,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     children: [
                       _buildFieldLabel('Department *'),
                       _buildDropdown<String>(
-                        hint: 'Select department',
+                        hint: '',
                         value: _selectedDept,
                         items: _departments,
                         itemLabel: (s) => s,
@@ -1184,7 +1185,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               children: [
                                 _buildFieldLabel('Select Patient *'),
                                 _buildDropdown<PatientModel>(
-                                  hint: 'Select a patient',
+                                  hint: '',
                                   value: _selectedPatient,
                                   items: _patients,
                                   itemLabel: (p) => p.name,
@@ -1289,7 +1290,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               children: [
                                 _buildFieldLabel('Appointment Type *'),
                                 _buildDropdown<String>(
-                                  hint: 'Select type',
+                                  hint: '',
                                   value: _selectedApptType,
                                   items: _apptTypes,
                                   itemLabel: (s) => s,
@@ -1314,7 +1315,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               children: [
                                 _buildFieldLabel('Department *'),
                                 _buildDropdown<String>(
-                                  hint: 'Select department',
+                                  hint: '',
                                   value: _selectedDept,
                                   items: _departments,
                                   itemLabel: (s) => s,
@@ -2069,36 +2070,35 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     required String Function(T) itemLabel,
     required Function(T?) onChanged,
   }) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          hint: Text(
-            hint,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
-          ),
-          items: items
-              .map(
-                (e) => DropdownMenuItem<T>(
-                  value: e,
-                  child: Text(
-                    itemLabel(e),
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
-        ),
-      ),
+    final map = <String, String>{};
+    for (int i = 0; i < items.length; i++) {
+      map[i.toString()] = itemLabel(items[i]);
+    }
+    
+    String? selectedIndexString;
+    if (value != null) {
+      final idx = items.indexOf(value);
+      if (idx != -1) {
+        selectedIndexString = idx.toString();
+      }
+    }
+    
+    return CustomDropdownSearch(
+      label: hint,
+      value: selectedIndexString,
+      dropdownMap: map,
+      onChanged: (val) {
+        if (val != null) {
+          final idx = int.tryParse(val);
+          if (idx != null && idx >= 0 && idx < items.length) {
+            onChanged(items[idx]);
+          } else {
+            onChanged(null);
+          }
+        } else {
+          onChanged(null);
+        }
+      },
     );
   }
 
@@ -2333,29 +2333,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     if (isMobile) {
       return Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                isExpanded: true,
-                value: _selectedStatus,
-                items: ['All Status', 'Confirmed', 'Cancelled']
-                    .map(
-                      (e) => DropdownMenuItem(
-                        value: e,
-                        child: Text(e, style: const TextStyle(fontSize: 14)),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (val) => setState(() => _selectedStatus = val!),
-              ),
-            ),
+          CustomDropdownSearch(
+            label: '',
+            value: _selectedStatus,
+            dropdownItems: const ['All Status', 'Confirmed', 'Cancelled'],
+            height: 48,
+            onChanged: (val) {
+              if (val != null) setState(() => _selectedStatus = val);
+            },
           ),
           const SizedBox(height: 12),
           Container(
@@ -2413,26 +2398,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.borderColor),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedStatus,
-              items: ['All Status', 'Confirmed', 'Cancelled']
-                  .map(
-                    (e) => DropdownMenuItem(
-                      value: e,
-                      child: Text(e, style: const TextStyle(fontSize: 14)),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (val) => setState(() => _selectedStatus = val!),
-            ),
+        SizedBox(
+          width: 180,
+          child: CustomDropdownSearch(
+            label: '',
+            value: _selectedStatus,
+            dropdownItems: const ['All Status', 'Confirmed', 'Cancelled'],
+            height: 48,
+            onChanged: (val) {
+              if (val != null) setState(() => _selectedStatus = val);
+            },
           ),
         ),
         const SizedBox(width: 16),
@@ -2576,6 +2551,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 _buildTableHeader('Time', flex: 2),
                 _buildTableHeader('Date', flex: 2),
                 _buildTableHeader('Patient', flex: 3),
+                _buildTableHeader('Patient ID', flex: 2),
                 _buildTableHeader('Type', flex: 2),
                 _buildTableHeader('Department', flex: 2),
                 _buildTableHeader('Doctor', flex: 3),
@@ -2937,6 +2913,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     final date = appt.appointmentDate;
     final patientName = appt.patientName;
     final patientInitials = _getInitials(appt.patientName);
+    final patientIdText = appt.patientDisplayId?.isNotEmpty == true
+        ? appt.patientDisplayId!
+        : appt.patientId.toString();
     final doctorName = appt.doctorName;
     final doctorDisplayId = appt.doctorDisplayId;
     final type = appt.appointmentType;
@@ -3051,6 +3030,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   ),
                 ),
               ],
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              patientIdText,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF475569),
+              ),
             ),
           ),
           Expanded(

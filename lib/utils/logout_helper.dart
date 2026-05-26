@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
-import '../screens/login_page.dart';
+import '../core/routes/route_constants.dart';
 import 'app_theme.dart';
 
 class LogoutHelper {
@@ -18,14 +19,12 @@ class LogoutHelper {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(dialogContext); // Close dialog
-                auth.logout();
-                Navigator.pushAndRemoveUntil(
-                  context, // Use outer context for navigation
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
-                );
+                await auth.logout();
+                if (context.mounted) {
+                  context.go(AppRoutes.login);
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.logoRed,

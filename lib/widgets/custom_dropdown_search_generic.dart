@@ -37,7 +37,7 @@ class CustomDropdownSearch extends StatefulWidget {
     this.requiredMark = false,
     this.clearOnSelect = false,
     this.isEnabled = true,
-    this.height = 52,
+    this.height = 44,
     this.borderColor,
     this.focusedBorderColor,
     this.borderWidth,
@@ -83,19 +83,6 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       return {for (var item in widget.dropdownItems!) item: item};
     }
     return {};
-  }
-
-  /// Returns the effective placeholder text.
-  /// Priority: explicit hint → auto-derived from label → generic fallback.
-  String get _effectiveHint {
-    if (widget.hint != null && widget.hint!.isNotEmpty) return widget.hint!;
-    if (widget.label.isNotEmpty) {
-      final lower = widget.label.toLowerCase();
-      // If the label already starts with 'select', use it directly
-      if (lower.startsWith('select')) return 'Select ${widget.label.substring(6).trim()}';
-      return 'Select ${widget.label}';
-    }
-    return 'Select...';
   }
 
   @override
@@ -213,22 +200,14 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
   @override
   void didUpdateWidget(CustomDropdownSearch oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
-    // Only call didChange when the actual selected value changes!
-    if (widget.value != oldWidget.value) {
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _fieldKey.currentState != null) {
-          _fieldKey.currentState!.didChange(widget.value);
-        }
-      });
-    }
-
-    // Always keep display text and filtered list in sync when value/map/items change
     if (widget.value != oldWidget.value ||
         widget.dropdownMap != oldWidget.dropdownMap ||
         widget.dropdownItems != oldWidget.dropdownItems) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
+          if (_fieldKey.currentState != null) {
+            _fieldKey.currentState!.didChange(widget.value);
+          }
           final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
           if (displayValue != _textEditingController.text) {
             _textEditingController.text = displayValue;
@@ -236,7 +215,6 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
         }
       });
     }
-
     if (widget.dropdownItems != oldWidget.dropdownItems ||
         widget.dropdownMap != oldWidget.dropdownMap) {
       _filteredItems = _allEntries.entries.toList();
@@ -591,15 +569,15 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                         clipBehavior: Clip.none,
                         decoration: BoxDecoration(
                           color: widget.isEnabled
-                              ? (widget.fillColor ?? const Color(0xFFF1F5F9))
+                              ? (widget.fillColor ?? Colors.white)
                               : const Color(0xFFF9FAFB),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             width: field.hasError
                                 ? 1.5
                                 : _searchFocusNode.hasFocus
-                                    ? (widget.focusedBorderWidth ?? 1.4)
-                                    : (widget.borderWidth ?? 0),
+                                    ? (widget.focusedBorderWidth ?? 1.6)
+                                    : (widget.borderWidth ?? 1.2),
                             color: field.hasError
                                 ? Colors.red
                                 : _searchFocusNode.hasFocus
@@ -607,7 +585,8 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                         const Color(0xFF302861))
                                     : widget.isEnabled
                                         ? (widget.borderColor ??
-                                            Colors.transparent)
+                                            const Color(0xFF302861)
+                                                .withValues(alpha: 0.15))
                                         : const Color(0xFFE5E7EB),
                           ),
                         ),
@@ -623,11 +602,11 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                 decoration: InputDecoration(
                                   filled: false,
                                   fillColor: Colors.transparent,
-                                  hintText: _effectiveHint,
+                                  hintText: widget.hint ?? '',
                                   hintStyle: TextStyle(
                                     fontFamily: 'Inter',
-                                    color: const Color(0xFF9CA3AF),
-                                    fontSize: widget.hintFontSize ?? 14,
+                                    color: Colors.grey.shade400,
+                                    fontSize: widget.hintFontSize ?? 13,
                                   ),
                                   border: InputBorder.none,
                                   enabledBorder: InputBorder.none,
@@ -637,16 +616,16 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                   focusedErrorBorder: InputBorder.none,
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 16,
-                                    vertical: 14,
+                                    vertical: 10,
                                   ),
                                 ),
                                 style: TextStyle(
                                   fontFamily: 'Inter',
                                   color: widget.isEnabled
-                                      ? const Color(0xFF1E293B)
+                                      ? Colors.black87
                                       : Colors.grey.shade500,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
                                 ),
                                 onChanged: (val) {
                                   field.didChange(val);
@@ -668,9 +647,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                 padding: const EdgeInsets.only(right: 12),
                                 child: Icon(
                                   _overlayEntry != null
-                                      ? Icons.keyboard_arrow_up_rounded
-                                      : Icons.keyboard_arrow_down_rounded,
-                                  size: 22,
+                                      ? Icons.arrow_drop_up
+                                      : Icons.arrow_drop_down,
+                                  size: 20,
                                   color: widget.isEnabled
                                       ? const Color(0xFF302861)
                                       : Colors.grey.shade400,
