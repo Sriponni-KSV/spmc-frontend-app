@@ -73,7 +73,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
 
       if (mounted) {
         setState(() {
-          _appointments = data.where(_isWalkIn).toList();
+          _appointments = data; // include all appointment types (walk-in + pre-booked)
           _consultations = consultationsData;
           _isLoading = false;
         });
@@ -123,8 +123,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     return (b.id ?? 0).compareTo(a.id ?? 0);
   }
 
+  // All today's appointments (both walk-in and pre-booked)
   List<AppointmentModel> get _walkInAppointments =>
-      _appointments.where(_isWalkIn).toList();
+      List<AppointmentModel>.from(_appointments);
 
   List<AppointmentModel> get _filteredAppointments {
     List<AppointmentModel> apps = List<AppointmentModel>.from(
@@ -957,6 +958,42 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 ),
                               ),
                             ],
+                            // Appointment type badge
+                            const SizedBox(width: 6),
+                            Builder(builder: (_) {
+                              final normalized = app.appointmentType
+                                  .trim()
+                                  .toLowerCase()
+                                  .replaceAll(RegExp(r'[\s-]+'), '');
+                              final isWalkIn = normalized == 'walkin';
+                              final badgeColor = isWalkIn
+                                  ? const Color(0xFF0D9488)
+                                  : const Color(0xFF6366F1);
+                              final label = isWalkIn
+                                  ? 'Walk-in'
+                                  : app.appointmentType;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: badgeColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: badgeColor.withOpacity(0.4),
+                                  ),
+                                ),
+                                child: Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: badgeColor,
+                                  ),
+                                ),
+                              );
+                            }),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -1128,6 +1165,52 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         ),
                       ),
                       if (app.status == 'Confirmed') ...[
+                        if (!_hasVitals(app)) ...[
+                          ElevatedButton.icon(
+                            onPressed: () => _openVitalsDialog(app),
+                            icon: const Icon(Icons.monitor_heart, size: 14, color: Colors.white),
+                            label: const Text(
+                              'Add Vitals',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0F766E),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                        ElevatedButton.icon(
+                          onPressed: () => _handleMarkWaiting(app),
+                          icon: const Icon(Icons.hourglass_empty, size: 14, color: Colors.white),
+                          label: const Text(
+                            'Mark Waiting',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D9488),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
                         ElevatedButton.icon(
                           onPressed: () => _showCancelAppointmentDialog(app),
                           icon: const Icon(Icons.cancel_outlined, size: 14),
@@ -1322,6 +1405,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         );
       },
     );
+  }
+
+  Future<void> _handleMarkWaiting(AppointmentModel app) async {
+    if (!_hasVitals(app)) {
+      await _showVitalsMissingDialog(context, app);
+    } else {
+      await _markWaiting(app);
+    }
   }
 
   Future<void> _markWaiting(AppointmentModel app) async {
@@ -2823,7 +2914,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             sugarLevel: vitalsData['sugar_level'] as double?,
                             temperature: vitalsData['temperature'] as double,
                             reasonForVisit: complaintCtrl.text.trim(),
-                            status: 'Confirmed',
+                            status: 'Waiting',
                             appointmentType: 'Walk-in',
                           );
                           final created = await _appointmentController

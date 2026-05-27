@@ -16,6 +16,7 @@ import '../models/appointment_model.dart';
 import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
 import '../utils/logout_helper.dart';
+import 'ipd_management.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -374,6 +375,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return _buildConsultationsView(isMobile);
       case 2:
         return _buildProfileView(isMobile);
+      case 3:
+        return IPDManagementScreen(isMobile: isMobile);
       default:
         return _buildDashboardView(isMobile);
     }
@@ -2171,6 +2174,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'My Consultations',
                   ),
                   _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
+                  _buildSidebarItem(3, Icons.local_hospital_outlined, 'IPD'),
                 ],
               ),
             ),
@@ -2264,6 +2268,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           context.go(AppRoutes.doctorPatients);
         } else if (index == 2) {
           context.go(AppRoutes.doctorProfile);
+        } else if (index == 3) {
+          context.go(AppRoutes.doctorIpd);
         } else {
           context.go(AppRoutes.doctorDashboard);
         }
@@ -2459,11 +2465,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             isMobile,
           ),
           _buildStatCard(
-            'Average Rating',
-            '4.9',
-            'Excellent',
-            Icons.star_outline,
-            Colors.orange,
+            'IPD Admission Cases',
+            _doctorAppointments.where((a) => a.status == 'Admitted').length.toString(),
+            'Pending ward assignment',
+            Icons.local_hospital_outlined,
+            Colors.red,
             isMobile,
           ),
         ],
@@ -2506,17 +2512,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(width: 16),
         Expanded(
           child: _buildStatCard(
-            'Average Rating',
-            '4.9',
-            'Excellent',
-            Icons.star_outline,
-            Colors.orange,
+            'IPD Admission Cases',
+            _doctorAppointments.where((a) => a.status == 'Admitted').length.toString(),
+            'Pending ward assignment',
+            Icons.local_hospital_outlined,
+            Colors.red,
             isMobile,
           ),
         ),
       ],
     );
   }
+
 
   Widget _buildStatCard(
     String title,
@@ -2538,8 +2545,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildPatientsTable() {
     final filteredAppts = _doctorAppointments.where((a) {
-      // Show all appointments except Cancelled ones
+      // Show all appointments except Cancelled and Admitted ones
       if (a.status.toLowerCase() == 'cancelled') return false;
+      if (a.status.toLowerCase() == 'admitted') return false;
       if (_selectedDate == null) return true;
 
       return _isSameDay(a.appointmentDate, _selectedDate!);

@@ -1707,7 +1707,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             sugarLevel: vitalsData['sugar_level'] as double?,
                             temperature: vitalsData['temperature'] as double,
                             reasonForVisit: complaintCtrl.text.trim(),
-                            status: 'Confirmed',
+                            status: 'Waiting',
                             appointmentType: 'Walk-in',
                           );
                           final created = await _ctrl.bookAppointment(newApp);

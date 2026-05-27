@@ -1044,6 +1044,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 _selectedTime != null)
                             ? () async {
                                 try {
+                                  final hasVitalsDuringBooking =
+                                      _bpSystolicController.text.trim().isNotEmpty &&
+                                      _tempController.text.trim().isNotEmpty;
                                   final appointment = AppointmentModel(
                                     patientId: _selectedPatient!.id!,
                                     patientName: _selectedPatient!.name,
@@ -1067,6 +1070,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                       _tempController.text,
                                     ),
                                     reasonForVisit: _reasonController.text,
+                                    status: hasVitalsDuringBooking ? 'Waiting' : 'Confirmed',
                                   );
 
                                   await _appointmentController.bookAppointment(
@@ -1757,6 +1761,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                       _selectedTime != null)
                                   ? () async {
                                       try {
+                                        final hasVitalsDuringBooking =
+                                            _bpSystolicController.text.trim().isNotEmpty &&
+                                            _tempController.text.trim().isNotEmpty;
                                         final appointment = AppointmentModel(
                                           patientId: _selectedPatient!.id!,
                                           patientName: _selectedPatient!.name,
@@ -1781,6 +1788,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                           ),
                                           reasonForVisit:
                                               _reasonController.text,
+                                          status: hasVitalsDuringBooking ? 'Waiting' : 'Confirmed',
                                         );
 
                                         await _appointmentController
@@ -2188,6 +2196,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
     // Filter appointments for the selected/today date
     final targetAppts = _appointments.where((a) {
+      if (a.status.toLowerCase() == 'admitted') return false;
       String apptDate = a.appointmentDate;
       if (apptDate.contains('T')) {
         apptDate = apptDate.split('T')[0];
@@ -2462,6 +2471,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
   Widget _buildAppointmentsTable(bool isMobile) {
     final filteredAppts = _appointments.where((a) {
+      if (a.status.toLowerCase() == 'admitted') {
+        return false;
+      }
       if (_selectedStatus != 'All Status' && a.status != _selectedStatus) {
         return false;
       }
