@@ -63,8 +63,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   List<Map<String, dynamic>> _previousConsultations = [];
 
   // IPD allocation state
-  List<Map<String, dynamic>> _beds = [];
-  bool _isLoadingBeds = false;
   List<Map<String, dynamic>> _nurses = [];
   bool _isLoadingNurses = false;
 
@@ -75,8 +73,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     _fetchLatestVitals();
     _fetchPreviousConsultations();
     _initializeData();
-    // Always preload beds and nurses for the Admit to IPD card
-    _fetchBedsForAllocation();
+    // Always preload nurses for the Admit to IPD card
     _fetchNurses();
   }
 
@@ -128,21 +125,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     }
   }
 
-  Future<void> _fetchBedsForAllocation() async {
-    if (!mounted) return;
-    setState(() => _isLoadingBeds = true);
-    try {
-      final beds = await _ipdController.fetchBeds();
-      if (mounted) {
-        setState(() {
-          _beds = beds;
-          _isLoadingBeds = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingBeds = false);
-    }
-  }
+
 
   Future<void> _fetchNurses() async {
     if (!mounted) return;
@@ -160,235 +143,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     }
   }
 
-  void _showAllocateBedDialog() {
-    String? selectedWardType;
-    String? selectedBedNumber;
-    final TextEditingController reasonController = TextEditingController(
-      text: _currentAppointment.reasonForVisit ?? '',
-    );
-    final formKey = GlobalKey<FormState>();
-    List<String> availableBeds = [];
-    bool isAllocating = false;
 
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            void updateBeds(String? ward) {
-              setDialogState(() {
-                selectedWardType = ward;
-                selectedBedNumber = null;
-                availableBeds = ward == null
-                    ? []
-                    : _beds
-                        .where((b) =>
-                            b['ward_type'] == ward &&
-                            b['status'] == 'Available')
-                        .map((b) => b['bed_number'].toString())
-                        .toList();
-              });
-            }
-
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(Icons.bed_outlined,
-                        color: Colors.orange.shade700, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Allocate IPD Bed',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      Text(
-                        _currentAppointment.patientName,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondaryColor),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 460,
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Select Ward Type *',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 13),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: selectedWardType,
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'General', child: Text('General')),
-                          DropdownMenuItem(
-                              value: 'Semi-Private',
-                              child: Text('Semi-Private')),
-                          DropdownMenuItem(
-                              value: 'Private', child: Text('Private')),
-                          DropdownMenuItem(
-                              value: 'ICU', child: Text('ICU')),
-                        ],
-                        onChanged: updateBeds,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 14),
-                        ),
-                        validator: (v) =>
-                            (v == null || v.isEmpty) ? 'Required' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Available Bed *',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 13),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: selectedBedNumber,
-                        items: availableBeds
-                            .map((b) => DropdownMenuItem(
-                                value: b, child: Text('Bed $b')))
-                            .toList(),
-                        onChanged: (v) =>
-                            setDialogState(() => selectedBedNumber = v),
-                        decoration: InputDecoration(
-                          border: const OutlineInputBorder(),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 14),
-                          hintText: selectedWardType == null
-                              ? 'Select ward first'
-                              : availableBeds.isEmpty
-                                  ? 'No beds available'
-                                  : 'Select bed',
-                        ),
-                        validator: (v) =>
-                            (v == null || v.isEmpty) ? 'Required' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Reason for Admission *',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 13),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: reasonController,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: 'Enter reason for admission',
-                        ),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty)
-                                ? 'Required'
-                                : null,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
-                ),
-                StatefulBuilder(
-                  builder: (ctx2, setBtn) => ElevatedButton.icon(
-                    icon: isAllocating
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.check_circle_outline,
-                            size: 16, color: Colors.white),
-                    label: Text(
-                      isAllocating ? 'Allocating...' : 'Allocate Bed',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange.shade700,
-                      minimumSize: const Size(140, 44),
-                    ),
-                    onPressed: isAllocating
-                        ? null
-                        : () async {
-                            if (!formKey.currentState!.validate()) return;
-                            setBtn(() => isAllocating = true);
-                            try {
-                              await _ipdController.createAdmission({
-                                'patient_id':
-                                    _currentAppointment.patientId,
-                                'appointment_id':
-                                    _currentAppointment.id,
-                                'doctor_name':
-                                    _currentAppointment.doctorName,
-                                'bed_number': selectedBedNumber,
-                                'ward_type': selectedWardType,
-                                'reason_for_admission':
-                                    reasonController.text.trim(),
-                              });
-                              if (mounted) {
-                                Navigator.pop(ctx);
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(const SnackBar(
-                                  content: Text(
-                                      'Bed allocated — patient admitted to IPD!'),
-                                  backgroundColor: Colors.green,
-                                ));
-                                // Refresh appointment status display
-                                setState(() {
-                                  _currentAppointment =
-                                      _currentAppointment.copyWith(
-                                          status: 'Admitted');
-                                });
-                              }
-                            } catch (e) {
-                              setBtn(() => isAllocating = false);
-                              if (mounted) {
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(SnackBar(
-                                  content: Text('Error: $e'),
-                                  backgroundColor: Colors.red,
-                                ));
-                              }
-                            }
-                          },
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
 
   // ─── Full Admit to IPD card — shown in consultation left panel ──────────
   Widget _buildAdmitToIPDCard() {
@@ -449,28 +204,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               '${_currentAppointment.patientName} has been recommended for IPD by Dr. ${_currentAppointment.doctorName}. Awaiting bed allocation.',
               style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isLoadingBeds ? null : _showAllocateBedDialog,
-                icon: _isLoadingBeds
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange))
-                    : Icon(Icons.bed_outlined, size: 16, color: Colors.orange.shade700),
-                label: Text(
-                  _isLoadingBeds ? 'Loading beds...' : 'Allocate Bed Now',
-                  style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -530,7 +263,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               ],
             ),
             const SizedBox(height: 14),
-            // Three action buttons
+            // Action buttons
             _buildIPDActionButton(
               icon: Icons.send_outlined,
               color: AppTheme.primaryColor,
@@ -545,14 +278,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               label: 'Assign to Specific Nurse',
               subtitle: 'Select which nurse handles bed allocation',
               onTap: () => _showAdmitDialog(mode: 'nurse'),
-            ),
-            const SizedBox(height: 8),
-            _buildIPDActionButton(
-              icon: Icons.bed_outlined,
-              color: Colors.orange.shade700,
-              label: 'Allocate Bed Directly',
-              subtitle: 'Pick ward & bed and admit immediately',
-              onTap: () => _showAdmitDialog(mode: 'direct'),
             ),
           ],
         ),
@@ -606,11 +331,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   // ─── Unified Admit Dialog ─────────────────────────────────────────────────
   void _showAdmitDialog({required String mode}) {
-    // mode: 'queue' | 'nurse' | 'direct'
-    String? selectedWardType;
-    String? selectedBedNumber;
+    // mode: 'queue' | 'nurse'
     String? selectedNurseName;
-    List<String> availableBeds = [];
     bool isSubmitting = false;
     final TextEditingController reasonController = TextEditingController(
       text: _currentAppointment.reasonForVisit ?? '',
@@ -622,37 +344,17 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setD) {
-            void updateBeds(String? ward) {
-              setD(() {
-                selectedWardType = ward;
-                selectedBedNumber = null;
-                availableBeds = ward == null
-                    ? []
-                    : _beds
-                        .where((b) =>
-                            b['ward_type'] == ward && b['status'] == 'Available')
-                        .map((b) => b['bed_number'].toString())
-                        .toList();
-              });
-            }
+            final Color accentColor = mode == 'nurse'
+                ? Colors.teal.shade600
+                : AppTheme.primaryColor;
 
-            final Color accentColor = mode == 'direct'
-                ? Colors.orange.shade700
-                : mode == 'nurse'
-                    ? Colors.teal.shade600
-                    : AppTheme.primaryColor;
+            final String dialogTitle = mode == 'nurse'
+                ? 'Assign to Nurse'
+                : 'Send to Nurse Queue';
 
-            final String dialogTitle = mode == 'direct'
-                ? 'Allocate Bed Directly'
-                : mode == 'nurse'
-                    ? 'Assign to Nurse'
-                    : 'Send to Nurse Queue';
-
-            final IconData dialogIcon = mode == 'direct'
-                ? Icons.bed_outlined
-                : mode == 'nurse'
-                    ? Icons.person_pin_outlined
-                    : Icons.send_outlined;
+            final IconData dialogIcon = mode == 'nurse'
+                ? Icons.person_pin_outlined
+                : Icons.send_outlined;
 
             return AlertDialog(
               backgroundColor: Colors.white,
@@ -696,9 +398,19 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // ── Reason ──
-                        const Text('Reason for Admission *',
+                        const Text.rich(
+                          TextSpan(
+                            text: 'Reason for Admission',
                             style: TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w600)),
+                                fontSize: 12, fontWeight: FontWeight.w600),
+                            children: [
+                              TextSpan(
+                                text: ' *',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: reasonController,
@@ -727,16 +439,26 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                           ),
                           validator: (v) =>
                               (v == null || v.trim().isEmpty)
-                                  ? 'Reason is required'
+                                  ? 'Please enter reason for admission'
                                   : null,
                         ),
 
                         // ── Nurse picker (mode == 'nurse') ──
                         if (mode == 'nurse') ...[
                           const SizedBox(height: 16),
-                          const Text('Assign to Nurse *',
+                          const Text.rich(
+                            TextSpan(
+                              text: 'Assign to Nurse',
                               style: TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w600)),
+                                  fontSize: 12, fontWeight: FontWeight.w600),
+                              children: [
+                                TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           _isLoadingNurses
                               ? const Center(
@@ -744,89 +466,22 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                                     padding: EdgeInsets.all(8),
                                     child: CircularProgressIndicator(strokeWidth: 2),
                                   ))
-                              : DropdownButtonFormField<String>(
+                              : CustomDropdownSearch(
+                                  label: '',
+                                  hint: 'Select nurse',
                                   value: selectedNurseName,
-                                  items: _nurses
-                                      .map((n) {
-                                        final dept = n['department'] ?? 'General';
-                                        return DropdownMenuItem<String>(
-                                          value: n['name'].toString(),
-                                          child: Text("${n['name']} ($dept)"),
-                                        );
-                                      })
-                                      .toList(),
+                                  dropdownMap: {
+                                    for (var n in _nurses)
+                                      n['name'].toString():
+                                          "${n['name']} (${n['department'] ?? 'General'})",
+                                  },
                                   onChanged: (v) =>
                                       setD(() => selectedNurseName = v),
-                                  decoration: const InputDecoration(
-                                    border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 14),
-                                    hintText: 'Select nurse',
-                                  ),
                                   validator: (v) =>
                                       (v == null || v.isEmpty)
                                           ? 'Please select a nurse'
                                           : null,
                                 ),
-                        ],
-
-                        // ── Ward + Bed (mode == 'direct') ──
-                        if (mode == 'direct') ...[
-                          const SizedBox(height: 16),
-                          const Text('Select Ward Type *',
-                              style: TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<String>(
-                            value: selectedWardType,
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'General', child: Text('General')),
-                              DropdownMenuItem(
-                                  value: 'Semi-Private',
-                                  child: Text('Semi-Private')),
-                              DropdownMenuItem(
-                                  value: 'Private', child: Text('Private')),
-                              DropdownMenuItem(
-                                  value: 'ICU', child: Text('ICU')),
-                            ],
-                            onChanged: updateBeds,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
-                            ),
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? 'Please select a ward'
-                                : null,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text('Available Bed *',
-                              style: TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<String>(
-                            value: selectedBedNumber,
-                            items: availableBeds
-                                .map((b) => DropdownMenuItem(
-                                    value: b, child: Text('Bed $b')))
-                                .toList(),
-                            onChanged: (v) =>
-                                setD(() => selectedBedNumber = v),
-                            decoration: InputDecoration(
-                              border: const OutlineInputBorder(),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
-                              hintText: selectedWardType == null
-                                  ? 'Select ward first'
-                                  : availableBeds.isEmpty
-                                      ? 'No beds available'
-                                      : 'Select bed',
-                            ),
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? 'Please select a bed'
-                                : null,
-                          ),
                         ],
                       ],
                     ),
@@ -850,11 +505,9 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                     label: Text(
                       isSubmitting
                           ? 'Submitting...'
-                          : mode == 'direct'
-                              ? 'Admit & Allocate'
-                              : mode == 'nurse'
-                                  ? 'Assign to Nurse'
-                                  : 'Send Request',
+                          : mode == 'nurse'
+                              ? 'Assign to Nurse'
+                              : 'Send Request',
                       style: const TextStyle(color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -867,59 +520,32 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                             if (!formKey.currentState!.validate()) return;
                             setBtn(() => isSubmitting = true);
                             try {
-                              if (mode == 'direct') {
-                                // Direct admission with bed
-                                await _ipdController.createAdmission({
-                                  'patient_id': _currentAppointment.patientId,
-                                  'appointment_id': _currentAppointment.id,
-                                  'doctor_name': _currentAppointment.doctorName,
-                                  'bed_number': selectedBedNumber,
-                                  'ward_type': selectedWardType,
-                                  'reason_for_admission':
-                                      reasonController.text.trim(),
+                              // Send to queue (with optional nurse name in reason)
+                              final reason = mode == 'nurse' &&
+                                      selectedNurseName != null
+                                  ? '[Assigned Nurse: $selectedNurseName] ${reasonController.text.trim()}'
+                                  : reasonController.text.trim();
+                              await _ipdController.createPendingAdmission({
+                                'patient_id': _currentAppointment.patientId,
+                                'appointment_id': _currentAppointment.id,
+                                'doctor_name': _currentAppointment.doctorName,
+                                'reason_for_admission': reason,
+                              });
+                              if (mounted) {
+                                Navigator.pop(ctx);
+                                final msg = mode == 'nurse'
+                                    ? 'Request sent to Nurse $selectedNurseName'
+                                    : 'Admission request sent to nurse queue';
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(SnackBar(
+                                  content: Text(msg),
+                                  backgroundColor: Colors.green,
+                                ));
+                                setState(() {
+                                  _currentAppointment =
+                                      _currentAppointment.copyWith(
+                                          status: 'Admitted');
                                 });
-                                if (mounted) {
-                                  Navigator.pop(ctx);
-                                  ScaffoldMessenger.of(context)
-                                      .showSnackBar(const SnackBar(
-                                    content: Text(
-                                        'Bed allocated — patient admitted to IPD!'),
-                                    backgroundColor: Colors.green,
-                                  ));
-                                  setState(() {
-                                    _currentAppointment =
-                                        _currentAppointment.copyWith(
-                                            status: 'Admitted');
-                                  });
-                                }
-                              } else {
-                                // Send to queue (with optional nurse name in reason)
-                                final reason = mode == 'nurse' &&
-                                        selectedNurseName != null
-                                    ? '[Assigned Nurse: $selectedNurseName] ${reasonController.text.trim()}'
-                                    : reasonController.text.trim();
-                                await _ipdController.createPendingAdmission({
-                                  'patient_id': _currentAppointment.patientId,
-                                  'appointment_id': _currentAppointment.id,
-                                  'doctor_name': _currentAppointment.doctorName,
-                                  'reason_for_admission': reason,
-                                });
-                                if (mounted) {
-                                  Navigator.pop(ctx);
-                                  final msg = mode == 'nurse'
-                                      ? 'Request sent to Nurse $selectedNurseName'
-                                      : 'Admission request sent to nurse queue';
-                                  ScaffoldMessenger.of(context)
-                                      .showSnackBar(SnackBar(
-                                    content: Text(msg),
-                                    backgroundColor: Colors.green,
-                                  ));
-                                  setState(() {
-                                    _currentAppointment =
-                                        _currentAppointment.copyWith(
-                                            status: 'Admitted');
-                                  });
-                                }
                               }
                             } catch (e) {
                               setBtn(() => isSubmitting = false);

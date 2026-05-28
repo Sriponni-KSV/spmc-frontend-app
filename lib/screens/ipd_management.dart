@@ -333,6 +333,13 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   }
 
   Widget _buildTabBar(bool isDoctor) {
+    final activeCount = _admittedCount;
+    final pendingCount = _pendingAdmissions.length;
+    final availableBeds = _availableBedsCount;
+    final totalBeds = _beds.length;
+    final dischargeCount = _admissions.where((a) => a['status'] == 'Discharged').length;
+    final icuCount = _icuOccupancy;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       decoration: const BoxDecoration(
@@ -347,11 +354,11 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         indicatorColor: AppTheme.primaryColor,
         indicatorWeight: 3,
         tabs: [
-          const Tab(text: 'Active Wards'),
-          const Tab(text: 'Pending Admissions'),
-          const Tab(text: 'Bed Availability'),
-          const Tab(text: 'Discharge History'),
-          if (isDoctor) const Tab(text: 'ICU Dashboard'),
+          Tab(text: 'Active Wards ($activeCount)'),
+          Tab(text: 'Pending Admissions ($pendingCount)'),
+          Tab(text: 'Bed Availability ($availableBeds/$totalBeds)'),
+          Tab(text: 'Discharge History ($dischargeCount)'),
+          if (isDoctor) Tab(text: 'ICU Dashboard ($icuCount)'),
         ],
       ),
     );
@@ -618,14 +625,15 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                     ],
                   ),
                 ),
-                ElevatedButton(
-                  onPressed: () => _showAllocateBedDialog(pending),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    minimumSize: const Size(130, 42),
+                if (!_isDoctor)
+                  ElevatedButton(
+                    onPressed: () => _showAllocateBedDialog(pending),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      minimumSize: const Size(130, 42),
+                    ),
+                    child: const Text('Allocate Bed'),
                   ),
-                  child: const Text('Allocate Bed'),
-                ),
               ],
             ),
           ),
@@ -2094,10 +2102,18 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                         const SizedBox(height: 16),
 
                         // ── Reason ──
-                        const Text(
-                          'Reason for Admission *',
-                          style: TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w600),
+                        const Text.rich(
+                          TextSpan(
+                            text: 'Reason for Admission',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600),
+                            children: [
+                              TextSpan(
+                                text: ' *',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 8),
                         TextFormField(
@@ -2128,7 +2144,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                           ),
                           validator: (val) {
                             if (val == null || val.trim().isEmpty) {
-                              return 'Reason for admission is required';
+                              return 'Please enter reason for admission';
                             }
                             return null;
                           },
@@ -2140,55 +2156,47 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                               fontSize: 12, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select nurse to assign',
                           value: selectedNurseName,
-                          items: _nurses
-                              .map((n) {
-                                final dept = n['department'] ?? 'General';
-                                return DropdownMenuItem<String>(
-                                  value: n['name'].toString(),
-                                  child: Text("${n['name']} ($dept)"),
-                                );
-                              })
-                              .toList(),
+                          dropdownMap: {
+                            for (var n in _nurses)
+                              n['name'].toString():
+                                  "${n['name']} (${n['department'] ?? 'General'})",
+                          },
                           onChanged: (v) =>
                               setDialogState(() => selectedNurseName = v),
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 14),
-                            hintText: 'Select nurse to assign',
-                          ),
                         ),
 
                         // ── Allocate Now: ward + bed ──
                         if (allocateNow) ...[
                           const SizedBox(height: 16),
-                          const Text(
-                            'Select Ward Type *',
-                            style: TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w600),
+                          const Text.rich(
+                            TextSpan(
+                              text: 'Select Ward Type',
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w600),
+                              children: [
+                                TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 8),
-                          DropdownButtonFormField<String>(
+                          CustomDropdownSearch(
+                            label: '',
+                            hint: 'Select Ward Type',
                             value: selectedWardType,
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'General', child: Text('General')),
-                              DropdownMenuItem(
-                                  value: 'Semi-Private',
-                                  child: Text('Semi-Private')),
-                              DropdownMenuItem(
-                                  value: 'Private', child: Text('Private')),
-                              DropdownMenuItem(
-                                  value: 'ICU', child: Text('ICU')),
+                            dropdownItems: const [
+                              'General',
+                              'Semi-Private',
+                              'Private',
+                              'ICU',
                             ],
                             onChanged: updateBeds,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
-                            ),
                             validator: allocateNow
                                 ? (v) => (v == null || v.isEmpty)
                                     ? 'Please select a ward'
@@ -2196,30 +2204,33 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                                 : null,
                           ),
                           const SizedBox(height: 16),
-                          const Text(
-                            'Available Bed *',
-                            style: TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w600),
+                          const Text.rich(
+                            TextSpan(
+                              text: 'Available Bed',
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w600),
+                              children: [
+                                TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 8),
-                          DropdownButtonFormField<String>(
+                          CustomDropdownSearch(
+                            label: '',
+                            hint: selectedWardType == null
+                                ? 'Select ward first'
+                                : availableBeds.isEmpty
+                                    ? 'No beds available in this ward'
+                                    : 'Select bed',
                             value: selectedBedNumber,
-                            items: availableBeds
-                                .map((b) => DropdownMenuItem(
-                                    value: b, child: Text('Bed $b')))
-                                .toList(),
+                            dropdownMap: {
+                              for (var b in availableBeds) b: 'Bed $b',
+                            },
                             onChanged: (v) =>
                                 setDialogState(() => selectedBedNumber = v),
-                            decoration: InputDecoration(
-                              border: const OutlineInputBorder(),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
-                              hintText: selectedWardType == null
-                                  ? 'Select ward first'
-                                  : availableBeds.isEmpty
-                                      ? 'No beds available in this ward'
-                                      : 'Select bed',
-                            ),
                             validator: allocateNow
                                 ? (v) => (v == null || v.isEmpty)
                                     ? 'Please select a bed'

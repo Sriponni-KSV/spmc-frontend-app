@@ -194,6 +194,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (s.contains(' - ')) s = s.split(' - ')[0].trim();
       return s;
     }
+
     final cDoc = clean(docName);
     final cUser = clean(userName);
     if (cDoc.isEmpty || cUser.isEmpty) return false;
@@ -209,14 +210,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // Fallback parse
       final parts = cleanAppt.split('/');
       if (parts.length == 3) {
-        if (parts[0].length == 4) { // yyyy/MM/dd
+        if (parts[0].length == 4) {
+          // yyyy/MM/dd
           final parsedDate = DateTime.tryParse(cleanAppt.replaceAll('/', '-'));
           if (parsedDate != null) {
             return parsedDate.day == date.day &&
-                   parsedDate.month == date.month &&
-                   parsedDate.year == date.year;
+                parsedDate.month == date.month &&
+                parsedDate.year == date.year;
           }
-        } else { // dd/MM/yyyy
+        } else {
+          // dd/MM/yyyy
           final day = int.tryParse(parts[0]);
           final month = int.tryParse(parts[1]);
           final year = int.tryParse(parts[2].split(' ')[0]);
@@ -258,7 +261,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (appointment.id == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to start consultation for this appointment.')),
+          const SnackBar(
+            content: Text('Unable to start consultation for this appointment.'),
+          ),
         );
       }
       return;
@@ -266,14 +271,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       setState(() => _isLoading = true);
-      await _appointmentController.updateStatus(appointment.id!, 'In Consultation');
+      await _appointmentController.updateStatus(
+        appointment.id!,
+        'In Consultation',
+      );
       await _fetchDoctorData();
       if (!mounted) return;
-      setState(() => _activeAppointment = appointment.copyWith(status: 'In Consultation'));
+      setState(
+        () => _activeAppointment = appointment.copyWith(
+          status: 'In Consultation',
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error starting consultation: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error starting consultation: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -329,9 +344,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: AppTheme.backgroundColor,
         drawer: isMobile ? Drawer(child: _buildSidebar(isMobile)) : null,
 
-        floatingActionButton: CustomSpeedDial(
-          children: [],
-        ),
+        floatingActionButton: CustomSpeedDial(children: []),
         body: Row(
           children: [
             if (!isMobile) _buildSidebar(isMobile),
@@ -1202,7 +1215,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.arrow_back, color: AppTheme.primaryColor, size: 16),
+                      Icon(
+                        Icons.arrow_back,
+                        color: AppTheme.primaryColor,
+                        size: 16,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'Back to Profile',
@@ -1228,10 +1245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 4),
               Text(
                 'Modify your professional details and availability',
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.black, fontSize: 14),
               ),
               const SizedBox(height: 32),
 
@@ -1697,10 +1711,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // ── Specific Leave Dates ────────────────────────
                 const Text(
                   'Specific Leave Dates — pick individual dates.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.black,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.black),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
@@ -1900,7 +1911,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   OutlinedButton(
                     onPressed: () => setState(() => _isEditingProfile = false),
                     style: AppTheme.cancelButton.copyWith(
-                      minimumSize: MaterialStateProperty.all(const Size(120, 48)),
+                      minimumSize: MaterialStateProperty.all(
+                        const Size(120, 48),
+                      ),
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -1986,9 +1999,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             suffixIcon: isReadOnly
                 ? const Icon(Icons.lock_outline, size: 16, color: Colors.grey)
                 : null,
-            fillColor: isReadOnly
-                ? const Color(0xFFF7FAFC)
-                : Colors.white,
+            fillColor: isReadOnly ? const Color(0xFFF7FAFC) : Colors.white,
             filled: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -2174,7 +2185,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'My Consultations',
                   ),
                   _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
-                  _buildSidebarItem(3, Icons.local_hospital_outlined, 'IPD'),
+                  _buildSidebarItem(
+                    3,
+                    Icons.local_hospital_outlined,
+                    'IPD Management',
+                  ),
                 ],
               ),
             ),
@@ -2184,7 +2199,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Divider(color: AppTheme.borderColor, height: 1, thickness: 1),
+              const Divider(
+                color: AppTheme.borderColor,
+                height: 1,
+                thickness: 1,
+              ),
               Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Consumer<AuthProvider>(
@@ -2199,12 +2218,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             border: Border.all(color: AppTheme.borderColor),
                           ),
                           child: CircleAvatar(
-                            backgroundColor: AppTheme.getAvatarColors(user.fullname)['bg'],
+                            backgroundColor: AppTheme.getAvatarColors(
+                              user.fullname,
+                            )['bg'],
                             radius: 18,
                             child: Text(
-                              user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                              user.fullname.isNotEmpty
+                                  ? user.fullname[0].toUpperCase()
+                                  : '?',
                               style: TextStyle(
-                                color: AppTheme.getAvatarColors(user.fullname)['text'],
+                                color: AppTheme.getAvatarColors(
+                                  user.fullname,
+                                )['text'],
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
@@ -2466,7 +2491,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           _buildStatCard(
             'IPD Admission Cases',
-            _doctorAppointments.where((a) => a.status == 'Admitted').length.toString(),
+            _doctorAppointments
+                .where((a) => a.status == 'Admitted')
+                .length
+                .toString(),
             'Pending ward assignment',
             Icons.local_hospital_outlined,
             Colors.red,
@@ -2513,7 +2541,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Expanded(
           child: _buildStatCard(
             'IPD Admission Cases',
-            _doctorAppointments.where((a) => a.status == 'Admitted').length.toString(),
+            _doctorAppointments
+                .where((a) => a.status == 'Admitted')
+                .length
+                .toString(),
             'Pending ward assignment',
             Icons.local_hospital_outlined,
             Colors.red,
@@ -2523,7 +2554,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ],
     );
   }
-
 
   Widget _buildStatCard(
     String title,
@@ -2711,7 +2741,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(flex: 2, child: _buildTableHeaderText('TIME')),
                 Expanded(flex: 3, child: _buildTableHeaderText('REASON')),
                 Expanded(flex: 2, child: _buildTableHeaderText('STATUS')),
-                Expanded(flex: 2, child: SizedBox()), // Action column for alignment
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(),
+                ), // Action column for alignment
               ],
             ),
           ),
@@ -2935,41 +2968,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         onPressed: () => _startConsultation(appt),
                         style: TextButton.styleFrom(
                           foregroundColor: AppTheme.primaryColor,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
-                        icon: const Icon(Icons.medical_services_outlined, size: 16),
+                        icon: const Icon(
+                          Icons.medical_services_outlined,
+                          size: 16,
+                        ),
                         label: const Text(
                           'Take Consultation',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       )
                     : appt.status == 'Confirmed'
-                        ? TextButton.icon(
-                            onPressed: null,
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.grey,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            icon: const Icon(Icons.medical_services_outlined, size: 16),
-                            label: const Text(
-                              'Take Consultation',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                          )
-                        : appt.status == 'In Consultation'
-                            ? TextButton.icon(
-                                onPressed: () => _resumeConsultation(appt),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppTheme.secondaryColor,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                ),
-                                icon: const Icon(Icons.play_circle_outline, size: 16),
-                                label: const Text(
-                                  'Resume Consultation',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                              )
-                            : const SizedBox.shrink(),
+                    ? TextButton.icon(
+                        onPressed: null,
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.grey,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.medical_services_outlined,
+                          size: 16,
+                        ),
+                        label: const Text(
+                          'Take Consultation',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      )
+                    : appt.status == 'In Consultation'
+                    ? TextButton.icon(
+                        onPressed: () => _resumeConsultation(appt),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.secondaryColor,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                        ),
+                        icon: const Icon(Icons.play_circle_outline, size: 16),
+                        label: const Text(
+                          'Resume Consultation',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ),
             ),
           ],
