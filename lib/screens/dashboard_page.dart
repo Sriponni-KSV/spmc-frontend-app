@@ -16,7 +16,7 @@ import '../models/appointment_model.dart';
 import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
 import '../utils/logout_helper.dart';
-import 'ipd_management.dart';
+import 'doctor_ipd_management.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -389,7 +389,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 2:
         return _buildProfileView(isMobile);
       case 3:
-        return IPDManagementScreen(isMobile: isMobile);
+        return DoctorIPDManagementScreen(isMobile: isMobile);
       default:
         return _buildDashboardView(isMobile);
     }

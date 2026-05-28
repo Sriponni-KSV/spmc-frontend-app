@@ -169,4 +169,249 @@ class IpdController {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
+
+  /// Fetch prescriptions for an admission
+  Future<List<Map<String, dynamic>>> fetchPrescriptions(int admissionId) async {
+    try {
+      final response = await ApiService.get('$baseUrl/ipd/admissions/$admissionId/prescriptions');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch prescriptions');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Create new prescription
+  Future<void> createPrescription(int admissionId, Map<String, dynamic> data) async {
+    try {
+      final response = await ApiService.post('$baseUrl/ipd/admissions/$admissionId/prescriptions', data);
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 201) {
+        throw Exception(body['message'] ?? 'Failed to create prescription');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Stop a prescription
+  Future<void> stopPrescription(int prescriptionId) async {
+    try {
+      final response = await ApiService.post('$baseUrl/ipd/prescriptions/$prescriptionId/stop', {});
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        throw Exception(body['message'] ?? 'Failed to stop prescription');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch medication logs for an admission
+  Future<List<Map<String, dynamic>>> fetchMedicationLogs(int admissionId) async {
+    try {
+      final response = await ApiService.get('$baseUrl/ipd/admissions/$admissionId/medication-logs');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch medication logs');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Create medication log
+  Future<void> createMedicationLog(int admissionId, Map<String, dynamic> data) async {
+    try {
+      final response = await ApiService.post('$baseUrl/ipd/admissions/$admissionId/medication-logs', data);
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 201) {
+        throw Exception(body['message'] ?? 'Failed to create medication log');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch vitals history for an admission
+  Future<List<Map<String, dynamic>>> fetchVitals(int admissionId) async {
+    try {
+      final response = await ApiService.get('$baseUrl/ipd/admissions/$admissionId/vitals');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch vitals');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Create vitals entry
+  Future<void> createVitals(int admissionId, Map<String, dynamic> data) async {
+    try {
+      final response = await ApiService.post('$baseUrl/ipd/admissions/$admissionId/vitals', data);
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 201) {
+        throw Exception(body['message'] ?? 'Failed to create vitals entry');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch ICU alerts for an admission
+  Future<List<Map<String, dynamic>>> fetchIcuAlerts(int admissionId) async {
+    try {
+      final response = await ApiService.get('$baseUrl/ipd/admissions/$admissionId/icu-alerts');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch ICU alerts');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Resolve ICU alert
+  Future<void> resolveIcuAlert(int alertId) async {
+    try {
+      final response = await ApiService.post('$baseUrl/ipd/icu-alerts/$alertId/resolve', {});
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        throw Exception(body['message'] ?? 'Failed to resolve alert');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch ICU active alerts across all patients
+  Future<List<Map<String, dynamic>>> fetchIcuDashboard() async {
+    try {
+      final response = await ApiService.get('$baseUrl/ipd/icu/dashboard');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch ICU dashboard');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch progress notes for an admission
+  Future<List<Map<String, dynamic>>> fetchProgressNotes(int admissionId) async {
+    try {
+      final response = await ApiService.get('$baseUrl/ipd/admissions/$admissionId/progress-notes');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch progress notes');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Create progress notes
+  Future<void> createProgressNote(int admissionId, Map<String, dynamic> data) async {
+    try {
+      final response = await ApiService.post('$baseUrl/ipd/admissions/$admissionId/progress-notes', data);
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 201) {
+        throw Exception(body['message'] ?? 'Failed to create progress note');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch lab orders for an admission
+  Future<List<Map<String, dynamic>>> fetchLabOrders(int admissionId) async {
+    try {
+      final response = await ApiService.get('$baseUrl/ipd/admissions/$admissionId/lab-orders');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch lab orders');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Create lab order
+  Future<void> createLabOrder(int admissionId, Map<String, dynamic> data) async {
+    try {
+      final response = await ApiService.post('$baseUrl/ipd/admissions/$admissionId/lab-orders', data);
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 201) {
+        throw Exception(body['message'] ?? 'Failed to create lab order');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Update lab order status
+  Future<void> updateLabOrderStatus(int labOrderId, Map<String, dynamic> data) async {
+    try {
+      final response = await ApiService.post('$baseUrl/ipd/lab-orders/$labOrderId/status', data);
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        throw Exception(body['message'] ?? 'Failed to update lab order status');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch shift handovers for an admission
+  Future<List<Map<String, dynamic>>> fetchShiftHandovers(int admissionId) async {
+    try {
+      final response = await ApiService.get('$baseUrl/ipd/admissions/$admissionId/shift-handovers');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch shift handovers');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Create shift handover
+  Future<void> createShiftHandover(int admissionId, Map<String, dynamic> data) async {
+    try {
+      final response = await ApiService.post('$baseUrl/ipd/admissions/$admissionId/shift-handovers', data);
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 201) {
+        throw Exception(body['message'] ?? 'Failed to create shift handover');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
 }
