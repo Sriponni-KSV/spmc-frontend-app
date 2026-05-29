@@ -31,7 +31,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
 
   List<Map<String, dynamic>> _beds = [];
   List<Map<String, dynamic>> _admissions = [];
-  List<Map<String, dynamic>> _pendingAdmissions = [];
   List<PatientModel> _patients = [];
   List<UserModel> _doctors = [];
   List<Map<String, dynamic>> _nurses = [];
@@ -54,7 +53,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       final role =
           Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
       _isDoctor = role == 'Doctor';
-      _tabController = TabController(length: _isDoctor ? 5 : 4, vsync: this);
+      _tabController = TabController(length: _isDoctor ? 4 : 3, vsync: this);
       _tabControllerReady = true;
     }
   }
@@ -73,7 +72,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
 
     List<Map<String, dynamic>> bedsList = [];
     List<Map<String, dynamic>> admissionsList = [];
-    List<Map<String, dynamic>> pendingAdmissionsList = [];
     List<PatientModel> patientsList = [];
     List<UserModel> doctorsList = [];
     List<Map<String, dynamic>> nursesList = [];
@@ -89,11 +87,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
     } catch (e) {
       errorMsg ??= e.toString();
     }
-    try {
-      pendingAdmissionsList = await _ipdController.fetchPendingAdmissions();
-    } catch (e) {
-      errorMsg ??= e.toString();
-    }
+    // Pending admissions are handled directly at the Admission Counter
     try {
       patientsList = await _patientController.fetchPatients();
     } catch (_) {}
@@ -108,7 +102,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       setState(() {
         _beds = bedsList;
         _admissions = admissionsList;
-        _pendingAdmissions = pendingAdmissionsList;
         _patients = patientsList;
         _doctors = doctorsList;
         _nurses = nursesList;
@@ -154,7 +147,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                     controller: _tabController,
                     children: [
                       _buildActiveAdmissionsTab(userRole),
-                      _buildPendingAdmissionsTab(),
                       _buildBedAvailabilityTab(),
                       _buildDischargeHistoryTab(),
                       if (_isDoctor) _buildICUDashboardTab(),
@@ -173,9 +165,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         ? 'Admin IPD Management'
         : 'Doctor IPD Management';
     final headerSubtitle = userRole == 'Nurse'
-        ? 'Allocate beds, record vitals, and manage nursing updates'
+        ? 'Record vitals, administer medications, and manage nursing updates'
         : userRole == 'Admin'
-        ? 'Oversee admissions, bed inventory, and discharge workflows'
+        ? 'Monitor admissions, bed occupancy, and discharge workflows'
         : 'Admit patients, review progress, and manage discharge decisions';
 
     return Container(
@@ -335,7 +327,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
 
   Widget _buildTabBar(bool isDoctor) {
     final activeCount = _admittedCount;
-    final pendingCount = _pendingAdmissions.length;
     final availableBeds = _availableBedsCount;
     final totalBeds = _beds.length;
     final dischargeCount = _admissions
@@ -358,7 +349,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         indicatorWeight: 3,
         tabs: [
           Tab(text: 'Active Wards ($activeCount)'),
-          Tab(text: 'Pending Admissions ($pendingCount)'),
           Tab(text: 'Bed Availability ($availableBeds/$totalBeds)'),
           Tab(text: 'Discharge History ($dischargeCount)'),
           if (isDoctor) Tab(text: 'ICU Dashboard ($icuCount)'),
@@ -383,7 +373,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         final adm = active[index];
         final dateStr = DateFormat(
           'dd/MM/yyyy HH:mm',
-        ).format(DateTime.parse(adm['admission_date']));
+        ).format(DateTime.parse(adm['admission_date']).toLocal());
 
         final String rawReason = adm['reason_for_admission'] ?? '';
         String? assignedNurse;
@@ -565,319 +555,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
     ];
   }
 
-  Widget _buildPendingAdmissionsTab() {
-    if (_pendingAdmissions.isEmpty) {
-      return _buildEmptyState('No pending admissions.', Icons.hourglass_bottom);
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(24),
-      itemCount: _pendingAdmissions.length,
-      itemBuilder: (context, index) {
-        final pending = _pendingAdmissions[index];
-        final admittedAt = pending['admitted_at'] != null
-            ? DateFormat(
-                'dd/MM/yyyy HH:mm',
-              ).format(DateTime.parse(pending['admitted_at']))
-            : 'Unknown';
-
-        final String rawReason =
-            pending['reason_for_visit'] ?? 'Reason not recorded';
-        String? assignedNurse;
-        String displayReason = rawReason;
-        if (rawReason.startsWith('[Assigned Nurse: ')) {
-          final endIdx = rawReason.indexOf(']');
-          if (endIdx != -1) {
-            assignedNurse = rawReason.substring(17, endIdx);
-            displayReason = rawReason.substring(endIdx + 1).trim();
-          }
-        }
-
-        return Card(
-          elevation: 0,
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey.shade200),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                  child: Text(
-                    pending['patient_name']?[0].toUpperCase() ?? 'P',
-                    style: const TextStyle(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        pending['patient_name'] ?? 'Unknown Patient',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Doctor: ${pending['doctor_name'] ?? '--'} • Admitted: $admittedAt',
-                        style: const TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontSize: 12,
-                        ),
-                      ),
-                      if (assignedNurse != null) ...[
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.teal.shade100),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.person_outline,
-                                size: 12,
-                                color: Colors.teal.shade700,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Assigned Nurse: $assignedNurse',
-                                style: TextStyle(
-                                  color: Colors.teal.shade700,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 6),
-                      Text(displayReason, style: const TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                ),
-                if (!_isDoctor)
-                  ElevatedButton(
-                    onPressed: () => _showAllocateBedDialog(pending),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      minimumSize: const Size(130, 42),
-                    ),
-                    child: const Text('Allocate Bed'),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showAllocateBedDialog(Map<String, dynamic> pending) {
-    String? selectedWardType;
-    String? selectedBedNumber;
-    final TextEditingController reasonController = TextEditingController(
-      text: pending['reason_for_visit'] ?? '',
-    );
-    final formKey = GlobalKey<FormState>();
-    List<String> availableBeds = [];
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            void updateBedsForWard(String? ward) {
-              setDialogState(() {
-                selectedWardType = ward;
-                selectedBedNumber = null;
-                if (ward != null) {
-                  availableBeds = _beds
-                      .where(
-                        (b) =>
-                            b['ward_type'] == ward &&
-                            b['status'] == 'Available',
-                      )
-                      .map((b) => b['bed_number'].toString())
-                      .toList();
-                } else {
-                  availableBeds = [];
-                }
-              });
-            }
-
-            return AlertDialog(
-              title: Text(
-                'Allocate Bed for ${pending['patient_name'] ?? 'Patient'}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              content: SizedBox(
-                width: 520,
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Select Ward Type',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: selectedWardType,
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'General',
-                            child: Text('General'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Semi-Private',
-                            child: Text('Semi-Private'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Private',
-                            child: Text('Private'),
-                          ),
-                          DropdownMenuItem(value: 'ICU', child: Text('ICU')),
-                        ],
-                        onChanged: updateBedsForWard,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 14,
-                          ),
-                        ),
-                        validator: (val) {
-                          if (val == null || val.isEmpty) {
-                            return 'Please select a ward type';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Available Bed',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: selectedBedNumber,
-                        items: availableBeds
-                            .map(
-                              (bed) => DropdownMenuItem(
-                                value: bed,
-                                child: Text(bed),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (val) =>
-                            setDialogState(() => selectedBedNumber = val),
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 14,
-                          ),
-                        ),
-                        validator: (val) {
-                          if (val == null || val.isEmpty) {
-                            return 'Please select a bed';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Reason for Admission',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: reasonController,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: 'Enter admission reason',
-                        ),
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Reason for admission is required';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (!formKey.currentState!.validate()) {
-                      return;
-                    }
-                    try {
-                      await _ipdController.createAdmission({
-                        'patient_id': pending['patient_id'],
-                        'appointment_id': pending['appointment_id'],
-                        'doctor_name': pending['doctor_name'],
-                        'bed_number': selectedBedNumber,
-                        'ward_type': selectedWardType,
-                        'reason_for_admission': reasonController.text.trim(),
-                      });
-                      Navigator.pop(context);
-                      await _loadData();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Bed allocated and admission completed.',
-                          ),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                  ),
-                  child: const Text('Allocate Bed'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
+  // Pending admissions are handled directly by the Admission Counter
 
   Widget _buildBedAvailabilityTab() {
     final Map<String, List<Map<String, dynamic>>> groupedBeds = {};
@@ -1040,7 +718,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         final dischargeDateStr = adm['discharge_date'] != null
             ? DateFormat(
                 'dd/MM/yyyy HH:mm',
-              ).format(DateTime.parse(adm['discharge_date']))
+              ).format(DateTime.parse(adm['discharge_date']).toLocal())
             : '--';
         return Card(
           elevation: 0,
@@ -1663,7 +1341,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                                     itemBuilder: (ctx, idx) {
                                       final item =
                                           updates[updates.length - 1 - idx];
-                                      final dp = DateTime.parse(item['date']);
+                                      final dp = DateTime.parse(
+                                        item['date'],
+                                      ).toLocal();
                                       final displayDate = DateFormat(
                                         'dd/MM HH:mm',
                                       ).format(dp);
@@ -2940,8 +2620,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
     );
   }
 
-
-
   void _showDischargeDialog(Map<String, dynamic> admission) {
     final TextEditingController summaryController = TextEditingController();
 
@@ -3031,10 +2709,10 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   void _showDischargeSummaryView(Map<String, dynamic> admission) {
     final admitDate = DateFormat(
       'dd/MM/yyyy HH:mm',
-    ).format(DateTime.parse(admission['admission_date']));
+    ).format(DateTime.parse(admission['admission_date']).toLocal());
     final dischargeDate = DateFormat(
       'dd/MM/yyyy HH:mm',
-    ).format(DateTime.parse(admission['discharge_date']));
+    ).format(DateTime.parse(admission['discharge_date']).toLocal());
 
     showDialog(
       context: context,
@@ -3207,9 +2885,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                       ),
                       _infoRow(
                         'Admitted',
-                        DateFormat(
-                          'dd/MM/yyyy',
-                        ).format(DateTime.parse(admission['admission_date'])),
+                        DateFormat('dd/MM/yyyy').format(
+                          DateTime.parse(admission['admission_date']).toLocal(),
+                        ),
                       ),
                       const Divider(height: 20),
                       _sectionLabel('Discharge Details'),

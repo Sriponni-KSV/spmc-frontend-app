@@ -16,6 +16,7 @@ import 'doctors_view.dart';
 import 'nurse_profile_view.dart';
 import 'opd_management.dart';
 import 'ipd_management.dart';
+import 'ot_management.dart';
 import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
@@ -149,6 +150,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         break;
       case 6:
         context.go(AppRoutes.nurseIpd);
+        break;
+      case 7:
+        context.go(AppRoutes.nurseOt);
         break;
       default:
         context.go(AppRoutes.nurseDashboard);
@@ -303,6 +307,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return OPDManagementScreen(isMobile: isMobile);
       case 6:
         return IPDManagementScreen(isMobile: isMobile);
+      case 7:
+        return OTManagementScreen(isMobile: isMobile);
       default:
         return _buildDashboardView(isMobile);
     }
@@ -429,6 +435,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         6,
                         Icons.bedroom_child_outlined,
                         'IPD Management',
+                      ),
+                      _buildSidebarItem(
+                        7,
+                        Icons.healing_outlined,
+                        'OT Management',
                       ),
                       _buildSidebarItem(4, Icons.person_outline, 'Profile'),
                       // _buildSidebarItem(4, Icons.home_outlined, 'Home Care'),

@@ -90,7 +90,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
       errorMsg ??= e.toString();
     }
     try {
-      pendingAdmissionsList = await _ipdController.fetchPendingAdmissions();
+      pendingAdmissionsList = await _ipdController.fetchPendingRequests();
     } catch (e) {
       errorMsg ??= e.toString();
     }
@@ -341,7 +341,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
         indicatorWeight: 3,
         tabs: [
           Tab(text: 'Active Wards ($activeCount)'),
-          Tab(text: 'Pending Admissions ($pendingCount)'),
+          Tab(text: 'Pending Requests ($pendingCount)'),
           Tab(text: 'Bed Availability ($availableBeds/$totalBeds)'),
           Tab(text: 'Discharge History ($dischargeCount)'),
           if (isDoctor) Tab(text: 'ICU Dashboard ($icuCount)'),
@@ -365,7 +365,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
         final adm = active[index];
         final dateStr = DateFormat(
           'dd/MM/yyyy HH:mm',
-        ).format(DateTime.parse(adm['admission_date']));
+        ).format(DateTime.parse(adm['admission_date']).toLocal());
 
         final String rawReason = adm['reason_for_admission'] ?? '';
         String? assignedNurse;
@@ -515,7 +515,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
   Widget _buildPendingAdmissionsTab() {
     if (_pendingAdmissions.isEmpty) {
       return _buildEmptyState(
-        'No pending admissions.',
+        'No pending requests.',
         Icons.hourglass_bottom,
       );
     }
@@ -526,7 +526,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
       itemBuilder: (context, index) {
         final pending = _pendingAdmissions[index];
         final admittedAt = pending['admitted_at'] != null
-            ? DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(pending['admitted_at']))
+            ? DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(pending['admitted_at']).toLocal())
             : 'Unknown';
 
         final String rawReason = pending['reason_for_visit'] ?? 'Reason not recorded';
@@ -575,7 +575,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Doctor: ${pending['doctor_name'] ?? '--'} • Admitted: $admittedAt',
+                        'Doctor: ${pending['doctor_name'] ?? '--'} • Requested: $admittedAt',
                         style: const TextStyle(
                           color: AppTheme.textSecondaryColor,
                           fontSize: 12,
@@ -617,179 +617,9 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                     ],
                   ),
                 ),
-                if (!_isDoctor)
-                  ElevatedButton(
-                    onPressed: () => _showAllocateBedDialog(pending),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      minimumSize: const Size(130, 42),
-                    ),
-                    child: const Text('Allocate Bed'),
-                  ),
               ],
             ),
           ),
-        );
-      },
-    );
-  }
-
-  void _showAllocateBedDialog(Map<String, dynamic> pending) {
-    String? selectedWardType;
-    String? selectedBedNumber;
-    final TextEditingController reasonController = TextEditingController(
-      text: pending['reason_for_visit'] ?? '',
-    );
-    final formKey = GlobalKey<FormState>();
-    List<String> availableBeds = [];
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            void updateBedsForWard(String? ward) {
-              setDialogState(() {
-                selectedWardType = ward;
-                selectedBedNumber = null;
-                if (ward != null) {
-                  availableBeds = _beds
-                      .where((b) => b['ward_type'] == ward && b['status'] == 'Available')
-                      .map((b) => b['bed_number'].toString())
-                      .toList();
-                } else {
-                  availableBeds = [];
-                }
-              });
-            }
-
-            return AlertDialog(
-              title: Text(
-                'Allocate Bed for ${pending['patient_name'] ?? 'Patient'}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              content: SizedBox(
-                width: 520,
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Select Ward Type',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: selectedWardType,
-                        items: const [
-                          DropdownMenuItem(value: 'General', child: Text('General')),
-                          DropdownMenuItem(value: 'Semi-Private', child: Text('Semi-Private')),
-                          DropdownMenuItem(value: 'Private', child: Text('Private')),
-                          DropdownMenuItem(value: 'ICU', child: Text('ICU')),
-                        ],
-                        onChanged: updateBedsForWard,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                        ),
-                        validator: (val) {
-                          if (val == null || val.isEmpty) {
-                            return 'Please select a ward type';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Available Bed',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: selectedBedNumber,
-                        items: availableBeds
-                            .map((bed) => DropdownMenuItem(value: bed, child: Text(bed)))
-                            .toList(),
-                        onChanged: (val) => setDialogState(() => selectedBedNumber = val),
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                        ),
-                        validator: (val) {
-                          if (val == null || val.isEmpty) {
-                            return 'Please select a bed';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Reason for Admission',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: reasonController,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: 'Enter admission reason',
-                        ),
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Reason for admission is required';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (!formKey.currentState!.validate()) {
-                      return;
-                    }
-                    try {
-                      await _ipdController.createAdmission({
-                        'patient_id': pending['patient_id'],
-                        'appointment_id': pending['appointment_id'],
-                        'doctor_name': pending['doctor_name'],
-                        'bed_number': selectedBedNumber,
-                        'ward_type': selectedWardType,
-                        'reason_for_admission': reasonController.text.trim(),
-                      });
-                      Navigator.pop(context);
-                      await _loadData();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Bed allocated and admission completed.'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                  child: const Text('Allocate Bed'),
-                ),
-              ],
-            );
-          },
         );
       },
     );
@@ -956,7 +786,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
         final dischargeDateStr = adm['discharge_date'] != null
             ? DateFormat(
                 'dd/MM/yyyy HH:mm',
-              ).format(DateTime.parse(adm['discharge_date']))
+              ).format(DateTime.parse(adm['discharge_date']).toLocal())
             : '--';
         return Card(
           elevation: 0,
@@ -1485,7 +1315,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                                     itemBuilder: (ctx, idx) {
                                       final item = updates[
                                           updates.length - 1 - idx];
-                                      final dp = DateTime.parse(item['date']);
+                                      final dp = DateTime.parse(item['date']).toLocal();
                                       final displayDate =
                                           DateFormat('dd/MM HH:mm')
                                               .format(dp);
@@ -1810,16 +1640,12 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
     _showDoctorAdmitDialog(doctorName);
   }
 
-  // ─── Doctor Admit: send to queue OR allocate bed directly ────────────────
+  // ─── Doctor Admit: send to queue ────────────────
   void _showDoctorAdmitDialog(String doctorName) {
     int? selectedPatientId;
-    bool allocateNow = false;
-    String? selectedWardType;
-    String? selectedBedNumber;
-    String? selectedNurseName;
-    List<String> availableBeds = [];
     bool isSubmitting = false;
     final TextEditingController reasonController = TextEditingController();
+    final TextEditingController diagnosisController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -1827,21 +1653,6 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            void updateBeds(String? ward) {
-              setDialogState(() {
-                selectedWardType = ward;
-                selectedBedNumber = null;
-                availableBeds = ward == null
-                    ? []
-                    : _beds
-                        .where((b) =>
-                            b['ward_type'] == ward &&
-                            b['status'] == 'Available')
-                        .map((b) => b['bed_number'].toString())
-                        .toList();
-              });
-            }
-
             return AlertDialog(
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
@@ -1860,23 +1671,23 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                         color: AppTheme.dangerColor, size: 20),
                   ),
                   const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Admit Patient to IPD',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      Text(
-                        allocateNow
-                            ? 'Bed allocated directly'
-                            : 'Nurse will allocate the bed',
-                        style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondaryColor),
-                      ),
-                    ],
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Request IPD Admission',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        Text(
+                          'Front Desk will verify and allocate the bed',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryColor),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -1889,173 +1700,32 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── Admission mode toggle ──
+                        // Info banner
                         Container(
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppTheme.backgroundColor,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade200),
                           ),
-                          padding: const EdgeInsets.all(4),
                           child: Row(
                             children: [
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () => setDialogState(
-                                      () => allocateNow = false),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: !allocateNow
-                                          ? Colors.white
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(8),
-                                      boxShadow: !allocateNow
-                                          ? [
-                                              BoxShadow(
-                                                color: Colors.black
-                                                    .withOpacity(0.06),
-                                                blurRadius: 4,
-                                              )
-                                            ]
-                                          : [],
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.send_outlined,
-                                            size: 14,
-                                            color: !allocateNow
-                                                ? AppTheme.primaryColor
-                                                : Colors.grey),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Send to Queue',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: !allocateNow
-                                                ? AppTheme.primaryColor
-                                                : Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () =>
-                                      setDialogState(() => allocateNow = true),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: allocateNow
-                                          ? Colors.white
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(8),
-                                      boxShadow: allocateNow
-                                          ? [
-                                              BoxShadow(
-                                                color: Colors.black
-                                                    .withOpacity(0.06),
-                                                blurRadius: 4,
-                                              )
-                                            ]
-                                          : [],
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.bed_outlined,
-                                            size: 14,
-                                            color: allocateNow
-                                                ? Colors.orange.shade700
-                                                : Colors.grey),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Allocate Now',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: allocateNow
-                                                ? Colors.orange.shade700
-                                                : Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                              Icon(Icons.info_outline,
+                                  color: Colors.blue.shade600,
+                                  size: 16),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Admission request will be sent to the Front Desk for verification and processing.',
+                                  style: TextStyle(fontSize: 12),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 14),
-
-                        // ── Info banner ──
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 250),
-                          child: allocateNow
-                              ? Container(
-                                  key: const ValueKey('now'),
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                        color: Colors.orange.shade200),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.bolt,
-                                          color: Colors.orange.shade700,
-                                          size: 16),
-                                      const SizedBox(width: 8),
-                                      const Expanded(
-                                        child: Text(
-                                          'Patient will be admitted directly to the selected bed — no nurse queue needed.',
-                                          style: TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : Container(
-                                  key: const ValueKey('queue'),
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                        color: Colors.blue.shade200),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.info_outline,
-                                          color: Colors.blue.shade600,
-                                          size: 16),
-                                      const SizedBox(width: 8),
-                                      const Expanded(
-                                        child: Text(
-                                          'Request sent to the Pending Admissions queue. Nurse will allocate the bed.',
-                                          style: TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                        ),
                         const SizedBox(height: 16),
 
-                        // ── Patient picker ──
+                        // Patient picker
                         const Text.rich(
                           TextSpan(
                             text: 'Select Patient',
@@ -2095,7 +1765,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                         ),
                         const SizedBox(height: 16),
 
-                        // ── Reason ──
+                        // Reason
                         const Text.rich(
                           TextSpan(
                             text: 'Reason for Admission',
@@ -2112,10 +1782,9 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: reasonController,
-                          maxLines: 3,
+                          maxLines: 2,
                           decoration: InputDecoration(
-                            hintText:
-                                'Describe the medical reason for IPD admission...',
+                            hintText: 'Describe the medical reason...',
                             hintStyle: TextStyle(
                                 color: Colors.grey.shade400, fontSize: 12),
                             filled: true,
@@ -2124,16 +1793,6 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                               borderRadius: BorderRadius.circular(8),
                               borderSide:
                                   const BorderSide(color: Color(0xFFE2E8F0)),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFFE2E8F0)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                  color: AppTheme.primaryColor),
                             ),
                           ),
                           validator: (val) {
@@ -2144,94 +1803,26 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                           },
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Assign to Nurse (Optional)',
-                          style: TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 8),
-                        CustomDropdownSearch(
-                          label: '',
-                          hint: 'Select nurse to assign',
-                          value: selectedNurseName,
-                          dropdownMap: {
-                            for (var n in _nurses)
-                              n['name'].toString():
-                                  "${n['name']} (${n['department'] ?? 'General'})",
-                          },
-                          onChanged: (v) =>
-                              setDialogState(() => selectedNurseName = v),
-                        ),
 
-                        // ── Allocate Now: ward + bed ──
-                        if (allocateNow) ...[
-                          const SizedBox(height: 16),
-                          const Text.rich(
-                            TextSpan(
-                              text: 'Select Ward Type',
-                              style: TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w600),
-                              children: [
-                                TextSpan(
-                                  text: ' *',
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ],
+                        // Diagnosis
+                        const Text('Diagnosis / Provisional Diagnosis',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: diagnosisController,
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            hintText: 'e.g. Acute Appendicitis, Type 2 Diabetes...',
+                            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                            filled: true,
+                            fillColor: AppTheme.backgroundColor,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          CustomDropdownSearch(
-                            label: '',
-                            hint: 'Select Ward Type',
-                            value: selectedWardType,
-                            dropdownItems: const [
-                              'General',
-                              'Semi-Private',
-                              'Private',
-                              'ICU',
-                            ],
-                            onChanged: updateBeds,
-                            validator: allocateNow
-                                ? (v) => (v == null || v.isEmpty)
-                                    ? 'Please select a ward'
-                                    : null
-                                : null,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text.rich(
-                            TextSpan(
-                              text: 'Available Bed',
-                              style: TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w600),
-                              children: [
-                                TextSpan(
-                                  text: ' *',
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          CustomDropdownSearch(
-                            label: '',
-                            hint: selectedWardType == null
-                                ? 'Select ward first'
-                                : availableBeds.isEmpty
-                                    ? 'No beds available in this ward'
-                                    : 'Select bed',
-                            value: selectedBedNumber,
-                            dropdownMap: {
-                              for (var b in availableBeds) b: 'Bed $b',
-                            },
-                            onChanged: (v) =>
-                                setDialogState(() => selectedBedNumber = v),
-                            validator: allocateNow
-                                ? (v) => (v == null || v.isEmpty)
-                                    ? 'Please select a bed'
-                                    : null
-                                : null,
-                          ),
-                        ],
+                        ),
+                        const SizedBox(height: 16),
                       ],
                     ),
                   ),
@@ -2251,44 +1842,21 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                             if (!formKey.currentState!.validate()) return;
                             setBtn(() => isSubmitting = true);
                             try {
-                              final reason = selectedNurseName != null
-                                  ? '[Assigned Nurse: $selectedNurseName] ${reasonController.text.trim()}'
-                                  : reasonController.text.trim();
-                              if (allocateNow) {
-                                // Direct admission with bed allocation
-                                await _ipdController.createAdmission({
-                                  'patient_id': selectedPatientId,
-                                  'doctor_name': doctorName,
-                                  'bed_number': selectedBedNumber,
-                                  'ward_type': selectedWardType,
-                                  'reason_for_admission': reason,
-                                });
-                                Navigator.pop(ctx);
-                                _loadData();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Patient admitted and bed allocated successfully!'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              } else {
-                                // Send to pending queue
-                                await _ipdController.createPendingAdmission({
-                                  'patient_id': selectedPatientId,
-                                  'doctor_name': doctorName,
-                                  'reason_for_admission': reason,
-                                });
-                                Navigator.pop(ctx);
-                                _loadData();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Admission request sent. Nurse will allocate a bed.'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              }
+                              await _ipdController.createPendingAdmission({
+                                'patient_id': selectedPatientId,
+                                'doctor_name': doctorName,
+                                'reason_for_admission': reasonController.text.trim(),
+                                'diagnosis': diagnosisController.text.trim(),
+                              });
+                              Navigator.pop(ctx);
+                              _loadData();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      'IPD admission request submitted successfully.'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
                             } catch (e) {
                               setBtn(() => isSubmitting = false);
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -2305,24 +1873,16 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                             height: 14,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white))
-                        : Icon(
-                            allocateNow
-                                ? Icons.bed_outlined
-                                : Icons.send_outlined,
+                        : const Icon(
+                            Icons.send_outlined,
                             size: 16,
                             color: Colors.white),
                     label: Text(
-                      isSubmitting
-                          ? 'Submitting...'
-                          : allocateNow
-                              ? 'Admit Patient'
-                              : 'Send Request',
+                      isSubmitting ? 'Submitting...' : 'Send Request',
                       style: const TextStyle(color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: allocateNow
-                          ? Colors.orange.shade700
-                          : AppTheme.dangerColor,
+                      backgroundColor: AppTheme.dangerColor,
                       minimumSize: const Size(130, 48),
                     ),
                   ),
@@ -2903,7 +2463,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                                       final item = updates[idx];
                                       final dateParsed = DateTime.parse(
                                         item['date'],
-                                      );
+                                      ).toLocal();
                                       final displayDate = DateFormat(
                                         'dd/MM HH:mm',
                                       ).format(dateParsed);
@@ -3084,10 +2644,10 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
   void _showDischargeSummaryView(Map<String, dynamic> admission) {
     final admitDate = DateFormat(
       'dd/MM/yyyy HH:mm',
-    ).format(DateTime.parse(admission['admission_date']));
+    ).format(DateTime.parse(admission['admission_date']).toLocal());
     final dischargeDate = DateFormat(
       'dd/MM/yyyy HH:mm',
-    ).format(DateTime.parse(admission['discharge_date']));
+    ).format(DateTime.parse(admission['discharge_date']).toLocal());
 
     showDialog(
       context: context,

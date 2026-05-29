@@ -17,6 +17,7 @@ import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
 import '../utils/logout_helper.dart';
 import 'doctor_ipd_management.dart';
+import 'ot_management.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -390,6 +391,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return _buildProfileView(isMobile);
       case 3:
         return DoctorIPDManagementScreen(isMobile: isMobile);
+      case 4:
+        return OTManagementScreen(isMobile: isMobile);
       default:
         return _buildDashboardView(isMobile);
     }
@@ -2190,6 +2193,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Icons.local_hospital_outlined,
                     'IPD Management',
                   ),
+                  _buildSidebarItem(
+                    4,
+                    Icons.healing_outlined,
+                    'OT Management',
+                  ),
                 ],
               ),
             ),
@@ -2295,6 +2303,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           context.go(AppRoutes.doctorProfile);
         } else if (index == 3) {
           context.go(AppRoutes.doctorIpd);
+        } else if (index == 4) {
+          context.go(AppRoutes.doctorOt);
         } else {
           context.go(AppRoutes.doctorDashboard);
         }

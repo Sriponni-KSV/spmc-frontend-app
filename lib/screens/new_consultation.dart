@@ -62,9 +62,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   int _currentStep = 0;
   List<Map<String, dynamic>> _previousConsultations = [];
 
-  // IPD allocation state
-  List<Map<String, dynamic>> _nurses = [];
-  bool _isLoadingNurses = false;
+
 
   @override
   void initState() {
@@ -73,8 +71,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     _fetchLatestVitals();
     _fetchPreviousConsultations();
     _initializeData();
-    // Always preload nurses for the Admit to IPD card
-    _fetchNurses();
   }
 
   void _initializeData() {
@@ -126,22 +122,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   }
 
 
-
-  Future<void> _fetchNurses() async {
-    if (!mounted) return;
-    setState(() => _isLoadingNurses = true);
-    try {
-      final nurses = await _ipdController.fetchNurses();
-      if (mounted) {
-        setState(() {
-          _nurses = nurses;
-          _isLoadingNurses = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingNurses = false);
-    }
-  }
 
 
 
@@ -267,17 +247,9 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             _buildIPDActionButton(
               icon: Icons.send_outlined,
               color: AppTheme.primaryColor,
-              label: 'Send to Nurse Queue',
-              subtitle: 'Any available nurse will allocate the bed',
-              onTap: () => _showAdmitDialog(mode: 'queue'),
-            ),
-            const SizedBox(height: 8),
-            _buildIPDActionButton(
-              icon: Icons.person_pin_outlined,
-              color: Colors.teal.shade600,
-              label: 'Assign to Specific Nurse',
-              subtitle: 'Select which nurse handles bed allocation',
-              onTap: () => _showAdmitDialog(mode: 'nurse'),
+              label: 'Request IPD Admission',
+              subtitle: 'Front Desk will verify details and allocate a bed',
+              onTap: _showAdmitDialog,
             ),
           ],
         ),
@@ -329,14 +301,13 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     );
   }
 
-  // ─── Unified Admit Dialog ─────────────────────────────────────────────────
-  void _showAdmitDialog({required String mode}) {
-    // mode: 'queue' | 'nurse'
-    String? selectedNurseName;
+  // ─── Admit Dialog ─────────────────────────────────────────────────────────
+  void _showAdmitDialog() {
     bool isSubmitting = false;
     final TextEditingController reasonController = TextEditingController(
       text: _currentAppointment.reasonForVisit ?? '',
     );
+    final TextEditingController diagnosisController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -344,18 +315,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setD) {
-            final Color accentColor = mode == 'nurse'
-                ? Colors.teal.shade600
-                : AppTheme.primaryColor;
-
-            final String dialogTitle = mode == 'nurse'
-                ? 'Assign to Nurse'
-                : 'Send to Nurse Queue';
-
-            final IconData dialogIcon = mode == 'nurse'
-                ? Icons.person_pin_outlined
-                : Icons.send_outlined;
-
             return AlertDialog(
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
@@ -366,18 +325,18 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.1),
+                      color: AppTheme.primaryColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(dialogIcon, color: accentColor, size: 20),
+                    child: const Icon(Icons.local_hospital_outlined, color: AppTheme.primaryColor, size: 20),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(dialogTitle,
-                            style: const TextStyle(
+                        const Text('Request IPD Admission',
+                            style: TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 15)),
                         Text(_currentAppointment.patientName,
                             style: const TextStyle(
@@ -397,18 +356,35 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Info banner
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Colors.blue.shade600, size: 16),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Admission request will be sent to the Front Desk for verification and processing.',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
                         // ── Reason ──
                         const Text.rich(
                           TextSpan(
                             text: 'Reason for Admission',
-                            style: TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w600),
-                            children: [
-                              TextSpan(
-                                text: ' *',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ],
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            children: [TextSpan(text: ' *', style: TextStyle(color: Colors.red))],
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -417,24 +393,20 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                           maxLines: 3,
                           decoration: InputDecoration(
                             hintText: 'Enter medical reason for IPD admission...',
-                            hintStyle: TextStyle(
-                                color: Colors.grey.shade400, fontSize: 12),
+                            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
                             filled: true,
                             fillColor: AppTheme.backgroundColor,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFFE2E8F0)),
+                              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFFE2E8F0)),
+                              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  BorderSide(color: accentColor),
+                              borderSide: const BorderSide(color: AppTheme.primaryColor),
                             ),
                           ),
                           validator: (v) =>
@@ -442,47 +414,35 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                                   ? 'Please enter reason for admission'
                                   : null,
                         ),
+                        const SizedBox(height: 16),
 
-                        // ── Nurse picker (mode == 'nurse') ──
-                        if (mode == 'nurse') ...[
-                          const SizedBox(height: 16),
-                          const Text.rich(
-                            TextSpan(
-                              text: 'Assign to Nurse',
-                              style: TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w600),
-                              children: [
-                                TextSpan(
-                                  text: ' *',
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ],
+                        // ── Diagnosis ──
+                        const Text('Diagnosis / Provisional Diagnosis',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: diagnosisController,
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            hintText: 'e.g. Acute Appendicitis, Type 2 Diabetes...',
+                            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                            filled: true,
+                            fillColor: AppTheme.backgroundColor,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: AppTheme.primaryColor),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          _isLoadingNurses
-                              ? const Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(8),
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  ))
-                              : CustomDropdownSearch(
-                                  label: '',
-                                  hint: 'Select nurse',
-                                  value: selectedNurseName,
-                                  dropdownMap: {
-                                    for (var n in _nurses)
-                                      n['name'].toString():
-                                          "${n['name']} (${n['department'] ?? 'General'})",
-                                  },
-                                  onChanged: (v) =>
-                                      setD(() => selectedNurseName = v),
-                                  validator: (v) =>
-                                      (v == null || v.isEmpty)
-                                          ? 'Please select a nurse'
-                                          : null,
-                                ),
-                        ],
+                        ),
+                        const SizedBox(height: 16),
                       ],
                     ),
                   ),
@@ -497,21 +457,15 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                   builder: (ctx2, setBtn) => ElevatedButton.icon(
                     icon: isSubmitting
                         ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : Icon(dialogIcon, size: 16, color: Colors.white),
+                            width: 14, height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.send_outlined, size: 16, color: Colors.white),
                     label: Text(
-                      isSubmitting
-                          ? 'Submitting...'
-                          : mode == 'nurse'
-                              ? 'Assign to Nurse'
-                              : 'Send Request',
+                      isSubmitting ? 'Submitting...' : 'Send Request',
                       style: const TextStyle(color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: accentColor,
+                      backgroundColor: AppTheme.primaryColor,
                       minimumSize: const Size(140, 44),
                     ),
                     onPressed: isSubmitting
@@ -519,43 +473,38 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                         : () async {
                             if (!formKey.currentState!.validate()) return;
                             setBtn(() => isSubmitting = true);
+                            // Capture context-dependent objects before async gap
+                            final nav = Navigator.of(ctx);
+                            final messenger = ScaffoldMessenger.of(context);
                             try {
-                              // Send to queue (with optional nurse name in reason)
-                              final reason = mode == 'nurse' &&
-                                      selectedNurseName != null
-                                  ? '[Assigned Nurse: $selectedNurseName] ${reasonController.text.trim()}'
-                                  : reasonController.text.trim();
                               await _ipdController.createPendingAdmission({
                                 'patient_id': _currentAppointment.patientId,
                                 'appointment_id': _currentAppointment.id,
                                 'doctor_name': _currentAppointment.doctorName,
-                                'reason_for_admission': reason,
+                                'reason_for_admission': reasonController.text.trim(),
+                                'diagnosis': diagnosisController.text.trim(),
                               });
-                              if (mounted) {
-                                Navigator.pop(ctx);
-                                final msg = mode == 'nurse'
-                                    ? 'Request sent to Nurse $selectedNurseName'
-                                    : 'Admission request sent to nurse queue';
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(SnackBar(
-                                  content: Text(msg),
+                              nav.pop();
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text('Admission request sent to Front Desk'),
                                   backgroundColor: Colors.green,
-                                ));
+                                ),
+                              );
+                              if (mounted) {
                                 setState(() {
-                                  _currentAppointment =
-                                      _currentAppointment.copyWith(
-                                          status: 'Admitted');
+                                  _currentAppointment = _currentAppointment.copyWith(
+                                      status: 'Admission Requested');
                                 });
                               }
                             } catch (e) {
                               setBtn(() => isSubmitting = false);
-                              if (mounted) {
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(SnackBar(
+                              messenger.showSnackBar(
+                                SnackBar(
                                   content: Text('Error: $e'),
                                   backgroundColor: Colors.red,
-                                ));
-                              }
+                                ),
+                              );
                             }
                           },
                   ),

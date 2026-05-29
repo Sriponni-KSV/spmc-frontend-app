@@ -27,6 +27,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   late TabController _tabController;
 
   bool _isLoading = true;
+  bool _isSimulating = false;
   String _userRole = 'Nurse';
   String _staffName = '';
 
@@ -38,6 +39,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   List<Map<String, dynamic>> _progressNotes = [];
   List<Map<String, dynamic>> _labOrders = [];
   List<Map<String, dynamic>> _shiftHandovers = [];
+  List<Map<String, dynamic>>? _nurses = [];
 
   // Prescription Form Controllers
   final _prescFormKey = GlobalKey<FormState>();
@@ -144,6 +146,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         _ipdController.fetchProgressNotes(admissionId),
         _ipdController.fetchLabOrders(admissionId),
         _ipdController.fetchShiftHandovers(admissionId),
+        _ipdController.fetchNurses(),
       ]);
 
       if (mounted) {
@@ -155,6 +158,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           _progressNotes = futures[4];
           _labOrders = futures[5];
           _shiftHandovers = futures[6];
+          _nurses = futures[7];
           _isLoading = false;
         });
       }
@@ -442,6 +446,64 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     }
   }
 
+  Future<void> _simulateVitals({
+    required double spo2,
+    required double systolic,
+    required double diastolic,
+    required double temp,
+    required double pulse,
+    required double respRate,
+    required String description,
+  }) async {
+    setState(() => _isSimulating = true);
+    try {
+      final admissionId = widget.admission['id'];
+      final patientId = widget.admission['patient_id'];
+
+      await _ipdController.createVitals(admissionId, {
+        'patient_id': patientId,
+        'spo2': spo2,
+        'blood_pressure_systolic': systolic,
+        'blood_pressure_diastolic': diastolic,
+        'temperature': temp,
+        'pulse': pulse,
+        'respiratory_rate': respRate,
+        'reason_for_visit': 'ICU Telemetry: $description',
+      });
+
+      await _loadAllData();
+
+      if (mounted) {
+        final activeAlerts = _icuAlerts.where((a) => a['status'] == 'Active').toList();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Telemetry Logged: $description.' +
+              (activeAlerts.isNotEmpty
+                  ? ' ⚠️ Critical Alert Triggered: ${activeAlerts.first['alert_message']}'
+                  : ' Vitals within safe range.'),
+            ),
+            backgroundColor: activeAlerts.isNotEmpty ? Colors.red : Colors.green,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Simulation failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSimulating = false);
+      }
+    }
+  }
+
   Future<void> _submitProgressNote() async {
     if (!_progFormKey.currentState!.validate()) return;
 
@@ -714,6 +776,12 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                       AppRoutes.doctorIpd,
                       true,
                     ),
+                    _buildSidebarItem(
+                      Icons.healing_outlined,
+                      'OT Management',
+                      AppRoutes.doctorOt,
+                      false,
+                    ),
                   ] else if (isAdmin) ...[
                     _buildSidebarItem(
                       Icons.dashboard_outlined,
@@ -757,6 +825,12 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                       AppRoutes.adminIpd,
                       true,
                     ),
+                    _buildSidebarItem(
+                      Icons.healing_outlined,
+                      'OT Management',
+                      AppRoutes.adminOt,
+                      false,
+                    ),
                   ] else ...[
                     // Nurse
                     _buildSidebarItem(
@@ -794,6 +868,12 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                       'IPD Management',
                       AppRoutes.nurseIpd,
                       true,
+                    ),
+                    _buildSidebarItem(
+                      Icons.healing_outlined,
+                      'OT Management',
+                      AppRoutes.nurseOt,
+                      false,
                     ),
                     _buildSidebarItem(
                       Icons.person_outline,
@@ -2644,7 +2724,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                                     'Ordered',
                                     lab['created_at'] != null
                                         ? DateFormat('dd/MM/yyyy').format(
-                                            DateTime.parse(lab['created_at']),
+                                            DateTime.parse(lab['created_at']).toLocal(),
                                           )
                                         : '--',
                                     Icons.calendar_today_outlined,
@@ -3111,7 +3191,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                                                 ).format(
                                                   DateTime.parse(
                                                     note['created_at'],
-                                                  ),
+                                                  ).toLocal(),
                                                 )
                                               : '--',
                                           style: TextStyle(
@@ -3207,7 +3287,489 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     );
   }
 
+  Widget _buildNonIcuNotice() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blueGrey.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.monitor_heart_outlined, color: Colors.blueGrey.shade300, size: 48),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'ICU Monitoring Inactive',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This patient is currently admitted to a ${widget.admission['ward_type'] ?? 'regular'} bed. ICU Telemetry and active alert logging are only available for patients admitted to ICU beds.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Colors.grey,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBedsideMonitor(Map<String, dynamic>? latestVitals) {
+    final bool hasData = latestVitals != null;
+    
+    final pulseVal = hasData ? latestVitals['pulse']?.toString() ?? '--' : '--';
+    final spo2Val = hasData ? latestVitals['spo2']?.toString() ?? '--' : '--';
+    final sysVal = hasData ? latestVitals['blood_pressure_systolic']?.toString() ?? '--' : '--';
+    final diaVal = hasData ? latestVitals['blood_pressure_diastolic']?.toString() ?? '--' : '--';
+    final tempVal = hasData ? latestVitals['temperature']?.toString() ?? '--' : '--';
+    
+    final pulseAbnormal = hasData && latestVitals['pulse'] != null && _isVitalAbnormal('PULSE', latestVitals['pulse']);
+    final spo2Abnormal = hasData && latestVitals['spo2'] != null && _isVitalAbnormal('SPO2', latestVitals['spo2']);
+    final bpAbnormal = hasData && latestVitals['blood_pressure_systolic'] != null && _isVitalAbnormal('BP_SYS', latestVitals['blood_pressure_systolic']);
+    final tempAbnormal = hasData && latestVitals['temperature'] != null && _isVitalAbnormal('TEMP', latestVitals['temperature']);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.blueGrey.shade800, width: 1.5),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.monitor_heart, color: Colors.greenAccent, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'ICU BEDSIDE MONITOR - BED ${widget.admission['bed_number'] ?? 'ICU'}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  _PulseDot(active: hasData && !pulseAbnormal, alert: pulseAbnormal),
+                  const SizedBox(width: 6),
+                  Text(
+                    hasData ? 'TELEMETRY LIVE' : 'MONITOR STANDBY',
+                    style: TextStyle(
+                      color: hasData 
+                        ? (pulseAbnormal || spo2Abnormal ? Colors.redAccent : Colors.greenAccent) 
+                        : Colors.amberAccent,
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          GridView.count(
+            crossAxisCount: MediaQuery.of(context).size.width < 800 ? 2 : 4,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.4,
+            children: [
+              _buildTelemetryCell(
+                title: 'PULSE / HR',
+                value: pulseVal,
+                unit: 'bpm',
+                icon: Icons.favorite,
+                color: const Color(0xFF10B981),
+                isAbnormal: pulseAbnormal,
+                hasData: pulseVal != '--',
+              ),
+              _buildTelemetryCell(
+                title: 'SPO2',
+                value: spo2Val,
+                unit: '%',
+                icon: Icons.opacity,
+                color: const Color(0xFF06B6D4),
+                isAbnormal: spo2Abnormal,
+                hasData: spo2Val != '--',
+              ),
+              _buildTelemetryCell(
+                title: 'BLOOD PRESSURE',
+                value: hasData && sysVal != '--' ? '$sysVal/$diaVal' : '--',
+                unit: 'mmHg',
+                icon: Icons.bloodtype,
+                color: const Color(0xFFF59E0B),
+                isAbnormal: bpAbnormal,
+                hasData: sysVal != '--',
+              ),
+              _buildTelemetryCell(
+                title: 'TEMPERATURE',
+                value: tempVal,
+                unit: '°F',
+                icon: Icons.thermostat,
+                color: const Color(0xFFEC4899),
+                isAbnormal: tempAbnormal,
+                hasData: tempVal != '--',
+              ),
+            ],
+          ),
+          if (!hasData) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade900.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade800.withOpacity(0.5)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.amberAccent.shade200, size: 18),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'No vitals telemetry streamed. Use the simulator below to log baseline vitals.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontFamily: AppTheme.fontFamily,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Last Streamed: ${DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.parse(latestVitals['created_at']).toLocal())}',
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 11,
+                    fontFamily: AppTheme.fontFamily,
+                  ),
+                ),
+                if (pulseAbnormal || spo2Abnormal || bpAbnormal || tempAbnormal)
+                  const _BlinkingAlertText(),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTelemetryCell({
+    required String title,
+    required String value,
+    required String unit,
+    required IconData icon,
+    required Color color,
+    required bool isAbnormal,
+    required bool hasData,
+  }) {
+    final displayColor = isAbnormal ? Colors.redAccent : color;
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isAbnormal ? Colors.redAccent.withOpacity(0.8) : Colors.blueGrey.shade800,
+          width: isAbnormal ? 1.5 : 1,
+        ),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.grey.shade400,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                  fontFamily: AppTheme.fontFamily,
+                ),
+              ),
+              Icon(
+                icon,
+                color: displayColor.withOpacity(0.7),
+                size: 16,
+              ),
+            ],
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: displayColor,
+                    fontSize: value.length > 5 ? 16 : 24,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'Courier',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                unit,
+                style: TextStyle(
+                  color: Colors.grey.shade500,
+                  fontSize: 10,
+                  fontFamily: AppTheme.fontFamily,
+                ),
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: isAbnormal 
+                  ? Colors.red.withOpacity(0.2) 
+                  : (hasData ? color.withOpacity(0.1) : Colors.grey.withOpacity(0.1)),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              isAbnormal ? 'CRITICAL' : (hasData ? 'NORMAL' : 'STANDBY'),
+              style: TextStyle(
+                color: isAbnormal ? Colors.redAccent : (hasData ? color : Colors.grey.shade500),
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSimulationPanel() {
+    return Card(
+      elevation: 0,
+      color: Colors.blueGrey.shade50.withOpacity(0.4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.blueGrey.shade100),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.tune, color: AppTheme.primaryColor),
+                const SizedBox(width: 8),
+                const Text(
+                  'ICU Telemetry Simulator',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: AppTheme.fontFamily,
+                  ),
+                ),
+                if (_isSimulating) ...[
+                  const SizedBox(width: 12),
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Verify the bedside monitor and critical ICU alert triggers on-the-fly using preset telemetry signs:',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _buildSimButton(
+                  label: 'Normal Vitals',
+                  description: 'Pulse 72 | SPO2 98% | BP 120/80',
+                  color: Colors.green,
+                  onPressed: _isSimulating ? null : () => _simulateVitals(
+                    spo2: 98,
+                    systolic: 120,
+                    diastolic: 80,
+                    temp: 98.4,
+                    pulse: 72,
+                    respRate: 16,
+                    description: 'Normal Vitals Preset',
+                  ),
+                ),
+                _buildSimButton(
+                  label: 'Critical SPO2 (Hypoxia)',
+                  description: 'SPO2 88% (Threshold < 90%)',
+                  color: Colors.red,
+                  onPressed: _isSimulating ? null : () => _simulateVitals(
+                    spo2: 88,
+                    systolic: 110,
+                    diastolic: 70,
+                    temp: 98.6,
+                    pulse: 85,
+                    respRate: 22,
+                    description: 'Critical SPO2 (Hypoxia)',
+                  ),
+                ),
+                _buildSimButton(
+                  label: 'Critical BP (Hypertension)',
+                  description: 'BP Systolic 175 (Threshold > 170)',
+                  color: Colors.orange,
+                  onPressed: _isSimulating ? null : () => _simulateVitals(
+                    spo2: 96,
+                    systolic: 175,
+                    diastolic: 95,
+                    temp: 98.2,
+                    pulse: 98,
+                    respRate: 18,
+                    description: 'Critical BP (Hypertension)',
+                  ),
+                ),
+                _buildSimButton(
+                  label: 'High Fever (Hyperpyrexia)',
+                  description: 'Temp 103.0°F (Threshold > 102°F)',
+                  color: Colors.pink,
+                  onPressed: _isSimulating ? null : () => _simulateVitals(
+                    spo2: 95,
+                    systolic: 115,
+                    diastolic: 75,
+                    temp: 103.0,
+                    pulse: 110,
+                    respRate: 20,
+                    description: 'High Fever (Hyperpyrexia)',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSimButton({
+    required String label,
+    required String description,
+    required Color color,
+    required VoidCallback? onPressed,
+  }) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 240),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: AppTheme.fontFamily,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey.shade600,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDoctorIcuTab() {
+    if (widget.admission['ward_type'] != 'ICU') {
+      return _buildNonIcuNotice();
+    }
+
     final activeAlerts = _icuAlerts
         .where((a) => a['status'] == 'Active')
         .toList();
@@ -3215,11 +3777,17 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         .where((a) => a['status'] == 'Resolved')
         .toList();
 
+    final latestVitals = _vitalsHistory.isNotEmpty ? _vitalsHistory.first : null;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildBedsideMonitor(latestVitals),
+          const SizedBox(height: 20),
+          _buildSimulationPanel(),
+          const SizedBox(height: 24),
           const Text(
             'Active ICU Alerts',
             style: TextStyle(
@@ -5018,15 +5586,25 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildNurseIcuTab() {
+    if (widget.admission['ward_type'] != 'ICU') {
+      return _buildNonIcuNotice();
+    }
+
     final activeAlerts = _icuAlerts
         .where((a) => a['status'] == 'Active')
         .toList();
 
-    return Padding(
+    final latestVitals = _vitalsHistory.isNotEmpty ? _vitalsHistory.first : null;
+
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildBedsideMonitor(latestVitals),
+          const SizedBox(height: 20),
+          _buildSimulationPanel(),
+          const SizedBox(height: 24),
           const Text(
             'ICU Alerts Desk',
             style: TextStyle(
@@ -5041,51 +5619,57 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
             style: TextStyle(color: Colors.grey),
           ),
           const SizedBox(height: 16),
-          Expanded(
-            child: activeAlerts.isEmpty
-                ? const Center(child: Text('No active critical alerts.'))
-                : ListView.builder(
-                    itemCount: activeAlerts.length,
-                    itemBuilder: (context, index) {
-                      final a = activeAlerts[index];
-                      final date = DateFormat(
-                        'dd/MM/yyyy HH:mm',
-                      ).format(DateTime.parse(a['created_at']).toLocal());
+          if (activeAlerts.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Text('No active critical alerts.'),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: activeAlerts.length,
+              itemBuilder: (context, index) {
+                final a = activeAlerts[index];
+                final date = DateFormat(
+                  'dd/MM/yyyy HH:mm',
+                ).format(DateTime.parse(a['created_at']).toLocal());
 
-                      return Card(
-                        elevation: 0,
-                        color: Colors.red.shade50,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: const BorderSide(color: Colors.red),
-                        ),
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          title: Text(
-                            '${a['alert_type']} (${a['severity']})',
-                            style: TextStyle(
-                              color: Colors.red.shade800,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Text(
-                            '${a['alert_message']}\nTriggered: $date',
-                          ),
-                          trailing: ElevatedButton(
-                            onPressed: () => _resolveAlert(a['id']),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                            ),
-                            child: const Text(
-                              'Resolve Alert',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+                return Card(
+                  elevation: 0,
+                  color: Colors.red.shade50,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: const BorderSide(color: Colors.red),
                   ),
-          ),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    title: Text(
+                      '${a['alert_type']} (${a['severity']})',
+                      style: TextStyle(
+                        color: Colors.red.shade800,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${a['alert_message']}\nTriggered: $date',
+                    ),
+                    trailing: ElevatedButton(
+                      onPressed: () => _resolveAlert(a['id']),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                      ),
+                      child: const Text(
+                        'Resolve Alert',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -5154,11 +5738,60 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
                       const SizedBox(height: 30),
 
-                      _buildHandoverField(
-                        controller: _incomingNurseController,
-                        label: 'Incoming Nurse Name',
-                        hint: 'Enter nurse name',
-                        icon: Icons.person_outline,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Incoming Nurse Name',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: _incomingNurseController.text.isNotEmpty && (_nurses ?? []).any((n) => n['name'] == _incomingNurseController.text)
+                                ? _incomingNurseController.text
+                                : null,
+                            decoration: InputDecoration(
+                              hintText: 'Select incoming nurse',
+                              prefixIcon: const Icon(Icons.person_outline, color: AppTheme.primaryColor, size: 18),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: AppTheme.primaryColor,
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                            items: (_nurses ?? []).map((nurse) {
+                              final name = nurse['name']?.toString() ?? 'Unknown';
+                              final dept = nurse['department']?.toString() ?? '';
+                              final displayText = dept.isNotEmpty ? '$name ($dept)' : name;
+                              return DropdownMenuItem<String>(
+                                value: name,
+                                child: Text(displayText),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _incomingNurseController.text = val;
+                                });
+                              }
+                            },
+                            validator: (val) {
+                              if (val == null || val.isEmpty) {
+                                return 'Please select an incoming nurse';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
                       ),
 
                       const SizedBox(height: 20),
@@ -5610,6 +6243,121 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           const SizedBox(height: 16),
           Text(text, style: const TextStyle(color: Colors.grey, fontSize: 14)),
         ],
+      ),
+    );
+  }
+}
+
+class _PulseDot extends StatefulWidget {
+  final bool active;
+  final bool alert;
+  const _PulseDot({Key? key, required this.active, required this.alert}) : super(key: key);
+
+  @override
+  State<_PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.active && !widget.alert) {
+      return Container(
+        width: 8,
+        height: 8,
+        decoration: const BoxDecoration(
+          color: Colors.amber,
+          shape: BoxShape.circle,
+        ),
+      );
+    }
+    
+    final color = widget.alert ? Colors.redAccent : Colors.greenAccent;
+    return FadeTransition(
+      opacity: _animation,
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: color,
+              blurRadius: 4,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BlinkingAlertText extends StatefulWidget {
+  const _BlinkingAlertText({Key? key}) : super(key: key);
+
+  @override
+  State<_BlinkingAlertText> createState() => _BlinkingAlertTextState();
+}
+
+class _BlinkingAlertTextState extends State<_BlinkingAlertText> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.1, end: 1.0).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _animation,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.red.shade900,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: const Text(
+          '⚠️ TELEMETRY CRITICAL ALERT',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
       ),
     );
   }

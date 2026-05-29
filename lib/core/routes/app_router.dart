@@ -9,6 +9,7 @@ import '../../screens/forgot_password_page.dart';
 import '../../screens/login_page.dart';
 import '../../screens/force_change_password_screen.dart';
 import '../../screens/nurse_dashboard.dart';
+import '../../screens/front_desk_dashboard.dart';
 import 'route_constants.dart';
 import 'screens/not_found_screen.dart';
 
@@ -55,6 +56,10 @@ class AppRouter {
               role == 'Supervisor' ||
               role == 'Super Admin') {
             return AppRoutes.adminDashboard;
+          } else if (role == 'Front Desk' ||
+              role == 'Receptionist' ||
+              role == 'Reception') {
+            return AppRoutes.receptionDashboard;
           } else {
             return AppRoutes.doctorDashboard; // Default to Doctor dashboard
           }
@@ -85,6 +90,7 @@ class AppRouter {
           // Allow reception routes or redirect (in case reception features are merged with Nurse)
           final isReception = userRole == 'Receptionist' ||
               userRole == 'Reception' ||
+              userRole == 'Front Desk' ||
               userRole == 'Nurse' ||
               userRole == 'Head Nurse';
           if (!isReception) {
@@ -174,6 +180,13 @@ class AppRouter {
             child: AdminDashboardScreen(initialIndex: 6),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.adminOt,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 7),
+          ),
+        ),
 
         // --- Nurse Protected Routes ---
         GoRoute(
@@ -245,6 +258,13 @@ class AppRouter {
             child: NurseDashboardScreen(initialIndex: 6),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.nurseOt,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('nurse_dashboard'),
+            child: NurseDashboardScreen(initialIndex: 7),
+          ),
+        ),
 
         // --- Doctor Protected Routes ---
         GoRoute(
@@ -276,6 +296,13 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.doctorOt,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('doctor_dashboard'),
+            child: DashboardScreen(initialIndex: 4),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.doctorProfile,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('doctor_dashboard'),
@@ -288,14 +315,63 @@ class AppRouter {
           path: AppRoutes.receptionDashboard,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('reception_dashboard'),
-            child: NurseDashboardScreen(initialIndex: 0), // Reception uses shared registration dashboard
+            child: FrontDeskDashboardScreen(initialIndex: 0),
           ),
         ),
         GoRoute(
           path: AppRoutes.receptionAppointments,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('reception_dashboard'),
-            child: NurseDashboardScreen(initialIndex: 2),
+            child: FrontDeskDashboardScreen(initialIndex: 2),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.frontDeskPatients,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('reception_dashboard'),
+            child: FrontDeskDashboardScreen(initialIndex: 1),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.frontDeskNewPatient,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('reception_dashboard'),
+            child: FrontDeskDashboardScreen(initialIndex: 1, isRegisteringPatient: true),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.frontDeskBookAppointment,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('reception_dashboard'),
+            child: FrontDeskDashboardScreen(initialIndex: 2, forceBooking: true),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.frontDeskAppointments,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('reception_dashboard'),
+            child: FrontDeskDashboardScreen(initialIndex: 2),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.frontDeskDoctors,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('reception_dashboard'),
+            child: FrontDeskDashboardScreen(initialIndex: 3),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.frontDeskAdmissionCounter,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('reception_dashboard'),
+            child: FrontDeskDashboardScreen(initialIndex: 4),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.frontDeskProfile,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('reception_dashboard'),
+            child: FrontDeskDashboardScreen(initialIndex: 5),
           ),
         ),
       ],

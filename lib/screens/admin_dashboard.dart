@@ -24,6 +24,7 @@ import 'admin_appointment_management.dart';
 import 'opd_management.dart';
 import 'admin_staff_profile_view.dart';
 import 'ipd_management.dart';
+import 'ot_management.dart';
 import '../utils/password_policy.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -187,12 +188,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       listen: false,
                     ).user?.role;
 
-                    // Allow Super Admin to assign any role. Admin can only assign Doctor/Nurse
+                    // Allow Super Admin to assign any role. Admin can only assign Doctor/Nurse/Front Desk
                     final orderedRoles = [
                       'Super Admin',
                       'Admin',
                       'Doctor',
                       'Nurse',
+                      'Front Desk',
                     ];
                     availableRoles = rolesList
                         .map((r) => r['role_name'].toString())
@@ -200,6 +202,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           if (currentUserRole == 'Super Admin') return true;
                           return r == 'Doctor' ||
                               r == 'Nurse' ||
+                              r == 'Front Desk' ||
                               r == selectedRole;
                         })
                         .toList();
@@ -756,6 +759,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           return IPDManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
+      case 7:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return OTManagementScreen(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
       default:
         return _buildControlPanel(isMobile);
     }
@@ -982,6 +990,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       'Admin',
                       'Doctor',
                       'Nurse',
+                      'Front Desk',
                     ];
                     dbRoles.sort((a, b) {
                       int indexA = orderedRoles.indexOf(a);
@@ -1227,6 +1236,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           case 'Super Admin':
                             roleColor = const Color(0xFFEC4899);
                             break;
+                          case 'Front Desk':
+                            roleColor = const Color(0xFF8B5CF6);
+                            break;
                           default:
                             roleColor = Colors.grey;
                             break;
@@ -1448,6 +1460,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             break;
           case 'Super Admin':
             roleColor = const Color(0xFFEC4899);
+            break;
+          case 'Front Desk':
+            roleColor = const Color(0xFF8B5CF6);
             break;
           default:
             roleColor = Colors.grey;
@@ -1729,6 +1744,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     'OPD Management',
                   ),
                   _buildSidebarItem(6, Icons.hotel_outlined, 'IPD Management'),
+                  _buildSidebarItem(7, Icons.healing_outlined, 'OT Management'),
                 ],
               ),
             ),
@@ -1831,6 +1847,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             break;
           case 6:
             context.go(AppRoutes.adminIpd);
+            break;
+          case 7:
+            context.go(AppRoutes.adminOt);
             break;
           default:
             context.go(AppRoutes.adminDashboard);
@@ -2323,7 +2342,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
   final AdminController _adminController = AdminController();
 
   String? _selectedRole;
-  List<String> _roles = ['Doctor', 'Nurse'];
+  List<String> _roles = ['Doctor', 'Nurse', 'Front Desk'];
   int? _selectedSpecializationId;
   List<Map<String, dynamic>> _specializations = [];
   bool _isLoading = false;
@@ -2354,10 +2373,10 @@ class _AddUserDialogState extends State<AddUserDialog> {
         setState(() {
           _roles = rolesList.map((r) => r['role_name'].toString()).where((r) {
             if (currentUserRole == 'Super Admin') return true;
-            return r == 'Doctor' || r == 'Nurse';
+            return r == 'Doctor' || r == 'Nurse' || r == 'Front Desk';
           }).toList();
 
-          final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse'];
+          final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse', 'Front Desk'];
           _roles.sort((a, b) {
             int indexA = orderedRoles.indexOf(a);
             int indexB = orderedRoles.indexOf(b);

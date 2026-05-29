@@ -53,7 +53,23 @@ class IpdController {
     }
   }
 
-  /// Fetch appointments marked 'Admitted' by doctor but not yet assigned a bed
+  /// Fetch appointments marked 'Admission Requested' by doctor (awaiting Front Desk processing)
+  Future<List<Map<String, dynamic>>> fetchPendingRequests() async {
+    try {
+      final response = await ApiService.get('$baseUrl/ipd/pending-requests');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch pending requests');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch IPD admission records in 'Pending Allocation' status (awaiting nurse bed assignment)
   Future<List<Map<String, dynamic>>> fetchPendingAdmissions() async {
     try {
       final response = await ApiService.get('$baseUrl/ipd/pending-admissions');
@@ -83,7 +99,7 @@ class IpdController {
   }
 
   /// Doctor recommends patient for IPD admission (no bed allocated yet).
-  /// Creates a pending admission record that the nurse will fulfil.
+  /// Front Desk will verify and create the admission record.
   Future<void> createPendingAdmission(Map<String, dynamic> data) async {
     try {
       final response = await ApiService.post(
@@ -94,6 +110,24 @@ class IpdController {
       if (response.statusCode != 201) {
         throw Exception(body['message'] ?? 'Failed to create admission request');
       }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Front Desk creates the admission record after verifying patient, insurance and docs.
+  /// Creates a 'Pending Allocation' admission record for the nurse to allocate a bed.
+  Future<Map<String, dynamic>> createAdmissionRecord(Map<String, dynamic> data) async {
+    try {
+      final response = await ApiService.post(
+        '$baseUrl/ipd/admissions/admission-counter',
+        data,
+      );
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 201) {
+        throw Exception(body['message'] ?? 'Failed to create admission record');
+      }
+      return Map<String, dynamic>.from(body['data'] ?? {});
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
