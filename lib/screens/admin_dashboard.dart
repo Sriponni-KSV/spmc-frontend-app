@@ -26,6 +26,8 @@ import 'admin_staff_profile_view.dart';
 import 'ipd_management.dart';
 import 'ot_management.dart';
 import '../utils/password_policy.dart';
+import '../controllers/nurse_shift_controller.dart';
+
 
 class AdminDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -51,6 +53,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   PatientModel? _patientToComplete;
   UserModel? _viewingStaffProfile;
 
+  final NurseShiftController _shiftCtrl = NurseShiftController();
+  List<Map<String, dynamic>> _shifts = [];
+  List<Map<String, dynamic>> _allocations = [];
+  List<UserModel> _nurses = [];
+  bool _isLoadingShifts = false;
+
+  UserModel? _selectedAllocNurse;
+  Map<String, dynamic>? _selectedAllocShift;
+  String? _selectedAllocWard;
+  DateTime? _selectedAllocDate;
+
+
+
   @override
   void dispose() {
     _verticalScrollController.dispose();
@@ -66,6 +81,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _loadStaff();
     _loadRbacData();
     _fetchPatients();
+    if (_selectedIndex == 8) {
+      _loadShiftData();
+    }
   }
 
   @override
@@ -75,8 +93,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       setState(() {
         _selectedIndex = widget.initialIndex;
       });
+      if (_selectedIndex == 8) {
+        _loadShiftData();
+      }
     }
   }
+
+  Future<void> _loadShiftData() async {
+    if (!mounted) return;
+    setState(() => _isLoadingShifts = true);
+    try {
+      final results = await Future.wait([
+        _shiftCtrl.fetchShifts(),
+        _shiftCtrl.fetchAllocations(),
+        _adminController.fetchStaff(role: 'Nurse'),
+      ]);
+      if (mounted) {
+        setState(() {
+          _shifts = List<Map<String, dynamic>>.from(results[0]);
+          _allocations = List<Map<String, dynamic>>.from(results[1]);
+          _nurses = List<UserModel>.from(results[2]);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading shift data: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingShifts = false);
+      }
+    }
+  }
+
 
   Future<void> _fetchPatients() async {
     try {
@@ -764,6 +811,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           return OTManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
+      case 8:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return _buildShiftManagement(isMobile);
+        }
+        return const AccessDeniedWidget();
+
       default:
         return _buildControlPanel(isMobile);
     }
@@ -1745,6 +1798,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   _buildSidebarItem(6, Icons.hotel_outlined, 'IPD Management'),
                   _buildSidebarItem(7, Icons.healing_outlined, 'OT Management'),
+                  _buildSidebarItem(8, Icons.schedule_outlined, 'Shift Allocation'),
+
                 ],
               ),
             ),
@@ -1850,6 +1905,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             break;
           case 7:
             context.go(AppRoutes.adminOt);
+            break;
+          case 8:
+            context.go(AppRoutes.adminShifts);
             break;
           default:
             context.go(AppRoutes.adminDashboard);
@@ -2322,6 +2380,633 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
       ),
     );
+  }
+
+  // ─── Shift Allocation and Management UI ──────────────────────────────────────
+
+  Widget _buildShiftManagement(bool isMobile) {
+    if (_isLoadingShifts) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Shift Allocation & Management',
+                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Define shift schedules and allocate nurses to active shifts',
+                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                onPressed: _loadShiftData,
+                tooltip: 'Refresh Shift Data',
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Two-column layout for Config and Allocation
+          if (isMobile) ...[
+            _buildShiftDefinitionsCard(),
+            const SizedBox(height: 24),
+            _buildAllocateNurseCard(),
+          ] else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 1, child: _buildShiftDefinitionsCard()),
+                const SizedBox(width: 24),
+                Expanded(flex: 1, child: _buildAllocateNurseCard()),
+              ],
+            ),
+
+          const SizedBox(height: 24),
+          // History/Allocation Logs
+          _buildAllocationLogsCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShiftDefinitionsCard() {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.schedule, color: AppTheme.primaryColor),
+                    SizedBox(width: 10),
+                    Text(
+                      'Shift Schedules',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _showShiftDialog(null),
+                  icon: const Icon(Icons.add, size: 14),
+                  label: const Text('Define Shift', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            if (_shifts.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Center(
+                  child: Text(
+                    'No shift schedules defined.',
+                    style: TextStyle(color: Colors.grey.shade500),
+                  ),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _shifts.length,
+                itemBuilder: (context, index) {
+                  final shift = _shifts[index];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              shift['name'] ?? '',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Timings: ${shift['start_time']?.toString().substring(0, 5) ?? '--'} - ${shift['end_time']?.toString().substring(0, 5) ?? '--'}',
+                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
+                              onPressed: () => _showShiftDialog(shift),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                              onPressed: () => _deleteShift(shift['id']),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAllocateNurseCard() {
+    final WARD_TYPES = ['General', 'ICU', 'Private', 'Semi-Private'];
+
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.assignment_ind_outlined, color: AppTheme.primaryColor),
+                SizedBox(width: 10),
+                Text(
+                  'Allocate Nurse',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+
+            // Dropdown Nurse
+            const Text('Nurse', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<UserModel>(
+              value: _selectedAllocNurse == null || !_nurses.any((n) => n.id == _selectedAllocNurse!.id)
+                  ? null
+                  : _nurses.firstWhere((n) => n.id == _selectedAllocNurse!.id),
+              hint: const Text('Select Nurse'),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.person_outline, size: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              items: _nurses.map((n) {
+                return DropdownMenuItem<UserModel>(
+                  value: n,
+                  child: Text(n.fullname),
+                );
+              }).toList(),
+              onChanged: (val) => setState(() => _selectedAllocNurse = val),
+            ),
+            const SizedBox(height: 16),
+
+            // Dropdown Shift
+            const Text('Shift Schedule', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<Map<String, dynamic>>(
+              value: _selectedAllocShift == null || !_shifts.any((s) => s['id'] == _selectedAllocShift!['id'])
+                  ? null
+                  : _shifts.firstWhere((s) => s['id'] == _selectedAllocShift!['id']),
+              hint: const Text('Select Shift'),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.schedule, size: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              items: _shifts.map((s) {
+                return DropdownMenuItem<Map<String, dynamic>>(
+                  value: s,
+                  child: Text('${s['name']} (${s['start_time']?.toString().substring(0, 5)} - ${s['end_time']?.toString().substring(0, 5)})'),
+                );
+              }).toList(),
+              onChanged: (val) => setState(() => _selectedAllocShift = val),
+            ),
+            const SizedBox(height: 16),
+
+            // Dropdown Ward
+            const Text('Ward / Department', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _selectedAllocWard,
+              hint: const Text('Select Ward'),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.bed_outlined, size: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              items: WARD_TYPES.map((w) {
+                return DropdownMenuItem<String>(
+                  value: w,
+                  child: Text('$w Ward'),
+                );
+              }).toList(),
+              onChanged: (val) => setState(() => _selectedAllocWard = val),
+            ),
+            const SizedBox(height: 16),
+
+            // Date Picker
+            const Text('Allocation Date', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                  lastDate: DateTime.now().add(const Duration(days: 90)),
+                );
+                if (picked != null) {
+                  setState(() => _selectedAllocDate = picked);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade400),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _selectedAllocDate != null
+                          ? DateFormat('yyyy-MM-dd').format(_selectedAllocDate!)
+                          : 'Choose Date',
+                    ),
+                    const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Save Button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: _submitAllocation,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Save Shift Allocation', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAllocationLogsCard() {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.history, color: AppTheme.primaryColor),
+                SizedBox(width: 10),
+                Text(
+                  'Allocation Logs & Schedule History',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            if (_allocations.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Center(
+                  child: Text(
+                    'No shift allocations logged.',
+                    style: TextStyle(color: Colors.grey.shade500),
+                  ),
+                ),
+              )
+            else
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  columnSpacing: 30,
+                  columns: const [
+                    DataColumn(label: Text('Date')),
+                    DataColumn(label: Text('Nurse')),
+                    DataColumn(label: Text('Ward')),
+                    DataColumn(label: Text('Shift')),
+                    DataColumn(label: Text('Timings')),
+                    DataColumn(label: Text('Status')),
+                    DataColumn(label: Text('Actions')),
+                  ],
+                  rows: _allocations.map((alloc) {
+                    final dateStr = alloc['allocation_date'] != null
+                        ? DateFormat('yyyy-MM-dd').format(DateTime.parse(alloc['allocation_date']))
+                        : '--';
+                    final timings = '${alloc['start_time']?.toString().substring(0, 5) ?? '--'} - ${alloc['end_time']?.toString().substring(0, 5) ?? '--'}';
+                    final status = alloc['status'] ?? 'Active';
+                    final statusColor = status == 'Active' ? Colors.green : Colors.grey;
+
+                    return DataRow(
+                      cells: [
+                        DataCell(Text(dateStr)),
+                        DataCell(Text(alloc['nurse_name'] ?? 'Unknown')),
+                        DataCell(Text('${alloc['ward_type'] ?? ''} Ward')),
+                        DataCell(Text(alloc['shift_name'] ?? '')),
+                        DataCell(Text(timings)),
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                            onPressed: () => _deleteAllocation(alloc['id']),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- Helpers & Dialogs ---
+
+  void _showShiftDialog(Map<String, dynamic>? shift) {
+    final nameCtrl = TextEditingController(text: shift?['name'] ?? '');
+    TimeOfDay? startTime = shift != null
+        ? TimeOfDay(
+            hour: int.parse(shift['start_time'].split(':')[0]),
+            minute: int.parse(shift['start_time'].split(':')[1]),
+          )
+        : null;
+    TimeOfDay? endTime = shift != null
+        ? TimeOfDay(
+            hour: int.parse(shift['end_time'].split(':')[0]),
+            minute: int.parse(shift['end_time'].split(':')[1]),
+          )
+        : null;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              title: Text(shift == null ? 'Define Shift Schedule' : 'Edit Shift Schedule'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Shift Name',
+                      hintText: 'e.g., Morning, Evening, Night',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        startTime != null
+                            ? 'Start Time: ${startTime!.format(dialogCtx)}'
+                            : 'Choose Start Time',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          final picked = await showTimePicker(
+                            context: dialogCtx,
+                            initialTime: startTime ?? const TimeOfDay(hour: 8, minute: 0),
+                          );
+                          if (picked != null) {
+                            setDialogState(() => startTime = picked);
+                          }
+                        },
+                        child: const Text('Pick'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        endTime != null
+                            ? 'End Time: ${endTime!.format(dialogCtx)}'
+                            : 'Choose End Time',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          final picked = await showTimePicker(
+                            context: dialogCtx,
+                            initialTime: endTime ?? const TimeOfDay(hour: 16, minute: 0),
+                          );
+                          if (picked != null) {
+                            setDialogState(() => endTime = picked);
+                          }
+                        },
+                        child: const Text('Pick'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (nameCtrl.text.isEmpty || startTime == null || endTime == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please complete all shift details.')),
+                      );
+                      return;
+                    }
+
+                    final startStr = '${startTime!.hour.toString().padLeft(2, '0')}:${startTime!.minute.toString().padLeft(2, '0')}:00';
+                    final endStr = '${endTime!.hour.toString().padLeft(2, '0')}:${endTime!.minute.toString().padLeft(2, '0')}:00';
+
+                    try {
+                      if (shift == null) {
+                        await _shiftCtrl.createShift(nameCtrl.text, startStr, endStr);
+                      } else {
+                        await _shiftCtrl.updateShift(shift['id'], nameCtrl.text, startStr, endStr);
+                      }
+                      Navigator.pop(dialogCtx);
+                      _loadShiftData();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Shift schedule saved successfully!')),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _deleteShift(int id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Shift'),
+        content: const Text('Are you sure you want to delete this shift schedule? All associated allocations will be deleted.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      try {
+        await _shiftCtrl.deleteShift(id);
+        _loadShiftData();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Shift schedule deleted successfully!')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _submitAllocation() async {
+    if (_selectedAllocNurse == null ||
+        _selectedAllocShift == null ||
+        _selectedAllocWard == null ||
+        _selectedAllocDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select Nurse, Shift, Ward, and Date.')),
+      );
+      return;
+    }
+
+    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedAllocDate!);
+
+    try {
+      await _shiftCtrl.createAllocation(
+        _selectedAllocNurse!.id,
+        _selectedAllocShift!['id'],
+        _selectedAllocWard!,
+        dateStr,
+      );
+      setState(() {
+        _selectedAllocNurse = null;
+        _selectedAllocShift = null;
+        _selectedAllocWard = null;
+        _selectedAllocDate = null;
+      });
+      _loadShiftData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nurse allocated successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _deleteAllocation(int id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Allocation'),
+        content: const Text('Are you sure you want to delete this nurse shift allocation?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      try {
+        await _shiftCtrl.deleteAllocation(id);
+        _loadShiftData();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Allocation deleted successfully!')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 }
 

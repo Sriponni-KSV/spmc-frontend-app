@@ -17,6 +17,8 @@ class AppRoutes {
   static const String adminOpd = '/admin/opd';
   static const String adminIpd = '/admin/ipd';
   static const String adminOt = '/admin/ot';
+  static const String adminShifts = '/admin/shifts';
+
 
   // Nurse Routes
   static const String nurseDashboard = '/nurse/dashboard';

@@ -11,6 +11,7 @@ import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'ipd_patient_detail_page.dart';
+import '../controllers/nurse_shift_controller.dart';
 
 class IPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -28,6 +29,10 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   final IpdController _ipdController = IpdController();
   final PatientController _patientController = PatientController();
   final AdminController _adminController = AdminController();
+  final NurseShiftController _nurseShiftController = NurseShiftController();
+
+  List<Map<String, dynamic>> _handoversList = [];
+  List<Map<String, dynamic>> _auditTrailList = [];
 
   List<Map<String, dynamic>> _beds = [];
   List<Map<String, dynamic>> _admissions = [];
@@ -53,7 +58,14 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       final role =
           Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
       _isDoctor = role == 'Doctor';
-      _tabController = TabController(length: _isDoctor ? 4 : 3, vsync: this);
+      final isNurse = role == 'Nurse';
+      int length = 3;
+      if (_isDoctor) {
+        length = 4;
+      } else if (isNurse) {
+        length = 5;
+      }
+      _tabController = TabController(length: length, vsync: this);
       _tabControllerReady = true;
     }
   }
@@ -75,6 +87,8 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
     List<PatientModel> patientsList = [];
     List<UserModel> doctorsList = [];
     List<Map<String, dynamic>> nursesList = [];
+    List<Map<String, dynamic>> handovers = [];
+    List<Map<String, dynamic>> auditLogs = [];
     String? errorMsg;
 
     try {
@@ -98,6 +112,16 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       nursesList = await _ipdController.fetchNurses();
     } catch (_) {}
 
+    final role = Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
+    if (role == 'Nurse') {
+      try {
+        handovers = await _nurseShiftController.fetchHandovers();
+      } catch (_) {}
+      try {
+        auditLogs = await _nurseShiftController.fetchAuditTrail();
+      } catch (_) {}
+    }
+
     if (mounted) {
       setState(() {
         _beds = bedsList;
@@ -105,6 +129,8 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         _patients = patientsList;
         _doctors = doctorsList;
         _nurses = nursesList;
+        _handoversList = handovers;
+        _auditTrailList = auditLogs;
         _isLoading = false;
       });
       if (errorMsg != null) {
@@ -150,6 +176,10 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                       _buildBedAvailabilityTab(),
                       _buildDischargeHistoryTab(),
                       if (_isDoctor) _buildICUDashboardTab(),
+                      if (userRole == 'Nurse') ...[
+                        _buildShiftHandoversTab(),
+                        _buildAuditTrailTab(),
+                      ],
                     ],
                   ),
                 ),
@@ -333,6 +363,8 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         .where((a) => a['status'] == 'Discharged')
         .length;
     final icuCount = _icuOccupancy;
+    final userRole = Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
+    final isNurse = userRole == 'Nurse';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -352,6 +384,10 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
           Tab(text: 'Bed Availability ($availableBeds/$totalBeds)'),
           Tab(text: 'Discharge History ($dischargeCount)'),
           if (isDoctor) Tab(text: 'ICU Dashboard ($icuCount)'),
+          if (isNurse) ...[
+            Tab(text: 'Shift Handovers (${_handoversList.length})'),
+            Tab(text: 'Audit Trail (${_auditTrailList.length})'),
+          ],
         ],
       ),
     );
@@ -3038,6 +3074,310 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
           );
         },
       ),
+    );
+  }
+
+  Widget _buildShiftHandoversTab() {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (_handoversList.isEmpty) {
+      return _buildEmptyState(
+        'No shift handovers recorded.',
+        Icons.swap_horiz_outlined,
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(24),
+      itemCount: _handoversList.length,
+      itemBuilder: (context, index) {
+        final h = _handoversList[index];
+        final bool isPending = h['status'] == 'Pending';
+        final bool isMyHandover = user != null && h['incoming_nurse_id']?.toString() == user.id.toString();
+        
+        final DateTime handoverTime = DateTime.parse(h['handover_time']).toLocal();
+        final String formattedTime = DateFormat('dd/MM/yyyy hh:mm a').format(handoverTime);
+
+        return Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${h['ward_type'] ?? 'General'} Ward · ${h['shift_name'] ?? 'Shift'}',
+                        style: const TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isPending ? Colors.amber.shade50 : Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: isPending ? Colors.amber.shade200 : Colors.green.shade200),
+                      ),
+                      child: Text(
+                        h['status'] ?? 'Unknown',
+                        style: TextStyle(
+                          color: isPending ? Colors.amber.shade800 : Colors.green.shade800,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Outgoing Nurse',
+                            style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            h['outgoing_nurse_name'] ?? 'Unassigned',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_rounded, color: Colors.grey, size: 16),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Incoming Nurse',
+                            style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            h['incoming_nurse_name'] ?? 'Unassigned',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Handover Time: $formattedTime',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                ),
+                if (h['handover_notes'] != null && h['handover_notes'].toString().trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Text(
+                      'Notes: ${h['handover_notes']}',
+                      style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                ],
+                if (isPending && isMyHandover) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showAcknowledgeHandoverDialog(h),
+                      icon: const Icon(Icons.check, size: 16, color: Colors.white),
+                      label: const Text('Acknowledge & Sign-in', style: TextStyle(color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber.shade700,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showAcknowledgeHandoverDialog(Map<String, dynamic> handover) async {
+    final notesController = TextEditingController();
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Acknowledge Handover - ${handover['ward_type'] ?? 'General'}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Incoming shift from ${handover['outgoing_nurse_name'] ?? 'Unassigned'} for ${handover['shift_name'] ?? 'Shift'}.',
+                style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Handover Notes / Comments (Optional):',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: notesController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Enter any observations or handoff status notes...',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+              onPressed: () async {
+                try {
+                  await _nurseShiftController.acknowledgeHandover(
+                    handover['id'],
+                    notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+                  );
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  _loadData();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Handover acknowledged successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Acknowledge', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAuditTrailTab() {
+    if (_auditTrailList.isEmpty) {
+      return _buildEmptyState(
+        'No audit logs available.',
+        Icons.list_alt_outlined,
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(24),
+      itemCount: _auditTrailList.length,
+      itemBuilder: (context, index) {
+        final log = _auditTrailList[index];
+        final eventType = log['event_type'] ?? '';
+        final DateTime eventAt = DateTime.parse(log['event_at']).toLocal();
+        final String formattedTime = DateFormat('dd/MM/yyyy hh:mm a').format(eventAt);
+
+        IconData icon;
+        Color color;
+        String title;
+
+        switch (eventType) {
+          case 'allocated':
+            icon = Icons.assignment_ind_outlined;
+            color = Colors.blue;
+            title = 'Shift Allocated';
+            break;
+          case 'handover_generated':
+            icon = Icons.swap_horiz;
+            color = Colors.amber;
+            title = 'Handover Auto-Generated';
+            break;
+          case 'handover_completed':
+            icon = Icons.check_circle_outline;
+            color = Colors.green;
+            title = 'Handover Completed';
+            break;
+          default:
+            icon = Icons.info_outline;
+            color = Colors.grey;
+            title = eventType;
+        }
+
+        return Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              backgroundColor: color.withOpacity(0.1),
+              child: Icon(icon, color: color),
+            ),
+            title: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text(
+                  'Nurse: ${log['nurse_name'] ?? 'Unknown'} • Ward: ${log['ward_type'] ?? 'Unknown'} • Shift: ${log['shift_name'] ?? 'Unknown'}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Timestamp: $formattedTime',
+                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

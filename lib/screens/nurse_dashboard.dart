@@ -22,6 +22,8 @@ import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
 import '../utils/logout_helper.dart';
 import '../models/user_model.dart';
+import '../controllers/nurse_shift_controller.dart';
+
 
 class NurseDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -50,9 +52,17 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   String? _patientError;
   final PatientController _patientController = PatientController();
   final AppointmentController _appointmentController = AppointmentController();
+
   bool _isLoadingPatients = false;
   List<AppointmentModel> _dbAppointments = [];
   bool _isLoadingAppointments = false;
+
+  final NurseShiftController _shiftCtrl = NurseShiftController();
+  Map<String, dynamic>? _activeShiftData;
+  List<Map<String, dynamic>> _allWardsShiftData = [];
+  bool _isLoadingShiftStatus = false;
+  List<Map<String, dynamic>> _handovers = [];
+
 
   @override
   void initState() {
@@ -78,8 +88,92 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Future<void> _fetchData() async {
-    await Future.wait([_fetchPatients(), _fetchAppointments()]);
+    await Future.wait([
+      _fetchPatients(),
+      _fetchAppointments(),
+      _fetchShiftStatus(),
+      _fetchHandovers(),
+    ]);
   }
+
+  Future<void> _fetchShiftStatus() async {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user == null) return;
+
+    if (mounted) setState(() => _isLoadingShiftStatus = true);
+    try {
+      final res = await _shiftCtrl.fetchActiveShift();
+      if (res['success'] == true && res['active'] == true) {
+        final List data = res['data'] ?? [];
+        final list = List<Map<String, dynamic>>.from(data);
+
+        // Find if this nurse is assigned to any ward
+        Map<String, dynamic>? myAlloc;
+        for (final w in list) {
+          if (w['assigned_nurse_id']?.toString() == user.id.toString()) {
+            myAlloc = w;
+            break;
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _allWardsShiftData = list;
+            _activeShiftData = myAlloc ?? (list.isNotEmpty ? list[0] : null);
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _allWardsShiftData = [];
+            _activeShiftData = null;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching active shift status: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingShiftStatus = false);
+    }
+  }
+
+  Future<void> _fetchHandovers() async {
+    try {
+      final list = await _shiftCtrl.fetchHandovers();
+      if (mounted) {
+        setState(() {
+          _handovers = list;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching handovers: $e');
+    }
+  }
+
+  Future<void> _acknowledgeHandover(int handoverId) async {
+    try {
+      await _shiftCtrl.acknowledgeHandover(handoverId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Handover acknowledged successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _fetchData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error acknowledging handover: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
 
   Future<void> _fetchAppointments() async {
     setState(() => _isLoadingAppointments = true);
@@ -322,7 +416,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         children: [
           _buildGreeting(),
           const SizedBox(height: 24),
+          _buildShiftStatusPanel(isMobile),
+          const SizedBox(height: 24),
+          ..._buildPendingHandoverCards(isMobile),
           _buildStatsRow(isMobile),
+
           const SizedBox(height: 24),
           if (isMobile) ...[
             _buildAlertsSection(),
@@ -1206,4 +1304,207 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       ),
     );
   }
+
+  // --- Shift Status Panel & Handover Cards ---
+
+  Widget _buildShiftStatusPanel(bool isMobile) {
+    if (_activeShiftData == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade900,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Text(
+          'No shifts are currently active or defined by the Admin.',
+          style: TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+      );
+    }
+
+    final isAssigned = _activeShiftData!['status'] == 'Assigned';
+    final statusColor = isAssigned ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24);
+    final timings = '${_activeShiftData!['start_time']?.toString().substring(0, 5) ?? '--'} - ${_activeShiftData!['end_time']?.toString().substring(0, 5) ?? '--'}';
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade900, Colors.blue.shade800],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade900.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.wb_sunny_outlined, color: Colors.white, size: 24),
+                const SizedBox(width: 12),
+                Text(
+                  '${_activeShiftData!['current_shift'] ?? 'Active'} Shift  ·  ${_activeShiftData!['ward_type'] ?? 'General'} Ward',
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                  ),
+                  child: Text(
+                    timings,
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 32, color: Colors.white24),
+            if (isMobile) ...[
+              _buildShiftInfoRow('Assigned Nurse', _activeShiftData!['assigned_nurse'] ?? 'Not Assigned', Colors.white),
+              const SizedBox(height: 12),
+              _buildShiftInfoRow('Status', _activeShiftData!['status'] ?? 'Not Assigned', statusColor),
+              const SizedBox(height: 12),
+              _buildShiftInfoRow('Prev Nurse', _activeShiftData!['previous_nurse'] ?? 'None', Colors.white70),
+              const SizedBox(height: 12),
+              _buildShiftInfoRow('Next Nurse', _activeShiftData!['next_nurse'] ?? 'None', Colors.white70),
+              const SizedBox(height: 12),
+              _buildShiftInfoRow('Handover Status', _activeShiftData!['handover_status'] ?? 'None', Colors.white70),
+            ] else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: _buildShiftInfoColumn('Assigned Nurse', _activeShiftData!['assigned_nurse'] ?? 'Not Assigned', Colors.white)),
+                  _buildShiftPanelDivider(),
+                  Expanded(child: _buildShiftInfoColumn('Status', _activeShiftData!['status'] ?? 'Not Assigned', statusColor)),
+                  _buildShiftPanelDivider(),
+                  Expanded(child: _buildShiftInfoColumn('Prev Nurse', _activeShiftData!['previous_nurse'] ?? 'None', Colors.white70)),
+                  _buildShiftPanelDivider(),
+                  Expanded(child: _buildShiftInfoColumn('Next Nurse', _activeShiftData!['next_nurse'] ?? 'None', Colors.white70)),
+                  _buildShiftPanelDivider(),
+                  Expanded(child: _buildShiftInfoColumn('Handover', _activeShiftData!['handover_status'] ?? 'None', Colors.white70)),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShiftInfoColumn(String label, String value, Color valueColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: TextStyle(color: valueColor, fontSize: 14, fontWeight: FontWeight.bold),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShiftInfoRow(String label, String value, Color valueColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        Text(
+          value,
+          style: TextStyle(color: valueColor, fontSize: 13, fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShiftPanelDivider() {
+    return Container(
+      width: 1,
+      height: 40,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      color: Colors.white.withOpacity(0.15),
+    );
+  }
+
+  List<Widget> _buildPendingHandoverCards(bool isMobile) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user == null) return [];
+
+    final pending = _handovers.where((h) =>
+      h['incoming_nurse_id']?.toString() == user.id.toString() &&
+      h['status'] == 'Pending'
+    ).toList();
+
+    return pending.map((h) {
+      final outgoing = h['outgoing_nurse_name'] ?? 'Unassigned';
+      final ward = h['ward_type'] ?? '';
+      final shift = h['shift_name'] ?? '';
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 24),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFBEB),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFF59E0B)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.swap_horiz, color: Color(0xFFD97706), size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Pending Shift Handover',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF92400E)),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Incoming from $outgoing for $ward Ward ($shift Shift). Please acknowledge.',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.check, size: 16),
+              label: const Text('Acknowledge'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF59E0B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => _acknowledgeHandover(h['id']),
+            ),
+          ],
+        ),
+      );
+    }).toList();
+  }
 }
+
