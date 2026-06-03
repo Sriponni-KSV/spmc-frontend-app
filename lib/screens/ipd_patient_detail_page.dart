@@ -38,8 +38,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   List<Map<String, dynamic>> _icuAlerts = [];
   List<Map<String, dynamic>> _progressNotes = [];
   List<Map<String, dynamic>> _labOrders = [];
-  List<Map<String, dynamic>> _shiftHandovers = [];
-  List<Map<String, dynamic>>? _nurses = [];
+
 
   // Prescription Form Controllers
   final _prescFormKey = GlobalKey<FormState>();
@@ -69,13 +68,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   final _labFormKey = GlobalKey<FormState>();
   final _testNameController = TextEditingController();
 
-  // Shift Handover Form Controllers
-  final _handoverFormKey = GlobalKey<FormState>();
-  final _incomingNurseController = TextEditingController();
-  final _conditionController = TextEditingController();
-  final _pendingMedsController = TextEditingController();
-  final _pendingTasksController = TextEditingController();
-  final _critNotesController = TextEditingController();
+
 
   // Discharge Form Controllers
   final _dischargeFormKey = GlobalKey<FormState>();
@@ -96,7 +89,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     _userRole = auth.user?.role ?? 'Nurse';
     _staffName = auth.user?.fullname ?? 'Staff Member';
 
-    final tabCount = _userRole == 'Doctor' ? 8 : 6;
+    final tabCount = _userRole == 'Doctor' ? 8 : 5;
     _tabController = TabController(length: tabCount, vsync: this);
 
     _loadAllData();
@@ -121,11 +114,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     _changesController.dispose();
     _obsController.dispose();
     _testNameController.dispose();
-    _incomingNurseController.dispose();
-    _conditionController.dispose();
-    _pendingMedsController.dispose();
-    _pendingTasksController.dispose();
-    _critNotesController.dispose();
+
     _finalDiagController.dispose();
     _treatmentSumController.dispose();
     _medPlanController.dispose();
@@ -145,8 +134,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         _ipdController.fetchIcuAlerts(admissionId),
         _ipdController.fetchProgressNotes(admissionId),
         _ipdController.fetchLabOrders(admissionId),
-        _ipdController.fetchShiftHandovers(admissionId),
-        _ipdController.fetchNurses(),
       ]);
 
       if (mounted) {
@@ -157,8 +144,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           _icuAlerts = futures[3];
           _progressNotes = futures[4];
           _labOrders = futures[5];
-          _shiftHandovers = futures[6];
-          _nurses = futures[7];
           _isLoading = false;
         });
       }
@@ -579,40 +564,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           content: Text('Error updating status: $e'),
           backgroundColor: Colors.red,
         ),
-      );
-    }
-  }
-
-  Future<void> _submitShiftHandover() async {
-    if (!_handoverFormKey.currentState!.validate()) return;
-
-    try {
-      await _ipdController.createShiftHandover(widget.admission['id'], {
-        'patient_id': widget.admission['patient_id'],
-        'outgoing_nurse': _staffName,
-        'incoming_nurse': _incomingNurseController.text.trim(),
-        'patient_condition': _conditionController.text.trim(),
-        'pending_medications': _pendingMedsController.text.trim(),
-        'pending_tasks': _pendingTasksController.text.trim(),
-        'critical_notes': _critNotesController.text.trim(),
-      });
-
-      _incomingNurseController.clear();
-      _conditionController.clear();
-      _pendingMedsController.clear();
-      _pendingTasksController.clear();
-      _critNotesController.clear();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Shift handover registered!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      _loadAllData();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -1185,7 +1136,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
       const Tab(text: 'Nursing Notes'),
       const Tab(text: 'Lab Coordination'),
       const Tab(text: 'ICU Alerts'),
-      const Tab(text: 'Shift Handover'),
     ];
 
     final Widget contentArea = Column(
@@ -1244,7 +1194,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           _buildNurseNotesTab(),
                           _buildNurseLabTab(),
                           _buildNurseIcuTab(),
-                          _buildNurseHandoverTab(),
                         ],
                 ),
         ),
@@ -5670,539 +5619,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                 );
               },
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNurseHandoverTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // LEFT SIDE FORM
-          Expanded(
-            flex: 5,
-            child: Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Form(
-                  key: _handoverFormKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // HEADER
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.swap_horiz,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'New Shift Handover',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Transfer patient responsibility to next nurse',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Incoming Nurse Name',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                          ),
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<String>(
-                            value: _incomingNurseController.text.isNotEmpty && (_nurses ?? []).any((n) => n['name'] == _incomingNurseController.text)
-                                ? _incomingNurseController.text
-                                : null,
-                            decoration: InputDecoration(
-                              hintText: 'Select incoming nurse',
-                              prefixIcon: const Icon(Icons.person_outline, color: AppTheme.primaryColor, size: 18),
-                              filled: true,
-                              fillColor: Colors.grey.shade50,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.primaryColor,
-                                  width: 1.5,
-                                ),
-                              ),
-                            ),
-                            items: (_nurses ?? []).map((nurse) {
-                              final name = nurse['name']?.toString() ?? 'Unknown';
-                              final dept = nurse['department']?.toString() ?? '';
-                              final displayText = dept.isNotEmpty ? '$name ($dept)' : name;
-                              return DropdownMenuItem<String>(
-                                value: name,
-                                child: Text(displayText),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() {
-                                  _incomingNurseController.text = val;
-                                });
-                              }
-                            },
-                            validator: (val) {
-                              if (val == null || val.isEmpty) {
-                                return 'Please select an incoming nurse';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      _buildHandoverField(
-                        controller: _conditionController,
-                        label: 'Patient Condition',
-                        hint: 'Stable / Critical / Improving...',
-                        icon: Icons.monitor_heart_outlined,
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      _buildHandoverField(
-                        controller: _pendingMedsController,
-                        label: 'Pending Medications',
-                        hint: 'Pending medicines or dosages',
-                        icon: Icons.medication_outlined,
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      _buildHandoverField(
-                        controller: _pendingTasksController,
-                        label: 'Pending Tasks',
-                        hint: 'Lab tests, monitoring tasks...',
-                        icon: Icons.task_alt_outlined,
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      const Text(
-                        'Critical Handover Notes',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      TextFormField(
-                        controller: _critNotesController,
-                        maxLines: 5,
-                        decoration: InputDecoration(
-                          hintText:
-                              'Enter critical patient observations and instructions...',
-                          alignLabelWithHint: true,
-                          prefixIcon: const Padding(
-                            padding: EdgeInsets.only(bottom: 90),
-                            child: Icon(
-                              Icons.warning_amber_outlined,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppTheme.primaryColor,
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton.icon(
-                          onPressed: _submitShiftHandover,
-                          icon: const Icon(Icons.send),
-                          label: const Text(
-                            'Submit Handover',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 24),
-
-          // RIGHT SIDE HISTORY
-          Expanded(
-            flex: 6,
-            child: Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // HEADER
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.history, color: Colors.green),
-                        ),
-                        const SizedBox(width: 12),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Handover History Logs',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Previous nurse shift handovers',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    if (_shiftHandovers.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 70),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.swap_horiz,
-                              size: 70,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No handovers logged',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      ..._shiftHandovers.map((handover) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 18),
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // TOP
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: AppTheme.primaryColor
-                                        .withOpacity(0.1),
-                                    child: const Icon(
-                                      Icons.person,
-                                      color: AppTheme.primaryColor,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '${handover['outgoing_nurse'] ?? '--'} → ${handover['incoming_nurse'] ?? '--'}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'Shift Transfer',
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  Text(
-                                    handover['created_at'] != null
-                                        ? DateFormat(
-                                            'dd/MM/yyyy hh:mm a',
-                                          ).format(
-                                            DateTime.parse(
-                                              handover['created_at'],
-                                            ).toLocal(),
-                                          )
-                                        : '--',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 18),
-
-                              Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: [
-                                  _buildMiniHandoverChip(
-                                    'Condition',
-                                    handover['patient_condition'] ?? '--',
-                                    Icons.monitor_heart_outlined,
-                                  ),
-                                  _buildMiniHandoverChip(
-                                    'Pending Meds',
-                                    handover['pending_medications'] ?? '--',
-                                    Icons.medication_outlined,
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 18),
-
-                              if ((handover['pending_tasks'] ?? '')
-                                  .toString()
-                                  .isNotEmpty)
-                                _buildHandoverInfoBox(
-                                  'Pending Tasks',
-                                  handover['pending_tasks'],
-                                  Icons.task_alt_outlined,
-                                ),
-
-                              if ((handover['critical_notes'] ?? '')
-                                  .toString()
-                                  .isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 14),
-                                  child: _buildHandoverInfoBox(
-                                    'Critical Notes',
-                                    handover['critical_notes'],
-                                    Icons.warning_amber_outlined,
-                                    isCritical: true,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        );
-                      }),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHandoverField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(icon, color: AppTheme.primaryColor, size: 18),
-            filled: true,
-            fillColor: Colors.grey.shade50,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: AppTheme.primaryColor,
-                width: 1.5,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMiniHandoverChip(String title, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: AppTheme.primaryColor),
-          const SizedBox(width: 6),
-          Text(
-            '$title: $value',
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHandoverInfoBox(
-    String title,
-    String value,
-    IconData icon, {
-    bool isCritical = false,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isCritical ? Colors.red.shade50 : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isCritical ? Colors.red.shade200 : Colors.grey.shade200,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            size: 18,
-            color: isCritical ? Colors.red : AppTheme.primaryColor,
-          ),
-          const SizedBox(width: 10),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: isCritical
-                        ? Colors.red.shade700
-                        : AppTheme.textPrimaryColor,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(value, style: const TextStyle(height: 1.5)),
-              ],
-            ),
-          ),
         ],
       ),
     );

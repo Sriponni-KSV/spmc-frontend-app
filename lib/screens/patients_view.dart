@@ -964,7 +964,7 @@ class _PatientsViewState extends State<PatientsView> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '$ageStr • ID: ${patient.id ?? "---"}',
+                          '$ageStr • ID: ${patient.patientId ?? "---"}',
                           style: const TextStyle(
                             fontSize: 13,
                             color: Color(0xFF64748B),

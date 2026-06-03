@@ -3,8 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
-import '../models/user_model.dart';
 import '../models/patient_model.dart';
+import '../models/user_model.dart';
+import '../controllers/patient_controller.dart';
+import '../controllers/admin_controller.dart';
+import '../widgets/custom_dropdown_search.dart';
 
 // --- DATA STRUCTURES ---
 
@@ -147,6 +150,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   OtCase? _selectedCase;
   final _requestFormKey = GlobalKey<FormState>();
 
+  final PatientController _patientController = PatientController();
+  final AdminController _adminController = AdminController();
+  List<PatientModel> _patients = [];
+  List<UserModel> _doctors = [];
+  bool _isLoadingPatients = false;
+  bool _isLoadingDoctors = false;
+  String? _selectedPatientId;
+  String? _selectedPatientDisplayId;
+
   // Form Field Values (New Request)
   final _patientNameController = TextEditingController();
   final _ageController = TextEditingController();
@@ -215,12 +227,137 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   void initState() {
     super.initState();
     _initializeMockData();
+    _loadPatientsAndDoctors();
+    
+    // Initialize simulation role based on logged-in user role
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user != null) {
+      final role = user.role;
+      if (['Admin', 'Super Admin', 'Doctor', 'Nurse', 'Anaesthetist', 'Surgeon', 'OT Coordinator'].contains(role)) {
+        _simulatedRole = role;
+      } else {
+        _simulatedRole = 'Doctor';
+      }
+    }
+
     // Default surgeon/anaesthetist for forms
     _surgeonController.text = 'Dr. Vikram Sen';
     _anaesthetistController.text = 'Dr. Rajesh Shah';
   }
 
+  Future<void> _loadPatientsAndDoctors() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingPatients = true;
+      _isLoadingDoctors = true;
+    });
+    try {
+      final results = await Future.wait([
+        _patientController.fetchPatients(),
+        _adminController.fetchStaff(role: 'Doctor'),
+      ]);
+      if (mounted) {
+        setState(() {
+          _patients = results[0] as List<PatientModel>;
+          _doctors = results[1] as List<UserModel>;
+          _isLoadingPatients = false;
+          _isLoadingDoctors = false;
+          _linkMockCasesToRealPatientsAndDoctors();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingPatients = false;
+          _isLoadingDoctors = false;
+        });
+        debugPrint('Error loading OT database dependencies: $e');
+      }
+    }
+  }
+
+  void _linkMockCasesToRealPatientsAndDoctors() {
+    if (_otCases.isEmpty) return;
+    if (_patients.isEmpty) return;
+
+    final updatedCases = <OtCase>[];
+    for (int i = 0; i < _otCases.length; i++) {
+      final mockCase = _otCases[i];
+      final realPatient = _patients[i % _patients.length];
+      
+      final realSurgeon = _doctors.isNotEmpty ? _doctors[i % _doctors.length].fullname : mockCase.surgeon;
+      final realAnaesthetist = _doctors.isNotEmpty ? _doctors[(i + 1) % _doctors.length].fullname : mockCase.anaesthetist;
+
+      final linkedCase = OtCase(
+        id: mockCase.id,
+        patientId: realPatient.patientId ?? 'PT-${realPatient.id}',
+        patientName: realPatient.name,
+        age: realPatient.age,
+        gender: realPatient.gender.trim().toLowerCase().startsWith('m') ? 'Male' : (realPatient.gender.trim().toLowerCase().startsWith('f') ? 'Female' : 'Other'),
+        bloodGroup: ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'].contains(realPatient.bloodGroup.trim()) ? realPatient.bloodGroup.trim() : 'O+',
+        diagnosis: mockCase.diagnosis,
+        status: mockCase.status,
+      )
+        ..surgeryType = mockCase.surgeryType
+        ..priority = mockCase.priority
+        ..surgeryDateTime = mockCase.surgeryDateTime
+        ..surgeon = realSurgeon
+        ..anaesthetist = realAnaesthetist
+        ..remarks = mockCase.remarks
+        ..otRoom = mockCase.otRoom
+        ..surgerySlot = mockCase.surgerySlot
+        ..nursingTeam = mockCase.nursingTeam
+        ..idVerified = mockCase.idVerified
+        ..consentSigned = mockCase.consentSigned
+        ..fastingConfirmed = mockCase.fastingConfirmed
+        ..labVerified = mockCase.labVerified
+        ..bloodAvailable = mockCase.bloodAvailable
+        ..preOpBp = mockCase.preOpBp
+        ..preOpPulse = mockCase.preOpPulse
+        ..preOpTemp = mockCase.preOpTemp
+        ..preOpSpo2 = mockCase.preOpSpo2
+        ..anaesthesiaNotes = mockCase.anaesthesiaNotes
+        ..anaesthesiaType = mockCase.anaesthesiaType
+        ..anaesthesiaCleared = mockCase.anaesthesiaCleared
+        ..patientArrived = mockCase.patientArrived
+        ..handoverVerified = mockCase.handoverVerified
+        ..handoverNotes = mockCase.handoverNotes
+        ..surgeryStartTime = mockCase.surgeryStartTime
+        ..surgeryEndTime = mockCase.surgeryEndTime
+        ..procedureDetails = mockCase.procedureDetails
+        ..surgicalFindings = mockCase.surgicalFindings
+        ..complications = mockCase.complications
+        ..intraOpLogs = mockCase.intraOpLogs
+        ..operationSummary = mockCase.operationSummary
+        ..procedurePerformed = mockCase.procedurePerformed
+        ..outcome = mockCase.outcome
+        ..postOpInstructions = mockCase.postOpInstructions
+        ..followUpRecommendations = mockCase.followUpRecommendations
+        ..transferDestination = mockCase.transferDestination
+        ..transferDetails = mockCase.transferDetails
+        ..nursingHandoverNotes = mockCase.nursingHandoverNotes
+        ..nurseCareVitalsLogs = mockCase.nurseCareVitalsLogs
+        ..nurseMedicationsAdministered = mockCase.nurseMedicationsAdministered
+        ..doctorProgressNotes = mockCase.doctorProgressNotes
+        ..auditLogs = mockCase.auditLogs;
+
+      updatedCases.add(linkedCase);
+    }
+
+    setState(() {
+      _otCases = updatedCases;
+      if (_selectedCase != null) {
+        final idx = updatedCases.indexWhere((c) => c.id == _selectedCase!.id);
+        if (idx != -1) {
+          _selectedCase = updatedCases[idx];
+        }
+      }
+    });
+  }
+
   void _initializeMockData() {
+    _otCases = [];
+    if (_otCases.isEmpty) return;
     // Rajesh Kumar - OT Requested
     final c1 = OtCase(
       id: 'OT-2026-001',
@@ -473,7 +610,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     
     final newCase = OtCase(
       id: 'OT-2026-0${_otCases.length + 1}',
-      patientId: 'PT-${10000 + _otCases.length * 137}',
+      patientId: _selectedPatientDisplayId ?? 'PT-${10000 + _otCases.length * 137}',
       patientName: _patientNameController.text.trim(),
       age: int.tryParse(_ageController.text.trim()) ?? 35,
       gender: _selectedGender,
@@ -507,6 +644,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     _ageController.clear();
     _diagnosisController.clear();
     _remarksController.clear();
+    setState(() {
+      _selectedPatientId = null;
+      _selectedPatientDisplayId = null;
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -686,7 +827,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     if (requiredRole == 'Surgeon' && (_simulatedRole == 'Surgeon' || _simulatedRole == 'Doctor')) return true;
     if (requiredRole == 'Nurse' && (_simulatedRole == 'Nurse' || _simulatedRole == 'OT Coordinator')) return true;
     if (requiredRole == 'OT Coordinator' && (_simulatedRole == 'OT Coordinator' || _simulatedRole == 'Nurse')) return true;
-    if (requiredRole == 'Anaesthetist' && _simulatedRole == 'Anaesthetist') return true;
+    if (requiredRole == 'Anaesthetist' && (_simulatedRole == 'Anaesthetist' || _simulatedRole == 'Doctor' || _simulatedRole == 'Surgeon')) return true;
     return false;
   }
 
@@ -778,6 +919,8 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           }
                         },
                         items: const [
+                          DropdownMenuItem(value: 'Admin', child: Text('Admin')),
+                          DropdownMenuItem(value: 'Super Admin', child: Text('Super Admin')),
                           DropdownMenuItem(value: 'Doctor', child: Text('Doctor / Surgeon')),
                           DropdownMenuItem(value: 'Nurse', child: Text('Nurse / Coordinator')),
                           DropdownMenuItem(value: 'Anaesthetist', child: Text('Anaesthetist')),
@@ -1485,26 +1628,26 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     String requiredText = '';
 
     if (otCase.status == 'OT Requested') {
-      canAct = _canPerformAction('OT Coordinator');
+      canAct = _canPerformAction('Nurse') || _canPerformAction('OT Coordinator');
       requiredText = 'OT Coordinator or Nurse';
     } else if (otCase.status == 'OT Scheduled') {
       canAct = _canPerformAction('Nurse');
       requiredText = 'Nurse';
     } else if (otCase.status == 'Pre-Op Completed') {
-      canAct = _canPerformAction('Anaesthetist');
-      requiredText = 'Anaesthetist Doctor';
+      canAct = _canPerformAction('Anaesthetist') || _canPerformAction('Doctor');
+      requiredText = 'Anaesthetist or Doctor';
     } else if (otCase.status == 'Anaesthesia Cleared') {
       canAct = _canPerformAction('Nurse');
       requiredText = 'Nurse';
     } else if (otCase.status == 'Patient In OT') {
-      canAct = _canPerformAction('Surgeon');
-      requiredText = 'Doctor / Surgeon';
+      canAct = _canPerformAction('Surgeon') || _canPerformAction('Doctor');
+      requiredText = 'Doctor or Surgeon';
     } else if (otCase.status == 'Surgery In Progress') {
-      canAct = _canPerformAction('Surgeon') || _canPerformAction('Nurse');
-      requiredText = 'Surgeon or Nurse';
+      canAct = _canPerformAction('Surgeon') || _canPerformAction('Doctor') || _canPerformAction('Nurse');
+      requiredText = 'Surgeon, Doctor, or Nurse';
     } else if (otCase.status == 'Surgery Completed') {
-      canAct = _canPerformAction('Doctor');
-      requiredText = 'Doctor';
+      canAct = _canPerformAction('Doctor') || _canPerformAction('Nurse');
+      requiredText = 'Doctor or Nurse';
     } else if (otCase.status == 'Post-Op Monitoring') {
       canAct = _canPerformAction('Doctor') || _canPerformAction('Nurse');
       requiredText = 'Doctor or Nurse';
@@ -1837,6 +1980,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     }
 
     if (otCase.status == 'Surgery Completed') {
+      final isDoctor = _canPerformAction('Doctor');
+      final isNurse = _canPerformAction('Nurse');
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1845,32 +1991,37 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           TextField(
             controller: _opSummaryController,
             maxLines: 2,
+            enabled: isDoctor,
             decoration: const InputDecoration(labelText: 'Operation Summary'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _procPerformedController,
+            enabled: isDoctor,
             decoration: const InputDecoration(labelText: 'Procedure Performed'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _outcomeController,
+            enabled: isDoctor,
             decoration: const InputDecoration(labelText: 'Surgical Outcome'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _postOpInstController,
             maxLines: 2,
+            enabled: isDoctor,
             decoration: const InputDecoration(labelText: 'Post-Operative Instructions'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _followUpController,
+            enabled: isDoctor,
             decoration: const InputDecoration(labelText: 'Follow-Up Recommendations'),
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: () => _savePostOpNotes(otCase),
+            onPressed: isDoctor ? () => _savePostOpNotes(otCase) : null,
             icon: const Icon(Icons.save),
             label: const Text('Save Post-Op Notes'),
             style: AppTheme.primaryButton,
@@ -1887,24 +2038,26 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               DropdownMenuItem(value: 'ICU', child: Text('ICU')),
               DropdownMenuItem(value: 'Ward', child: Text('General Ward')),
             ],
-            onChanged: (val) {
+            onChanged: isNurse ? (val) {
               if (val != null) setState(() => _selectedTransferDest = val);
-            },
+            } : null,
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _transferDetailsController,
+            enabled: isNurse,
             decoration: const InputDecoration(labelText: 'Transfer Details (e.g. Bed Number)'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _nursingHandoverController,
             maxLines: 2,
+            enabled: isNurse,
             decoration: const InputDecoration(labelText: 'Nursing Handover Notes'),
           ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
-            onPressed: () => _executeTransfer(otCase),
+            onPressed: isNurse ? () => _executeTransfer(otCase) : null,
             icon: const Icon(Icons.local_shipping_outlined),
             label: const Text('Confirm Patient Ward/ICU Transfer'),
             style: AppTheme.successButton,
@@ -1914,6 +2067,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     }
 
     if (otCase.status == 'Post-Op Monitoring') {
+      final isDoctor = _canPerformAction('Doctor');
+      final isNurse = _canPerformAction('Nurse');
+      final isAdmin = _canPerformAction('Admin');
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1921,16 +2078,18 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           const SizedBox(height: 12),
           TextField(
             controller: _careVitalsController,
+            enabled: isNurse,
             decoration: const InputDecoration(labelText: 'Vitals Entry (BP, Pulse, Temp, SPO2)'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _careMedsController,
+            enabled: isNurse,
             decoration: const InputDecoration(labelText: 'Medication Given (Dosage/Route)'),
           ),
           const SizedBox(height: 12),
           ElevatedButton.icon(
-            onPressed: () => _addNurseCareLog(otCase),
+            onPressed: isNurse ? () => _addNurseCareLog(otCase) : null,
             icon: const Icon(Icons.add),
             label: const Text('Record Vitals & Med Admin Log'),
             style: AppTheme.primaryButton,
@@ -1942,11 +2101,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           TextField(
             controller: _doctorProgressController,
             maxLines: 2,
+            enabled: isDoctor,
             decoration: const InputDecoration(labelText: 'Doctor Daily Progress Note & Treatment Plan'),
           ),
           const SizedBox(height: 12),
           ElevatedButton.icon(
-            onPressed: () => _addDoctorProgressNote(otCase),
+            onPressed: isDoctor ? () => _addDoctorProgressNote(otCase) : null,
             icon: const Icon(Icons.note_add),
             label: const Text('Add Progress Note'),
             style: AppTheme.secondaryButton,
@@ -1961,7 +2121,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: () => _closeCase(otCase),
+            onPressed: (isDoctor || isAdmin) ? () => _closeCase(otCase) : null,
             icon: const Icon(Icons.archive),
             label: const Text('Approve OT Closure & Generate Summary'),
             style: AppTheme.logoRedButton,
@@ -2111,6 +2271,63 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
               const Text('Patient Demographics:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 16),
+              if (_isLoadingPatients)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 12),
+                      Text('Loading patients from database...', style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor)),
+                    ],
+                  ),
+                )
+              else ...[
+                CustomDropdownSearch(
+                  label: 'Select Patient from DB (Auto-populates fields)',
+                  hint: 'Search by Name or Patient ID',
+                  value: _selectedPatientId,
+                  dropdownMap: {
+                    for (var p in _patients)
+                      p.id.toString(): '${p.name} (${p.patientId ?? "ID: ${p.id}"})'
+                  },
+                  onChanged: (val) {
+                    if (val != null) {
+                      final p = _patients.firstWhere((p) => p.id.toString() == val);
+                      setState(() {
+                        _selectedPatientId = val;
+                        _selectedPatientDisplayId = p.patientId ?? 'PT-${p.id}';
+                        _patientNameController.text = p.name;
+                        _ageController.text = p.age.toString();
+                        
+                        // Normalize Gender
+                        final gen = p.gender.trim();
+                        if (gen.toLowerCase().startsWith('m')) {
+                          _selectedGender = 'Male';
+                        } else if (gen.toLowerCase().startsWith('f')) {
+                          _selectedGender = 'Female';
+                        } else {
+                          _selectedGender = 'Other';
+                        }
+
+                        // Normalize Blood Group
+                        final bg = p.bloodGroup.trim();
+                        final allowedBloodGroups = ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'];
+                        if (allowedBloodGroups.contains(bg)) {
+                          _selectedBloodGroup = bg;
+                        } else {
+                          _selectedBloodGroup = 'O+';
+                        }
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
               Row(
                 children: [
                   Expanded(
@@ -2252,19 +2469,51 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: TextFormField(
-                      controller: _surgeonController,
-                      decoration: const InputDecoration(labelText: 'Primary Surgeon Name *'),
-                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                    ),
+                    child: _isLoadingDoctors
+                        ? const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: CircularProgressIndicator(),
+                          )
+                        : CustomDropdownSearch(
+                            label: 'Primary Surgeon Name *',
+                            hint: 'Search Surgeon',
+                            value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
+                            dropdownItems: _doctors.isNotEmpty
+                                ? _doctors.map((d) => d.fullname).toList()
+                                : const ['Dr. Vikram Sen', 'Dr. Rajesh Shah', 'Dr. Sanjay Gupta', 'Dr. Amit Singhal', 'Dr. Sunita Mehta'],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _surgeonController.text = val;
+                                });
+                              }
+                            },
+                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                          ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: TextFormField(
-                      controller: _anaesthetistController,
-                      decoration: const InputDecoration(labelText: 'Suggested Anaesthetist *'),
-                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                    ),
+                    child: _isLoadingDoctors
+                        ? const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: CircularProgressIndicator(),
+                          )
+                        : CustomDropdownSearch(
+                            label: 'Suggested Anaesthetist *',
+                            hint: 'Search Anaesthetist',
+                            value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
+                            dropdownItems: _doctors.isNotEmpty
+                                ? _doctors.map((d) => d.fullname).toList()
+                                : const ['Dr. Vikram Sen', 'Dr. Rajesh Shah', 'Dr. Sanjay Gupta', 'Dr. Amit Singhal', 'Dr. Sunita Mehta'],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _anaesthetistController.text = val;
+                                });
+                              }
+                            },
+                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                          ),
                   ),
                 ],
               ),

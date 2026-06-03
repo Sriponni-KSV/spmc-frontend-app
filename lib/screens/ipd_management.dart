@@ -54,19 +54,23 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final role =
+        Provider.of<AuthProvider>(context).user?.role ?? '';
+    _isDoctor = role == 'Doctor';
+    final isNurse = role == 'Nurse';
+    int length = 3;
+    if (_isDoctor) {
+      length = 4;
+    } else if (isNurse) {
+      length = 5;
+    }
+
     if (!_tabControllerReady) {
-      final role =
-          Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
-      _isDoctor = role == 'Doctor';
-      final isNurse = role == 'Nurse';
-      int length = 3;
-      if (_isDoctor) {
-        length = 4;
-      } else if (isNurse) {
-        length = 5;
-      }
       _tabController = TabController(length: length, vsync: this);
       _tabControllerReady = true;
+    } else if (_tabController.length != length) {
+      _tabController.dispose();
+      _tabController = TabController(length: length, vsync: this);
     }
   }
 
@@ -112,13 +116,19 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       nursesList = await _ipdController.fetchNurses();
     } catch (_) {}
 
-    final role = Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
+    final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final role = currentUser?.role ?? '';
     if (role == 'Nurse') {
       try {
         handovers = await _nurseShiftController.fetchHandovers();
       } catch (_) {}
       try {
-        auditLogs = await _nurseShiftController.fetchAuditTrail();
+        final allLogs = await _nurseShiftController.fetchAuditTrail();
+        if (currentUser != null) {
+          auditLogs = allLogs.where((log) => log['nurse_id'] == currentUser.id).toList();
+        } else {
+          auditLogs = allLogs;
+        }
       } catch (_) {}
     }
 
@@ -155,7 +165,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   @override
   Widget build(BuildContext context) {
     final userRole =
-        Provider.of<AuthProvider>(context, listen: false).user?.role ??
+        Provider.of<AuthProvider>(context).user?.role ??
         'Doctor';
 
     return Scaffold(
@@ -363,7 +373,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         .where((a) => a['status'] == 'Discharged')
         .length;
     final icuCount = _icuOccupancy;
-    final userRole = Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
+    final userRole = Provider.of<AuthProvider>(context).user?.role ?? '';
     final isNurse = userRole == 'Nurse';
 
     return Container(
@@ -3092,7 +3102,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       itemBuilder: (context, index) {
         final h = _handoversList[index];
         final bool isPending = h['status'] == 'Pending';
-        final bool isMyHandover = user != null && h['incoming_nurse_id']?.toString() == user.id.toString();
+        final bool isMyHandover = user != null && (h['incoming_nurse_id'] == null || h['incoming_nurse_id']?.toString() == user.id.toString());
         
         final DateTime handoverTime = DateTime.parse(h['handover_time']).toLocal();
         final String formattedTime = DateFormat('dd/MM/yyyy hh:mm a').format(handoverTime);
