@@ -119,7 +119,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         if (mounted) {
           setState(() {
             _allWardsShiftData = list;
-            _activeShiftData = myAlloc ?? (list.isNotEmpty ? list[0] : null);
+            _activeShiftData = myAlloc;
           });
         }
       } else {
@@ -1309,6 +1309,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   Widget _buildShiftStatusPanel(bool isMobile) {
     if (_activeShiftData == null) {
+      final message = _allWardsShiftData.isNotEmpty
+          ? 'You do not have an active shift assignment today.'
+          : 'No shifts are currently active or defined by the Admin.';
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -1316,9 +1319,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           color: Colors.blue.shade900,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Text(
-          'No shifts are currently active or defined by the Admin.',
-          style: TextStyle(color: Colors.white70, fontSize: 14),
+        child: Text(
+          message,
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
         ),
       );
     }

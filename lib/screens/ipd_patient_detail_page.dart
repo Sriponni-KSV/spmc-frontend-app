@@ -8,6 +8,7 @@ import '../core/routes/route_constants.dart';
 import '../utils/logout_helper.dart';
 import '../utils/app_theme.dart';
 import '../controllers/ipd_controller.dart';
+import '../controllers/nurse_shift_controller.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart';
 
@@ -125,6 +126,45 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   Future<void> _loadAllData() async {
     setState(() => _isLoading = true);
     final admissionId = widget.admission['id'];
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final user = auth.user;
+
+    // Enforce shift allocation checks for Nurse role
+    if (_userRole == 'Nurse' && user != null) {
+      try {
+        final _shiftCtrl = NurseShiftController();
+        final res = await _shiftCtrl.fetchActiveShift();
+        String? assignedWard;
+        if (res['success'] == true && res['active'] == true) {
+          final List data = res['data'] ?? [];
+          for (final w in data) {
+            if (w['assigned_nurse_id']?.toString() == user.id.toString()) {
+              assignedWard = w['ward_type'];
+              break;
+            }
+          }
+        }
+
+        if (assignedWard != widget.admission['ward_type']) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  assignedWard == null 
+                      ? 'Access Denied: You are not assigned to an active shift today.'
+                      : 'Access Denied: You are assigned to $assignedWard, but this patient is in ${widget.admission['ward_type']}.'
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+            Navigator.pop(context);
+          }
+          return;
+        }
+      } catch (e) {
+        debugPrint('Error verifying ward assignment: $e');
+      }
+    }
 
     try {
       final futures = await Future.wait([

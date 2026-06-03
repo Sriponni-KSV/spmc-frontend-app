@@ -42,6 +42,8 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   bool _isLoading = true;
   bool _isDoctor = false;
   bool _tabControllerReady = false;
+  String? _assignedWard;
+  List<Map<String, dynamic>> _allWardsShiftData = [];
 
   @override
   void initState() {
@@ -118,7 +120,24 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
 
     final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
     final role = currentUser?.role ?? '';
+    List<Map<String, dynamic>> allWardsShiftData = [];
+    String? assignedWard;
+
     if (role == 'Nurse') {
+      try {
+        final res = await _nurseShiftController.fetchActiveShift();
+        if (res['success'] == true && res['active'] == true) {
+          final List data = res['data'] ?? [];
+          allWardsShiftData = List<Map<String, dynamic>>.from(data);
+          for (final w in allWardsShiftData) {
+            if (w['assigned_nurse_id']?.toString() == currentUser?.id.toString()) {
+              assignedWard = w['ward_type'];
+              break;
+            }
+          }
+        }
+      } catch (_) {}
+
       try {
         handovers = await _nurseShiftController.fetchHandovers();
       } catch (_) {}
@@ -141,6 +160,8 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         _nurses = nursesList;
         _handoversList = handovers;
         _auditTrailList = auditLogs;
+        _allWardsShiftData = allWardsShiftData;
+        _assignedWard = assignedWard;
         _isLoading = false;
       });
       if (errorMsg != null) {
@@ -366,15 +387,19 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   }
 
   Widget _buildTabBar(bool isDoctor) {
-    final activeCount = _admittedCount;
+    final userRole = Provider.of<AuthProvider>(context).user?.role ?? '';
+    final isNurse = userRole == 'Nurse';
+    final activeCount = isNurse
+        ? (_assignedWard == null
+            ? 0
+            : _admissions.where((a) => a['status'] == 'Admitted' && a['ward_type'] == _assignedWard).length)
+        : _admittedCount;
     final availableBeds = _availableBedsCount;
     final totalBeds = _beds.length;
     final dischargeCount = _admissions
         .where((a) => a['status'] == 'Discharged')
         .length;
     final icuCount = _icuOccupancy;
-    final userRole = Provider.of<AuthProvider>(context).user?.role ?? '';
-    final isNurse = userRole == 'Nurse';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -405,7 +430,27 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
 
   Widget _buildActiveAdmissionsTab([String userRole = 'Admin']) {
     final isDoctor = userRole == 'Doctor';
-    final active = _admissions.where((a) => a['status'] == 'Admitted').toList();
+    final isNurse = userRole == 'Nurse';
+
+    // If nurse is not assigned to any ward, restrict tab
+    if (isNurse && _assignedWard == null) {
+      final hasActiveShifts = _allWardsShiftData.isNotEmpty;
+      return _buildEmptyState(
+        hasActiveShifts
+            ? 'Access Denied: You do not have an active ward assignment today.'
+            : 'Access Denied: No shifts are currently active or defined by the Admin.',
+        Icons.lock_outline,
+      );
+    }
+
+    final active = _admissions.where((a) {
+      if (a['status'] != 'Admitted') return false;
+      if (isNurse) {
+        return a['ward_type'] == _assignedWard;
+      }
+      return true;
+    }).toList();
+
     if (active.isEmpty) {
       return _buildEmptyState(
         'No active admissions.',
