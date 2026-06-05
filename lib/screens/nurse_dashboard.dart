@@ -1305,6 +1305,23 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     );
   }
 
+  // --- Helpers ---
+
+  String _formatTo12Hour(String? timeStr) {
+    if (timeStr == null || timeStr.isEmpty) return '--';
+    try {
+      final parts = timeStr.split(':');
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+      final ampm = hour >= 12 ? 'PM' : 'AM';
+      final formattedHour = hour % 12 == 0 ? 12 : hour % 12;
+      final formattedMinute = minute.toString().padLeft(2, '0');
+      return '${formattedHour.toString().padLeft(2, '0')}:$formattedMinute $ampm';
+    } catch (_) {
+      return timeStr;
+    }
+  }
+
   // --- Shift Status Panel & Handover Cards ---
 
   Widget _buildShiftStatusPanel(bool isMobile) {
@@ -1328,7 +1345,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
     final isAssigned = _activeShiftData!['status'] == 'Assigned';
     final statusColor = isAssigned ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24);
-    final timings = '${_activeShiftData!['start_time']?.toString().substring(0, 5) ?? '--'} - ${_activeShiftData!['end_time']?.toString().substring(0, 5) ?? '--'}';
+    final timings = '${_formatTo12Hour(_activeShiftData!['start_time']?.toString())} - ${_formatTo12Hour(_activeShiftData!['end_time']?.toString())}';
 
     return Container(
       width: double.infinity,

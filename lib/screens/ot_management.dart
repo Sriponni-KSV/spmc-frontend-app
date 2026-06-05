@@ -1,12 +1,16 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../services/api_service.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../models/patient_model.dart';
 import '../models/user_model.dart';
 import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
+import '../controllers/ot_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 
 // --- DATA STRUCTURES ---
@@ -50,6 +54,8 @@ class IntraOpLog {
 }
 
 class OtCase {
+  int? dbId;
+  int? patientDbId;
   final String id;
   final String patientId;
   final String patientName;
@@ -145,17 +151,22 @@ class OTManagementScreen extends StatefulWidget {
 
 class _OTManagementScreenState extends State<OTManagementScreen> {
   int _activeTab = 0; // 0: Dashboard, 1: Active Cases, 2: New Request
-  String _simulatedRole = 'Doctor'; // Doctor, Nurse, Anaesthetist, Surgeon, OT Coordinator
   List<OtCase> _otCases = [];
   OtCase? _selectedCase;
   final _requestFormKey = GlobalKey<FormState>();
+  final _preOpVitalsFormKey = GlobalKey<FormState>();
+  final _intraOpVitalsFormKey = GlobalKey<FormState>();
+  final _surgeryProcedureFormKey = GlobalKey<FormState>();
+  String _searchQuery = '';
 
   final PatientController _patientController = PatientController();
   final AdminController _adminController = AdminController();
+  final OtController _otController = OtController();
   List<PatientModel> _patients = [];
   List<UserModel> _doctors = [];
   bool _isLoadingPatients = false;
   bool _isLoadingDoctors = false;
+  bool _isLoadingCases = false;
   String? _selectedPatientId;
   String? _selectedPatientDisplayId;
 
@@ -174,15 +185,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   final _remarksController = TextEditingController();
 
   // Temporary Inputs for Workflow steps
-  final _otRoomController = TextEditingController(text: 'OT 1');
-  final _slotController = TextEditingController(text: '09:00 AM - 11:30 AM');
-  final _nursingTeamController = TextEditingController(text: 'Team A (Nurse Sarah, Nurse John)');
+  final _otRoomController = TextEditingController();
+  final _slotController = TextEditingController();
+  final _nursingTeamController = TextEditingController();
 
   // Pre-Op vitals
-  final _preOpBpController = TextEditingController(text: '120/80');
-  final _preOpPulseController = TextEditingController(text: '72');
-  final _preOpTempController = TextEditingController(text: '98.4');
-  final _preOpSpo2Controller = TextEditingController(text: '99');
+  final _preOpBpController = TextEditingController();
+  final _preOpPulseController = TextEditingController();
+  final _preOpTempController = TextEditingController();
+  final _preOpSpo2Controller = TextEditingController();
 
   // Anaesthesia Form
   final _anaesthesiaNotesController = TextEditingController();
@@ -197,14 +208,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   final _complicationsController = TextEditingController();
 
   // Intra-Op Logs
-  final _intraOpBpController = TextEditingController(text: '122/82');
-  final _intraOpPulseController = TextEditingController(text: '74');
-  final _intraOpTempController = TextEditingController(text: '98.5');
-  final _intraOpSpo2Controller = TextEditingController(text: '98');
-  final _intraOpMedsController = TextEditingController(text: 'Propofol 100mg, Fentanyl 50mcg');
-  final _intraOpFluidsController = TextEditingController(text: 'Ringer Lactate 500ml');
-  final _intraOpBloodController = TextEditingController(text: 'N/A');
-  final _intraOpInstrumentController = TextEditingController(text: '24/24 Checked');
+  final _intraOpBpController = TextEditingController();
+  final _intraOpPulseController = TextEditingController();
+  final _intraOpTempController = TextEditingController();
+  final _intraOpSpo2Controller = TextEditingController();
+  final _intraOpMedsController = TextEditingController();
+  final _intraOpFluidsController = TextEditingController();
+  final _intraOpBloodController = TextEditingController();
+  final _intraOpInstrumentController = TextEditingController();
 
   // Post-Op Notes
   final _opSummaryController = TextEditingController();
@@ -219,30 +230,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   final _nursingHandoverController = TextEditingController();
 
   // Care Logs
-  final _careVitalsController = TextEditingController(text: 'BP: 118/76, PR: 70, Temp: 98.2, SpO2: 99%');
-  final _careMedsController = TextEditingController(text: 'Paracetamol 1g IV');
-  final _doctorProgressController = TextEditingController(text: 'Patient recovering well. Continue monitoring.');
+  final _careVitalsController = TextEditingController();
+  final _careMedsController = TextEditingController();
+  final _doctorProgressController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _initializeMockData();
     _loadPatientsAndDoctors();
-    
-    // Initialize simulation role based on logged-in user role
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
-    if (user != null) {
-      final role = user.role;
-      if (['Admin', 'Super Admin', 'Doctor', 'Nurse', 'Anaesthetist', 'Surgeon', 'OT Coordinator'].contains(role)) {
-        _simulatedRole = role;
-      } else {
-        _simulatedRole = 'Doctor';
-      }
-    }
-
-    // Default surgeon/anaesthetist for forms
-    _surgeonController.text = 'Dr. Vikram Sen';
-    _anaesthetistController.text = 'Dr. Rajesh Shah';
   }
 
   Future<void> _loadPatientsAndDoctors() async {
@@ -250,19 +245,37 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     setState(() {
       _isLoadingPatients = true;
       _isLoadingDoctors = true;
+      _isLoadingCases = true;
     });
     try {
       final results = await Future.wait([
         _patientController.fetchPatients(),
         _adminController.fetchStaff(role: 'Doctor'),
+        _otController.fetchOtCases(),
       ]);
       if (mounted) {
+        _patients = results[0] as List<PatientModel>;
+        _doctors = results[1] as List<UserModel>;
+        final fetchedCases = results[2] as List<OtCase>;
+
+        if (fetchedCases.isEmpty && _patients.isNotEmpty) {
+          // Seed DB with mock cases dynamically mapped to loaded patients/doctors
+          await _seedMockCasesToDatabase();
+          final refetched = await _otController.fetchOtCases();
+          setState(() {
+            _otCases = refetched;
+            _selectedCase = null;
+          });
+        } else {
+          setState(() {
+            _otCases = fetchedCases;
+            _selectedCase = null;
+          });
+        }
         setState(() {
-          _patients = results[0] as List<PatientModel>;
-          _doctors = results[1] as List<UserModel>;
           _isLoadingPatients = false;
           _isLoadingDoctors = false;
-          _linkMockCasesToRealPatientsAndDoctors();
+          _isLoadingCases = false;
         });
       }
     } catch (e) {
@@ -270,331 +283,259 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         setState(() {
           _isLoadingPatients = false;
           _isLoadingDoctors = false;
+          _isLoadingCases = false;
         });
         debugPrint('Error loading OT database dependencies: $e');
       }
     }
   }
 
-  void _linkMockCasesToRealPatientsAndDoctors() {
-    if (_otCases.isEmpty) return;
+  Future<void> _seedMockCasesToDatabase() async {
     if (_patients.isEmpty) return;
+    try {
+      final String baseUrl = dotenv.env['BASE_URL']!;
+      final mockData = [
+        {
+          'diagnosis': 'Chronic Calculous Cholecystitis',
+          'surgery_type': 'Laparoscopic Cholecystectomy',
+          'priority': 'Elective',
+          'surgeon': 'Dr. Vikram Sen',
+          'anaesthetist': 'Dr. Rajesh Shah',
+          'remarks': 'Patient has stable vitals. Scheduled for elective gallbladder removal.',
+          'status': 'OT Requested',
+          'audit_logs': [
+            {
+              'actorName': 'Dr. Vikram Sen',
+              'role': 'Surgeon',
+              'timestamp': DateTime.now().subtract(const Duration(hours: 3)).toIso8601String(),
+              'action': 'Created Surgery Request: Laparoscopic Cholecystectomy (Priority: Elective).',
+            }
+          ]
+        },
+        {
+          'diagnosis': 'Acute Appendicitis',
+          'surgery_type': 'Appendectomy',
+          'priority': 'Emergency',
+          'surgeon': 'Dr. Vikram Sen',
+          'anaesthetist': 'Dr. Sunita Mehta',
+          'remarks': 'Acute symptoms. Immediate surgery requested.',
+          'status': 'Pre-Op Completed',
+          'ot_room': 'OT 2',
+          'surgery_slot': '10:30 AM - 12:00 PM',
+          'nursing_team': 'Nursing Team B (Nurse Maria, Nurse Kevin)',
+          'id_verified': true,
+          'consent_signed': true,
+          'fasting_confirmed': true,
+          'lab_verified': true,
+          'blood_available': true,
+          'pre_op_bp': '118/75',
+          'pre_op_pulse': 82,
+          'pre_op_temp': 99.1,
+          'pre_op_spo2': 98,
+          'audit_logs': [
+            {
+              'actorName': 'Dr. Vikram Sen',
+              'role': 'Surgeon',
+              'timestamp': DateTime.now().subtract(const Duration(hours: 5)).toIso8601String(),
+              'action': 'Created Emergency Surgery Request for Appendectomy.',
+            },
+            {
+              'actorName': 'Nurse Maria',
+              'role': 'Nurse Coordinator',
+              'timestamp': DateTime.now().subtract(const Duration(hours: 4)).toIso8601String(),
+              'action': 'Scheduled OT 2 and slot 10:30 AM - 12:00 PM.',
+            },
+            {
+              'actorName': 'Nurse Kevin',
+              'role': 'Pre-Op Nurse',
+              'timestamp': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
+              'action': 'Completed pre-operative checklist and recorded vitals. Patient ready for transfer.',
+            }
+          ]
+        },
+        {
+          'diagnosis': 'Triple Vessel Coronary Artery Disease',
+          'surgery_type': 'CABG (Heart Bypass)',
+          'priority': 'Elective',
+          'surgeon': 'Dr. Sanjay Gupta',
+          'anaesthetist': 'Dr. Sunita Mehta',
+          'remarks': 'Double check heparin availability.',
+          'status': 'Patient In OT',
+          'ot_room': 'OT 1',
+          'surgery_slot': '08:00 AM - 12:00 PM',
+          'nursing_team': 'Cardiac Nurse Team (Nurse Albert, Nurse Stella)',
+          'id_verified': true,
+          'consent_signed': true,
+          'fasting_confirmed': true,
+          'lab_verified': true,
+          'blood_available': true,
+          'pre_op_bp': '130/82',
+          'pre_op_pulse': 68,
+          'pre_op_temp': 98.4,
+          'pre_op_spo2': 97,
+          'anaesthesia_notes': 'Patient cleared. No difficult airway predicted.',
+          'anaesthesia_type': 'General Anaesthesia',
+          'anaesthesia_cleared': true,
+          'patient_arrived': true,
+          'handover_verified': true,
+          'handover_notes': 'All parameters stable. Skin prep complete.',
+          'audit_logs': [
+            {'actorName': 'Dr. Sanjay Gupta', 'role': 'Surgeon', 'timestamp': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(), 'action': 'Scheduled Elective CABG.'},
+            {'actorName': 'Nurse Stella', 'role': 'OT Coordinator', 'timestamp': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(), 'action': 'Allocated OT 1.'},
+            {'actorName': 'Nurse Stella', 'role': 'Pre-Op Nurse', 'timestamp': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(), 'action': 'Completed pre-op verification.'},
+            {'actorName': 'Dr. Sunita Mehta', 'role': 'Anaesthetist', 'timestamp': DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(), 'action': 'Completed assessment and cleared patient under General Anaesthesia.'},
+            {'actorName': 'Nurse Albert', 'role': 'OT Nurse', 'timestamp': DateTime.now().subtract(const Duration(minutes: 20)).toIso8601String(), 'action': 'Verified handover checklist and confirmed patient arrival in OT 1.'},
+          ]
+        }
+      ];
 
-    final updatedCases = <OtCase>[];
-    for (int i = 0; i < _otCases.length; i++) {
-      final mockCase = _otCases[i];
-      final realPatient = _patients[i % _patients.length];
-      
-      final realSurgeon = _doctors.isNotEmpty ? _doctors[i % _doctors.length].fullname : mockCase.surgeon;
-      final realAnaesthetist = _doctors.isNotEmpty ? _doctors[(i + 1) % _doctors.length].fullname : mockCase.anaesthetist;
-
-      final linkedCase = OtCase(
-        id: mockCase.id,
-        patientId: realPatient.patientId ?? 'PT-${realPatient.id}',
-        patientName: realPatient.name,
-        age: realPatient.age,
-        gender: realPatient.gender.trim().toLowerCase().startsWith('m') ? 'Male' : (realPatient.gender.trim().toLowerCase().startsWith('f') ? 'Female' : 'Other'),
-        bloodGroup: ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'].contains(realPatient.bloodGroup.trim()) ? realPatient.bloodGroup.trim() : 'O+',
-        diagnosis: mockCase.diagnosis,
-        status: mockCase.status,
-      )
-        ..surgeryType = mockCase.surgeryType
-        ..priority = mockCase.priority
-        ..surgeryDateTime = mockCase.surgeryDateTime
-        ..surgeon = realSurgeon
-        ..anaesthetist = realAnaesthetist
-        ..remarks = mockCase.remarks
-        ..otRoom = mockCase.otRoom
-        ..surgerySlot = mockCase.surgerySlot
-        ..nursingTeam = mockCase.nursingTeam
-        ..idVerified = mockCase.idVerified
-        ..consentSigned = mockCase.consentSigned
-        ..fastingConfirmed = mockCase.fastingConfirmed
-        ..labVerified = mockCase.labVerified
-        ..bloodAvailable = mockCase.bloodAvailable
-        ..preOpBp = mockCase.preOpBp
-        ..preOpPulse = mockCase.preOpPulse
-        ..preOpTemp = mockCase.preOpTemp
-        ..preOpSpo2 = mockCase.preOpSpo2
-        ..anaesthesiaNotes = mockCase.anaesthesiaNotes
-        ..anaesthesiaType = mockCase.anaesthesiaType
-        ..anaesthesiaCleared = mockCase.anaesthesiaCleared
-        ..patientArrived = mockCase.patientArrived
-        ..handoverVerified = mockCase.handoverVerified
-        ..handoverNotes = mockCase.handoverNotes
-        ..surgeryStartTime = mockCase.surgeryStartTime
-        ..surgeryEndTime = mockCase.surgeryEndTime
-        ..procedureDetails = mockCase.procedureDetails
-        ..surgicalFindings = mockCase.surgicalFindings
-        ..complications = mockCase.complications
-        ..intraOpLogs = mockCase.intraOpLogs
-        ..operationSummary = mockCase.operationSummary
-        ..procedurePerformed = mockCase.procedurePerformed
-        ..outcome = mockCase.outcome
-        ..postOpInstructions = mockCase.postOpInstructions
-        ..followUpRecommendations = mockCase.followUpRecommendations
-        ..transferDestination = mockCase.transferDestination
-        ..transferDetails = mockCase.transferDetails
-        ..nursingHandoverNotes = mockCase.nursingHandoverNotes
-        ..nurseCareVitalsLogs = mockCase.nurseCareVitalsLogs
-        ..nurseMedicationsAdministered = mockCase.nurseMedicationsAdministered
-        ..doctorProgressNotes = mockCase.doctorProgressNotes
-        ..auditLogs = mockCase.auditLogs;
-
-      updatedCases.add(linkedCase);
-    }
-
-    setState(() {
-      _otCases = updatedCases;
-      if (_selectedCase != null) {
-        final idx = updatedCases.indexWhere((c) => c.id == _selectedCase!.id);
-        if (idx != -1) {
-          _selectedCase = updatedCases[idx];
+      for (int i = 0; i < mockData.length; i++) {
+        final data = mockData[i];
+        final realPatient = _patients[i % _patients.length];
+        
+        final requestBody = {
+          'patient_id': realPatient.id,
+          'diagnosis': data['diagnosis'],
+          'surgery_type': data['surgery_type'],
+          'priority': data['priority'],
+          'surgery_date_time': DateTime.now().add(Duration(days: i + 1)).toIso8601String(),
+          'surgeon': _doctors.isNotEmpty ? _doctors[i % _doctors.length].fullname : data['surgeon'],
+          'anaesthetist': _doctors.isNotEmpty ? _doctors[(i + 1) % _doctors.length].fullname : data['anaesthetist'],
+          'remarks': data['remarks'],
+          'audit_logs': data['audit_logs'],
+        };
+        
+        final response = await ApiService.post('$baseUrl/ot/cases', requestBody);
+        if (response.statusCode == 201) {
+          final createdJson = jsonDecode(response.body)['data'];
+          final dbId = createdJson['id'];
+          
+          if (data['status'] != 'OT Requested') {
+            final Map<String, dynamic> updateFields = {
+              'status': data['status'],
+              'ot_room': data['ot_room'],
+              'surgery_slot': data['surgery_slot'],
+              'nursing_team': data['nursing_team'],
+              'id_verified': data['id_verified'] ?? false,
+              'consent_signed': data['consent_signed'] ?? false,
+              'fasting_confirmed': data['fasting_confirmed'] ?? false,
+              'lab_verified': data['lab_verified'] ?? false,
+              'blood_available': data['blood_available'] ?? false,
+              'pre_op_bp': data['pre_op_bp'],
+              'pre_op_pulse': data['pre_op_pulse'],
+              'pre_op_temp': data['pre_op_temp'],
+              'pre_op_spo2': data['pre_op_spo2'],
+              'anaesthesia_notes': data['anaesthesia_notes'],
+              'anaesthesia_type': data['anaesthesia_type'],
+              'anaesthesia_cleared': data['anaesthesia_cleared'] ?? false,
+              'patient_arrived': data['patient_arrived'] ?? false,
+              'handover_verified': data['handover_verified'] ?? false,
+              'handover_notes': data['handover_notes'],
+            };
+            
+            await _otController.updateOtCase(dbId, updateFields);
+          }
         }
       }
+    } catch (e) {
+      debugPrint('Failed to seed database mock cases: $e');
+    }
+  }
+
+  void _populateControllersForCase(OtCase otCase) {
+    _otRoomController.text = otCase.otRoom ?? '';
+    _slotController.text = otCase.surgerySlot ?? '';
+    _nursingTeamController.text = otCase.nursingTeam ?? '';
+
+    _preOpBpController.text = otCase.preOpBp ?? '';
+    _preOpPulseController.text = otCase.preOpPulse?.toString() ?? '';
+    _preOpTempController.text = otCase.preOpTemp?.toString() ?? '';
+    _preOpSpo2Controller.text = otCase.preOpSpo2?.toString() ?? '';
+
+    _anaesthesiaNotesController.text = otCase.anaesthesiaNotes ?? '';
+    if (otCase.anaesthesiaType != null) {
+      _selectedAnaesthesiaType = otCase.anaesthesiaType!;
+    } else {
+      _selectedAnaesthesiaType = 'General Anaesthesia';
+    }
+
+    _handoverNotesController.text = otCase.handoverNotes ?? '';
+
+    _procedureDetailsController.text = otCase.procedureDetails ?? '';
+    _findingsController.text = otCase.surgicalFindings ?? '';
+    _complicationsController.text = otCase.complications ?? '';
+
+    _intraOpBpController.clear();
+    _intraOpPulseController.clear();
+    _intraOpTempController.clear();
+    _intraOpSpo2Controller.clear();
+    _intraOpMedsController.clear();
+    _intraOpFluidsController.clear();
+    _intraOpBloodController.clear();
+    _intraOpInstrumentController.clear();
+
+    _opSummaryController.text = otCase.operationSummary ?? '';
+    _procPerformedController.text = otCase.procedurePerformed ?? '';
+    _outcomeController.text = otCase.outcome ?? '';
+    _postOpInstController.text = otCase.postOpInstructions ?? '';
+    _followUpController.text = otCase.followUpRecommendations ?? '';
+
+    _selectedTransferDest = otCase.transferDestination ?? 'Recovery Room';
+    _transferDetailsController.text = otCase.transferDetails ?? '';
+    _nursingHandoverController.text = otCase.nursingHandoverNotes ?? '';
+
+    _careVitalsController.clear();
+    _careMedsController.clear();
+    _doctorProgressController.clear();
+  }
+
+  void _selectOtCase(OtCase otCase) {
+    setState(() {
+      _selectedCase = otCase;
+      _populateControllersForCase(otCase);
     });
   }
 
-  void _initializeMockData() {
-    _otCases = [];
-    if (_otCases.isEmpty) return;
-    // Rajesh Kumar - OT Requested
-    final c1 = OtCase(
-      id: 'OT-2026-001',
-      patientId: 'PT-10822',
-      patientName: 'Rajesh Kumar',
-      age: 45,
-      gender: 'Male',
-      bloodGroup: 'O+',
-      diagnosis: 'Chronic Calculous Cholecystitis',
-      status: 'OT Requested',
-    )..surgeryType = 'Laparoscopic Cholecystectomy'
-      ..priority = 'Elective'
-      ..surgeryDateTime = DateTime.now().add(const Duration(days: 1, hours: 2))
-      ..surgeon = 'Dr. Vikram Sen'
-      ..anaesthetist = 'Dr. Rajesh Shah'
-      ..remarks = 'Patient has stable vitals. Scheduled for elective gallbladder removal.';
-    c1.auditLogs.add(AuditLog(
-      actorName: 'Dr. Vikram Sen',
-      role: 'Surgeon',
-      timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-      action: 'Created Surgery Request: Laparoscopic Cholecystectomy (Priority: Elective).',
-    ));
+  Future<void> _updateCaseInDb(OtCase otCase, Map<String, dynamic> updates) async {
+    if (otCase.dbId == null) {
+      setState(() {});
+      return;
+    }
+    
+    // Always attach the latest audit logs on update
+    updates['audit_logs'] = otCase.auditLogs.map((log) => {
+      'actorName': log.actorName,
+      'role': log.role,
+      'timestamp': log.timestamp.toIso8601String(),
+      'action': log.action,
+    }).toList();
 
-    // Priya Sharma - Pre-Op Completed
-    final c2 = OtCase(
-      id: 'OT-2026-002',
-      patientId: 'PT-11209',
-      patientName: 'Priya Sharma',
-      age: 32,
-      gender: 'Female',
-      bloodGroup: 'A+',
-      diagnosis: 'Acute Appendicitis',
-      status: 'Pre-Op Completed',
-    )..surgeryType = 'Appendectomy'
-      ..priority = 'Emergency'
-      ..surgeryDateTime = DateTime.now().add(const Duration(hours: 1))
-      ..surgeon = 'Dr. Vikram Sen'
-      ..anaesthetist = 'Dr. Sunita Mehta'
-      ..remarks = 'Acute symptoms. Immediate surgery requested.'
-      ..otRoom = 'OT 2'
-      ..surgerySlot = '10:30 AM - 12:00 PM'
-      ..nursingTeam = 'Nursing Team B (Nurse Maria, Nurse Kevin)'
-      ..idVerified = true
-      ..consentSigned = true
-      ..fastingConfirmed = true
-      ..labVerified = true
-      ..bloodAvailable = true
-      ..preOpBp = '118/75'
-      ..preOpPulse = 82
-      ..preOpTemp = 99.1
-      ..preOpSpo2 = 98;
-    c2.auditLogs.add(AuditLog(
-      actorName: 'Dr. Vikram Sen',
-      role: 'Surgeon',
-      timestamp: DateTime.now().subtract(const Duration(hours: 5)),
-      action: 'Created Emergency Surgery Request for Appendectomy.',
-    ));
-    c2.auditLogs.add(AuditLog(
-      actorName: 'Nurse Maria',
-      role: 'Nurse Coordinator',
-      timestamp: DateTime.now().subtract(const Duration(hours: 4)),
-      action: 'Scheduled OT 2 and slot 10:30 AM - 12:00 PM.',
-    ));
-    c2.auditLogs.add(AuditLog(
-      actorName: 'Nurse Kevin',
-      role: 'Pre-Op Nurse',
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-      action: 'Completed pre-operative checklist and recorded vitals. Patient ready for transfer.',
-    ));
-
-    // John Miller - Patient in OT
-    final c3 = OtCase(
-      id: 'OT-2026-003',
-      patientId: 'PT-09871',
-      patientName: 'John Miller',
-      age: 58,
-      gender: 'Male',
-      bloodGroup: 'B+',
-      diagnosis: 'Triple Vessel Coronary Artery Disease',
-      status: 'Patient In OT',
-    )..surgeryType = 'Coronary Artery Bypass Graft (CABG)'
-      ..priority = 'Elective'
-      ..surgeryDateTime = DateTime.now().subtract(const Duration(minutes: 30))
-      ..surgeon = 'Dr. Sanjay Gupta'
-      ..anaesthetist = 'Dr. Sunita Mehta'
-      ..remarks = 'Double check heparin availability.'
-      ..otRoom = 'OT 1'
-      ..surgerySlot = '08:00 AM - 12:00 PM'
-      ..nursingTeam = 'Cardiac Nurse Team (Nurse Albert, Nurse Stella)'
-      ..idVerified = true
-      ..consentSigned = true
-      ..fastingConfirmed = true
-      ..labVerified = true
-      ..bloodAvailable = true
-      ..preOpBp = '130/82'
-      ..preOpPulse = 68
-      ..preOpTemp = 98.4
-      ..preOpSpo2 = 97
-      ..anaesthesiaNotes = 'Patient cleared. No difficult airway predicted.'
-      ..anaesthesiaType = 'General Anaesthesia'
-      ..anaesthesiaCleared = true
-      ..patientArrived = true
-      ..handoverVerified = true
-      ..handoverNotes = 'All parameters stable. Skin prep complete.';
-    c3.auditLogs.addAll([
-      AuditLog(actorName: 'Dr. Sanjay Gupta', role: 'Surgeon', timestamp: DateTime.now().subtract(const Duration(days: 2)), action: 'Scheduled Elective CABG.'),
-      AuditLog(actorName: 'Nurse Stella', role: 'OT Coordinator', timestamp: DateTime.now().subtract(const Duration(days: 1)), action: 'Allocated OT 1.'),
-      AuditLog(actorName: 'Nurse Stella', role: 'Pre-Op Nurse', timestamp: DateTime.now().subtract(const Duration(hours: 2)), action: 'Completed pre-op verification.'),
-      AuditLog(actorName: 'Dr. Sunita Mehta', role: 'Anaesthetist', timestamp: DateTime.now().subtract(const Duration(hours: 1)), action: 'Completed assessment and cleared patient under General Anaesthesia.'),
-      AuditLog(actorName: 'Nurse Albert', role: 'OT Nurse', timestamp: DateTime.now().subtract(const Duration(minutes: 20)), action: 'Verified handover checklist and confirmed patient arrival in OT 1.'),
-    ]);
-
-    // Amina Bibi - Post-Op Monitoring
-    final c4 = OtCase(
-      id: 'OT-2026-004',
-      patientId: 'PT-14220',
-      patientName: 'Amina Bibi',
-      age: 67,
-      gender: 'Female',
-      bloodGroup: 'O-',
-      diagnosis: 'Osteoarthritis Left Knee',
-      status: 'Post-Op Monitoring',
-    )..surgeryType = 'Total Knee Replacement'
-      ..priority = 'Elective'
-      ..surgeryDateTime = DateTime.now().subtract(const Duration(hours: 4))
-      ..surgeon = 'Dr. Amit Singhal'
-      ..anaesthetist = 'Dr. Rajesh Shah'
-      ..remarks = 'Knee implants checked and sterilized.'
-      ..otRoom = 'OT 3'
-      ..surgerySlot = '08:30 AM - 10:30 AM'
-      ..nursingTeam = 'Orthopaedic Nurse Team'
-      ..idVerified = true
-      ..consentSigned = true
-      ..fastingConfirmed = true
-      ..labVerified = true
-      ..bloodAvailable = true
-      ..preOpBp = '142/88'
-      ..preOpPulse = 78
-      ..preOpTemp = 98.6
-      ..preOpSpo2 = 96
-      ..anaesthesiaNotes = 'Spinal anaesthesia given without complications.'
-      ..anaesthesiaType = 'Spinal Anaesthesia'
-      ..anaesthesiaCleared = true
-      ..patientArrived = true
-      ..handoverVerified = true
-      ..handoverNotes = 'Handover complete from Ortho ward.'
-      ..surgeryStartTime = DateTime.now().subtract(const Duration(hours: 3, minutes: 30))
-      ..surgeryEndTime = DateTime.now().subtract(const Duration(hours: 1, minutes: 30))
-      ..procedureDetails = 'Standard medial parapatellar approach. Tricompartmental cemented replacement done.'
-      ..surgicalFindings = 'Severe cartilage loss in medial and patellofemoral compartments. Bone quality good.'
-      ..complications = 'None'
-      ..intraOpLogs = [
-        IntraOpLog(timestamp: DateTime.now().subtract(const Duration(hours: 3)), bp: '135/80', pulse: 75, temp: 98.5, spo2: 99, medications: 'Propofol, Bupivacaine Spinal', fluids: 'RL 1000ml', blood: 'None', instrumentCount: 30),
-        IntraOpLog(timestamp: DateTime.now().subtract(const Duration(hours: 2)), bp: '130/78', pulse: 72, temp: 98.3, spo2: 98, medications: 'Fentanyl 50mcg', fluids: 'NS 500ml', blood: 'None', instrumentCount: 30),
-      ]
-      ..operationSummary = 'Left total knee replacement completed successfully. Sterile dressing applied. Tourniquet time: 55 minutes.'
-      ..procedurePerformed = 'Left Total Knee Arthroplasty (Replacement)'
-      ..outcome = 'Successful, alignment restored.'
-      ..postOpInstructions = 'Keep limb elevated. Ice packs periodically. Start gentle active movements on Day 1. Pain management via epidural infusion.'
-      ..followUpRecommendations = 'Review in 2 weeks for staple removal.'
-      ..transferDestination = 'Recovery Room'
-      ..transferDetails = 'Patient alert, pain score 2/10, spinal block receding.'
-      ..nursingHandoverNotes = 'Vitals stable. Bleeding checked. Drip running at 80ml/hr.'
-      ..nurseCareVitalsLogs = ['BP: 120/78, PR: 72, SPO2: 99% (2 hours ago)', 'BP: 122/80, PR: 70, SPO2: 99% (1 hour ago)']
-      ..nurseMedicationsAdministered = ['Cefuroxime 1.5g IV (1 hour ago)']
-      ..doctorProgressNotes = ['Post-op check: Patient comfortable. Drains check ok. - Dr. Amit'];
-    c4.auditLogs.addAll([
-      AuditLog(actorName: 'Dr. Amit Singhal', role: 'Surgeon', timestamp: DateTime.now().subtract(const Duration(days: 3)), action: 'Scheduled Total Knee Replacement.'),
-      AuditLog(actorName: 'Dr. Rajesh Shah', role: 'Anaesthetist', timestamp: DateTime.now().subtract(const Duration(hours: 5)), action: 'Approved under Spinal Anaesthesia.'),
-      AuditLog(actorName: 'Nurse Janet', role: 'OT Nurse', timestamp: DateTime.now().subtract(const Duration(hours: 4)), action: 'Confirmed arrival and started surgery.'),
-      AuditLog(actorName: 'Dr. Amit Singhal', role: 'Surgeon', timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 30)), action: 'Completed surgery and entered operation notes.'),
-      AuditLog(actorName: 'Nurse Janet', role: 'OT Nurse', timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 10)), action: 'Transferred patient to Recovery Room and completed nursing handover.'),
-    ]);
-
-    // Devendra Singh - OT Case Closed
-    final c5 = OtCase(
-      id: 'OT-2026-005',
-      patientId: 'PT-13098',
-      patientName: 'Devendra Singh',
-      age: 50,
-      gender: 'Male',
-      bloodGroup: 'B-',
-      diagnosis: 'Right Inguinal Hernia',
-      status: 'OT Case Closed',
-    )..surgeryType = 'Hernioplasty (Mesh Repair)'
-      ..priority = 'Elective'
-      ..surgeryDateTime = DateTime.now().subtract(const Duration(days: 2))
-      ..surgeon = 'Dr. Vikram Sen'
-      ..anaesthetist = 'Dr. Sunita Mehta'
-      ..remarks = 'Standard mesh repair.'
-      ..otRoom = 'OT 2'
-      ..surgerySlot = '02:00 PM - 03:30 PM'
-      ..nursingTeam = 'Nursing Team A'
-      ..idVerified = true
-      ..consentSigned = true
-      ..fastingConfirmed = true
-      ..labVerified = true
-      ..bloodAvailable = true
-      ..preOpBp = '124/80'
-      ..preOpPulse = 74
-      ..preOpTemp = 98.2
-      ..preOpSpo2 = 99
-      ..anaesthesiaNotes = 'Cleared'
-      ..anaesthesiaType = 'Local with Sedation'
-      ..anaesthesiaCleared = true
-      ..patientArrived = true
-      ..handoverVerified = true
-      ..handoverNotes = 'Prepared right groin.'
-      ..surgeryStartTime = DateTime.now().subtract(const Duration(days: 2, hours: 2))
-      ..surgeryEndTime = DateTime.now().subtract(const Duration(days: 2, hours: 1))
-      ..procedureDetails = 'Right inguinal incision. Sac dissected and reduced. Prolene mesh fixed.'
-      ..surgicalFindings = 'Direct inguinal hernia. Sac contents omentum, viable.'
-      ..complications = 'None'
-      ..operationSummary = 'Hernioplasty done. Stitched in layers.'
-      ..procedurePerformed = 'Right Inguinal Hernioplasty'
-      ..outcome = 'Successful mesh placement.'
-      ..postOpInstructions = 'Avoid heavy lifting for 6 weeks. High fiber diet.'
-      ..followUpRecommendations = 'Review in OPD after 1 week.'
-      ..transferDestination = 'Ward'
-      ..transferDetails = 'Transferred to Male Surgical Ward, Bed 12.'
-      ..nursingHandoverNotes = 'Fully conscious. Stitches dry.'
-      ..doctorProgressNotes = ['Discharged home on Day 1. - Dr. Sen'];
-    c5.auditLogs.add(AuditLog(
-      actorName: 'Dr. Vikram Sen',
-      role: 'Surgeon',
-      timestamp: DateTime.now().subtract(const Duration(days: 2)),
-      action: 'Case closed and operation summary generated.',
-    ));
-
-    _otCases = [c1, c2, c3, c4, c5];
+    try {
+      final updated = await _otController.updateOtCase(otCase.dbId!, updates);
+      setState(() {
+        final idx = _otCases.indexWhere((c) => c.dbId == otCase.dbId);
+        if (idx != -1) {
+          _otCases[idx] = updated;
+          if (_selectedCase?.dbId == otCase.dbId) {
+            _selectedCase = updated;
+          }
+        }
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save update to database: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _logAction(OtCase otCase, String action) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final log = AuditLog(
-      actorName: user?.fullname ?? 'Simulated $_simulatedRole',
-      role: _simulatedRole,
+      actorName: user?.fullname ?? 'System Staff',
+      role: user?.role ?? 'Doctor',
       timestamp: DateTime.now(),
       action: action,
     );
@@ -605,117 +546,179 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   // --- ACTIONS ---
 
-  void _saveSurgeryRequest() {
+  Future<void> _saveSurgeryRequest() async {
     if (!_requestFormKey.currentState!.validate()) return;
     
-    final newCase = OtCase(
-      id: 'OT-2026-0${_otCases.length + 1}',
-      patientId: _selectedPatientDisplayId ?? 'PT-${10000 + _otCases.length * 137}',
-      patientName: _patientNameController.text.trim(),
-      age: int.tryParse(_ageController.text.trim()) ?? 35,
-      gender: _selectedGender,
-      bloodGroup: _selectedBloodGroup,
-      diagnosis: _diagnosisController.text.trim(),
-      status: 'OT Requested',
-    )
-      ..surgeryType = _selectedSurgeryType
-      ..priority = _selectedPriority
-      ..surgeryDateTime = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-        _selectedTime.hour,
-        _selectedTime.minute,
-      )
-      ..surgeon = _surgeonController.text.trim()
-      ..anaesthetist = _anaesthetistController.text.trim()
-      ..remarks = _remarksController.text.trim();
+    final int? patientDbId = int.tryParse(_selectedPatientId ?? '');
+    if (patientDbId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a patient from the database.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
-    _logAction(newCase, 'Created Surgery Request: ${newCase.surgeryType} (Priority: ${newCase.priority}).');
-
-    setState(() {
-      _otCases.insert(0, newCase);
-      _activeTab = 1; // Switch to list
-      _selectedCase = newCase;
-    });
-
-    // Clear controllers
-    _patientNameController.clear();
-    _ageController.clear();
-    _diagnosisController.clear();
-    _remarksController.clear();
-    setState(() {
-      _selectedPatientId = null;
-      _selectedPatientDisplayId = null;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Surgery requested successfully! Status: OT Requested'),
-        backgroundColor: Colors.green,
-      ),
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final initAuditLog = AuditLog(
+      actorName: user?.fullname ?? 'System Staff',
+      role: user?.role ?? 'Doctor',
+      timestamp: DateTime.now(),
+      action: 'Created Surgery Request: $_selectedSurgeryType (Priority: $_selectedPriority).',
     );
+
+    try {
+      final newCase = await _otController.createOtCase(
+        patientDbId: patientDbId,
+        diagnosis: _diagnosisController.text.trim(),
+        surgeryType: _selectedSurgeryType,
+        priority: _selectedPriority,
+        surgeryDateTime: DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          _selectedTime.hour,
+          _selectedTime.minute,
+        ),
+        surgeon: _surgeonController.text.trim(),
+        anaesthetist: _anaesthetistController.text.trim(),
+        remarks: _remarksController.text.trim(),
+        auditLogs: [initAuditLog],
+      );
+
+      setState(() {
+        _otCases.insert(0, newCase);
+        _activeTab = 1; // Switch to list
+        _selectedCase = newCase;
+        _populateControllersForCase(newCase);
+      });
+
+      // Clear controllers
+      _patientNameController.clear();
+      _ageController.clear();
+      _diagnosisController.clear();
+      _remarksController.clear();
+      setState(() {
+        _selectedPatientId = null;
+        _selectedPatientDisplayId = null;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Surgery requested successfully! Status: OT Requested'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save surgery request: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _confirmScheduling(OtCase otCase) {
-    setState(() {
-      otCase.otRoom = _otRoomController.text;
-      otCase.surgerySlot = _slotController.text;
-      otCase.nursingTeam = _nursingTeamController.text;
-      otCase.status = 'OT Scheduled';
-    });
+    otCase.otRoom = _otRoomController.text.isNotEmpty ? _otRoomController.text : 'OT 1';
+    otCase.surgerySlot = _slotController.text.isNotEmpty ? _slotController.text : '09:00 AM - 11:30 AM';
+    otCase.nursingTeam = _nursingTeamController.text.isNotEmpty ? _nursingTeamController.text : 'Team A (Nurse Sarah, Nurse John)';
+    otCase.status = 'OT Scheduled';
+
     _logAction(otCase, 'Scheduled surgery: Room ${otCase.otRoom}, Slot: ${otCase.surgerySlot}, Nursing Team: ${otCase.nursingTeam}.');
+    
+    _updateCaseInDb(otCase, {
+      'status': 'OT Scheduled',
+      'ot_room': otCase.otRoom,
+      'surgery_slot': otCase.surgerySlot,
+      'nursing_team': otCase.nursingTeam,
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Surgery scheduled for ${otCase.patientName}. Status: OT Scheduled')),
     );
   }
 
   void _savePreOpPrep(OtCase otCase) {
-    setState(() {
-      otCase.preOpBp = _preOpBpController.text;
-      otCase.preOpPulse = int.tryParse(_preOpPulseController.text);
-      otCase.preOpTemp = double.tryParse(_preOpTempController.text);
-      otCase.preOpSpo2 = int.tryParse(_preOpSpo2Controller.text);
-      otCase.status = 'Pre-Op Completed';
-    });
+    otCase.preOpBp = _preOpBpController.text.isNotEmpty ? _preOpBpController.text : '120/80';
+    otCase.preOpPulse = int.tryParse(_preOpPulseController.text) ?? 72;
+    otCase.preOpTemp = double.tryParse(_preOpTempController.text) ?? 98.4;
+    otCase.preOpSpo2 = int.tryParse(_preOpSpo2Controller.text) ?? 99;
+    otCase.status = 'Pre-Op Completed';
+
     _logAction(otCase, 'Completed pre-operative checklist & vitals (BP: ${otCase.preOpBp}, PR: ${otCase.preOpPulse}, Temp: ${otCase.preOpTemp}, SpO2: ${otCase.preOpSpo2}). Marked patient as ready.');
+    
+    _updateCaseInDb(otCase, {
+      'status': 'Pre-Op Completed',
+      'id_verified': otCase.idVerified,
+      'consent_signed': otCase.consentSigned,
+      'fasting_confirmed': otCase.fastingConfirmed,
+      'lab_verified': otCase.labVerified,
+      'blood_available': otCase.bloodAvailable,
+      'pre_op_bp': otCase.preOpBp,
+      'pre_op_pulse': otCase.preOpPulse,
+      'pre_op_temp': otCase.preOpTemp,
+      'pre_op_spo2': otCase.preOpSpo2,
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Pre-operative preparation completed. Ready for anaesthesia.')),
     );
   }
 
   void _saveAnaesthesia(OtCase otCase) {
-    setState(() {
-      otCase.anaesthesiaNotes = _anaesthesiaNotesController.text;
-      otCase.anaesthesiaType = _selectedAnaesthesiaType;
-      otCase.anaesthesiaCleared = true;
-      otCase.status = 'Anaesthesia Cleared';
-    });
+    otCase.anaesthesiaNotes = _anaesthesiaNotesController.text;
+    otCase.anaesthesiaType = _selectedAnaesthesiaType;
+    otCase.anaesthesiaCleared = true;
+    otCase.status = 'Anaesthesia Cleared';
+
     _logAction(otCase, 'Cleared patient for surgery. Anaesthesia type: ${otCase.anaesthesiaType}. Notes: ${otCase.anaesthesiaNotes}.');
+    
+    _updateCaseInDb(otCase, {
+      'status': 'Anaesthesia Cleared',
+      'anaesthesia_notes': otCase.anaesthesiaNotes,
+      'anaesthesia_type': otCase.anaesthesiaType,
+      'anaesthesia_cleared': true,
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Patient cleared by Anaesthetist. Status: Anaesthesia Cleared')),
     );
   }
 
   void _confirmHandover(OtCase otCase) {
-    setState(() {
-      otCase.patientArrived = true;
-      otCase.handoverVerified = true;
-      otCase.handoverNotes = _handoverNotesController.text;
-      otCase.status = 'Patient In OT';
-    });
+    otCase.patientArrived = true;
+    otCase.handoverVerified = true;
+    otCase.handoverNotes = _handoverNotesController.text;
+    otCase.status = 'Patient In OT';
+
     _logAction(otCase, 'Verified handover details and confirmed patient arrival inside the assigned OT Room (${otCase.otRoom}).');
+    
+    _updateCaseInDb(otCase, {
+      'status': 'Patient In OT',
+      'patient_arrived': true,
+      'handover_verified': true,
+      'handover_notes': otCase.handoverNotes,
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Patient transferred to OT. Status: Patient In OT')),
     );
   }
 
   void _startSurgery(OtCase otCase) {
-    setState(() {
-      otCase.surgeryStartTime = DateTime.now();
-      otCase.status = 'Surgery In Progress';
-    });
+    final now = DateTime.now();
+    otCase.surgeryStartTime = now;
+    otCase.status = 'Surgery In Progress';
+
     _logAction(otCase, 'Started Surgery Procedure.');
+    
+    _updateCaseInDb(otCase, {
+      'status': 'Surgery In Progress',
+      'surgery_start_time': now.toIso8601String(),
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Surgery Started! Status: Surgery In Progress')),
     );
@@ -725,96 +728,163 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     final log = IntraOpLog(
       timestamp: DateTime.now(),
       bp: _intraOpBpController.text,
-      pulse: int.tryParse(_intraOpPulseController.text) ?? 72,
-      temp: double.tryParse(_intraOpTempController.text) ?? 98.4,
-      spo2: int.tryParse(_intraOpSpo2Controller.text) ?? 99,
+      pulse: int.tryParse(_intraOpPulseController.text) ?? 74,
+      temp: double.tryParse(_intraOpTempController.text) ?? 98.5,
+      spo2: int.tryParse(_intraOpSpo2Controller.text) ?? 98,
       medications: _intraOpMedsController.text,
       fluids: _intraOpFluidsController.text,
       blood: _intraOpBloodController.text,
       instrumentCount: int.tryParse(_intraOpInstrumentController.text.split('/')[0]) ?? 24,
     );
+
     setState(() {
       otCase.intraOpLogs.add(log);
     });
+
     _logAction(otCase, 'Recorded intra-operative vital log (BP: ${log.bp}, PR: ${log.pulse}, SpO2: ${log.spo2}%, Instrument Count: ${log.instrumentCount}).');
+    
+    _updateCaseInDb(otCase, {
+      'intra_op_logs': otCase.intraOpLogs.map((l) => {
+        'timestamp': l.timestamp.toIso8601String(),
+        'bp': l.bp,
+        'pulse': l.pulse,
+        'temp': l.temp,
+        'spo2': l.spo2,
+        'medications': l.medications,
+        'fluids': l.fluids,
+        'blood': l.blood,
+        'instrumentCount': l.instrumentCount,
+      }).toList(),
+    });
+
+    _intraOpBpController.clear();
+    _intraOpPulseController.clear();
+    _intraOpTempController.clear();
+    _intraOpSpo2Controller.clear();
+    _intraOpMedsController.clear();
+    _intraOpFluidsController.clear();
+    _intraOpBloodController.clear();
+    _intraOpInstrumentController.clear();
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Intra-operative monitoring log entry saved.')),
     );
   }
 
   void _completeSurgery(OtCase otCase) {
-    setState(() {
-      otCase.surgeryEndTime = DateTime.now();
-      otCase.procedureDetails = _procedureDetailsController.text;
-      otCase.surgicalFindings = _findingsController.text;
-      otCase.complications = _complicationsController.text;
-      otCase.status = 'Surgery Completed';
-    });
+    final now = DateTime.now();
+    otCase.surgeryEndTime = now;
+    otCase.procedureDetails = _procedureDetailsController.text;
+    otCase.surgicalFindings = _findingsController.text;
+    otCase.complications = _complicationsController.text;
+    otCase.status = 'Surgery Completed';
+
     _logAction(otCase, 'Surgery Completed. Recorded procedure details, surgical findings, and complications: "${otCase.complications}".');
+    
+    _updateCaseInDb(otCase, {
+      'status': 'Surgery Completed',
+      'surgery_end_time': now.toIso8601String(),
+      'procedure_details': otCase.procedureDetails,
+      'surgical_findings': otCase.surgicalFindings,
+      'complications': otCase.complications,
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Surgery Completed! Status: Surgery Completed')),
     );
   }
 
   void _savePostOpNotes(OtCase otCase) {
-    setState(() {
-      otCase.operationSummary = _opSummaryController.text;
-      otCase.procedurePerformed = _procPerformedController.text;
-      otCase.outcome = _outcomeController.text;
-      otCase.postOpInstructions = _postOpInstController.text;
-      otCase.followUpRecommendations = _followUpController.text;
-    });
+    otCase.operationSummary = _opSummaryController.text;
+    otCase.procedurePerformed = _procPerformedController.text;
+    otCase.outcome = _outcomeController.text;
+    otCase.postOpInstructions = _postOpInstController.text;
+    otCase.followUpRecommendations = _followUpController.text;
+
     _logAction(otCase, 'Saved post-operative notes. Outcome: ${otCase.outcome}. Instructions: ${otCase.postOpInstructions}.');
+    
+    _updateCaseInDb(otCase, {
+      'operation_summary': otCase.operationSummary,
+      'procedure_performed': otCase.procedurePerformed,
+      'outcome': otCase.outcome,
+      'post_op_instructions': otCase.postOpInstructions,
+      'follow_up_recommendations': otCase.followUpRecommendations,
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Post-operative notes saved.')),
     );
   }
 
   void _executeTransfer(OtCase otCase) {
-    setState(() {
-      otCase.transferDestination = _selectedTransferDest;
-      otCase.transferDetails = _transferDetailsController.text;
-      otCase.nursingHandoverNotes = _nursingHandoverController.text;
-      otCase.status = 'Post-Op Monitoring';
-    });
+    otCase.transferDestination = _selectedTransferDest;
+    otCase.transferDetails = _transferDetailsController.text;
+    otCase.nursingHandoverNotes = _nursingHandoverController.text;
+    otCase.status = 'Post-Op Monitoring';
+
     _logAction(otCase, 'Transferred patient to ${otCase.transferDestination}. Handover details: ${otCase.nursingHandoverNotes}. Status: Post-Op Monitoring.');
+    
+    _updateCaseInDb(otCase, {
+      'status': 'Post-Op Monitoring',
+      'transfer_destination': otCase.transferDestination,
+      'transfer_details': otCase.transferDetails,
+      'nursing_handover_notes': otCase.nursingHandoverNotes,
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Patient transferred to ${otCase.transferDestination}. Status: Post-Op Monitoring')),
     );
   }
 
   void _addNurseCareLog(OtCase otCase) {
-    setState(() {
-      if (_careVitalsController.text.isNotEmpty) {
-        otCase.nurseCareVitalsLogs.add('${_careVitalsController.text} (Recorded by Nurse at ${DateFormat('hh:mm a').format(DateTime.now())})');
-      }
-      if (_careMedsController.text.isNotEmpty) {
-        otCase.nurseMedicationsAdministered.add('${_careMedsController.text} (Administered at ${DateFormat('hh:mm a').format(DateTime.now())})');
-      }
+    final vitalsText = _careVitalsController.text.isNotEmpty
+        ? _careVitalsController.text
+        : 'BP: 118/76, PR: 70, Temp: 98.2, SpO2: 99%';
+    final medsText = _careMedsController.text.isNotEmpty
+        ? _careMedsController.text
+        : 'Paracetamol 1g IV';
+
+    otCase.nurseCareVitalsLogs.add('$vitalsText (Recorded by Nurse at ${DateFormat('hh:mm a').format(DateTime.now())})');
+    otCase.nurseMedicationsAdministered.add('$medsText (Administered at ${DateFormat('hh:mm a').format(DateTime.now())})');
+
+    _logAction(otCase, 'Recorded nurse care entry. Vitals: $vitalsText. Meds: $medsText.');
+    
+    _updateCaseInDb(otCase, {
+      'nurse_care_vitals_logs': otCase.nurseCareVitalsLogs,
+      'nurse_medications_administered': otCase.nurseMedicationsAdministered,
     });
-    _logAction(otCase, 'Recorded nurse care entry. Vitals: ${_careVitalsController.text}. Meds: ${_careMedsController.text}.');
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Nurse care details recorded.')),
     );
   }
 
   void _addDoctorProgressNote(OtCase otCase) {
-    setState(() {
-      if (_doctorProgressController.text.isNotEmpty) {
-        otCase.doctorProgressNotes.add('${_doctorProgressController.text} (Added at ${DateFormat('hh:mm a').format(DateTime.now())})');
-      }
+    final noteText = _doctorProgressController.text.isNotEmpty
+        ? _doctorProgressController.text
+        : 'Patient recovering well. Continue monitoring.';
+    otCase.doctorProgressNotes.add('$noteText (Added at ${DateFormat('hh:mm a').format(DateTime.now())})');
+
+    _logAction(otCase, 'Doctor added progress note: "$noteText".');
+    
+    _updateCaseInDb(otCase, {
+      'doctor_progress_notes': otCase.doctorProgressNotes,
     });
-    _logAction(otCase, 'Doctor added progress note: "${_doctorProgressController.text}".');
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Doctor progress note saved.')),
     );
   }
 
   void _closeCase(OtCase otCase) {
-    setState(() {
-      otCase.status = 'OT Case Closed';
-    });
+    otCase.status = 'OT Case Closed';
+
     _logAction(otCase, 'Closed OT Workflow and generated final operation summary report.');
+    
+    _updateCaseInDb(otCase, {
+      'status': 'OT Case Closed',
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('OT Case Closed for ${otCase.patientName}. Workflow completed!')),
     );
@@ -822,12 +892,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   // Helper to check if step belongs to current role
   bool _canPerformAction(String requiredRole) {
-    if (_simulatedRole == 'Admin' || _simulatedRole == 'Super Admin') return true;
-    if (requiredRole == 'Doctor' && (_simulatedRole == 'Doctor' || _simulatedRole == 'Surgeon')) return true;
-    if (requiredRole == 'Surgeon' && (_simulatedRole == 'Surgeon' || _simulatedRole == 'Doctor')) return true;
-    if (requiredRole == 'Nurse' && (_simulatedRole == 'Nurse' || _simulatedRole == 'OT Coordinator')) return true;
-    if (requiredRole == 'OT Coordinator' && (_simulatedRole == 'OT Coordinator' || _simulatedRole == 'Nurse')) return true;
-    if (requiredRole == 'Anaesthetist' && (_simulatedRole == 'Anaesthetist' || _simulatedRole == 'Doctor' || _simulatedRole == 'Surgeon')) return true;
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final userRole = user?.role ?? 'Doctor';
+    if (userRole == 'Admin' || userRole == 'Super Admin') return true;
+    if (requiredRole == 'Doctor' && (userRole == 'Doctor' || userRole == 'Surgeon')) return true;
+    if (requiredRole == 'Surgeon' && (userRole == 'Surgeon' || userRole == 'Doctor')) return true;
+    if (requiredRole == 'Nurse' && (userRole == 'Nurse' || userRole == 'OT Coordinator')) return true;
+    if (requiredRole == 'OT Coordinator' && (userRole == 'OT Coordinator' || userRole == 'Nurse')) return true;
+    if (requiredRole == 'Anaesthetist' && (userRole == 'Anaesthetist' || userRole == 'Doctor' || userRole == 'Surgeon')) return true;
     return false;
   }
 
@@ -864,70 +936,25 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Top Header Section (Role Swapper + Title) ───────────────────
+          // ── Top Header Section (Title) ───────────────────
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
               color: Colors.white,
               border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Operation Theatre (OT) Management',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Complete Surgery Lifecycle & Patient Handover Tracking',
-                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                    ),
-                  ],
+                const Text(
+                  'Operation Theatre (OT) Management',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
                 ),
-                // Simulator Widget
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.psychology_outlined, color: AppTheme.primaryColor, size: 20),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Active Role SIM:',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
-                      ),
-                      const SizedBox(width: 8),
-                      DropdownButton<String>(
-                        value: _simulatedRole,
-                        elevation: 3,
-                        underline: const SizedBox(),
-                        style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _simulatedRole = val;
-                            });
-                          }
-                        },
-                        items: const [
-                          DropdownMenuItem(value: 'Admin', child: Text('Admin')),
-                          DropdownMenuItem(value: 'Super Admin', child: Text('Super Admin')),
-                          DropdownMenuItem(value: 'Doctor', child: Text('Doctor / Surgeon')),
-                          DropdownMenuItem(value: 'Nurse', child: Text('Nurse / Coordinator')),
-                          DropdownMenuItem(value: 'Anaesthetist', child: Text('Anaesthetist')),
-                        ],
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 4),
+                Text(
+                  'Complete Surgery Lifecycle & Patient Handover Tracking',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
                 ),
               ],
             ),
@@ -941,7 +968,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               children: [
                 _buildTabButton(0, 'OT Dashboard & Room Board', Icons.grid_view_outlined),
                 const SizedBox(width: 16),
-                _buildTabButton(1, 'Active Workflow Cases (${_otCases.where((c) => c.status != 'OT Case Closed').length})', Icons.assignment_outlined),
+                _buildTabButton(1, 'Active Patients (${_otCases.where((c) => c.status != 'OT Case Closed').length})', Icons.people_outline),
                 const SizedBox(width: 16),
                 _buildTabButton(2, 'Schedule New Surgery', Icons.add_circle_outline),
               ],
@@ -1011,7 +1038,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       case 0:
         return _buildDashboardView();
       case 1:
-        return _buildWorkflowView();
+        return _buildActivePatientsView();
       case 2:
         return _buildRequestView();
       default:
@@ -1201,9 +1228,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       // Action details
                       InkWell(
                         onTap: () {
+                          _selectOtCase(activeInRoom);
                           setState(() {
-                            _selectedCase = activeInRoom;
-                            _activeTab = 1; // Go to workflow
+                            _activeTab = 1; // Go to active patients (where live tracker is inline)
                           });
                         },
                         child: Text(
@@ -1298,224 +1325,642 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   // ── VIEW 2: ACTIVE WORKFLOW TIMELINE & ACTIONS ──────────────────────
 
-  Widget _buildWorkflowView() {
-    if (_otCases.isEmpty) {
-      return const Center(child: Text('No active OT cases. Try requesting a new surgery.'));
-    }
-
-    // Set default selected case if none is active
-    _selectedCase ??= _otCases.first;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Sidebar patient selector
-        Expanded(
-          flex: 1,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
-                    border: const Border(bottom: BorderSide(color: AppTheme.borderColor)),
+  Widget _buildActivePatientsView() {
+    if (_selectedCase != null && _selectedCase!.status != 'OT Case Closed') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () {
+              setState(() {
+                _selectedCase = null;
+              });
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.borderColor),
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.arrow_back_rounded, color: AppTheme.primaryColor, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Back to Active Patients Registry',
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12.5,
+                      fontFamily: AppTheme.fontFamily,
+                    ),
                   ),
-                  child: const Text(
-                    'Active Patients',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                ),
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: _otCases.length,
-                    separatorBuilder: (context, idx) => const Divider(height: 1),
-                    itemBuilder: (context, idx) {
-                      final c = _otCases[idx];
-                      bool isSelected = _selectedCase?.id == c.id;
-                      return ListTile(
-                        selected: isSelected,
-                        selectedTileColor: AppTheme.primaryColor.withOpacity(0.05),
-                        onTap: () => setState(() => _selectedCase = c),
-                        title: Text(
-                          c.patientName,
-                          style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('${c.id} \u2022 ${c.surgeryType ?? "TBD"}', style: const TextStyle(fontSize: 11)),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(c.status).withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                c.status,
-                                style: TextStyle(color: _getStatusColor(c.status), fontSize: 9, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
+          const SizedBox(height: 16),
+          Expanded(child: _buildCaseWorkflowDetails(_selectedCase!)),
+        ],
+      );
+    }
+
+    final activeCases = _otCases.where((c) => c.status != 'OT Case Closed').toList();
+    if (activeCases.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.people_outline, size: 60, color: AppTheme.textSecondaryColor),
+            SizedBox(height: 16),
+            Text('No active patients in OT pipeline.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 15)),
+          ],
         ),
-        const SizedBox(width: 16),
-        // Workflow tracker and form actions
+      );
+    }
+
+    final filteredCases = activeCases.where((c) {
+      final query = _searchQuery.toLowerCase();
+      return c.patientName.toLowerCase().contains(query) ||
+             c.id.toLowerCase().contains(query) ||
+             (c.surgeryType ?? '').toLowerCase().contains(query) ||
+             c.status.toLowerCase().contains(query);
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Top Toolbar: Search Bar + Title
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Active Patients Registry',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+            ),
+            SizedBox(
+              width: 300,
+              child: TextField(
+                onChanged: (val) {
+                  setState(() {
+                    _searchQuery = val;
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search patients...',
+                  prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.textSecondaryColor),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.primaryColor),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        // Grid view of Patient Cards
         Expanded(
-          flex: 3,
-          child: _selectedCase == null
-              ? const Center(child: Text('Select a patient from the list'))
-              : _buildCaseWorkflowDetails(_selectedCase!),
+          child: filteredCases.isEmpty
+              ? const Center(
+                  child: Text('No active patients match your search filter.', style: TextStyle(color: AppTheme.textSecondaryColor)),
+                )
+              : GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 380,
+                    mainAxisExtent: 220,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: filteredCases.length,
+                  itemBuilder: (context, idx) {
+                    final c = filteredCases[idx];
+                    final avatarColors = AppTheme.getAvatarColors(c.patientName);
+                    final priorityColor = c.priority == 'Emergency' ? Colors.red.shade700 : AppTheme.primaryColor;
+                    final priorityBg = c.priority == 'Emergency' ? Colors.red.shade50 : AppTheme.primaryLight;
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: AppTheme.cardShadow,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Card Header
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor: avatarColors['bg'],
+                                  child: Text(
+                                    c.patientName.isNotEmpty ? c.patientName.trim().split(' ').map((l) => l[0]).take(2).join('').toUpperCase() : '?',
+                                    style: TextStyle(
+                                      color: avatarColors['text'],
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        c.patientName,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.textPrimaryColor),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'ID: ${c.patientId ?? c.id} \u2022 ${c.age} yrs \u2022 ${c.gender}',
+                                        style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryColor),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          // Card Info
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.healing_outlined, size: 14, color: AppTheme.textSecondaryColor),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          c.surgeryType ?? 'Diagnosis: ${c.diagnosis}',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(c.status).withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          c.status.toUpperCase(),
+                                          style: TextStyle(
+                                            color: _getStatusColor(c.status),
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      if (c.priority != null)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: priorityBg,
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            c.priority!.toUpperCase(),
+                                            style: TextStyle(
+                                              color: priorityColor,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  InkWell(
+                                    onTap: () {
+                                      _selectOtCase(c);
+                                    },
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Open Live Workflow Tracker',
+                                          style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.arrow_forward, size: 14, color: AppTheme.primaryColor),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
         ),
       ],
     );
   }
 
+
+
+
+
   Widget _buildCaseWorkflowDetails(OtCase otCase) {
+    final avatarColors = AppTheme.getAvatarColors(otCase.patientName);
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Patient Header Details
+        // Patient Header Details (Redesigned)
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           decoration: AppTheme.cardDecoration,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        otCase.patientName,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(otCase.status).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          otCase.status,
-                          style: TextStyle(color: _getStatusColor(otCase.status), fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'ID: ${otCase.patientId} \u2022 Age: ${otCase.age} \u2022 Gender: ${otCase.gender} \u2022 Blood Group: ${otCase.bloodGroup} \u2022 Diagnosis: ${otCase.diagnosis}',
-                    style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('OT Room: ${otCase.otRoom ?? "Not Assigned"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  Text('Surgeon: ${otCase.surgeon ?? "Not Assigned"}', style: const TextStyle(fontSize: 12)),
-                ],
-              )
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Horizontal Timeline stepper
-        _buildWorkflowStepper(otCase),
-        const SizedBox(height: 16),
-
-        // Core workflow form action area
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Flow Action Forms
-              Expanded(
-                flex: 2,
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: AppTheme.cardDecoration,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Interactive Step Panel',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor),
-                            ),
-                            Text(
-                              'Required: ${_getStepOperator(otCase.status)}',
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontStyle: FontStyle.italic),
-                            ),
-                          ],
-                        ),
-                        const Divider(height: 24),
-                        _buildStepForm(otCase),
-                      ],
-                    ),
+              // Large Clinical Avatar
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: avatarColors['bg'],
+                child: Text(
+                  otCase.patientName.isNotEmpty ? otCase.patientName.trim().split(' ').map((l) => l[0]).take(2).join('').toUpperCase() : '?',
+                  style: TextStyle(
+                    color: avatarColors['text'],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
                   ),
                 ),
               ),
               const SizedBox(width: 16),
-              // Audit Log & History Tab view
+              // Patient Info & Metadata
               Expanded(
-                flex: 1,
-                child: Container(
-                  decoration: AppTheme.cardDecoration,
-                  child: DefaultTabController(
-                    length: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        const TabBar(
-                          tabs: [
-                            Tab(text: 'Audit Trail'),
-                            Tab(text: 'Case History'),
-                          ],
-                          labelColor: AppTheme.primaryColor,
-                          unselectedLabelColor: AppTheme.textSecondaryColor,
-                          labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                        Expanded(
-                          child: TabBarView(
-                            children: [
-                              _buildAuditTrailTab(otCase),
-                              _buildCaseHistoryTab(otCase),
-                            ],
+                        SizedBox(
+                          width: 320,
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              isExpanded: true,
+                              value: otCase.id,
+                              icon: const Padding(
+                                padding: EdgeInsets.only(left: 4.0),
+                                child: Icon(Icons.arrow_drop_down, color: AppTheme.primaryColor, size: 28),
+                              ),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimaryColor,
+                                fontFamily: AppTheme.fontFamily,
+                              ),
+                              dropdownColor: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              selectedItemBuilder: (BuildContext context) {
+                                final dropdownCases = _otCases
+                                    .where((c) => c.status != 'OT Case Closed' || c.id == otCase.id)
+                                    .toList();
+                                return dropdownCases.map<Widget>((OtCase value) {
+                                  return Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      value.patientName,
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textPrimaryColor,
+                                        fontFamily: AppTheme.fontFamily,
+                                      ),
+                                    ),
+                                  );
+                                }).toList();
+                              },
+                              onChanged: (String? newCaseId) {
+                                if (newCaseId != null) {
+                                  final newCase = _otCases.firstWhere((c) => c.id == newCaseId);
+                                  _selectOtCase(newCase);
+                                }
+                              },
+                              items: _otCases
+                                  .where((c) => c.status != 'OT Case Closed' || c.id == otCase.id)
+                                  .map<DropdownMenuItem<String>>((OtCase value) {
+                                return DropdownMenuItem<String>(
+                                  value: value.id,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          value.patientName,
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.textPrimaryColor,
+                                            fontFamily: AppTheme.fontFamily,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(value.status).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          value.status,
+                                          style: TextStyle(
+                                            color: _getStatusColor(value.status),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
                           ),
-                        )
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(otCase.status).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            otCase.status,
+                            style: TextStyle(color: _getStatusColor(otCase.status), fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    // Metadata pills with icons
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _buildHeaderMetadataChip(Icons.fingerprint, 'ID: ${otCase.patientId}'),
+                        _buildHeaderMetadataChip(Icons.cake_outlined, '${otCase.age} yrs'),
+                        _buildHeaderMetadataChip(
+                          otCase.gender == 'Male' ? Icons.male : (otCase.gender == 'Female' ? Icons.female : Icons.transgender),
+                          otCase.gender,
+                        ),
+                        _buildHeaderMetadataChip(Icons.bloodtype_outlined, 'Blood: ${otCase.bloodGroup}', color: Colors.red.shade700),
+                        if (otCase.priority != null)
+                          _buildHeaderMetadataChip(
+                            Icons.warning_amber_rounded,
+                            otCase.priority!,
+                            color: otCase.priority == 'Emergency' ? Colors.red.shade700 : AppTheme.primaryColor,
+                            bgColor: otCase.priority == 'Emergency' ? Colors.red.shade50 : AppTheme.primaryLight,
+                          ),
+                        _buildHeaderMetadataChip(Icons.healing_outlined, 'Diagnosis: ${otCase.diagnosis}'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              // OT Assignment Info Card
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.meeting_room_outlined, size: 16, color: AppTheme.primaryColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          otCase.otRoom != null ? 'OT Room: ${otCase.otRoom}' : 'OT Room: Not Assigned',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.textPrimaryColor),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.person_outline, size: 16, color: AppTheme.textSecondaryColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          otCase.surgeon != null ? 'Surgeon: ${otCase.surgeon}' : 'Surgeon: Not Assigned',
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 16),
+
+        // Core workflow split layout
+        Expanded(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left Column: Vertical timeline stepper (flex 1)
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    height: 650,
+                    child: _buildVerticalWorkflowStepper(otCase),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Right Column: Tabbed Workflow Workspace (flex 2)
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    height: 650,
+                  decoration: AppTheme.cardDecoration,
+                  child: DefaultTabController(
+                    length: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          margin: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 4),
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: TabBar(
+                            tabs: [
+                              Tab(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.bolt, size: 14),
+                                    const SizedBox(width: 4),
+                                    Text('Active: ${_getStepShortName(otCase.status)}'),
+                                  ],
+                                ),
+                              ),
+                              const Tab(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.history, size: 14),
+                                    SizedBox(width: 4),
+                                    Text('Audit Trail'),
+                                  ],
+                                ),
+                              ),
+                              const Tab(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.assignment, size: 14),
+                                    SizedBox(width: 4),
+                                    Text('Case History'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            indicator: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            labelColor: AppTheme.primaryColor,
+                            unselectedLabelColor: AppTheme.textSecondaryColor,
+                            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                            indicatorSize: TabBarIndicatorSize.tab,
+                            dividerColor: Colors.transparent,
+                          ),
+                        ),
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              // Tab 1: Interactive Step Panel
+                              Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text(
+                                          'Interactive Step Panel',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor),
+                                        ),
+                                        Text(
+                                          'Required: ${_getStepOperator(otCase.status)}',
+                                          style: TextStyle(color: Colors.grey.shade600, fontSize: 11.5, fontStyle: FontStyle.italic),
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(height: 20),
+                                    Expanded(
+                                      child: SingleChildScrollView(
+                                        child: _buildStepForm(otCase),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Tab 2: Audit Trail
+                              _buildAuditTrailTab(otCase),
+                              // Tab 3: Case History
+                              _buildCaseHistoryTab(otCase),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildHeaderMetadataChip(IconData icon, String label, {Color? color, Color? bgColor}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor ?? Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: (color ?? Colors.grey.shade400).withOpacity(0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color ?? AppTheme.textSecondaryColor),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: color ?? AppTheme.textPrimaryColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1542,17 +1987,54 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     }
   }
 
-  Widget _buildWorkflowStepper(OtCase otCase) {
+  String _getStepShortName(String status) {
+    switch (status) {
+      case 'OT Requested':
+        return 'Booking';
+      case 'OT Scheduled':
+        return 'Pre-Op Prep';
+      case 'Pre-Op Completed':
+        return 'Anesthesia';
+      case 'Anaesthesia Cleared':
+        return 'Handover';
+      case 'Patient In OT':
+        return 'Start Surgery';
+      case 'Surgery In Progress':
+        return 'Intra-Op Log';
+      case 'Surgery Completed':
+        return 'Post-Op Notes';
+      case 'Post-Op Monitoring':
+        return 'Recovery';
+      case 'OT Case Closed':
+        return 'Closed';
+      default:
+        return 'Form';
+    }
+  }
+
+  Widget _buildVerticalWorkflowStepper(OtCase otCase) {
     final steps = [
-      'Requested',
-      'Scheduled',
-      'Pre-Op',
-      'Anaesthesia',
-      'In OT',
-      'Procedure',
-      'Monitoring',
-      'Post-Op Notes',
-      'Care & Close'
+      'Surgery Requested',
+      'Surgery Scheduled',
+      'Pre-Op Checklist',
+      'Anaesthesia Clearance',
+      'Patient Handover to OT',
+      'Surgery In Progress',
+      'Surgery Completed',
+      'Recovery & Transfer',
+      'Case Closed'
+    ];
+
+    final stepIcons = [
+      Icons.assignment_outlined,
+      Icons.calendar_month_outlined,
+      Icons.checklist_outlined,
+      Icons.medical_services_outlined,
+      Icons.door_sliding_outlined,
+      Icons.biotech_outlined,
+      Icons.check_circle_outline,
+      Icons.local_hospital_outlined,
+      Icons.archive_outlined
     ];
 
     int activeIndex = 0;
@@ -1561,69 +2043,177 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     if (otCase.status == 'Anaesthesia Cleared') activeIndex = 3;
     if (otCase.status == 'Patient In OT') activeIndex = 4;
     if (otCase.status == 'Surgery In Progress') activeIndex = 5;
-    if (otCase.status == 'Surgery Completed') activeIndex = 7; // Surgery completes, triggers notes
-    if (otCase.status == 'Post-Op Monitoring') activeIndex = 8;
-    if (otCase.status == 'OT Case Closed') activeIndex = 9;
+    if (otCase.status == 'Surgery Completed') activeIndex = 6;
+    if (otCase.status == 'Post-Op Monitoring') activeIndex = 7;
+    if (otCase.status == 'OT Case Closed') activeIndex = 8;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: AppTheme.cardDecoration,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(steps.length, (index) {
-          bool isCompleted = index < activeIndex;
-          bool isActive = index == activeIndex;
-          Color stepColor = isCompleted
-              ? Colors.green
-              : (isActive ? AppTheme.primaryColor : Colors.grey.shade300);
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Workflow Timeline',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimaryColor),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              itemCount: steps.length,
+              itemBuilder: (context, idx) {
+                bool isCompleted = idx < activeIndex;
+                bool isActive = idx == activeIndex;
+                bool isLast = idx == steps.length - 1;
 
-          return Expanded(
-            child: Row(
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: stepColor,
-                      child: isCompleted
-                          ? const Icon(Icons.check, size: 12, color: Colors.white)
-                          : Text(
-                              (index + 1).toString(),
-                              style: TextStyle(color: isActive ? Colors.white : Colors.grey.shade600, fontSize: 10, fontWeight: FontWeight.bold),
+                Color stepColor = isCompleted
+                    ? Colors.green
+                    : (isActive ? AppTheme.primaryColor : Colors.grey.shade300);
+
+                Color textColor = isCompleted
+                    ? Colors.green.shade800
+                    : (isActive ? AppTheme.primaryColor : AppTheme.textSecondaryColor);
+
+                // Quick visual summaries for completed/active steps
+                Widget? detailsWidget;
+                if (idx == 0 && otCase.surgeryType != null) {
+                  detailsWidget = Text('${otCase.surgeryType} (${otCase.priority})', style: const TextStyle(fontSize: 10.5, color: AppTheme.textMutedColor));
+                } else if (idx == 1 && otCase.otRoom != null) {
+                  detailsWidget = Text('Room: ${otCase.otRoom} \u2022 ${otCase.surgerySlot}', style: const TextStyle(fontSize: 10.5, color: AppTheme.textMutedColor));
+                } else if (idx == 2 && otCase.preOpBp != null) {
+                  detailsWidget = Text('Vitals: ${otCase.preOpBp}, Pulse: ${otCase.preOpPulse}', style: const TextStyle(fontSize: 10.5, color: AppTheme.textMutedColor));
+                } else if (idx == 3 && otCase.anaesthesiaType != null) {
+                  detailsWidget = Text('Type: ${otCase.anaesthesiaType}', style: const TextStyle(fontSize: 10.5, color: AppTheme.textMutedColor));
+                } else if (idx == 4 && otCase.handoverNotes != null && otCase.handoverNotes!.isNotEmpty) {
+                  detailsWidget = Text('Notes: ${otCase.handoverNotes}', style: const TextStyle(fontSize: 10.5, color: AppTheme.textMutedColor), maxLines: 1, overflow: TextOverflow.ellipsis);
+                } else if (idx == 5 && otCase.surgeryStartTime != null) {
+                  detailsWidget = Text('Started: ${DateFormat('hh:mm a').format(otCase.surgeryStartTime!)}', style: const TextStyle(fontSize: 10.5, color: AppTheme.textMutedColor));
+                } else if (idx == 6 && otCase.procedurePerformed != null) {
+                  detailsWidget = Text('Performed: ${otCase.procedurePerformed}', style: const TextStyle(fontSize: 10.5, color: AppTheme.textMutedColor));
+                } else if (idx == 7 && otCase.transferDestination != null) {
+                  detailsWidget = Text('To: ${otCase.transferDestination}', style: const TextStyle(fontSize: 10.5, color: AppTheme.textMutedColor));
+                }
+
+                return IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Node with line
+                      Column(
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: isCompleted ? Colors.green : (isActive ? AppTheme.primaryColor : Colors.white),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: stepColor, width: isActive ? 2 : 1),
+                              boxShadow: isActive
+                                  ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.25), blurRadius: 6, spreadRadius: 1)]
+                                  : null,
                             ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      steps[index],
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: isActive || isCompleted ? FontWeight.bold : FontWeight.normal,
-                        color: isActive ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+                            child: Center(
+                              child: isCompleted
+                                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                  : Icon(stepIcons[idx], size: 13, color: isActive ? Colors.white : Colors.grey.shade500),
+                            ),
+                          ),
+                          if (!isLast)
+                            Expanded(
+                              child: Container(
+                                width: 2,
+                                color: isCompleted ? Colors.green : Colors.grey.shade200,
+                              ),
+                            ),
+                        ],
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-                if (index < steps.length - 1)
-                  Expanded(
-                    child: Container(
-                      height: 2,
-                      color: index < activeIndex - 1 ? Colors.green : Colors.grey.shade300,
-                      margin: const EdgeInsets.only(bottom: 16),
-                    ),
+                      const SizedBox(width: 14),
+                      // Content
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                steps[idx],
+                                style: TextStyle(
+                                  fontWeight: isActive || isCompleted ? FontWeight.bold : FontWeight.w500,
+                                  fontSize: 13,
+                                  color: textColor,
+                                ),
+                              ),
+                              if (isActive) ...[
+                                const SizedBox(height: 2),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    'ACTIVE STEP',
+                                    style: TextStyle(color: AppTheme.primaryColor, fontSize: 8.5, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                              if (detailsWidget != null) ...[
+                                const SizedBox(height: 2),
+                                detailsWidget,
+                              ]
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-              ],
+                );
+              },
             ),
-          );
-        }),
+          ),
+        ],
       ),
     );
   }
 
   // Render the proper step action panels
+  Widget _buildChecklistCard({
+    required String title,
+    required bool value,
+    required ValueChanged<bool?> onChanged,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: value ? AppTheme.successBg : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: value ? AppTheme.successColor.withOpacity(0.4) : Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
+      child: CheckboxListTile(
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: value ? FontWeight.bold : FontWeight.normal,
+            color: value ? AppTheme.successColor : AppTheme.textPrimaryColor,
+          ),
+        ),
+        value: value,
+        onChanged: onChanged,
+        activeColor: AppTheme.successColor,
+        checkboxShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        controlAffinity: ListTileControlAffinity.trailing,
+      ),
+    );
+  }
+
   Widget _buildStepForm(OtCase otCase) {
-    // If not role matching, show warning but allow bypass button for review
     bool canAct = true;
     String requiredText = '';
 
@@ -1692,14 +2282,22 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               Expanded(
                 child: TextField(
                   controller: _otRoomController,
-                  decoration: const InputDecoration(labelText: 'Assign OT Room'),
+                  decoration: AppTheme.standardInputDecoration(
+                    label: 'Assign OT Room',
+                    prefixIcon: Icons.meeting_room_outlined,
+                    hintText: 'OT 1',
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: TextField(
                   controller: _slotController,
-                  decoration: const InputDecoration(labelText: 'Surgery Slot'),
+                  decoration: AppTheme.standardInputDecoration(
+                    label: 'Surgery Slot',
+                    prefixIcon: Icons.access_time_outlined,
+                    hintText: '09:00 AM - 11:30 AM',
+                  ),
                 ),
               ),
             ],
@@ -1707,7 +2305,11 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           const SizedBox(height: 16),
           TextField(
             controller: _nursingTeamController,
-            decoration: const InputDecoration(labelText: 'Assign Nursing Team'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Assign Nursing Team',
+              prefixIcon: Icons.people_outline,
+              hintText: 'Team A (Nurse Sarah, Nurse John)',
+            ),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -1721,88 +2323,115 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     }
 
     if (otCase.status == 'OT Scheduled') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Pre-Operative Preparation Checklist:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          const SizedBox(height: 12),
-          CheckboxListTile(
-            title: const Text('Patient Identity Verified', style: TextStyle(fontSize: 13)),
-            value: otCase.idVerified,
-            onChanged: (val) => setState(() => otCase.idVerified = val ?? false),
-          ),
-          CheckboxListTile(
-            title: const Text('Consent Form Signed', style: TextStyle(fontSize: 13)),
-            value: otCase.consentSigned,
-            onChanged: (val) => setState(() => otCase.consentSigned = val ?? false),
-          ),
-          CheckboxListTile(
-            title: const Text('Fasting (NPO) Confirmed', style: TextStyle(fontSize: 13)),
-            value: otCase.fastingConfirmed,
-            onChanged: (val) => setState(() => otCase.fastingConfirmed = val ?? false),
-          ),
-          CheckboxListTile(
-            title: const Text('Lab & Investigation Reports Verified', style: TextStyle(fontSize: 13)),
-            value: otCase.labVerified,
-            onChanged: (val) => setState(() => otCase.labVerified = val ?? false),
-          ),
-          CheckboxListTile(
-            title: const Text('Blood Availability Checked', style: TextStyle(fontSize: 13)),
-            value: otCase.bloodAvailable,
-            onChanged: (val) => setState(() => otCase.bloodAvailable = val ?? false),
-          ),
-          const SizedBox(height: 16),
-          const Text('Record Pre-Operative Vitals:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _preOpBpController,
-                  decoration: const InputDecoration(labelText: 'BP (mmHg)'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _preOpPulseController,
-                  decoration: const InputDecoration(labelText: 'Pulse (bpm)'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _preOpTempController,
-                  decoration: const InputDecoration(labelText: 'Temp (°F)'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _preOpSpo2Controller,
-                  decoration: const InputDecoration(labelText: 'SpO2 (%)'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: (otCase.idVerified && otCase.consentSigned && otCase.fastingConfirmed && otCase.labVerified && otCase.bloodAvailable)
-                ? () => _savePreOpPrep(otCase)
-                : null,
-            icon: const Icon(Icons.play_arrow),
-            label: const Text('Mark Patient Ready for Anaesthesia'),
-            style: AppTheme.primaryButton,
-          ),
-          if (!(otCase.idVerified && otCase.consentSigned && otCase.fastingConfirmed && otCase.labVerified && otCase.bloodAvailable))
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: Text(
-                '*All checklist items must be verified before proceeding.',
-                style: TextStyle(color: Colors.red.shade700, fontSize: 11),
-              ),
+      return Form(
+        key: _preOpVitalsFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Pre-Operative Preparation Checklist:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 12),
+            _buildChecklistCard(
+              title: 'Patient Identity Verified',
+              value: otCase.idVerified,
+              onChanged: (val) => setState(() => otCase.idVerified = val ?? false),
             ),
-        ],
+            _buildChecklistCard(
+              title: 'Consent Form Signed',
+              value: otCase.consentSigned,
+              onChanged: (val) => setState(() => otCase.consentSigned = val ?? false),
+            ),
+            _buildChecklistCard(
+              title: 'Fasting (NPO) Confirmed',
+              value: otCase.fastingConfirmed,
+              onChanged: (val) => setState(() => otCase.fastingConfirmed = val ?? false),
+            ),
+            _buildChecklistCard(
+              title: 'Lab & Investigation Reports Verified',
+              value: otCase.labVerified,
+              onChanged: (val) => setState(() => otCase.labVerified = val ?? false),
+            ),
+            _buildChecklistCard(
+              title: 'Blood Availability Checked',
+              value: otCase.bloodAvailable,
+              onChanged: (val) => setState(() => otCase.bloodAvailable = val ?? false),
+            ),
+            const SizedBox(height: 20),
+            const Text('Record Pre-Operative Vitals:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _preOpBpController,
+                    validator: (val) => val == null || val.trim().isEmpty ? 'please enter bp' : null,
+                    decoration: AppTheme.standardInputDecoration(
+                      label: 'BP (mmHg)',
+                      prefixIcon: Icons.monitor_heart_outlined,
+                      hintText: 'enter bp',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _preOpPulseController,
+                    validator: (val) => val == null || val.trim().isEmpty ? 'please enter pulse' : null,
+                    decoration: AppTheme.standardInputDecoration(
+                      label: 'Pulse (bpm)',
+                      prefixIcon: Icons.favorite_outline,
+                      hintText: 'enter pulse',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _preOpTempController,
+                    validator: (val) => val == null || val.trim().isEmpty ? 'please enter temp' : null,
+                    decoration: AppTheme.standardInputDecoration(
+                      label: 'Temp (°F)',
+                      prefixIcon: Icons.thermostat_outlined,
+                      hintText: 'enter temp',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _preOpSpo2Controller,
+                    validator: (val) => val == null || val.trim().isEmpty ? 'please enter spo2' : null,
+                    decoration: AppTheme.standardInputDecoration(
+                      label: 'SpO2 (%)',
+                      prefixIcon: Icons.bloodtype_outlined,
+                      hintText: 'enter spo2',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: (otCase.idVerified && otCase.consentSigned && otCase.fastingConfirmed && otCase.labVerified && otCase.bloodAvailable)
+                  ? () {
+                      if (_preOpVitalsFormKey.currentState!.validate()) {
+                        _savePreOpPrep(otCase);
+                      }
+                    }
+                  : null,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Mark Patient Ready for Anaesthesia'),
+              style: AppTheme.primaryButton,
+            ),
+            if (!(otCase.idVerified && otCase.consentSigned && otCase.fastingConfirmed && otCase.labVerified && otCase.bloodAvailable))
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  '*All checklist items must be verified before proceeding.',
+                  style: TextStyle(color: Colors.red.shade700, fontSize: 11),
+                ),
+              ),
+          ],
+        ),
       );
     }
 
@@ -1814,7 +2443,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             value: _selectedAnaesthesiaType,
-            decoration: const InputDecoration(labelText: 'Anaesthesia Type'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Anaesthesia Type',
+              prefixIcon: Icons.vaccines_outlined,
+            ),
             items: const [
               DropdownMenuItem(value: 'General Anaesthesia', child: Text('General Anaesthesia')),
               DropdownMenuItem(value: 'Spinal Anaesthesia', child: Text('Spinal Anaesthesia')),
@@ -1830,7 +2462,11 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           TextField(
             controller: _anaesthesiaNotesController,
             maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Assessment Notes & Warnings', hintText: 'Enter patient history, airway, risk details...'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Assessment Notes & Warnings',
+              hintText: 'Enter patient history, airway, risk details...',
+              prefixIcon: Icons.note_alt_outlined,
+            ),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -1849,20 +2485,24 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         children: [
           const Text('Transfer Patient to OT:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           const SizedBox(height: 12),
-          CheckboxListTile(
-            title: const Text('Transfer to Assigned OT Room Complete', style: TextStyle(fontSize: 13)),
+          _buildChecklistCard(
+            title: 'Transfer to Assigned OT Room Complete',
             value: otCase.patientArrived,
             onChanged: (val) => setState(() => otCase.patientArrived = val ?? false),
           ),
-          CheckboxListTile(
-            title: const Text('Confirm Identity, Consent & Markings on Arrival', style: TextStyle(fontSize: 13)),
+          _buildChecklistCard(
+            title: 'Confirm Identity, Consent & Markings on Arrival',
             value: otCase.handoverVerified,
             onChanged: (val) => setState(() => otCase.handoverVerified = val ?? false),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _handoverNotesController,
-            decoration: const InputDecoration(labelText: 'OT Handover Remarks', hintText: 'Note any checklist variances or prep details...'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'OT Handover Remarks',
+              hintText: 'Note any checklist variances or prep details...',
+              prefixIcon: Icons.comment_outlined,
+            ),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -1876,27 +2516,38 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     }
 
     if (otCase.status == 'Patient In OT') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 16),
-          const Icon(Icons.sensors, size: 64, color: AppTheme.primaryColor),
-          const SizedBox(height: 16),
-          const Text('Ready to Start Surgical Procedure', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 8),
-          const Text(
-            'Ensure the surgical team is scrubbed, and all preoperative parameters are cleared.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _startSurgery(otCase),
-            icon: const Icon(Icons.play_circle_outline),
-            label: const Text('Start Surgery'),
-            style: AppTheme.logoRedButton,
-          ),
-        ],
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryLight,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Icon(Icons.sensors, size: 48, color: AppTheme.primaryColor),
+            const SizedBox(height: 16),
+            const Text(
+              'Patient Ready in Operating Room',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Verify that the surgical team is scrubbed, surgical site markings are checked, and all preoperative parameters are cleared.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => _startSurgery(otCase),
+              icon: const Icon(Icons.play_circle_outline),
+              label: const Text('Start Surgery'),
+              style: AppTheme.logoRedButton,
+            ),
+          ],
+        ),
       );
     }
 
@@ -1912,68 +2563,186 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          const Text('Intra-Operative Vital & Event Logging:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: TextField(controller: _intraOpBpController, decoration: const InputDecoration(labelText: 'BP'))),
-              const SizedBox(width: 8),
-              Expanded(child: TextField(controller: _intraOpPulseController, decoration: const InputDecoration(labelText: 'HR'))),
-              const SizedBox(width: 8),
-              Expanded(child: TextField(controller: _intraOpTempController, decoration: const InputDecoration(labelText: 'Temp'))),
-              const SizedBox(width: 8),
-              Expanded(child: TextField(controller: _intraOpSpo2Controller, decoration: const InputDecoration(labelText: 'SpO2'))),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: TextField(controller: _intraOpMedsController, decoration: const InputDecoration(labelText: 'Meds Given'))),
-              const SizedBox(width: 8),
-              Expanded(child: TextField(controller: _intraOpFluidsController, decoration: const InputDecoration(labelText: 'IV Fluids'))),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: TextField(controller: _intraOpBloodController, decoration: const InputDecoration(labelText: 'Blood Products'))),
-              const SizedBox(width: 8),
-              Expanded(child: TextField(controller: _intraOpInstrumentController, decoration: const InputDecoration(labelText: 'Instrument Count'))),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () => _addIntraOpLog(otCase),
-            icon: const Icon(Icons.add),
-            label: const Text('Record Vitals & Log Entry'),
-            style: AppTheme.secondaryButton,
+          Form(
+            key: _intraOpVitalsFormKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Intra-Operative Vital & Event Logging:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _intraOpBpController,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter bp' : null,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'BP',
+                          prefixIcon: Icons.monitor_heart_outlined,
+                          hintText: 'enter bp',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _intraOpPulseController,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter hr' : null,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'HR',
+                          prefixIcon: Icons.favorite_outline,
+                          hintText: 'enter hr',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _intraOpTempController,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter temp' : null,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'Temp',
+                          prefixIcon: Icons.thermostat_outlined,
+                          hintText: 'enter temp',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _intraOpSpo2Controller,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter spo2' : null,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'SpO2',
+                          prefixIcon: Icons.bloodtype_outlined,
+                          hintText: 'enter spo2',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _intraOpMedsController,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter meds given' : null,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'Meds Given',
+                          prefixIcon: Icons.vaccines_outlined,
+                          hintText: 'enter meds given',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _intraOpFluidsController,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter iv fluids' : null,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'IV Fluids',
+                          prefixIcon: Icons.water_drop_outlined,
+                          hintText: 'enter iv fluids',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _intraOpBloodController,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter blood products' : null,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'Blood Products',
+                          prefixIcon: Icons.bloodtype_outlined,
+                          hintText: 'enter blood products',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _intraOpInstrumentController,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter instrument count' : null,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'Instrument Count',
+                          prefixIcon: Icons.checklist_outlined,
+                          hintText: 'enter instrument count',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    if (_intraOpVitalsFormKey.currentState!.validate()) {
+                      _addIntraOpLog(otCase);
+                    }
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Record Vitals & Log Entry'),
+                  style: AppTheme.secondaryButton,
+                ),
+              ],
+            ),
           ),
           const Divider(height: 32),
-
-          const Text('Complete Surgery Procedure (Doctor):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _procedureDetailsController,
-            maxLines: 2,
-            decoration: const InputDecoration(labelText: 'Procedure Details Done'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _findingsController,
-            maxLines: 2,
-            decoration: const InputDecoration(labelText: 'Surgical Findings'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _complicationsController,
-            decoration: const InputDecoration(labelText: 'Complications (if any)', hintText: 'None, hemorrhage, etc.'),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: () => _completeSurgery(otCase),
-            icon: const Icon(Icons.check_circle),
-            label: const Text('Complete Surgery & Save Details'),
-            style: AppTheme.successButton,
+          Form(
+            key: _surgeryProcedureFormKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Complete Surgery Procedure (Doctor):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _procedureDetailsController,
+                  maxLines: 2,
+                  validator: (val) => val == null || val.trim().isEmpty ? 'please enter procedure details done' : null,
+                  decoration: AppTheme.standardInputDecoration(
+                    label: 'Procedure Details Done',
+                    prefixIcon: Icons.biotech_outlined,
+                    hintText: 'enter procedure details done',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _findingsController,
+                  maxLines: 2,
+                  validator: (val) => val == null || val.trim().isEmpty ? 'please enter surgical findings' : null,
+                  decoration: AppTheme.standardInputDecoration(
+                    label: 'Surgical Findings',
+                    prefixIcon: Icons.search_outlined,
+                    hintText: 'enter surgical findings',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _complicationsController,
+                  validator: (val) => val == null || val.trim().isEmpty ? 'please enter complications (if any)' : null,
+                  decoration: AppTheme.standardInputDecoration(
+                    label: 'Complications (if any)',
+                    prefixIcon: Icons.report_problem_outlined,
+                    hintText: 'enter complications (if any)',
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    if (_surgeryProcedureFormKey.currentState!.validate()) {
+                      _completeSurgery(otCase);
+                    }
+                  },
+                  icon: const Icon(Icons.check_circle),
+                  label: const Text('Complete Surgery & Save Details'),
+                  style: AppTheme.successButton,
+                ),
+              ],
+            ),
           ),
         ],
       );
@@ -1992,32 +2761,47 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             controller: _opSummaryController,
             maxLines: 2,
             enabled: isDoctor,
-            decoration: const InputDecoration(labelText: 'Operation Summary'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Operation Summary',
+              prefixIcon: Icons.note_alt_outlined,
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _procPerformedController,
             enabled: isDoctor,
-            decoration: const InputDecoration(labelText: 'Procedure Performed'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Procedure Performed',
+              prefixIcon: Icons.biotech_outlined,
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _outcomeController,
             enabled: isDoctor,
-            decoration: const InputDecoration(labelText: 'Surgical Outcome'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Surgical Outcome',
+              prefixIcon: Icons.check_circle_outline,
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _postOpInstController,
             maxLines: 2,
             enabled: isDoctor,
-            decoration: const InputDecoration(labelText: 'Post-Operative Instructions'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Post-Operative Instructions',
+              prefixIcon: Icons.medical_information_outlined,
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _followUpController,
             enabled: isDoctor,
-            decoration: const InputDecoration(labelText: 'Follow-Up Recommendations'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Follow-Up Recommendations',
+              prefixIcon: Icons.calendar_today_outlined,
+            ),
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
@@ -2032,7 +2816,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             value: _selectedTransferDest,
-            decoration: const InputDecoration(labelText: 'Transfer Destination'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Transfer Destination',
+              prefixIcon: Icons.local_hospital_outlined,
+            ),
             items: const [
               DropdownMenuItem(value: 'Recovery Room', child: Text('Recovery Room')),
               DropdownMenuItem(value: 'ICU', child: Text('ICU')),
@@ -2046,14 +2833,20 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           TextField(
             controller: _transferDetailsController,
             enabled: isNurse,
-            decoration: const InputDecoration(labelText: 'Transfer Details (e.g. Bed Number)'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Transfer Details (e.g. Bed Number)',
+              prefixIcon: Icons.bed_outlined,
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _nursingHandoverController,
             maxLines: 2,
             enabled: isNurse,
-            decoration: const InputDecoration(labelText: 'Nursing Handover Notes'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Nursing Handover Notes',
+              prefixIcon: Icons.note_alt_outlined,
+            ),
           ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
@@ -2079,13 +2872,21 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           TextField(
             controller: _careVitalsController,
             enabled: isNurse,
-            decoration: const InputDecoration(labelText: 'Vitals Entry (BP, Pulse, Temp, SPO2)'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Vitals Entry (BP, Pulse, Temp, SPO2)',
+              prefixIcon: Icons.monitor_heart_outlined,
+              hintText: 'BP: 118/76, PR: 70, Temp: 98.2, SpO2: 99%',
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _careMedsController,
             enabled: isNurse,
-            decoration: const InputDecoration(labelText: 'Medication Given (Dosage/Route)'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Medication Given (Dosage/Route)',
+              prefixIcon: Icons.vaccines_outlined,
+              hintText: 'Paracetamol 1g IV',
+            ),
           ),
           const SizedBox(height: 12),
           ElevatedButton.icon(
@@ -2102,7 +2903,11 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             controller: _doctorProgressController,
             maxLines: 2,
             enabled: isDoctor,
-            decoration: const InputDecoration(labelText: 'Doctor Daily Progress Note & Treatment Plan'),
+            decoration: AppTheme.standardInputDecoration(
+              label: 'Doctor Daily Progress Note & Treatment Plan',
+              prefixIcon: Icons.note_add_outlined,
+              hintText: 'Patient recovering well. Continue monitoring.',
+            ),
           ),
           const SizedBox(height: 12),
           ElevatedButton.icon(
@@ -2133,37 +2938,68 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     return const SizedBox();
   }
 
-  // Tabs for right panel
+  // Tabs for right panel (Redesigned with vertical timelines and card layouts)
   Widget _buildAuditTrailTab(OtCase otCase) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: otCase.auditLogs.isEmpty
           ? const Center(child: Text('No audit logs yet.'))
           : ListView.builder(
               itemCount: otCase.auditLogs.length,
               itemBuilder: (context, idx) {
                 final log = otCase.auditLogs[idx];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
+                bool isLast = idx == otCase.auditLogs.length - 1;
+                return IntrinsicHeight(
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(Icons.history, size: 16, color: AppTheme.primaryColor.withOpacity(0.5)),
-                      const SizedBox(width: 10),
+                      // Timeline nodes and connected line
+                      Column(
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: idx == 0 ? AppTheme.primaryColor : Colors.grey.shade400,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: idx == 0 ? AppTheme.primaryColor.withOpacity(0.3) : Colors.white,
+                                width: idx == 0 ? 3 : 2,
+                              ),
+                            ),
+                          ),
+                          if (!isLast)
+                            Expanded(
+                              child: Container(
+                                width: 2,
+                                color: Colors.grey.shade200,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      // Content details
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              log.action,
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'By: ${log.actorName} (${log.role}) \u2022 ${DateFormat('hh:mm a').format(log.timestamp)}',
-                              style: const TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor),
-                            ),
-                          ],
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                log.action,
+                                style: TextStyle(
+                                  fontSize: 12, 
+                                  fontWeight: idx == 0 ? FontWeight.bold : FontWeight.w500,
+                                  color: idx == 0 ? AppTheme.textPrimaryColor : AppTheme.textSecondaryColor,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'By: ${log.actorName} (${log.role}) \u2022 ${DateFormat('hh:mm a').format(log.timestamp)}',
+                                style: const TextStyle(fontSize: 10, color: AppTheme.textMutedColor),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -2226,23 +3062,112 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   Widget _buildHistorySection(String title, List<String> lines) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor)),
-          const SizedBox(height: 4),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: lines.map((l) => Padding(
-              padding: const EdgeInsets.only(left: 8.0, top: 2),
-              child: Text('\u2022 $l', style: const TextStyle(fontSize: 12)),
-            )).toList(),
+          Row(
+            children: [
+              const Icon(Icons.bookmark_outline, size: 16, color: AppTheme.primaryColor),
+              const SizedBox(width: 6),
+              Text(
+                title, 
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor)
+              ),
+            ],
           ),
           const SizedBox(height: 8),
-          const Divider(height: 1),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: lines.map((l) {
+              if (l.contains(':')) {
+                final parts = l.split(':');
+                final key = parts[0].trim();
+                final val = parts.sublist(1).join(':').trim();
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                  child: RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor, fontFamily: AppTheme.fontFamily),
+                      children: [
+                        TextSpan(text: '$key: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        TextSpan(text: val),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2.0),
+                child: Text(l, style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor)),
+              );
+            }).toList(),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFieldLabel(String text) {
+    final hasStar = text.endsWith('*');
+    final cleanText = hasStar ? text.substring(0, text.length - 1).trim() : text;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: cleanText,
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                color: Colors.grey.shade700,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (hasStar)
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _noLabelDecoration({required String hintText, IconData? prefixIcon, Widget? suffixIcon}) {
+    return InputDecoration(
+      hintText: hintText,
+      prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 20) : null,
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: const Color(0xFFF1F5F9),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.4),
       ),
     );
   }
@@ -2289,7 +3214,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               else ...[
                 CustomDropdownSearch(
                   label: 'Select Patient from DB (Auto-populates fields)',
-                  hint: 'Search by Name or Patient ID',
+                  hint: 'search by name or patient id',
                   value: _selectedPatientId,
                   dropdownMap: {
                     for (var p in _patients)
@@ -2329,34 +3254,44 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 const SizedBox(height: 16),
               ],
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     flex: 2,
-                    child: TextFormField(
-                      controller: _patientNameController,
-                      decoration: const InputDecoration(labelText: 'Patient Full Name *'),
-                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _ageController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Age *'),
-                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedGender,
-                      decoration: const InputDecoration(labelText: 'Gender'),
-                      items: const [
-                        DropdownMenuItem(value: 'Male', child: Text('Male')),
-                        DropdownMenuItem(value: 'Female', child: Text('Female')),
-                        DropdownMenuItem(value: 'Other', child: Text('Other')),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFieldLabel('Patient Full Name *'),
+                        TextFormField(
+                          controller: _patientNameController,
+                          decoration: _noLabelDecoration(hintText: 'enter patient name'),
+                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter patient name' : null,
+                        ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFieldLabel('Age *'),
+                        TextFormField(
+                          controller: _ageController,
+                          keyboardType: TextInputType.number,
+                          decoration: _noLabelDecoration(hintText: 'enter age'),
+                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter age' : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: CustomDropdownSearch(
+                      label: 'Gender',
+                      hint: 'select gender',
+                      value: _selectedGender,
+                      dropdownItems: const ['Male', 'Female', 'Other'],
                       onChanged: (val) {
                         if (val != null) setState(() => _selectedGender = val);
                       },
@@ -2364,19 +3299,11 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: DropdownButtonFormField<String>(
+                    child: CustomDropdownSearch(
+                      label: 'Blood Group',
+                      hint: 'select blood group',
                       value: _selectedBloodGroup,
-                      decoration: const InputDecoration(labelText: 'Blood Group'),
-                      items: const [
-                        DropdownMenuItem(value: 'O+', child: Text('O+')),
-                        DropdownMenuItem(value: 'A+', child: Text('A+')),
-                        DropdownMenuItem(value: 'B+', child: Text('B+')),
-                        DropdownMenuItem(value: 'AB+', child: Text('AB+')),
-                        DropdownMenuItem(value: 'O-', child: Text('O-')),
-                        DropdownMenuItem(value: 'A-', child: Text('A-')),
-                        DropdownMenuItem(value: 'B-', child: Text('B-')),
-                        DropdownMenuItem(value: 'AB-', child: Text('AB-')),
-                      ],
+                      dropdownItems: const ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'],
                       onChanged: (val) {
                         if (val != null) setState(() => _selectedBloodGroup = val);
                       },
@@ -2385,28 +3312,36 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _diagnosisController,
-                decoration: const InputDecoration(labelText: 'Diagnosis Details *', hintText: 'Enter clinical diagnosis summary'),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFieldLabel('Diagnosis Details *'),
+                  TextFormField(
+                    controller: _diagnosisController,
+                    decoration: _noLabelDecoration(hintText: 'enter diagnosis'),
+                    validator: (val) => val == null || val.trim().isEmpty ? 'please enter diagnosis' : null,
+                  ),
+                ],
               ),
 
               const SizedBox(height: 32),
               const Text('Surgery Details:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 16),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<String>(
+                    child: CustomDropdownSearch(
+                      label: 'Surgery Type',
+                      hint: 'select surgery type',
                       value: _selectedSurgeryType,
-                      decoration: const InputDecoration(labelText: 'Surgery Type'),
-                      items: const [
-                        DropdownMenuItem(value: 'Laparoscopic Cholecystectomy', child: Text('Laparoscopic Cholecystectomy')),
-                        DropdownMenuItem(value: 'Appendectomy', child: Text('Appendectomy')),
-                        DropdownMenuItem(value: 'Hernioplasty (Mesh Repair)', child: Text('Hernioplasty (Mesh Repair)')),
-                        DropdownMenuItem(value: 'Total Knee Replacement', child: Text('Total Knee Replacement')),
-                        DropdownMenuItem(value: 'CABG (Heart Bypass)', child: Text('CABG (Heart Bypass)')),
-                        DropdownMenuItem(value: 'Cataract Surgery', child: Text('Cataract Surgery')),
+                      dropdownItems: const [
+                        'Laparoscopic Cholecystectomy',
+                        'Appendectomy',
+                        'Hernioplasty (Mesh Repair)',
+                        'Total Knee Replacement',
+                        'CABG (Heart Bypass)',
+                        'Cataract Surgery',
                       ],
                       onChanged: (val) {
                         if (val != null) setState(() => _selectedSurgeryType = val);
@@ -2415,13 +3350,11 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: DropdownButtonFormField<String>(
+                    child: CustomDropdownSearch(
+                      label: 'Priority / Urgency',
+                      hint: 'select priority',
                       value: _selectedPriority,
-                      decoration: const InputDecoration(labelText: 'Priority / Urgency'),
-                      items: const [
-                        DropdownMenuItem(value: 'Elective', child: Text('Elective (Scheduled)')),
-                        DropdownMenuItem(value: 'Emergency', child: Text('Emergency (Immediate)')),
-                      ],
+                      dropdownItems: const ['Elective', 'Emergency'],
                       onChanged: (val) {
                         if (val != null) setState(() => _selectedPriority = val);
                       },
@@ -2467,6 +3400,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               ),
               const SizedBox(height: 16),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: _isLoadingDoctors
@@ -2475,8 +3409,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                             child: CircularProgressIndicator(),
                           )
                         : CustomDropdownSearch(
-                            label: 'Primary Surgeon Name *',
-                            hint: 'Search Surgeon',
+                            label: 'Primary Surgeon Name',
+                            requiredMark: true,
+                            hint: 'search surgeon',
                             value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
                             dropdownItems: _doctors.isNotEmpty
                                 ? _doctors.map((d) => d.fullname).toList()
@@ -2488,7 +3423,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                 });
                               }
                             },
-                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                            validator: (val) => val == null || val.isEmpty ? 'please select primary surgeon' : null,
                           ),
                   ),
                   const SizedBox(width: 16),
@@ -2499,8 +3434,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                             child: CircularProgressIndicator(),
                           )
                         : CustomDropdownSearch(
-                            label: 'Suggested Anaesthetist *',
-                            hint: 'Search Anaesthetist',
+                            label: 'Suggested Anaesthetist',
+                            requiredMark: true,
+                            hint: 'search anaesthetist',
                             value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
                             dropdownItems: _doctors.isNotEmpty
                                 ? _doctors.map((d) => d.fullname).toList()
@@ -2512,16 +3448,22 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                 });
                               }
                             },
-                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                            validator: (val) => val == null || val.isEmpty ? 'please select suggested anaesthetist' : null,
                           ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _remarksController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Remarks / Special Instructions'),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFieldLabel('Remarks / Special Instructions'),
+                  TextFormField(
+                    controller: _remarksController,
+                    maxLines: 2,
+                    decoration: _noLabelDecoration(hintText: 'enter remarks'),
+                  ),
+                ],
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
