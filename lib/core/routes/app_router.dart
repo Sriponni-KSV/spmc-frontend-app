@@ -82,7 +82,7 @@ class AppRouter {
             return AppRoutes.dashboard;
           }
         } else if (path.startsWith('/doctor')) {
-          final isDoctor = userRole == 'Doctor';
+          final isDoctor = userRole == 'Doctor' || userRole == 'Anaesthetist';
           if (!isDoctor) {
             return AppRoutes.dashboard;
           }

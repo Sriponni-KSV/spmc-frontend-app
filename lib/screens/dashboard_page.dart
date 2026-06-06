@@ -67,7 +67,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex;
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user?.role == 'Anaesthetist' && widget.initialIndex == 0) {
+      _selectedIndex = 4;
+    } else {
+      _selectedIndex = widget.initialIndex;
+    }
     _initControllers();
     _fetchDoctorData();
   }
@@ -76,8 +81,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void didUpdateWidget(covariant DashboardScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.initialIndex != oldWidget.initialIndex) {
+      final user = Provider.of<AuthProvider>(context, listen: false).user;
       setState(() {
-        _selectedIndex = widget.initialIndex;
+        if (user?.role == 'Anaesthetist' && widget.initialIndex == 0) {
+          _selectedIndex = 4;
+        } else {
+          _selectedIndex = widget.initialIndex;
+        }
       });
     }
   }
@@ -234,6 +244,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _fetchDoctorData() async {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    debugPrint('[_fetchDoctorData] User: ${user?.fullname}, Role: ${user?.role}');
+    if (user == null || user.role == 'Anaesthetist' || !user.hasPermission('book_appointment')) {
+      debugPrint('[_fetchDoctorData] Bypassing fetch: user is null, Anaesthetist, or lacks book_appointment permission');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
     if (!mounted) return;
     setState(() => _isLoading = true);
 
@@ -305,6 +324,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _fetchConsultations() async {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    debugPrint('[_fetchConsultations] User: ${user?.fullname}, Role: ${user?.role}');
+    if (user == null || user.role == 'Anaesthetist' || (user.role != 'Admin' && user.role != 'Doctor')) {
+      debugPrint('[_fetchConsultations] Bypassing fetch: user is null, Anaesthetist, or not Admin/Doctor');
+      if (mounted) {
+        setState(() => _isLoadingConsultations = false);
+      }
+      return;
+    }
     if (!mounted) return;
     setState(() => _isLoadingConsultations = true);
     try {
@@ -382,7 +410,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    switch (_selectedIndex) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final isAnaesthetist = user?.role == 'Anaesthetist';
+    int indexToUse = _selectedIndex;
+    if (isAnaesthetist) {
+      if (_selectedIndex != 2 && _selectedIndex != 4) {
+        indexToUse = 4;
+      }
+    }
+
+    switch (indexToUse) {
       case 0:
         return _buildDashboardView(isMobile);
       case 1:
@@ -2141,6 +2178,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSidebar(bool isMobile) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final isAnaesthetist = user?.role == 'Anaesthetist';
+
     return Container(
       width: 260,
       decoration: const BoxDecoration(
@@ -2181,23 +2221,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Column(
                 children: [
-                  _buildSidebarItem(0, Icons.grid_view_outlined, 'Dashboard'),
-                  _buildSidebarItem(
-                    1,
-                    Icons.history_edu_outlined,
-                    'My Consultations',
-                  ),
-                  _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
-                  _buildSidebarItem(
-                    3,
-                    Icons.local_hospital_outlined,
-                    'IPD Management',
-                  ),
-                  _buildSidebarItem(
-                    4,
-                    Icons.healing_outlined,
-                    'OT Management',
-                  ),
+                  if (isAnaesthetist) ...[
+                    _buildSidebarItem(
+                      4,
+                      Icons.healing_outlined,
+                      'OT Management',
+                    ),
+                    _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
+                  ] else ...[
+                    _buildSidebarItem(0, Icons.grid_view_outlined, 'Dashboard'),
+                    _buildSidebarItem(
+                      1,
+                      Icons.history_edu_outlined,
+                      'My Consultations',
+                    ),
+                    _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
+                    _buildSidebarItem(
+                      3,
+                      Icons.local_hospital_outlined,
+                      'IPD Management',
+                    ),
+                    _buildSidebarItem(
+                      4,
+                      Icons.healing_outlined,
+                      'OT Management',
+                    ),
+                  ],
                 ],
               ),
             ),

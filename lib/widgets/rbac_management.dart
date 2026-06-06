@@ -50,6 +50,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
       'Receptionist',
       'Doctor',
       'Nurse',
+      'Anaesthetist',
       'Lab Technician',
       'Pharmacist',
       'Billing Executive',
@@ -495,7 +496,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
         final data = snapshot.data ?? {};
         final rawRoles = (data['roles'] as List<dynamic>?) ?? [];
         final roles = List.from(rawRoles);
-        final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse', 'Front Desk'];
+        final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse', 'Anaesthetist', 'Front Desk'];
         roles.sort((a, b) {
           int indexA = orderedRoles.indexOf(a['role_name']);
           int indexB = orderedRoles.indexOf(b['role_name']);

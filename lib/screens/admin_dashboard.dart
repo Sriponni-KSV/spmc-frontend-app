@@ -323,12 +323,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       listen: false,
                     ).user?.role;
 
-                    // Allow Super Admin to assign any role. Admin can only assign Doctor/Nurse/Front Desk
+                    // Allow Super Admin to assign any role. Admin can only assign Doctor/Nurse/Front Desk/Anaesthetist
                     final orderedRoles = [
                       'Super Admin',
                       'Admin',
                       'Doctor',
                       'Nurse',
+                      'Anaesthetist',
                       'Front Desk',
                     ];
                     availableRoles = rolesList
@@ -338,6 +339,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           return r == 'Doctor' ||
                               r == 'Nurse' ||
                               r == 'Front Desk' ||
+                              r == 'Anaesthetist' ||
                               r == selectedRole;
                         })
                         .toList();
@@ -1131,6 +1133,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       'Admin',
                       'Doctor',
                       'Nurse',
+                      'Anaesthetist',
                       'Front Desk',
                     ];
                     dbRoles.sort((a, b) {
@@ -1380,6 +1383,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           case 'Front Desk':
                             roleColor = const Color(0xFF8B5CF6);
                             break;
+                          case 'Anaesthetist':
+                            roleColor = const Color(0xFF3B82F6);
+                            break;
                           default:
                             roleColor = Colors.grey;
                             break;
@@ -1604,6 +1610,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             break;
           case 'Front Desk':
             roleColor = const Color(0xFF8B5CF6);
+            break;
+          case 'Anaesthetist':
+            roleColor = const Color(0xFF3B82F6);
             break;
           default:
             roleColor = Colors.grey;
@@ -4316,7 +4325,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
   final AdminController _adminController = AdminController();
 
   String? _selectedRole;
-  List<String> _roles = ['Doctor', 'Nurse', 'Front Desk'];
+  List<String> _roles = ['Doctor', 'Nurse', 'Anaesthetist', 'Front Desk'];
   int? _selectedSpecializationId;
   List<Map<String, dynamic>> _specializations = [];
   bool _isLoading = false;
@@ -4347,10 +4356,10 @@ class _AddUserDialogState extends State<AddUserDialog> {
         setState(() {
           _roles = rolesList.map((r) => r['role_name'].toString()).where((r) {
             if (currentUserRole == 'Super Admin') return true;
-            return r == 'Doctor' || r == 'Nurse' || r == 'Front Desk';
+            return r == 'Doctor' || r == 'Nurse' || r == 'Front Desk' || r == 'Anaesthetist';
           }).toList();
 
-          final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse', 'Front Desk'];
+          final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse', 'Anaesthetist', 'Front Desk'];
           _roles.sort((a, b) {
             int indexA = orderedRoles.indexOf(a);
             int indexB = orderedRoles.indexOf(b);
