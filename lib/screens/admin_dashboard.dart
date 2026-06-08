@@ -110,30 +110,48 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _saveRosterEntry(int nurseId, int shiftId, String wardType) async {
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedRosterWeekStart);
+    if (mounted) setState(() => _isLoadingShifts = true);
     try {
       await _shiftCtrl.saveRosterEntry(nurseId, shiftId, wardType, dateStr);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Roster entry saved successfully!'), backgroundColor: Colors.green),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Roster entry saved successfully!'), backgroundColor: Colors.green),
+        );
+      }
       await _loadShiftData(); // reload allocations and rosters
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving roster: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving roster: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingShifts = false);
+      }
     }
   }
 
   Future<void> _deleteRosterEntry(int id) async {
+    if (mounted) setState(() => _isLoadingShifts = true);
     try {
       await _shiftCtrl.deleteRosterEntry(id);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Roster entry deleted successfully!'), backgroundColor: Colors.green),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Roster entry deleted successfully!'), backgroundColor: Colors.green),
+        );
+      }
       await _loadShiftData(); // reload allocations and rosters
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting roster: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting roster: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingShifts = false);
+      }
     }
   }
 
@@ -3068,6 +3086,140 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  Future<void> _autoShuffleFromPrevWeek() async {
+    final WARD_TYPES = ['General', 'ICU', 'Private', 'Semi-Private'];
+    final prevWeekStart = _selectedRosterWeekStart.subtract(const Duration(days: 7));
+    final prevWeekStartStr = DateFormat('yyyy-MM-dd').format(prevWeekStart);
+
+    setState(() => _isLoadingShifts = true);
+
+    try {
+      final prevRosters = await _shiftCtrl.fetchRosters(prevWeekStartStr);
+
+      if (prevRosters.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No allocations found in the previous week to shuffle from.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      List<Map<String, dynamic>> prevSlots = [];
+      for (final r in prevRosters) {
+        final ward = r['ward_type']?.toString();
+        final shiftId = r['shift_id'] as int?;
+        final nurseId = r['nurse_id'] as int?;
+        if (ward != null && shiftId != null && nurseId != null) {
+          final exists = prevSlots.any((s) => s['ward'] == ward && s['shift_id'] == shiftId);
+          if (!exists) {
+            prevSlots.add({
+              'ward': ward,
+              'shift_id': shiftId,
+              'nurse_id': nurseId,
+              'nurse_name': r['nurse_name'],
+            });
+          }
+        }
+      }
+
+      if (prevSlots.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No valid shift assignments found in the previous week.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      final currentWeekStartStr = DateFormat('dd MMM').format(_selectedRosterWeekStart);
+      final currentWeekEndStr = DateFormat('dd MMM yyyy').format(_selectedRosterWeekStart.add(const Duration(days: 6)));
+      final prevWeekStartStrDisplay = DateFormat('dd MMM').format(prevWeekStart);
+      final prevWeekEndStrDisplay = DateFormat('dd MMM yyyy').format(prevWeekStart.add(const Duration(days: 6)));
+
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.shuffle_rounded, color: AppTheme.primaryColor),
+              const SizedBox(width: 10),
+              const Text('Shuffle & Allocate from Previous Week', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            'This will automatically assign shifts for the current viewed week ($currentWeekStartStr - $currentWeekEndStr) '
+            'by shuffling the ${prevSlots.length} nurse assignments from the previous week ($prevWeekStartStrDisplay - $prevWeekEndStrDisplay).\n\n'
+            'Existing assignments in the current week will be overwritten.\n\n'
+            'Do you want to proceed?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Shuffle & Allocate'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+
+      final List<int> nurseIds = prevSlots.map((s) => s['nurse_id'] as int).toList();
+      nurseIds.shuffle();
+
+      final targetWeekStartStr = DateFormat('yyyy-MM-dd').format(_selectedRosterWeekStart);
+
+      int successCount = 0;
+      for (int i = 0; i < prevSlots.length; i++) {
+        final slot = prevSlots[i];
+        final nurseId = nurseIds[i];
+        await _shiftCtrl.saveRosterEntry(nurseId, slot['shift_id'], slot['ward'], targetWeekStartStr);
+        successCount++;
+      }
+
+      await _loadRosterData();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully shuffled and allocated $successCount shifts from the previous week to the current week!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error allocating roster: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingShifts = false);
+      }
+    }
+  }
+
   Widget _buildWeeklyRostersCard(bool isMobile) {
     final WARD_TYPES = ['General', 'ICU', 'Private', 'Semi-Private'];
     final weekStartStr = DateFormat('dd MMM').format(_selectedRosterWeekStart);
@@ -3111,6 +3263,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             onPressed: _autoShuffleNextWeek,
                             icon: const Icon(Icons.shuffle_rounded, size: 14),
                             label: const Text('Shuffle Next Week', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(color: AppTheme.borderColor),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: _autoShuffleFromPrevWeek,
+                            icon: const Icon(Icons.shuffle_on_outlined, size: 14),
+                            label: const Text('Shuffle Prev Week', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.primaryColor,
                               side: const BorderSide(color: AppTheme.borderColor),
@@ -3168,10 +3332,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                     ],
                   )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                : Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 16,
+                    runSpacing: 12,
                     children: [
                       const Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.date_range_rounded, color: AppTheme.primaryColor),
                           SizedBox(width: 10),
@@ -3181,8 +3349,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ],
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           OutlinedButton.icon(
                             onPressed: _autoShuffleNextWeek,
@@ -3195,7 +3365,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          OutlinedButton.icon(
+                            onPressed: _autoShuffleFromPrevWeek,
+                            icon: const Icon(Icons.shuffle_on_outlined, size: 14),
+                            label: const Text('Shuffle & Allocate from Prev Week', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(color: AppTheme.borderColor),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
                           Container(
                             decoration: BoxDecoration(
                               color: const Color(0xFFF1F5F9),
@@ -3270,10 +3450,91 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 ),
               )
-            else if (isMobile)
-              _buildMobileRosterList(WARD_TYPES)
-            else
-              _buildDesktopRosterGrid(WARD_TYPES),
+            else ...[
+              if (_rosters.isEmpty)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.info_outline, color: Colors.blue.shade700),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Text(
+                                    'No shifts allocated for this week.',
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Automatically shuffle the shift configurations from the previous week and allocate them to the current week.',
+                              style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton.icon(
+                              onPressed: _autoShuffleFromPrevWeek,
+                              icon: const Icon(Icons.shuffle_rounded, size: 14),
+                              label: const Text('Shuffle & Allocate Now', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.blue.shade700),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'No shifts allocated for this week.',
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Automatically shuffle the shift configurations from the previous week and allocate them to the current week.',
+                                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            ElevatedButton.icon(
+                              onPressed: _autoShuffleFromPrevWeek,
+                              icon: const Icon(Icons.shuffle_rounded, size: 14),
+                              label: const Text('Shuffle & Allocate from Previous Week', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              if (isMobile)
+                _buildMobileRosterList(WARD_TYPES)
+              else
+                _buildDesktopRosterGrid(WARD_TYPES),
+            ],
           ],
         ),
       ),

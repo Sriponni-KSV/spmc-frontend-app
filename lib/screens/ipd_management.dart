@@ -3382,6 +3382,11 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
             color = Colors.blue;
             title = 'Shift Allocated';
             break;
+          case 'weekly_roster_saved':
+            icon = Icons.calendar_today_outlined;
+            color = Colors.teal;
+            title = 'Weekly Shift Allocated';
+            break;
           case 'handover_generated':
             icon = Icons.swap_horiz;
             color = Colors.amber;

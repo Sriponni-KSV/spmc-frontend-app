@@ -756,12 +756,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                       false,
                     ),
                     _buildSidebarItem(
-                      Icons.person_outline,
-                      'My Profile',
-                      AppRoutes.doctorProfile,
-                      false,
-                    ),
-                    _buildSidebarItem(
                       Icons.local_hospital_outlined,
                       'IPD Management',
                       AppRoutes.doctorIpd,
@@ -771,6 +765,12 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                       Icons.healing_outlined,
                       'OT Management',
                       AppRoutes.doctorOt,
+                      false,
+                    ),
+                    _buildSidebarItem(
+                      Icons.person_outline,
+                      'My Profile',
+                      AppRoutes.doctorProfile,
                       false,
                     ),
                   ] else if (isAdmin) ...[

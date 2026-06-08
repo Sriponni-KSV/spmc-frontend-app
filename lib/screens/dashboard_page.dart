@@ -2235,7 +2235,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Icons.history_edu_outlined,
                       'My Consultations',
                     ),
-                    _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
                     _buildSidebarItem(
                       3,
                       Icons.local_hospital_outlined,
@@ -2246,6 +2245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Icons.healing_outlined,
                       'OT Management',
                     ),
+                    _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
                   ],
                 ],
               ),

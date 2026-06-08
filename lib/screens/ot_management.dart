@@ -150,7 +150,7 @@ class OTManagementScreen extends StatefulWidget {
 }
 
 class _OTManagementScreenState extends State<OTManagementScreen> {
-  int _activeTab = 0; // 0: Dashboard, 1: Active Cases, 2: New Request
+  int _activeTab = 0; // 0: Dashboard, 1: Active Cases, 2: Completed Cases, 3: New Request
   List<OtCase> _otCases = [];
   OtCase? _selectedCase;
   final _requestFormKey = GlobalKey<FormState>();
@@ -1213,6 +1213,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final isAnaesthetist = user?.role == 'Anaesthetist';
     final activeCasesCount = _otCases.where((c) => c.status != 'OT Case Closed').length;
+    final completedCasesCount = _otCases.where((c) => c.status == 'OT Case Closed').length;
 
     return Container(
       padding: const EdgeInsets.all(4),
@@ -1232,9 +1233,16 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             Icons.people_outline,
             badgeCount: activeCasesCount,
           ),
+          const SizedBox(width: 4),
+          _buildTabItem(
+            2,
+            'Completed Operations',
+            Icons.check_circle_outline,
+            badgeCount: completedCasesCount,
+          ),
           if (!isAnaesthetist) ...[
             const SizedBox(width: 4),
-            _buildTabItem(2, 'Schedule Surgery', Icons.add_circle_outline),
+            _buildTabItem(3, 'Schedule Surgery', Icons.add_circle_outline),
           ],
         ],
       ),
@@ -1247,9 +1255,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       onTap: () {
         setState(() {
           _activeTab = index;
-          if (index != 1) {
-            _selectedCase = null;
-          }
+          _selectedCase = null;
         });
       },
       borderRadius: BorderRadius.circular(8),
@@ -1406,6 +1412,8 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       case 1:
         return _buildActivePatientsView();
       case 2:
+        return _buildCompletedPatientsView();
+      case 3:
         return _buildRequestView();
       default:
         return _buildDashboardView();
@@ -1894,7 +1902,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           final c = filteredCases[idx];
                           final isSelected = _selectedCase?.id == c.id;
                           final avatarColors = AppTheme.getAvatarColors(c.patientName);
-                          final priorityColor = c.priority == 'Emergency' ? Colors.red.shade700 : AppTheme.primaryColor;
                           final statusColor = _getStatusColor(c.status);
 
                           return InkWell(
@@ -2025,6 +2032,230 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   const SizedBox(height: 4),
                   const Text(
                     'Select a patient from the registry on the left to track timeline & update surgical clinical inputs.',
+                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompletedPatientsView() {
+    final completedCases = _otCases.where((c) => c.status == 'OT Case Closed').toList();
+
+    // Full-screen detail takeover: if a case is selected, bypass the Row and return the detail workspace directly!
+    if (_selectedCase != null && _selectedCase!.status == 'OT Case Closed') {
+      return _buildCaseWorkflowDetails(_selectedCase!);
+    }
+
+    final filteredCases = completedCases.where((c) {
+      final query = _searchQuery.toLowerCase();
+      return c.patientName.toLowerCase().contains(query) ||
+             c.id.toLowerCase().contains(query) ||
+             (c.surgeryType ?? '').toLowerCase().contains(query) ||
+             c.status.toLowerCase().contains(query);
+    }).toList();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Master Pane: Left Column (List of Completed Patients)
+        Container(
+          width: 320,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.borderColor),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Search Header
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Completed Operations (${completedCases.length})',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      onChanged: (val) {
+                        setState(() {
+                          _searchQuery = val;
+                        });
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Search registry...',
+                        prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // Patient List
+              Expanded(
+                child: filteredCases.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No completed cases found',
+                          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                        ),
+                      )
+                    : ListView.separated(
+                        itemCount: filteredCases.length,
+                        physics: const BouncingScrollPhysics(),
+                        separatorBuilder: (context, idx) => const Divider(height: 1),
+                        itemBuilder: (context, idx) {
+                          final c = filteredCases[idx];
+                          final isSelected = _selectedCase?.id == c.id;
+                          final avatarColors = AppTheme.getAvatarColors(c.patientName);
+                          final statusColor = _getStatusColor(c.status);
+
+                          return InkWell(
+                            onTap: () {
+                              _selectOtCase(c);
+                            },
+                            child: Container(
+                              color: isSelected ? AppTheme.primaryLight.withOpacity(0.4) : Colors.transparent,
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: avatarColors['bg'],
+                                    child: Text(
+                                      c.patientName.isNotEmpty
+                                          ? c.patientName.trim().split(' ').map((l) => l[0]).take(2).join('').toUpperCase()
+                                          : '?',
+                                      style: TextStyle(
+                                        color: avatarColors['text'],
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          c.patientName,
+                                          style: TextStyle(
+                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                            fontSize: 13,
+                                            color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          c.surgeryType ?? 'No Procedure',
+                                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: statusColor.withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                              child: Text(
+                                                c.status.toUpperCase(),
+                                                style: TextStyle(color: statusColor, fontSize: 8, fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
+                                            if (c.priority == 'Emergency') ...[
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red.shade50,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                ),
+                                                child: Text(
+                                                  'EMERGENCY',
+                                                  style: TextStyle(color: Colors.red.shade700, fontSize: 8, fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    size: 16,
+                                    color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        // Detail Pane: Right Column placeholder
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.borderColor),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_circle_outline,
+                      size: 48,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No Completed Case Selected',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Select a completed patient from the registry on the left to track timeline & view surgical records.',
                     style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
                     textAlign: TextAlign.center,
                   ),
@@ -2459,7 +2690,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           const SizedBox(height: 16),
           Expanded(
             child: SingleChildScrollView(
-              physics: const NeverScrollableScrollPhysics(), // Make timeline static (no internal scrollbar)
               child: Column(
                 children: List.generate(steps.length, (idx) {
                   bool isCompleted = idx < activeIndex;
@@ -2931,6 +3161,35 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   Widget _buildStepForm(OtCase otCase) {
+    if (otCase.status == 'OT Case Closed') {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green.withOpacity(0.15)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle, size: 48, color: Colors.green),
+            const SizedBox(height: 16),
+            const Text(
+              'OT Case Successfully Closed',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'All steps in the surgery lifecycle have been completed. You can view the full clinical details in the Case History tab or audit details in the Audit Trail tab.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
+
     bool canAct = true;
     String requiredText = '';
 

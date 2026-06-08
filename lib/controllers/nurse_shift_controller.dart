@@ -230,9 +230,10 @@ class NurseShiftController {
 
   // --- NURSING STATION & DASHBOARD ---
 
-  Future<Map<String, dynamic>> fetchActiveShift() async {
+  Future<Map<String, dynamic>> fetchActiveShift({int? nurseId}) async {
     try {
-      final response = await ApiService.get('$baseUrl/ipd/nurse/active-shift');
+      final queryParam = nurseId != null ? '?nurse_id=$nurseId' : '';
+      final response = await ApiService.get('$baseUrl/ipd/nurse/active-shift$queryParam');
       final body = ApiService.decodeJsonResponse(
         response,
         fallbackMessage: 'Failed to fetch active shift details',

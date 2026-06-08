@@ -59,6 +59,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   final NurseShiftController _shiftCtrl = NurseShiftController();
   Map<String, dynamic>? _activeShiftData;
+  Map<String, dynamic>? _todayShiftData;
   List<Map<String, dynamic>> _allWardsShiftData = [];
   bool _isLoadingShiftStatus = false;
   List<Map<String, dynamic>> _handovers = [];
@@ -102,31 +103,44 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
     if (mounted) setState(() => _isLoadingShiftStatus = true);
     try {
-      final res = await _shiftCtrl.fetchActiveShift();
-      if (res['success'] == true && res['active'] == true) {
-        final List data = res['data'] ?? [];
-        final list = List<Map<String, dynamic>>.from(data);
+      final res = await _shiftCtrl.fetchActiveShift(nurseId: user.id);
+      if (res['success'] == true) {
+        final todayShift = res['today_shift'];
+        if (res['active'] == true) {
+          final List data = res['data'] ?? [];
+          final list = List<Map<String, dynamic>>.from(data);
 
-        // Find if this nurse is assigned to any ward
-        Map<String, dynamic>? myAlloc;
-        for (final w in list) {
-          if (w['assigned_nurse_id']?.toString() == user.id.toString()) {
-            myAlloc = w;
-            break;
+          // Find if this nurse is assigned to any ward
+          Map<String, dynamic>? myAlloc;
+          for (final w in list) {
+            if (w['assigned_nurse_id']?.toString() == user.id.toString()) {
+              myAlloc = w;
+              break;
+            }
           }
-        }
 
-        if (mounted) {
-          setState(() {
-            _allWardsShiftData = list;
-            _activeShiftData = myAlloc;
-          });
+          if (mounted) {
+            setState(() {
+              _allWardsShiftData = list;
+              _activeShiftData = myAlloc;
+              _todayShiftData = todayShift;
+            });
+          }
+        } else {
+          if (mounted) {
+            setState(() {
+              _allWardsShiftData = [];
+              _activeShiftData = null;
+              _todayShiftData = todayShift;
+            });
+          }
         }
       } else {
         if (mounted) {
           setState(() {
             _allWardsShiftData = [];
             _activeShiftData = null;
+            _todayShiftData = null;
           });
         }
       }
@@ -1326,21 +1340,185 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   Widget _buildShiftStatusPanel(bool isMobile) {
     if (_activeShiftData == null) {
-      final message = _allWardsShiftData.isNotEmpty
-          ? 'You do not have an active shift assignment today.'
-          : 'No shifts are currently active or defined by the Admin.';
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.blue.shade900,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          message,
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
-        ),
-      );
+      if (_todayShiftData != null) {
+        final shiftName = _todayShiftData!['shift_name']?.toString() ?? 'Assigned';
+        final wardType = _todayShiftData!['ward_type']?.toString() ?? 'General';
+        final startTime = _todayShiftData!['start_time']?.toString();
+        final endTime = _todayShiftData!['end_time']?.toString();
+        final timings = '${_formatTo12Hour(startTime)} - ${_formatTo12Hour(endTime)}';
+
+        IconData shiftIcon = Icons.schedule_outlined;
+        List<Color> gradientColors = [Colors.indigo.shade900, Colors.blue.shade900];
+
+        final lowerName = shiftName.toLowerCase();
+        if (lowerName.contains('night')) {
+          shiftIcon = Icons.nights_stay_outlined;
+          gradientColors = [const Color(0xFF1E1B4B), const Color(0xFF312E81)];
+        } else if (lowerName.contains('evening')) {
+          shiftIcon = Icons.wb_twilight_outlined;
+          gradientColors = [const Color(0xFF7C2D12), const Color(0xFF4C1D95)];
+        } else if (lowerName.contains('morning') || lowerName.contains('day')) {
+          shiftIcon = Icons.wb_sunny_outlined;
+          gradientColors = [const Color(0xFF0F766E), const Color(0xFF115E59)];
+        }
+
+        final displayShiftName = shiftName.toLowerCase().contains('shift')
+            ? shiftName
+            : '$shiftName Shift';
+
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: gradientColors,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: gradientColors[0].withOpacity(0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  ),
+                  child: Icon(shiftIcon, color: Colors.white, size: 28),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$displayShiftName Assigned Today',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '$wardType Ward  ·  $timings',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF60A5FA),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Scheduled',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } else {
+        final message = _allWardsShiftData.isNotEmpty
+            ? 'You do not have an active shift assignment today.'
+            : 'No shifts are currently active or defined by the Admin.';
+
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.grey.shade900, Colors.grey.shade800],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.info_outline, color: Colors.white60, size: 26),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        message,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Please contact administration for shift scheduling.',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
     }
 
     final isAssigned = _activeShiftData!['status'] == 'Assigned';
