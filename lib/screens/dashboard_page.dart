@@ -245,7 +245,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _fetchDoctorData() async {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    debugPrint('[_fetchDoctorData] User: ${user?.fullname}, Role: ${user?.role}');
     if (user == null || user.role == 'Anaesthetist' || !user.hasPermission('book_appointment')) {
       debugPrint('[_fetchDoctorData] Bypassing fetch: user is null, Anaesthetist, or lacks book_appointment permission');
       if (mounted) {
@@ -325,7 +324,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _fetchConsultations() async {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    debugPrint('[_fetchConsultations] User: ${user?.fullname}, Role: ${user?.role}');
     if (user == null || user.role == 'Anaesthetist' || (user.role != 'Admin' && user.role != 'Doctor')) {
       debugPrint('[_fetchConsultations] Bypassing fetch: user is null, Anaesthetist, or not Admin/Doctor');
       if (mounted) {

@@ -223,7 +223,7 @@ class AppTheme {
 
   // ── Input Decoration ──────────────────────────────────────────────────────
   static InputDecoration standardInputDecoration({
-    required String label,
+    String? label,
     IconData? prefixIcon,
     Widget? suffixIcon,
     String? hintText,

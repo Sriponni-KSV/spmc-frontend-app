@@ -194,6 +194,27 @@ class AppRouter {
             child: AdminDashboardScreen(initialIndex: 8),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.adminIcu,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 9),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminPharmacy,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 10),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminInventory,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 11),
+          ),
+        ),
 
 
         // --- Nurse Protected Routes ---
