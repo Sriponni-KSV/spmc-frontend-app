@@ -127,39 +127,64 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                     ),
 
                     const SizedBox(height: 12),
-                    // ── Medicine catalog dropdown ───────────────────────────
-                    CustomDropdownSearch(
-                      label: 'Stock Item Name',
-                      requiredMark: true,
-                      hint: 'Select medicine / stock item',
-                      value: nameCtrl.text.isEmpty ? null : nameCtrl.text,
-                      dropdownItems: catalog
-                          .where((m) => m['category'] == category)
-                          .map((m) => m['name'] as String)
-                          .toList(),
-                      onChanged: (val) {
-                        if (val == null) return;
-                        nameCtrl.text = val;
-                        // Auto-fill category, unit, controlled from catalog
-                        final match = catalog.firstWhere(
-                          (m) => m['name'] == val,
-                          orElse: () => {},
-                        );
-                        if (match.isNotEmpty) {
-                          setD(() {
-                            category = (match['category'] as String?) ?? 'Medicine';
-                            isControlled = (match['is_controlled'] as bool?) ?? false;
-                            unitCtrl.text = (match['default_unit'] as String?) ?? '';
-                          });
-                        } else {
-                          setD(() {});
-                        }
-                      },
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty)
-                              ? 'Please select a stock item'
-                              : null,
-                    ),
+                    // ── Stock Item Name: text field for Food, dropdown for others ──
+                    if (category == 'Food Stock') ...[
+                      Text(
+                        'Stock Item Name *',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          color: Colors.grey.shade700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: nameCtrl,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: null,
+                          prefixIcon: Icons.fastfood_outlined,
+                          hintText: 'Enter food item name (e.g. Rice, Dal)',
+                        ),
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty)
+                                ? 'Please enter food item name'
+                                : null,
+                      ),
+                    ] else ...[
+                      CustomDropdownSearch(
+                        label: 'Stock Item Name',
+                        requiredMark: true,
+                        hint: 'Select medicine / stock item',
+                        value: nameCtrl.text.isEmpty ? null : nameCtrl.text,
+                        dropdownItems: catalog
+                            .where((m) => m['category'] == category)
+                            .map((m) => m['name'] as String)
+                            .toList(),
+                        onChanged: (val) {
+                          if (val == null) return;
+                          nameCtrl.text = val;
+                          // Auto-fill category, unit, controlled from catalog
+                          final match = catalog.firstWhere(
+                            (m) => m['name'] == val,
+                            orElse: () => {},
+                          );
+                          if (match.isNotEmpty) {
+                            setD(() {
+                              category = (match['category'] as String?) ?? 'Medicine';
+                              isControlled = (match['is_controlled'] as bool?) ?? false;
+                              unitCtrl.text = (match['default_unit'] as String?) ?? '';
+                            });
+                          } else {
+                            setD(() {});
+                          }
+                        },
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty)
+                                ? 'Please select a stock item'
+                                : null,
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,

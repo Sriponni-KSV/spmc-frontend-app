@@ -42,7 +42,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   bool _isLoading = true;
   bool _isDoctor = false;
   bool _tabControllerReady = false;
-  String? _assignedWard;
+  List<String> _assignedWards = [];
   List<Map<String, dynamic>> _allWardsShiftData = [];
 
   @override
@@ -121,18 +121,20 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
     final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
     final role = currentUser?.role ?? '';
     List<Map<String, dynamic>> allWardsShiftData = [];
-    String? assignedWard;
+    List<String> assignedWardsList = [];
 
     if (role == 'Nurse') {
       try {
-        final res = await _nurseShiftController.fetchActiveShift();
+        final res = await _nurseShiftController.fetchActiveShift(nurseId: currentUser?.id);
         if (res['success'] == true && res['active'] == true) {
           final List data = res['data'] ?? [];
           allWardsShiftData = List<Map<String, dynamic>>.from(data);
           for (final w in allWardsShiftData) {
             if (w['assigned_nurse_id']?.toString() == currentUser?.id.toString()) {
-              assignedWard = w['ward_type'];
-              break;
+              final wType = w['ward_type']?.toString();
+              if (wType != null) {
+                assignedWardsList.add(wType);
+              }
             }
           }
         }
@@ -161,7 +163,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         _handoversList = handovers;
         _auditTrailList = auditLogs;
         _allWardsShiftData = allWardsShiftData;
-        _assignedWard = assignedWard;
+        _assignedWards = assignedWardsList;
         _isLoading = false;
       });
       if (errorMsg != null) {
@@ -262,7 +264,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
               ),
             ],
           ),
-          if (userRole != 'Nurse')
+          if (userRole == 'Doctor')
             ElevatedButton.icon(
               onPressed: () => _showAdmitDialog(),
               icon: const Icon(Icons.person_add_outlined, size: 18),
@@ -389,10 +391,36 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   Widget _buildTabBar(bool isDoctor) {
     final userRole = Provider.of<AuthProvider>(context).user?.role ?? '';
     final isNurse = userRole == 'Nurse';
+    final currentUser = Provider.of<AuthProvider>(context).user;
+    final myName = currentUser?.fullname.trim().toLowerCase();
+    
     final activeCount = isNurse
-        ? (_assignedWard == null
-            ? 0
-            : _admissions.where((a) => a['status'] == 'Admitted' && a['ward_type'] == _assignedWard).length)
+        ? (_assignedWards.isEmpty
+            ? _admissions.where((a) {
+                if (a['status'] != 'Admitted') return false;
+                final String rawReason = a['reason_for_admission'] ?? '';
+                String? assignedNurse;
+                if (rawReason.startsWith('[Assigned Nurse: ')) {
+                  final endIdx = rawReason.indexOf(']');
+                  if (endIdx != -1) {
+                    assignedNurse = rawReason.substring(17, endIdx).trim().toLowerCase();
+                  }
+                }
+                return assignedNurse != null && myName != null && assignedNurse == myName;
+              }).length
+            : _admissions.where((a) {
+                if (a['status'] != 'Admitted') return false;
+                final String rawReason = a['reason_for_admission'] ?? '';
+                String? assignedNurse;
+                if (rawReason.startsWith('[Assigned Nurse: ')) {
+                  final endIdx = rawReason.indexOf(']');
+                  if (endIdx != -1) {
+                    assignedNurse = rawReason.substring(17, endIdx).trim().toLowerCase();
+                  }
+                }
+                final isAssignedToMe = assignedNurse != null && myName != null && assignedNurse == myName;
+                return _assignedWards.contains(a['ward_type']) || isAssignedToMe;
+              }).length)
         : _admittedCount;
     final availableBeds = _availableBedsCount;
     final totalBeds = _beds.length;
@@ -431,9 +459,28 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   Widget _buildActiveAdmissionsTab([String userRole = 'Admin']) {
     final isDoctor = userRole == 'Doctor';
     final isNurse = userRole == 'Nurse';
+    final currentUser = Provider.of<AuthProvider>(context).user;
+    final myName = currentUser?.fullname.trim().toLowerCase();
 
-    // If nurse is not assigned to any ward, restrict tab
-    if (isNurse && _assignedWard == null) {
+    final active = _admissions.where((a) {
+      if (a['status'] != 'Admitted') return false;
+      if (isNurse) {
+        final String rawReason = a['reason_for_admission'] ?? '';
+        String? assignedNurse;
+        if (rawReason.startsWith('[Assigned Nurse: ')) {
+          final endIdx = rawReason.indexOf(']');
+          if (endIdx != -1) {
+            assignedNurse = rawReason.substring(17, endIdx).trim().toLowerCase();
+          }
+        }
+        final isAssignedToMe = assignedNurse != null && myName != null && assignedNurse == myName;
+        return _assignedWards.contains(a['ward_type']) || isAssignedToMe;
+      }
+      return true;
+    }).toList();
+
+    // If nurse is not assigned to any ward and has no patient explicitly assigned, restrict tab
+    if (isNurse && _assignedWards.isEmpty && active.isEmpty) {
       final hasActiveShifts = _allWardsShiftData.isNotEmpty;
       return _buildEmptyState(
         hasActiveShifts
@@ -442,14 +489,6 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         Icons.lock_outline,
       );
     }
-
-    final active = _admissions.where((a) {
-      if (a['status'] != 'Admitted') return false;
-      if (isNurse) {
-        return a['ward_type'] == _assignedWard;
-      }
-      return true;
-    }).toList();
 
     if (active.isEmpty) {
       return _buildEmptyState(
@@ -565,8 +604,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                   children: [
                     if (isDoctor)
                       ..._buildDoctorAdmissionActions(adm)
-                    else
+                    else if (isNurse)
                       ..._buildNurseAdmissionActions(adm),
+                    // Admin: no action buttons — read-only view
                   ],
                 ),
               ],

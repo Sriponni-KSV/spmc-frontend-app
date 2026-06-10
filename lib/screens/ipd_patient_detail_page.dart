@@ -11,6 +11,9 @@ import '../controllers/ipd_controller.dart';
 import '../controllers/nurse_shift_controller.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart';
+import '../widgets/custom_dropdown_search.dart';
+import '../services/api_service.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class IPDPatientDetailPage extends StatefulWidget {
   final Map<String, dynamic> admission;
@@ -39,6 +42,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   List<Map<String, dynamic>> _icuAlerts = [];
   List<Map<String, dynamic>> _progressNotes = [];
   List<Map<String, dynamic>> _labOrders = [];
+  List<String> _medicineCatalog = [];
 
 
   // Prescription Form Controllers
@@ -94,6 +98,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     _tabController = TabController(length: tabCount, vsync: this);
 
     _loadAllData();
+    _loadMedicineCatalog();
   }
 
   @override
@@ -133,26 +138,40 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     if (_userRole == 'Nurse' && user != null) {
       try {
         final _shiftCtrl = NurseShiftController();
-        final res = await _shiftCtrl.fetchActiveShift();
-        String? assignedWard;
+        final res = await _shiftCtrl.fetchActiveShift(nurseId: user.id);
+        List<String> assignedWards = [];
         if (res['success'] == true && res['active'] == true) {
           final List data = res['data'] ?? [];
           for (final w in data) {
             if (w['assigned_nurse_id']?.toString() == user.id.toString()) {
-              assignedWard = w['ward_type'];
-              break;
+              final wType = w['ward_type']?.toString();
+              if (wType != null) {
+                assignedWards.add(wType);
+              }
             }
           }
         }
 
-        if (assignedWard != widget.admission['ward_type']) {
+        // Parse assigned nurse from reason_for_admission
+        final String rawReason = widget.admission['reason_for_admission'] ?? '';
+        String? assignedNurse;
+        if (rawReason.startsWith('[Assigned Nurse: ')) {
+          final endIdx = rawReason.indexOf(']');
+          if (endIdx != -1) {
+            assignedNurse = rawReason.substring(17, endIdx).trim().toLowerCase();
+          }
+        }
+        final isAssignedToMe = assignedNurse != null && 
+            assignedNurse == user.fullname.trim().toLowerCase();
+
+        if (!assignedWards.contains(widget.admission['ward_type']) && !isAssignedToMe) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  assignedWard == null 
+                  assignedWards.isEmpty 
                       ? 'Access Denied: You are not assigned to an active shift today.'
-                      : 'Access Denied: You are assigned to $assignedWard, but this patient is in ${widget.admission['ward_type']}.'
+                      : 'Access Denied: You are assigned to ${assignedWards.join(", ")}, but this patient is in ${widget.admission['ward_type']}.'
                 ),
                 backgroundColor: Colors.red,
               ),
@@ -197,6 +216,22 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           ),
         );
       }
+    }
+  }
+
+  Future<void> _loadMedicineCatalog() async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final response = await ApiService.get('$baseUrl/inventory/medicine-catalog');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true && mounted) {
+        final data = body['data'] as List<dynamic>;
+        setState(() {
+          _medicineCatalog = data.map((item) => item['name'].toString()).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading medicine catalog: $e');
     }
   }
 
@@ -1852,11 +1887,23 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                       const SizedBox(height: 30),
 
                       // MEDICINE NAME
-                      _buildPrescriptionField(
-                        controller: _medNameController,
+                      CustomDropdownSearch(
                         label: 'Medicine Name',
-                        hint: 'Enter medicine name',
-                        icon: Icons.medication,
+                        value: _medNameController.text.isEmpty ? null : _medNameController.text,
+                        dropdownItems: _medicineCatalog,
+                        hint: 'Select or search medicine',
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _medNameController.text = val;
+                              // Auto-extract and populate dosage if found in catalog name
+                              final match = RegExp(r'\d+\s*(?:mg/ml|IU/ml|mg|mcg|g|ml|IU)', caseSensitive: false).firstMatch(val);
+                              if (match != null) {
+                                _dosageController.text = match.group(0) ?? '';
+                              }
+                            });
+                          }
+                        },
                       ),
 
                       const SizedBox(height: 20),

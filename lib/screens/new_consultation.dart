@@ -7,6 +7,8 @@ import '../controllers/patient_controller.dart';
 import '../controllers/appointment_controller.dart';
 import '../controllers/ipd_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
+import '../services/api_service.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class NewConsultationView extends StatefulWidget {
   final AppointmentModel appointment;
@@ -37,6 +39,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   final TextEditingController _dosageController = TextEditingController();
   final TextEditingController _freqController = TextEditingController(text: '1-0-1');
   final TextEditingController _durController = TextEditingController();
+
+  List<String> _medicineCatalog = [];
 
   // Lab test state
   final Map<String, bool> _standardLabs = {
@@ -71,6 +75,23 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     _fetchLatestVitals();
     _fetchPreviousConsultations();
     _initializeData();
+    _loadMedicineCatalog();
+  }
+
+  Future<void> _loadMedicineCatalog() async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final response = await ApiService.get('$baseUrl/inventory/medicine-catalog');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true && mounted) {
+        final data = body['data'] as List<dynamic>;
+        setState(() {
+          _medicineCatalog = data.map((item) => item['name'].toString()).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading medicine catalog: $e');
+    }
   }
 
   void _initializeData() {
@@ -1085,7 +1106,24 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             children: [
               Expanded(
                 flex: 2,
-                child: _buildSmallField('Medication Name', _medNameController, 'e.g. Paracetamol'),
+                child: CustomDropdownSearch(
+                  label: 'Medication Name',
+                  value: _medNameController.text.isEmpty ? null : _medNameController.text,
+                  dropdownItems: _medicineCatalog,
+                  height: 38,
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _medNameController.text = val;
+                        // Auto-extract and populate dosage if found in the catalog name
+                        final match = RegExp(r'\d+\s*(?:mg/ml|IU/ml|mg|mcg|g|ml|IU)', caseSensitive: false).firstMatch(val);
+                        if (match != null) {
+                          _dosageController.text = match.group(0) ?? '';
+                        }
+                      });
+                    }
+                  },
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
