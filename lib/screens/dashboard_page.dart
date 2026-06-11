@@ -18,6 +18,7 @@ import '../utils/date_formatter.dart';
 import '../utils/logout_helper.dart';
 import 'doctor_ipd_management.dart';
 import 'ot_management.dart';
+import '../controllers/ot_controller.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -39,6 +40,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   AppointmentModel? _activeAppointment;
   bool _isEditingProfile = false;
   DoctorController get _doctorController => DoctorController();
+  final OtController _otController = OtController();
+  List<OtCase> _anaesthetistOtCases = [];
+  OtCase? _otInitialSelectedCase;
+  int? _otInitialTab;
   // Profile Controllers — Basic
   late TextEditingController _nameController;
   late TextEditingController _specController;
@@ -67,12 +72,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
-    if (user?.role == 'Anaesthetist' && widget.initialIndex == 0) {
-      _selectedIndex = 4;
-    } else {
-      _selectedIndex = widget.initialIndex;
-    }
+    _selectedIndex = widget.initialIndex;
     _initControllers();
     _fetchDoctorData();
   }
@@ -81,13 +81,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void didUpdateWidget(covariant DashboardScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.initialIndex != oldWidget.initialIndex) {
-      final user = Provider.of<AuthProvider>(context, listen: false).user;
       setState(() {
-        if (user?.role == 'Anaesthetist' && widget.initialIndex == 0) {
-          _selectedIndex = 4;
-        } else {
-          _selectedIndex = widget.initialIndex;
-        }
+        _selectedIndex = widget.initialIndex;
       });
     }
   }
@@ -245,8 +240,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _fetchDoctorData() async {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    if (user == null || user.role == 'Anaesthetist' || !user.hasPermission('book_appointment')) {
-      debugPrint('[_fetchDoctorData] Bypassing fetch: user is null, Anaesthetist, or lacks book_appointment permission');
+    if (user == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    if (user.role == 'Anaesthetist') {
+      if (!mounted) return;
+      setState(() => _isLoading = true);
+      try {
+        final cases = await _otController.fetchOtCases();
+        if (mounted) {
+          setState(() {
+            _anaesthetistOtCases = cases;
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error fetching OT cases for Anaesthetist: $e');
+        if (mounted) setState(() => _isLoading = false);
+      }
+      return;
+    }
+
+    if (!user.hasPermission('book_appointment')) {
+      debugPrint('[_fetchDoctorData] Bypassing fetch: user lacks book_appointment permission');
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -410,16 +428,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final isAnaesthetist = user?.role == 'Anaesthetist';
-    int indexToUse = _selectedIndex;
-    if (isAnaesthetist) {
-      if (_selectedIndex != 2 && _selectedIndex != 4) {
-        indexToUse = 4;
-      }
-    }
 
-    switch (indexToUse) {
+    switch (_selectedIndex) {
       case 0:
-        return _buildDashboardView(isMobile);
+        return isAnaesthetist
+            ? _buildAnaesthetistDashboardView(isMobile)
+            : _buildDashboardView(isMobile);
       case 1:
         return _buildConsultationsView(isMobile);
       case 2:
@@ -427,9 +441,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 3:
         return DoctorIPDManagementScreen(isMobile: isMobile);
       case 4:
-        return OTManagementScreen(isMobile: isMobile);
+        return OTManagementScreen(
+          isMobile: isMobile,
+          initialSelectedCase: _otInitialSelectedCase,
+          initialTab: _otInitialTab,
+        );
       default:
-        return _buildDashboardView(isMobile);
+        return isAnaesthetist
+            ? _buildAnaesthetistDashboardView(isMobile)
+            : _buildDashboardView(isMobile);
     }
   }
 
@@ -2220,6 +2240,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 children: [
                   if (isAnaesthetist) ...[
+                    _buildSidebarItem(0, Icons.grid_view_outlined, 'Dashboard'),
                     _buildSidebarItem(
                       4,
                       Icons.healing_outlined,
@@ -3088,6 +3109,356 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAnaesthetistDashboardView(bool isMobile) {
+    // Calculate stats
+    final totalCases = _anaesthetistOtCases.where((c) => c.status != 'OT Case Closed').length;
+    final pacPending = _anaesthetistOtCases.where((c) => c.status == 'OT Scheduled' || c.status == 'Pre-Op Completed').length;
+    final activeRecovery = _anaesthetistOtCases.where((c) => c.status == 'Post-Op Monitoring').length;
+    final emergencyCases = _anaesthetistOtCases.where((c) => c.priority?.toLowerCase() == 'emergency' && c.status != 'OT Case Closed').length;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Greeting
+          _buildAnaesthetistGreeting(),
+          const SizedBox(height: 24),
+          
+          // Stats Row
+          _buildAnaesthetistStatsRow(isMobile, totalCases, pacPending, activeRecovery, emergencyCases),
+          const SizedBox(height: 24),
+          
+          // OT Cases Schedule Table
+          _buildAnaesthetistScheduleTable(isMobile),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnaesthetistGreeting() {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final hour = DateTime.now().hour;
+    String greeting = 'Good Morning';
+    if (hour >= 12 && hour < 17) greeting = 'Good Afternoon';
+    if (hour >= 17) greeting = 'Good Evening';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$greeting, Dr. ${user?.fullname ?? 'Anaesthetist'}',
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Here\'s a look at your anesthesia schedule and checklists today.',
+          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAnaesthetistStatsRow(
+    bool isMobile,
+    int totalCases,
+    int pacPending,
+    int activeRecovery,
+    int emergencyCases,
+  ) {
+    if (isMobile) {
+      return Wrap(
+        spacing: 16,
+        runSpacing: 16,
+        children: [
+          _buildStatCard('Active OT Cases', totalCases.toString(), 'Current schedule', Icons.calendar_today_outlined, Colors.blue, isMobile),
+          _buildStatCard('PAC Clearance Pending', pacPending.toString(), 'Needs clearance', Icons.assignment_turned_in_outlined, Colors.orange, isMobile),
+          _buildStatCard('Active Recovery (PACU)', activeRecovery.toString(), 'Monitoring', Icons.monitor_heart_outlined, Colors.green, isMobile),
+          _buildStatCard('Emergency Surgeries', emergencyCases.toString(), 'High priority', Icons.emergency_outlined, Colors.red, isMobile),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: _buildStatCard('Active OT Cases', totalCases.toString(), 'Current schedule', Icons.calendar_today_outlined, Colors.blue, isMobile)),
+        const SizedBox(width: 16),
+        Expanded(child: _buildStatCard('PAC Clearance Pending', pacPending.toString(), 'Needs clearance', Icons.assignment_turned_in_outlined, Colors.orange, isMobile)),
+        const SizedBox(width: 16),
+        Expanded(child: _buildStatCard('Active Recovery (PACU)', activeRecovery.toString(), 'Monitoring', Icons.monitor_heart_outlined, Colors.green, isMobile)),
+        const SizedBox(width: 16),
+        Expanded(child: _buildStatCard('Emergency Surgeries', emergencyCases.toString(), 'High priority', Icons.emergency_outlined, Colors.red, isMobile)),
+      ],
+    );
+  }
+
+  Widget _buildAnaesthetistScheduleTable(bool isMobile) {
+    // Show only open cases
+    final activeCases = _anaesthetistOtCases.where((c) => c.status != 'OT Case Closed').toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Anaesthesia Case Schedule',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Today\'s scheduled cases and pre-anesthesia clearance list',
+                      style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (activeCases.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40.0),
+                child: Text('No active OT cases found for today.', style: TextStyle(color: AppTheme.textSecondaryColor)),
+              ),
+            )
+          else if (isMobile)
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: activeCases.length,
+              itemBuilder: (context, index) {
+                final c = activeCases[index];
+                return _buildAnaesthetistCaseCard(c);
+              },
+            )
+          else
+            _buildAnaesthetistDesktopTable(activeCases),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnaesthetistCaseCard(OtCase c) {
+    final bool needsPac = c.status == 'OT Scheduled' || c.status == 'Pre-Op Completed';
+    final bool inRecovery = c.status == 'Post-Op Monitoring';
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                c.patientName,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              _buildPriorityBadge(c.priority ?? 'Elective'),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${c.patientId} • ${c.gender} • ${c.age}y',
+            style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          _infoRow(Icons.healing_outlined, 'Surgery: ${c.surgeryType ?? '-'}'),
+          _infoRow(Icons.meeting_room_outlined, 'OT Room: ${c.otRoom ?? '-'}'),
+          _infoRow(Icons.access_time, 'Slot: ${c.surgerySlot ?? '-'}'),
+          _infoRow(Icons.assignment_ind_outlined, 'Surgeon: Dr. ${c.surgeon ?? '-'}'),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildStatusBadge(c.status),
+              _buildCaseActionButton(c, needsPac, inRecovery, compact: true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: AppTheme.textSecondaryColor),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnaesthetistDesktopTable(List<OtCase> cases) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        columnSpacing: 28,
+        horizontalMargin: 24,
+        columns: const [
+          DataColumn(label: Text('Patient ID & Name', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text('Surgery Type', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text('Room / Slot', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text('Surgeon', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text('Priority', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+        ],
+        rows: cases.map((c) {
+          final bool needsPac = c.status == 'OT Scheduled' || c.status == 'Pre-Op Completed';
+          final bool inRecovery = c.status == 'Post-Op Monitoring';
+          return DataRow(
+            cells: [
+              DataCell(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(c.patientName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text('${c.patientId} • ${c.gender} • ${c.age}y', style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
+                  ],
+                ),
+              ),
+              DataCell(Text(c.surgeryType ?? '-', style: const TextStyle(fontSize: 13))),
+              DataCell(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(c.otRoom ?? 'Unscheduled', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    if (c.surgerySlot != null)
+                      Text(c.surgerySlot!, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
+                  ],
+                ),
+              ),
+              DataCell(Text('Dr. ${c.surgeon ?? "-"}', style: const TextStyle(fontSize: 13))),
+              DataCell(_buildPriorityBadge(c.priority ?? 'Elective')),
+              DataCell(_buildStatusBadge(c.status)),
+              DataCell(_buildCaseActionButton(c, needsPac, inRecovery, compact: false)),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildPriorityBadge(String priority) {
+    final isEmerg = priority.toLowerCase() == 'emergency';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isEmerg ? const Color(0xFFFFEBEE) : const Color(0xFFE3F2FD),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: isEmerg ? const Color(0xFFFFCDD2) : const Color(0xFFBBDEFB)),
+      ),
+      child: Text(
+        priority,
+        style: TextStyle(
+          color: isEmerg ? const Color(0xFFC62828) : const Color(0xFF1565C0),
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color bg = const Color(0xFFF1F5F9);
+    Color text = const Color(0xFF475569);
+    Color border = const Color(0xFFE2E8F0);
+
+    if (status == 'Pre-Op Completed') {
+      bg = const Color(0xFFFFF7ED);
+      text = const Color(0xFFC2410C);
+      border = const Color(0xFFFFEDD5);
+    } else if (status == 'Anaesthesia Cleared') {
+      bg = const Color(0xFFECFDF5);
+      text = const Color(0xFF047857);
+      border = const Color(0xFFD1FAE5);
+    } else if (status == 'Post-Op Monitoring') {
+      bg = const Color(0xFFF0FDF4);
+      text = const Color(0xFF15803D);
+      border = const Color(0xFFDCFCE7);
+    } else if (status == 'Surgery In Progress') {
+      bg = const Color(0xFFF0F9FF);
+      text = const Color(0xFF0369A1);
+      border = const Color(0xFFE0F2FE);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: border),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(color: text, fontSize: 10, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildCaseActionButton(OtCase c, bool needsPac, bool inRecovery, {required bool compact}) {
+    String label = 'Open OT Step';
+    IconData icon = Icons.chevron_right;
+    Color color = AppTheme.primaryColor;
+    int targetTab = 1; // Default to Active Cases list
+
+    if (needsPac) {
+      label = 'Anesthesia Assessment (PAC)';
+      icon = Icons.assignment_turned_in_outlined;
+      color = Colors.orange;
+      targetTab = 1; // tab index or case details
+    } else if (inRecovery) {
+      label = 'Monitor PACU Recovery';
+      icon = Icons.monitor_heart_outlined;
+      color = Colors.green;
+      targetTab = 1;
+    }
+
+    return ElevatedButton.icon(
+      onPressed: () {
+        setState(() {
+          _otInitialSelectedCase = c;
+          _otInitialTab = targetTab;
+          _selectedIndex = 4; // OT Management Screen
+        });
+      },
+      icon: Icon(icon, size: 14, color: Colors.white),
+      label: Text(compact ? (needsPac ? 'PAC Assessment' : 'PACU Recovery') : label, style: const TextStyle(color: Colors.white, fontSize: 11)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        elevation: 0,
+        minimumSize: const Size(0, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
     );
   }

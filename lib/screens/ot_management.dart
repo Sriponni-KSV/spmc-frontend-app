@@ -143,7 +143,9 @@ class OtCase {
 
 class OTManagementScreen extends StatefulWidget {
   final bool isMobile;
-  const OTManagementScreen({Key? key, required this.isMobile}) : super(key: key);
+  final OtCase? initialSelectedCase;
+  final int? initialTab;
+  const OTManagementScreen({Key? key, required this.isMobile, this.initialSelectedCase, this.initialTab}) : super(key: key);
 
   @override
   State<OTManagementScreen> createState() => _OTManagementScreenState();
@@ -264,6 +266,24 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     _loadPatientsAndDoctors();
   }
 
+  @override
+  void didUpdateWidget(covariant OTManagementScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialSelectedCase != oldWidget.initialSelectedCase && widget.initialSelectedCase != null) {
+      final match = _otCases.firstWhere(
+        (c) => c.dbId == widget.initialSelectedCase!.dbId,
+        orElse: () => _otCases.firstWhere(
+          (c) => c.id == widget.initialSelectedCase!.id,
+          orElse: () => null as dynamic,
+        ),
+      );
+      if (match != null) {
+        _selectOtCase(match);
+        _activeTab = widget.initialTab ?? 1;
+      }
+    }
+  }
+
   Future<void> _loadPatientsAndDoctors() async {
     if (!mounted) return;
     setState(() {
@@ -293,12 +313,42 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           final refetched = await _otController.fetchOtCases();
           setState(() {
             _otCases = refetched;
-            _selectedCase = null;
+            if (widget.initialSelectedCase != null) {
+              final match = refetched.firstWhere(
+                (c) => c.dbId == widget.initialSelectedCase!.dbId,
+                orElse: () => refetched.firstWhere(
+                  (c) => c.id == widget.initialSelectedCase!.id,
+                  orElse: () => null as dynamic,
+                ),
+              );
+              if (match != null) {
+                _selectedCase = match;
+                _populateControllersForCase(match);
+                _activeTab = widget.initialTab ?? 1;
+              }
+            } else {
+              _selectedCase = null;
+            }
           });
         } else {
           setState(() {
             _otCases = fetchedCases;
-            _selectedCase = null;
+            if (widget.initialSelectedCase != null) {
+              final match = fetchedCases.firstWhere(
+                (c) => c.dbId == widget.initialSelectedCase!.dbId,
+                orElse: () => fetchedCases.firstWhere(
+                  (c) => c.id == widget.initialSelectedCase!.id,
+                  orElse: () => null as dynamic,
+                ),
+              );
+              if (match != null) {
+                _selectedCase = match;
+                _populateControllersForCase(match);
+                _activeTab = widget.initialTab ?? 1;
+              }
+            } else {
+              _selectedCase = null;
+            }
           });
         }
         setState(() {
@@ -1225,24 +1275,24 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildTabItem(0, 'Overview Dashboard', Icons.grid_view_outlined),
+          _buildTabItem(0, widget.isMobile ? 'Dashboard' : 'Overview Dashboard', Icons.grid_view_outlined),
           const SizedBox(width: 4),
           _buildTabItem(
             1,
-            'Active Patients',
+            widget.isMobile ? 'Active' : 'Active Patients',
             Icons.people_outline,
             badgeCount: activeCasesCount,
           ),
           const SizedBox(width: 4),
           _buildTabItem(
             2,
-            'Completed Operations',
+            widget.isMobile ? 'Completed' : 'Completed Operations',
             Icons.check_circle_outline,
             badgeCount: completedCasesCount,
           ),
           if (!isAnaesthetist) ...[
             const SizedBox(width: 4),
-            _buildTabItem(3, 'Schedule Surgery', Icons.add_circle_outline),
+            _buildTabItem(3, widget.isMobile ? 'Schedule' : 'Schedule Surgery', Icons.add_circle_outline),
           ],
         ],
       ),
@@ -1325,78 +1375,145 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 16 : 24, vertical: 16),
             decoration: const BoxDecoration(
               color: Colors.white,
               border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Operation Theatre (OT) Management',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Complete Surgery Lifecycle & Patient Handover Tracking',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildHorizontalTabs(),
-                    const SizedBox(width: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryLight,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+            child: widget.isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
+                          Text(
+                            'OT Management',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          const Text(
-                            'OT Connected',
+                          SizedBox(height: 4),
+                          Text(
+                            'Complete Surgery Lifecycle & Patient Handover',
                             style: TextStyle(
-                              color: AppTheme.primaryColor,
                               fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textSecondaryColor,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                      const SizedBox(height: 12),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildHorizontalTabs(),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryLight,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.green,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Text(
+                                    'Connected',
+                                    style: TextStyle(
+                                      color: AppTheme.primaryColor,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Operation Theatre (OT) Management',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Complete Surgery Lifecycle & Patient Handover Tracking',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildHorizontalTabs(),
+                          const SizedBox(width: 16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryLight,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Text(
+                                  'OT Connected',
+                                  style: TextStyle(
+                                    color: AppTheme.primaryColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
           ),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.all(24),
+              padding: widget.isMobile ? const EdgeInsets.all(12) : const EdgeInsets.all(24),
               child: _buildActiveTabView(),
             ),
           ),
@@ -1460,17 +1577,29 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Stat Cards
-          Row(
-            children: [
-              Expanded(child: _buildStatCard('Pending Requests', reqCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildStatCard('Scheduled Today', schedCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildStatCard('Active In Surgery', inProgress.toString(), 'Live operating room', Icons.flash_on, Colors.purple)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildStatCard('Recovery & Post-Op', recCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink)),
-            ],
-          ),
+          widget.isMobile
+              ? Column(
+                  children: [
+                    _buildStatCard('Pending Requests', reqCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange),
+                    const SizedBox(height: 12),
+                    _buildStatCard('Scheduled Today', schedCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue),
+                    const SizedBox(height: 12),
+                    _buildStatCard('Active In Surgery', inProgress.toString(), 'Live operating room', Icons.flash_on, Colors.purple),
+                    const SizedBox(height: 12),
+                    _buildStatCard('Recovery & Post-Op', recCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: _buildStatCard('Pending Requests', reqCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildStatCard('Scheduled Today', schedCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildStatCard('Active In Surgery', inProgress.toString(), 'Live operating room', Icons.flash_on, Colors.purple)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildStatCard('Recovery & Post-Op', recCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink)),
+                  ],
+                ),
           const SizedBox(height: 28),
 
           // OT Room Grid Layout (Visually Stunning)
@@ -1479,17 +1608,29 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildRoomCard('OT Room 1', 'OT-1', 'OT 1')),
-              const SizedBox(width: 16),
-              Expanded(child: _buildRoomCard('OT Room 2', 'OT-2', 'OT 2')),
-              const SizedBox(width: 16),
-              Expanded(child: _buildRoomCard('OT Room 3', 'OT-3', 'OT 3')),
-              const SizedBox(width: 16),
-              Expanded(child: _buildRoomCard('Emergency OT', 'OT-EMERGENCY', 'Emergency OT')),
-            ],
-          ),
+          widget.isMobile
+              ? Column(
+                  children: [
+                    _buildRoomCard('OT Room 1', 'OT-1', 'OT 1'),
+                    const SizedBox(height: 12),
+                    _buildRoomCard('OT Room 2', 'OT-2', 'OT 2'),
+                    const SizedBox(height: 12),
+                    _buildRoomCard('OT Room 3', 'OT-3', 'OT 3'),
+                    const SizedBox(height: 12),
+                    _buildRoomCard('Emergency OT', 'OT-EMERGENCY', 'Emergency OT'),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: _buildRoomCard('OT Room 1', 'OT-1', 'OT 1')),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildRoomCard('OT Room 2', 'OT-2', 'OT 2')),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildRoomCard('OT Room 3', 'OT-3', 'OT 3')),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildRoomCard('Emergency OT', 'OT-EMERGENCY', 'Emergency OT')),
+                  ],
+                ),
           const SizedBox(height: 28),
 
           // Integration Hub status
@@ -1836,168 +1977,173 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
              c.status.toLowerCase().contains(query);
     }).toList();
 
+    final masterPane = Container(
+      width: widget.isMobile ? double.infinity : 320,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderColor),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Search Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Patients in Pipeline (${activeCases.length})',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  onChanged: (val) {
+                    setState(() {
+                      _searchQuery = val;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search registry...',
+                    prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Patient List
+          Expanded(
+            child: filteredCases.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No patients found',
+                      style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: filteredCases.length,
+                    physics: const BouncingScrollPhysics(),
+                    separatorBuilder: (context, idx) => const Divider(height: 1),
+                    itemBuilder: (context, idx) {
+                      final c = filteredCases[idx];
+                      final isSelected = _selectedCase?.id == c.id;
+                      final avatarColors = AppTheme.getAvatarColors(c.patientName);
+                      final statusColor = _getStatusColor(c.status);
+
+                      return InkWell(
+                        onTap: () {
+                          _selectOtCase(c);
+                        },
+                        child: Container(
+                          color: isSelected ? AppTheme.primaryLight.withOpacity(0.4) : Colors.transparent,
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor: avatarColors['bg'],
+                                child: Text(
+                                  c.patientName.isNotEmpty
+                                      ? c.patientName.trim().split(' ').map((l) => l[0]).take(2).join('').toUpperCase()
+                                      : '?',
+                                  style: TextStyle(
+                                    color: avatarColors['text'],
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      c.patientName,
+                                      style: TextStyle(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        fontSize: 13,
+                                        color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      c.surgeryType ?? 'No Procedure',
+                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: statusColor.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: Text(
+                                            c.status.toUpperCase(),
+                                            style: TextStyle(color: statusColor, fontSize: 8, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        if (c.priority == 'Emergency') ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.shade50,
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Text(
+                                              'EMERGENCY',
+                                              style: TextStyle(color: Colors.red.shade700, fontSize: 8, fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+
+    if (widget.isMobile) {
+      return masterPane;
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Master Pane: Left Column (List of Active Patients)
-        Container(
-          width: 320,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.borderColor),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Search Header
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Patients in Pipeline (${activeCases.length})',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      onChanged: (val) {
-                        setState(() {
-                          _searchQuery = val;
-                        });
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Search registry...',
-                        prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              // Patient List
-              Expanded(
-                child: filteredCases.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No patients found',
-                          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: filteredCases.length,
-                        physics: const BouncingScrollPhysics(),
-                        separatorBuilder: (context, idx) => const Divider(height: 1),
-                        itemBuilder: (context, idx) {
-                          final c = filteredCases[idx];
-                          final isSelected = _selectedCase?.id == c.id;
-                          final avatarColors = AppTheme.getAvatarColors(c.patientName);
-                          final statusColor = _getStatusColor(c.status);
-
-                          return InkWell(
-                            onTap: () {
-                              _selectOtCase(c);
-                            },
-                            child: Container(
-                              color: isSelected ? AppTheme.primaryLight.withOpacity(0.4) : Colors.transparent,
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 18,
-                                    backgroundColor: avatarColors['bg'],
-                                    child: Text(
-                                      c.patientName.isNotEmpty
-                                          ? c.patientName.trim().split(' ').map((l) => l[0]).take(2).join('').toUpperCase()
-                                          : '?',
-                                      style: TextStyle(
-                                        color: avatarColors['text'],
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          c.patientName,
-                                          style: TextStyle(
-                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                            fontSize: 13,
-                                            color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          c.surgeryType ?? 'No Procedure',
-                                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: statusColor.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(10),
-                                              ),
-                                              child: Text(
-                                                c.status.toUpperCase(),
-                                                style: TextStyle(color: statusColor, fontSize: 8, fontWeight: FontWeight.bold),
-                                              ),
-                                            ),
-                                            if (c.priority == 'Emergency') ...[
-                                              const SizedBox(width: 6),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.red.shade50,
-                                                  borderRadius: BorderRadius.circular(10),
-                                                ),
-                                                child: Text(
-                                                  'EMERGENCY',
-                                                  style: TextStyle(color: Colors.red.shade700, fontSize: 8, fontWeight: FontWeight.bold),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    Icons.chevron_right,
-                                    size: 16,
-                                    color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        ),
+        masterPane,
         const SizedBox(width: 16),
         // Detail Pane: Right Column placeholder
         Expanded(
@@ -2060,168 +2206,173 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
              c.status.toLowerCase().contains(query);
     }).toList();
 
+    final masterPane = Container(
+      width: widget.isMobile ? double.infinity : 320,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderColor),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Search Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Completed Operations (${completedCases.length})',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  onChanged: (val) {
+                    setState(() {
+                      _searchQuery = val;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search registry...',
+                    prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Patient List
+          Expanded(
+            child: filteredCases.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No completed cases found',
+                      style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: filteredCases.length,
+                    physics: const BouncingScrollPhysics(),
+                    separatorBuilder: (context, idx) => const Divider(height: 1),
+                    itemBuilder: (context, idx) {
+                      final c = filteredCases[idx];
+                      final isSelected = _selectedCase?.id == c.id;
+                      final avatarColors = AppTheme.getAvatarColors(c.patientName);
+                      final statusColor = _getStatusColor(c.status);
+
+                      return InkWell(
+                        onTap: () {
+                          _selectOtCase(c);
+                        },
+                        child: Container(
+                          color: isSelected ? AppTheme.primaryLight.withOpacity(0.4) : Colors.transparent,
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor: avatarColors['bg'],
+                                child: Text(
+                                  c.patientName.isNotEmpty
+                                      ? c.patientName.trim().split(' ').map((l) => l[0]).take(2).join('').toUpperCase()
+                                      : '?',
+                                  style: TextStyle(
+                                    color: avatarColors['text'],
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      c.patientName,
+                                      style: TextStyle(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        fontSize: 13,
+                                        color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      c.surgeryType ?? 'No Procedure',
+                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: statusColor.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: Text(
+                                            c.status.toUpperCase(),
+                                            style: TextStyle(color: statusColor, fontSize: 8, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        if (c.priority == 'Emergency') ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.shade50,
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Text(
+                                              'EMERGENCY',
+                                              style: TextStyle(color: Colors.red.shade700, fontSize: 8, fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+
+    if (widget.isMobile) {
+      return masterPane;
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Master Pane: Left Column (List of Completed Patients)
-        Container(
-          width: 320,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.borderColor),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Search Header
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Completed Operations (${completedCases.length})',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      onChanged: (val) {
-                        setState(() {
-                          _searchQuery = val;
-                        });
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Search registry...',
-                        prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              // Patient List
-              Expanded(
-                child: filteredCases.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No completed cases found',
-                          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: filteredCases.length,
-                        physics: const BouncingScrollPhysics(),
-                        separatorBuilder: (context, idx) => const Divider(height: 1),
-                        itemBuilder: (context, idx) {
-                          final c = filteredCases[idx];
-                          final isSelected = _selectedCase?.id == c.id;
-                          final avatarColors = AppTheme.getAvatarColors(c.patientName);
-                          final statusColor = _getStatusColor(c.status);
-
-                          return InkWell(
-                            onTap: () {
-                              _selectOtCase(c);
-                            },
-                            child: Container(
-                              color: isSelected ? AppTheme.primaryLight.withOpacity(0.4) : Colors.transparent,
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 18,
-                                    backgroundColor: avatarColors['bg'],
-                                    child: Text(
-                                      c.patientName.isNotEmpty
-                                          ? c.patientName.trim().split(' ').map((l) => l[0]).take(2).join('').toUpperCase()
-                                          : '?',
-                                      style: TextStyle(
-                                        color: avatarColors['text'],
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          c.patientName,
-                                          style: TextStyle(
-                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                            fontSize: 13,
-                                            color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          c.surgeryType ?? 'No Procedure',
-                                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: statusColor.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(10),
-                                              ),
-                                              child: Text(
-                                                c.status.toUpperCase(),
-                                                style: TextStyle(color: statusColor, fontSize: 8, fontWeight: FontWeight.bold),
-                                              ),
-                                            ),
-                                            if (c.priority == 'Emergency') ...[
-                                              const SizedBox(width: 6),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.red.shade50,
-                                                  borderRadius: BorderRadius.circular(10),
-                                                ),
-                                                child: Text(
-                                                  'EMERGENCY',
-                                                  style: TextStyle(color: Colors.red.shade700, fontSize: 8, fontWeight: FontWeight.bold),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    Icons.chevron_right,
-                                    size: 16,
-                                    color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        ),
+        masterPane,
         const SizedBox(width: 16),
         // Detail Pane: Right Column placeholder
         Expanded(
@@ -2271,10 +2422,186 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   Widget _buildCaseWorkflowDetails(OtCase otCase) {
     final avatarColors = AppTheme.getAvatarColors(otCase.patientName);
     
+    if (widget.isMobile) {
+      return SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Patient Header Details (Mobile)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.borderColor),
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedCase = null;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.borderColor),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back,
+                            color: AppTheme.primaryColor,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: avatarColors['bg'],
+                        child: Text(
+                          otCase.patientName.isNotEmpty ? otCase.patientName.trim().split(' ').map((l) => l[0]).take(2).join('').toUpperCase() : '?',
+                          style: TextStyle(
+                            color: avatarColors['text'],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              otCase.patientName,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(otCase.status).withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                otCase.status,
+                                style: TextStyle(color: _getStatusColor(otCase.status), fontSize: 9, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _buildHeaderMetadataChip(Icons.fingerprint, 'ID: ${otCase.patientId}'),
+                      _buildHeaderMetadataChip(Icons.cake_outlined, '${otCase.age} yrs'),
+                      _buildHeaderMetadataChip(
+                        otCase.gender == 'Male' ? Icons.male : (otCase.gender == 'Female' ? Icons.female : Icons.transgender),
+                        otCase.gender,
+                      ),
+                      _buildHeaderMetadataChip(Icons.bloodtype_outlined, 'Blood: ${otCase.bloodGroup}', color: Colors.red.shade700),
+                      if (otCase.priority != null)
+                        _buildHeaderMetadataChip(
+                          Icons.warning_amber_rounded,
+                          otCase.priority!,
+                          color: otCase.priority == 'Emergency' ? Colors.red.shade700 : AppTheme.primaryColor,
+                          bgColor: otCase.priority == 'Emergency' ? Colors.red.shade50 : AppTheme.primaryLight,
+                        ),
+                      _buildHeaderMetadataChip(Icons.healing_outlined, 'Diagnosis: ${otCase.diagnosis}'),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.meeting_room_outlined, size: 16, color: AppTheme.primaryColor),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                otCase.otRoom != null ? 'OT Room: ${otCase.otRoom}' : 'OT Room: Not Assigned',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.textPrimaryColor),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(Icons.person_outline, size: 16, color: AppTheme.textSecondaryColor),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                otCase.surgeon != null ? 'Surgeon: ${otCase.surgeon}' : 'Surgeon: Not Assigned',
+                                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(Icons.medical_services_outlined, size: 16, color: AppTheme.textSecondaryColor),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                otCase.anaesthetist != null && otCase.anaesthetist!.isNotEmpty ? 'Anaesthetist: ${otCase.anaesthetist}' : 'Anaesthetist: Not Assigned',
+                                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildVerticalWorkflowStepper(otCase),
+            const SizedBox(height: 16),
+            Container(
+              height: 650, // Fixed height on mobile so TabBarView has bounds
+              decoration: AppTheme.cardDecoration,
+              child: _buildTabbedWorkspace(otCase),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Patient Header Details (Redesigned Compact Cockpit Header with Back Button)
+        // Patient Header Details (Desktop)
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -2285,7 +2612,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           ),
           child: Row(
             children: [
-              // Back Button inside the name card
               InkWell(
                 onTap: () {
                   setState(() {
@@ -2308,7 +2634,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 ),
               ),
               const SizedBox(width: 16),
-              // Large Clinical Avatar
               CircleAvatar(
                 radius: 24,
                 backgroundColor: avatarColors['bg'],
@@ -2322,7 +2647,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 ),
               ),
               const SizedBox(width: 16),
-              // Patient Info & Metadata
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2353,7 +2677,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    // Metadata pills with icons
                     Wrap(
                       spacing: 8,
                       runSpacing: 6,
@@ -2379,7 +2702,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 ),
               ),
               const SizedBox(width: 16),
-              // OT Assignment Info Card
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -2432,139 +2754,145 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           ),
         ),
         const SizedBox(height: 16),
-
-        // Core workflow split layout
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Left Column: Vertical timeline stepper (flex 1)
               Expanded(
                 flex: 1,
                 child: _buildVerticalWorkflowStepper(otCase),
               ),
               const SizedBox(width: 16),
-              // Right Column: Tabbed Workflow Workspace (flex 2)
               Expanded(
                 flex: 2,
                 child: Container(
                   decoration: AppTheme.cardDecoration,
-                  child: DefaultTabController(
-                    length: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          margin: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 4),
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: TabBar(
-                            tabs: [
-                              Tab(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.bolt, size: 14),
-                                    const SizedBox(width: 4),
-                                    Text('Active: ${_getStepShortName(otCase.status)}'),
-                                  ],
-                                ),
-                              ),
-                              const Tab(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.history, size: 14),
-                                    SizedBox(width: 4),
-                                    Text('Audit Trail'),
-                                  ],
-                                ),
-                              ),
-                              const Tab(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.assignment, size: 14),
-                                    SizedBox(width: 4),
-                                    Text('Case History'),
-                                  ],
-                                ),
-                              ),
-                            ],
-                            indicator: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            labelColor: AppTheme.primaryColor,
-                            unselectedLabelColor: AppTheme.textSecondaryColor,
-                            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
-                            indicatorSize: TabBarIndicatorSize.tab,
-                            dividerColor: Colors.transparent,
-                          ),
-                        ),
-                        Expanded(
-                          child: TabBarView(
-                            children: [
-                              // Tab 1: Interactive Step Panel
-                              Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text(
-                                          'Interactive Step Panel',
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor),
-                                        ),
-                                        Text(
-                                          'Required: ${_getStepOperator(otCase.status)}',
-                                          style: TextStyle(color: Colors.grey.shade600, fontSize: 11.5, fontStyle: FontStyle.italic),
-                                        ),
-                                      ],
-                                    ),
-                                    const Divider(height: 20),
-                                    Expanded(
-                                      child: SingleChildScrollView(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                                          children: [
-                                            _buildStepForm(otCase),
-                                            const SizedBox(height: 40), // Bottom breathing room to prevent scroll cut-off
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Tab 2: Audit Trail
-                              _buildAuditTrailTab(otCase),
-                              // Tab 3: Case History
-                              _buildCaseHistoryTab(otCase),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  child: _buildTabbedWorkspace(otCase),
                 ),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTabbedWorkspace(OtCase otCase) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 4),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: TabBar(
+              tabs: [
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.bolt, size: 14),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'Active: ${_getStepShortName(otCase.status)}',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.history, size: 14),
+                      SizedBox(width: 4),
+                      Text('Audit Trail'),
+                    ],
+                  ),
+                ),
+                const Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.assignment, size: 14),
+                      SizedBox(width: 4),
+                      Text('Case History'),
+                    ],
+                  ),
+                ),
+              ],
+              indicator: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              labelColor: AppTheme.primaryColor,
+              unselectedLabelColor: AppTheme.textSecondaryColor,
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                // Tab 1: Interactive Step Panel
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Interactive Step Panel',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor),
+                          ),
+                          Text(
+                            'Required: ${_getStepOperator(otCase.status)}',
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 11.5, fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 20),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildStepForm(otCase),
+                              const SizedBox(height: 40), // Bottom breathing room to prevent scroll cut-off
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Tab 2: Audit Trail
+                _buildAuditTrailTab(otCase),
+                // Tab 3: Case History
+                _buildCaseHistoryTab(otCase),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2677,133 +3005,140 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     if (otCase.status == 'Post-Op Monitoring') activeIndex = 7;
     if (otCase.status == 'OT Case Closed') activeIndex = 8;
 
+    final stepWidgets = List.generate(steps.length, (idx) {
+      bool isCompleted = idx < activeIndex;
+      bool isActive = idx == activeIndex;
+      bool isLast = idx == steps.length - 1;
+
+      Color stepColor = isCompleted
+          ? AppTheme.successColor
+          : (isActive ? AppTheme.primaryColor : Colors.grey.shade300);
+
+      Color textColor = isCompleted
+          ? Colors.green.shade800
+          : (isActive ? AppTheme.primaryColor : AppTheme.textSecondaryColor);
+
+      // Quick visual summaries for completed/active steps
+      Widget? detailsWidget;
+      if (idx == 0 && otCase.surgeryType != null) {
+        detailsWidget = Text('${otCase.surgeryType} (${otCase.priority})', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
+      } else if (idx == 1 && otCase.otRoom != null) {
+        detailsWidget = Text('Room: ${otCase.otRoom} \u2022 ${otCase.surgerySlot}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
+      } else if (idx == 2 && otCase.preOpBp != null) {
+        detailsWidget = Text('Vitals: ${otCase.preOpBp}, Pulse: ${otCase.preOpPulse}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
+      } else if (idx == 3 && otCase.anaesthesiaType != null) {
+        detailsWidget = Text('Type: ${otCase.anaesthesiaType}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
+      } else if (idx == 4 && otCase.handoverNotes != null && otCase.handoverNotes!.isNotEmpty) {
+        detailsWidget = Text('Notes: ${otCase.handoverNotes}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor), maxLines: 1, overflow: TextOverflow.ellipsis);
+      } else if (idx == 5 && otCase.surgeryStartTime != null) {
+        detailsWidget = Text('Started: ${DateFormat('hh:mm a').format(otCase.surgeryStartTime!)}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
+      } else if (idx == 6 && otCase.procedurePerformed != null) {
+        detailsWidget = Text('Performed: ${otCase.procedurePerformed}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
+      } else if (idx == 7 && otCase.transferDestination != null) {
+        detailsWidget = Text('To: ${otCase.transferDestination}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
+      }
+
+      return IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Node with line
+            Column(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: isCompleted ? AppTheme.successColor : (isActive ? AppTheme.primaryColor : Colors.white),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: stepColor, width: isActive ? 2 : 1.5),
+                    boxShadow: isActive
+                        ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.2), blurRadius: 4, spreadRadius: 1)]
+                        : null,
+                  ),
+                  child: Center(
+                    child: isCompleted
+                        ? const Icon(Icons.check, size: 10, color: Colors.white)
+                        : Icon(stepIcons[idx], size: 10, color: isActive ? Colors.white : Colors.grey.shade500),
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      color: isCompleted ? AppTheme.successColor : Colors.grey.shade200,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 10),
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 10.0), // Compact padding
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      steps[idx],
+                      style: TextStyle(
+                        fontWeight: isActive || isCompleted ? FontWeight.bold : FontWeight.w500,
+                        fontSize: 11.5, // High-density font size
+                        color: textColor,
+                      ),
+                    ),
+                    if (isActive) ...[
+                      const SizedBox(height: 1),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryLight,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'ACTIVE STEP',
+                          style: TextStyle(color: AppTheme.primaryColor, fontSize: 7.5, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                    if (detailsWidget != null) ...[
+                      const SizedBox(height: 1),
+                      detailsWidget,
+                    ]
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+
     return Container(
       decoration: AppTheme.cardDecoration,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           const Text(
             'Workflow Timeline',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
           ),
           const SizedBox(height: 16),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: List.generate(steps.length, (idx) {
-                  bool isCompleted = idx < activeIndex;
-                  bool isActive = idx == activeIndex;
-                  bool isLast = idx == steps.length - 1;
-
-                  Color stepColor = isCompleted
-                      ? AppTheme.successColor
-                      : (isActive ? AppTheme.primaryColor : Colors.grey.shade300);
-
-                  Color textColor = isCompleted
-                      ? Colors.green.shade800
-                      : (isActive ? AppTheme.primaryColor : AppTheme.textSecondaryColor);
-
-                  // Quick visual summaries for completed/active steps
-                  Widget? detailsWidget;
-                  if (idx == 0 && otCase.surgeryType != null) {
-                    detailsWidget = Text('${otCase.surgeryType} (${otCase.priority})', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
-                  } else if (idx == 1 && otCase.otRoom != null) {
-                    detailsWidget = Text('Room: ${otCase.otRoom} \u2022 ${otCase.surgerySlot}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
-                  } else if (idx == 2 && otCase.preOpBp != null) {
-                    detailsWidget = Text('Vitals: ${otCase.preOpBp}, Pulse: ${otCase.preOpPulse}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
-                  } else if (idx == 3 && otCase.anaesthesiaType != null) {
-                    detailsWidget = Text('Type: ${otCase.anaesthesiaType}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
-                  } else if (idx == 4 && otCase.handoverNotes != null && otCase.handoverNotes!.isNotEmpty) {
-                    detailsWidget = Text('Notes: ${otCase.handoverNotes}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor), maxLines: 1, overflow: TextOverflow.ellipsis);
-                  } else if (idx == 5 && otCase.surgeryStartTime != null) {
-                    detailsWidget = Text('Started: ${DateFormat('hh:mm a').format(otCase.surgeryStartTime!)}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
-                  } else if (idx == 6 && otCase.procedurePerformed != null) {
-                    detailsWidget = Text('Performed: ${otCase.procedurePerformed}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
-                  } else if (idx == 7 && otCase.transferDestination != null) {
-                    detailsWidget = Text('To: ${otCase.transferDestination}', style: const TextStyle(fontSize: 9.5, color: AppTheme.textMutedColor));
-                  }
-
-                  return IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Node with line
-                        Column(
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: isCompleted ? AppTheme.successColor : (isActive ? AppTheme.primaryColor : Colors.white),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: stepColor, width: isActive ? 2 : 1.5),
-                                boxShadow: isActive
-                                    ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.2), blurRadius: 4, spreadRadius: 1)]
-                                    : null,
-                              ),
-                              child: Center(
-                                child: isCompleted
-                                    ? const Icon(Icons.check, size: 10, color: Colors.white)
-                                    : Icon(stepIcons[idx], size: 10, color: isActive ? Colors.white : Colors.grey.shade500),
-                              ),
-                            ),
-                            if (!isLast)
-                              Expanded(
-                                child: Container(
-                                  width: 2,
-                                  color: isCompleted ? AppTheme.successColor : Colors.grey.shade200,
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(width: 10),
-                        // Content
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 10.0), // Compact padding
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  steps[idx],
-                                  style: TextStyle(
-                                    fontWeight: isActive || isCompleted ? FontWeight.bold : FontWeight.w500,
-                                    fontSize: 11.5, // High-density font size
-                                    color: textColor,
-                                  ),
-                                ),
-                                if (isActive) ...[
-                                  const SizedBox(height: 1),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryLight,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Text(
-                                      'ACTIVE STEP',
-                                      style: TextStyle(color: AppTheme.primaryColor, fontSize: 7.5, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ],
-                                if (detailsWidget != null) ...[
-                                  const SizedBox(height: 1),
-                                  detailsWidget,
-                                ]
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+          widget.isMobile
+              ? Column(
+                  children: stepWidgets,
+                )
+              : Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: stepWidgets,
                     ),
-                  );
-                }),
-              ),
-            ),
-          ),
+                  ),
+                ),
         ],
       ),
     );
@@ -2909,90 +3244,170 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         // ── Surgery Time: Start & End ──
         const Text('Surgery Time Slot', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor)),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: InkWell(
-                onTap: () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: _slotStartTime,
-                    helpText: 'Select Surgery Start Time',
-                  );
-                  if (picked != null) setState(() => _slotStartTime = picked);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.borderColor),
-                    borderRadius: BorderRadius.circular(10),
-                    color: Colors.white,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.play_circle_outline, size: 18, color: AppTheme.primaryColor),
-                      const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+        widget.isMobile
+            ? Column(
+                children: [
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: _slotStartTime,
+                        helpText: 'Select Surgery Start Time',
+                      );
+                      if (picked != null) setState(() => _slotStartTime = picked);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppTheme.borderColor),
+                        borderRadius: BorderRadius.circular(10),
+                        color: Colors.white,
+                      ),
+                      child: Row(
                         children: [
-                          const Text('Start Time', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
-                          Text(
-                            _formatTimeOfDay(_slotStartTime),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                          const Icon(Icons.play_circle_outline, size: 18, color: AppTheme.primaryColor),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Start Time', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                              Text(
+                                _formatTimeOfDay(_slotStartTime),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                              ),
+                            ],
                           ),
+                          const Spacer(),
+                          Icon(Icons.edit_outlined, size: 14, color: Colors.grey.shade400),
                         ],
                       ),
-                      const Spacer(),
-                      Icon(Icons.edit_outlined, size: 14, color: Colors.grey.shade400),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Icon(Icons.arrow_forward, color: Colors.grey.shade400, size: 18),
-            ),
-            Expanded(
-              child: InkWell(
-                onTap: () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: _slotEndTime,
-                    helpText: 'Select Surgery End Time',
-                  );
-                  if (picked != null) setState(() => _slotEndTime = picked);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.borderColor),
-                    borderRadius: BorderRadius.circular(10),
-                    color: Colors.white,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.stop_circle, size: 18, color: Colors.red),
-                      const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 12),
+                  const Icon(Icons.arrow_downward, color: Colors.grey, size: 18),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: _slotEndTime,
+                        helpText: 'Select Surgery End Time',
+                      );
+                      if (picked != null) setState(() => _slotEndTime = picked);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppTheme.borderColor),
+                        borderRadius: BorderRadius.circular(10),
+                        color: Colors.white,
+                      ),
+                      child: Row(
                         children: [
-                          const Text('End Time', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
-                          Text(
-                            _formatTimeOfDay(_slotEndTime),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                          const Icon(Icons.stop_circle, size: 18, color: Colors.red),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('End Time', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                              Text(
+                                _formatTimeOfDay(_slotEndTime),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                              ),
+                            ],
                           ),
+                          const Spacer(),
+                          Icon(Icons.edit_outlined, size: 14, color: Colors.grey.shade400),
                         ],
                       ),
-                      const Spacer(),
-                      Icon(Icons.edit_outlined, size: 14, color: Colors.grey.shade400),
-                    ],
+                    ),
                   ),
-                ),
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: _slotStartTime,
+                          helpText: 'Select Surgery Start Time',
+                        );
+                        if (picked != null) setState(() => _slotStartTime = picked);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppTheme.borderColor),
+                          borderRadius: BorderRadius.circular(10),
+                          color: Colors.white,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.play_circle_outline, size: 18, color: AppTheme.primaryColor),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Start Time', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                                Text(
+                                  _formatTimeOfDay(_slotStartTime),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            Icon(Icons.edit_outlined, size: 14, color: Colors.grey.shade400),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Icon(Icons.arrow_forward, color: Colors.grey.shade400, size: 18),
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: _slotEndTime,
+                          helpText: 'Select Surgery End Time',
+                        );
+                        if (picked != null) setState(() => _slotEndTime = picked);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppTheme.borderColor),
+                          borderRadius: BorderRadius.circular(10),
+                          color: Colors.white,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.stop_circle, size: 18, color: Colors.red),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('End Time', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                                Text(
+                                  _formatTimeOfDay(_slotEndTime),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            Icon(Icons.edit_outlined, size: 14, color: Colors.grey.shade400),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
 
         const SizedBox(height: 20),
 
@@ -3287,57 +3702,101 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             const SizedBox(height: 20),
             const Text('Record Pre-Operative Vitals:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _preOpBpController,
-                    validator: (val) => val == null || val.trim().isEmpty ? 'please enter bp' : null,
-                    decoration: AppTheme.standardInputDecoration(
-                      label: 'BP (mmHg)',
-                      prefixIcon: Icons.monitor_heart_outlined,
-                      hintText: 'enter bp',
-                    ),
+            widget.isMobile
+                ? Column(
+                    children: [
+                      TextFormField(
+                        controller: _preOpBpController,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter bp' : null,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'BP (mmHg)',
+                          prefixIcon: Icons.monitor_heart_outlined,
+                          hintText: 'enter bp',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _preOpPulseController,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter pulse' : null,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'Pulse (bpm)',
+                          prefixIcon: Icons.favorite_outline,
+                          hintText: 'enter pulse',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _preOpTempController,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter temp' : null,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'Temp (°F)',
+                          prefixIcon: Icons.thermostat_outlined,
+                          hintText: 'enter temp',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _preOpSpo2Controller,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter spo2' : null,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'SpO2 (%)',
+                          prefixIcon: Icons.bloodtype_outlined,
+                          hintText: 'enter spo2',
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _preOpBpController,
+                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter bp' : null,
+                          decoration: AppTheme.standardInputDecoration(
+                            label: 'BP (mmHg)',
+                            prefixIcon: Icons.monitor_heart_outlined,
+                            hintText: 'enter bp',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _preOpPulseController,
+                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter pulse' : null,
+                          decoration: AppTheme.standardInputDecoration(
+                            label: 'Pulse (bpm)',
+                            prefixIcon: Icons.favorite_outline,
+                            hintText: 'enter pulse',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _preOpTempController,
+                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter temp' : null,
+                          decoration: AppTheme.standardInputDecoration(
+                            label: 'Temp (°F)',
+                            prefixIcon: Icons.thermostat_outlined,
+                            hintText: 'enter temp',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _preOpSpo2Controller,
+                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter spo2' : null,
+                          decoration: AppTheme.standardInputDecoration(
+                            label: 'SpO2 (%)',
+                            prefixIcon: Icons.bloodtype_outlined,
+                            hintText: 'enter spo2',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _preOpPulseController,
-                    validator: (val) => val == null || val.trim().isEmpty ? 'please enter pulse' : null,
-                    decoration: AppTheme.standardInputDecoration(
-                      label: 'Pulse (bpm)',
-                      prefixIcon: Icons.favorite_outline,
-                      hintText: 'enter pulse',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _preOpTempController,
-                    validator: (val) => val == null || val.trim().isEmpty ? 'please enter temp' : null,
-                    decoration: AppTheme.standardInputDecoration(
-                      label: 'Temp (°F)',
-                      prefixIcon: Icons.thermostat_outlined,
-                      hintText: 'enter temp',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _preOpSpo2Controller,
-                    validator: (val) => val == null || val.trim().isEmpty ? 'please enter spo2' : null,
-                    decoration: AppTheme.standardInputDecoration(
-                      label: 'SpO2 (%)',
-                      prefixIcon: Icons.bloodtype_outlined,
-                      hintText: 'enter spo2',
-                    ),
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: (otCase.idVerified && otCase.consentSigned && otCase.fastingConfirmed && otCase.labVerified && otCase.bloodAvailable)
@@ -3414,47 +3873,85 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           ),
           const SizedBox(height: 16),
           
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _selectedAsaGrade,
-                  decoration: AppTheme.standardInputDecoration(
-                    label: 'ASA Grade',
-                    prefixIcon: Icons.star_border_outlined,
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'ASA I', child: Text('ASA I - Normal healthy')),
-                    DropdownMenuItem(value: 'ASA II', child: Text('ASA II - Mild systemic disease')),
-                    DropdownMenuItem(value: 'ASA III', child: Text('ASA III - Severe systemic disease')),
-                    DropdownMenuItem(value: 'ASA IV', child: Text('ASA IV - Severe systemic life-threat')),
-                    DropdownMenuItem(value: 'ASA V', child: Text('ASA V - Moribund patient')),
+          widget.isMobile
+              ? Column(
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: _selectedAsaGrade,
+                      decoration: AppTheme.standardInputDecoration(
+                        label: 'ASA Grade',
+                        prefixIcon: Icons.star_border_outlined,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'ASA I', child: Text('ASA I - Normal healthy')),
+                        DropdownMenuItem(value: 'ASA II', child: Text('ASA II - Mild systemic disease')),
+                        DropdownMenuItem(value: 'ASA III', child: Text('ASA III - Severe systemic disease')),
+                        DropdownMenuItem(value: 'ASA IV', child: Text('ASA IV - Severe systemic life-threat')),
+                        DropdownMenuItem(value: 'ASA V', child: Text('ASA V - Moribund patient')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedAsaGrade = val);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _selectedRiskLevel,
+                      decoration: AppTheme.standardInputDecoration(
+                        label: 'Anesthesia Risk Level',
+                        prefixIcon: Icons.gpp_maybe_outlined,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'Low', child: Text('Low Risk')),
+                        DropdownMenuItem(value: 'Medium', child: Text('Medium Risk')),
+                        DropdownMenuItem(value: 'High', child: Text('High Risk')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedRiskLevel = val);
+                      },
+                    ),
                   ],
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedAsaGrade = val);
-                  },
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _selectedRiskLevel,
-                  decoration: AppTheme.standardInputDecoration(
-                    label: 'Anesthesia Risk Level',
-                    prefixIcon: Icons.gpp_maybe_outlined,
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'Low', child: Text('Low Risk')),
-                    DropdownMenuItem(value: 'Medium', child: Text('Medium Risk')),
-                    DropdownMenuItem(value: 'High', child: Text('High Risk')),
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedAsaGrade,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'ASA Grade',
+                          prefixIcon: Icons.star_border_outlined,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'ASA I', child: Text('ASA I - Normal healthy')),
+                          DropdownMenuItem(value: 'ASA II', child: Text('ASA II - Mild systemic disease')),
+                          DropdownMenuItem(value: 'ASA III', child: Text('ASA III - Severe systemic disease')),
+                          DropdownMenuItem(value: 'ASA IV', child: Text('ASA IV - Severe systemic life-threat')),
+                          DropdownMenuItem(value: 'ASA V', child: Text('ASA V - Moribund patient')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => _selectedAsaGrade = val);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedRiskLevel,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'Anesthesia Risk Level',
+                          prefixIcon: Icons.gpp_maybe_outlined,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'Low', child: Text('Low Risk')),
+                          DropdownMenuItem(value: 'Medium', child: Text('Medium Risk')),
+                          DropdownMenuItem(value: 'High', child: Text('High Risk')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => _selectedRiskLevel = val);
+                        },
+                      ),
+                    ),
                   ],
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedRiskLevel = val);
-                  },
                 ),
-              ),
-            ],
-          ),
           const SizedBox(height: 16),
           
           DropdownButtonFormField<String>(
@@ -3486,25 +3983,46 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           ),
           const SizedBox(height: 24),
           
-          Row(
-            children: [
-              ElevatedButton.icon(
-                onPressed: (_pacFastingVerified && _pacConsentVerified && _pacInstructionsReviewed && _pacMedsEquipmentReady)
-                    ? () => _saveAnaesthesia(otCase)
-                    : null,
-                icon: const Icon(Icons.thumb_up_alt_outlined),
-                label: const Text('Approve & Clear for Surgery'),
-                style: AppTheme.successButton,
-              ),
-              const SizedBox(width: 16),
-              ElevatedButton.icon(
-                onPressed: () => _postponeSurgery(otCase),
-                icon: const Icon(Icons.warning_amber_outlined),
-                label: const Text('Postpone Surgery'),
-                style: AppTheme.logoRedButton,
-              ),
-            ],
-          ),
+          widget.isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: (_pacFastingVerified && _pacConsentVerified && _pacInstructionsReviewed && _pacMedsEquipmentReady)
+                          ? () => _saveAnaesthesia(otCase)
+                          : null,
+                      icon: const Icon(Icons.thumb_up_alt_outlined),
+                      label: const Text('Approve & Clear for Surgery'),
+                      style: AppTheme.successButton,
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _postponeSurgery(otCase),
+                      icon: const Icon(Icons.warning_amber_outlined),
+                      label: const Text('Postpone Surgery'),
+                      style: AppTheme.logoRedButton,
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: (_pacFastingVerified && _pacConsentVerified && _pacInstructionsReviewed && _pacMedsEquipmentReady)
+                          ? () => _saveAnaesthesia(otCase)
+                          : null,
+                      icon: const Icon(Icons.thumb_up_alt_outlined),
+                      label: const Text('Approve & Clear for Surgery'),
+                      style: AppTheme.successButton,
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => _postponeSurgery(otCase),
+                      icon: const Icon(Icons.warning_amber_outlined),
+                      label: const Text('Postpone Surgery'),
+                      style: AppTheme.logoRedButton,
+                    ),
+                  ],
+                ),
           if (!(_pacFastingVerified && _pacConsentVerified && _pacInstructionsReviewed && _pacMedsEquipmentReady))
             Padding(
               padding: const EdgeInsets.only(top: 8.0),
@@ -3658,79 +4176,141 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   const SizedBox(height: 16),
                   const Text('Log Anesthesia Vitals & Drugs:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _intraOpBpController,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'BP (mmHg)',
-                            prefixIcon: Icons.monitor_heart_outlined,
-                            hintText: '120/80',
-                          ),
+                  widget.isMobile
+                      ? Column(
+                          children: [
+                            TextField(
+                              controller: _intraOpBpController,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'BP (mmHg)',
+                                prefixIcon: Icons.monitor_heart_outlined,
+                                hintText: '120/80',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _intraOpPulseController,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'HR (bpm)',
+                                prefixIcon: Icons.favorite_outline,
+                                hintText: '75',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _intraOpTempController,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'Temp (°F)',
+                                prefixIcon: Icons.thermostat_outlined,
+                                hintText: '98.6',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _intraOpSpo2Controller,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'SpO2 (%)',
+                                prefixIcon: Icons.bloodtype_outlined,
+                                hintText: '99',
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _intraOpBpController,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'BP (mmHg)',
+                                  prefixIcon: Icons.monitor_heart_outlined,
+                                  hintText: '120/80',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: _intraOpPulseController,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'HR (bpm)',
+                                  prefixIcon: Icons.favorite_outline,
+                                  hintText: '75',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: _intraOpTempController,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'Temp (°F)',
+                                  prefixIcon: Icons.thermostat_outlined,
+                                  hintText: '98.6',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: _intraOpSpo2Controller,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'SpO2 (%)',
+                                  prefixIcon: Icons.bloodtype_outlined,
+                                  hintText: '99',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _intraOpPulseController,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'HR (bpm)',
-                            prefixIcon: Icons.favorite_outline,
-                            hintText: '75',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _intraOpTempController,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'Temp (°F)',
-                            prefixIcon: Icons.thermostat_outlined,
-                            hintText: '98.6',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _intraOpSpo2Controller,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'SpO2 (%)',
-                            prefixIcon: Icons.bloodtype_outlined,
-                            hintText: '99',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _intraOpMedsController,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'Drugs Administered',
-                            prefixIcon: Icons.vaccines_outlined,
-                            hintText: 'Propofol, Fentanyl',
-                          ),
+                  widget.isMobile
+                      ? Column(
+                          children: [
+                            TextField(
+                              controller: _intraOpMedsController,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'Drugs Administered',
+                                prefixIcon: Icons.vaccines_outlined,
+                                hintText: 'Propofol, Fentanyl',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _intraOpFluidsController,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'Dosage / Rate',
+                                prefixIcon: Icons.speed_outlined,
+                                hintText: '150mg IV bolus',
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _intraOpMedsController,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'Drugs Administered',
+                                  prefixIcon: Icons.vaccines_outlined,
+                                  hintText: 'Propofol, Fentanyl',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: _intraOpFluidsController,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'Dosage / Rate',
+                                  prefixIcon: Icons.speed_outlined,
+                                  hintText: '150mg IV bolus',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _intraOpFluidsController,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'Dosage / Rate',
-                            prefixIcon: Icons.speed_outlined,
-                            hintText: '150mg IV bolus',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _intraOpBloodController,
@@ -3760,113 +4340,205 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 children: [
                   const Text('Intra-Operative Vital & Event Logging (Nurse):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _intraOpBpController,
-                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter bp' : null,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'BP',
-                            prefixIcon: Icons.monitor_heart_outlined,
-                            hintText: 'enter bp',
-                          ),
+                  widget.isMobile
+                      ? Column(
+                          children: [
+                            TextFormField(
+                              controller: _intraOpBpController,
+                              validator: (val) => val == null || val.trim().isEmpty ? 'please enter bp' : null,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'BP',
+                                prefixIcon: Icons.monitor_heart_outlined,
+                                hintText: 'enter bp',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _intraOpPulseController,
+                              validator: (val) => val == null || val.trim().isEmpty ? 'please enter hr' : null,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'HR',
+                                prefixIcon: Icons.favorite_outline,
+                                hintText: 'enter hr',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _intraOpTempController,
+                              validator: (val) => val == null || val.trim().isEmpty ? 'please enter temp' : null,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'Temp',
+                                prefixIcon: Icons.thermostat_outlined,
+                                hintText: 'enter temp',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _intraOpSpo2Controller,
+                              validator: (val) => val == null || val.trim().isEmpty ? 'please enter spo2' : null,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'SpO2',
+                                prefixIcon: Icons.bloodtype_outlined,
+                                hintText: 'enter spo2',
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _intraOpBpController,
+                                validator: (val) => val == null || val.trim().isEmpty ? 'please enter bp' : null,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'BP',
+                                  prefixIcon: Icons.monitor_heart_outlined,
+                                  hintText: 'enter bp',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _intraOpPulseController,
+                                validator: (val) => val == null || val.trim().isEmpty ? 'please enter hr' : null,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'HR',
+                                  prefixIcon: Icons.favorite_outline,
+                                  hintText: 'enter hr',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _intraOpTempController,
+                                validator: (val) => val == null || val.trim().isEmpty ? 'please enter temp' : null,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'Temp',
+                                  prefixIcon: Icons.thermostat_outlined,
+                                  hintText: 'enter temp',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _intraOpSpo2Controller,
+                                validator: (val) => val == null || val.trim().isEmpty ? 'please enter spo2' : null,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'SpO2',
+                                  prefixIcon: Icons.bloodtype_outlined,
+                                  hintText: 'enter spo2',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _intraOpPulseController,
-                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter hr' : null,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'HR',
-                            prefixIcon: Icons.favorite_outline,
-                            hintText: 'enter hr',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _intraOpTempController,
-                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter temp' : null,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'Temp',
-                            prefixIcon: Icons.thermostat_outlined,
-                            hintText: 'enter temp',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _intraOpSpo2Controller,
-                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter spo2' : null,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'SpO2',
-                            prefixIcon: Icons.bloodtype_outlined,
-                            hintText: 'enter spo2',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _intraOpMedsController,
-                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter meds given' : null,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'Meds Given',
-                            prefixIcon: Icons.vaccines_outlined,
-                            hintText: 'enter meds given',
-                          ),
+                  widget.isMobile
+                      ? Column(
+                          children: [
+                            TextFormField(
+                              controller: _intraOpMedsController,
+                              validator: (val) => val == null || val.trim().isEmpty ? 'please enter meds given' : null,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'Meds Given',
+                                prefixIcon: Icons.vaccines_outlined,
+                                hintText: 'enter meds given',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _intraOpFluidsController,
+                              validator: (val) => val == null || val.trim().isEmpty ? 'please enter iv fluids' : null,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'IV Fluids',
+                                prefixIcon: Icons.water_drop_outlined,
+                                hintText: 'enter iv fluids',
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _intraOpMedsController,
+                                validator: (val) => val == null || val.trim().isEmpty ? 'please enter meds given' : null,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'Meds Given',
+                                  prefixIcon: Icons.vaccines_outlined,
+                                  hintText: 'enter meds given',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _intraOpFluidsController,
+                                validator: (val) => val == null || val.trim().isEmpty ? 'please enter iv fluids' : null,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'IV Fluids',
+                                  prefixIcon: Icons.water_drop_outlined,
+                                  hintText: 'enter iv fluids',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _intraOpFluidsController,
-                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter iv fluids' : null,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'IV Fluids',
-                            prefixIcon: Icons.water_drop_outlined,
-                            hintText: 'enter iv fluids',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _intraOpBloodController,
-                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter blood products' : null,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'Blood Products',
-                            prefixIcon: Icons.bloodtype_outlined,
-                            hintText: 'enter blood products',
-                          ),
+                  widget.isMobile
+                      ? Column(
+                          children: [
+                            TextFormField(
+                              controller: _intraOpBloodController,
+                              validator: (val) => val == null || val.trim().isEmpty ? 'please enter blood products' : null,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'Blood Products',
+                                prefixIcon: Icons.bloodtype_outlined,
+                                hintText: 'enter blood products',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _intraOpInstrumentController,
+                              validator: (val) => val == null || val.trim().isEmpty ? 'please enter instrument count' : null,
+                              decoration: AppTheme.standardInputDecoration(
+                                label: 'Instrument Count',
+                                prefixIcon: Icons.checklist_outlined,
+                                hintText: 'enter instrument count',
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _intraOpBloodController,
+                                validator: (val) => val == null || val.trim().isEmpty ? 'please enter blood products' : null,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'Blood Products',
+                                  prefixIcon: Icons.bloodtype_outlined,
+                                  hintText: 'enter blood products',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _intraOpInstrumentController,
+                                validator: (val) => val == null || val.trim().isEmpty ? 'please enter instrument count' : null,
+                                decoration: AppTheme.standardInputDecoration(
+                                  label: 'Instrument Count',
+                                  prefixIcon: Icons.checklist_outlined,
+                                  hintText: 'enter instrument count',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _intraOpInstrumentController,
-                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter instrument count' : null,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'Instrument Count',
-                            prefixIcon: Icons.checklist_outlined,
-                            hintText: 'enter instrument count',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: () {
@@ -4123,42 +4795,73 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 children: [
                   const Text('Recovery Room (PACU) Monitoring:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.teal)),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedConsciousness,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'Consciousness Level',
-                            prefixIcon: Icons.psychology_outlined,
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 'Fully Awake', child: Text('Fully Awake')),
-                            DropdownMenuItem(value: 'Arousable to Voice', child: Text('Arousable to Voice')),
-                            DropdownMenuItem(value: 'Arousable to Pain', child: Text('Arousable to Pain')),
-                            DropdownMenuItem(value: 'Unresponsive', child: Text('Unresponsive')),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) setState(() => _selectedConsciousness = val);
-                          },
-                        ),
+                  if (widget.isMobile) ...[
+                    DropdownButtonFormField<String>(
+                      value: _selectedConsciousness,
+                      decoration: AppTheme.standardInputDecoration(
+                        label: 'Consciousness Level',
+                        prefixIcon: Icons.psychology_outlined,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedPainScore,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'Pain Score (0-10)',
-                            prefixIcon: Icons.mood_bad_outlined,
-                          ),
-                          items: List.generate(11, (index) => DropdownMenuItem(value: '$index', child: Text('Score $index'))),
-                          onChanged: (val) {
-                            if (val != null) setState(() => _selectedPainScore = val);
-                          },
-                        ),
+                      items: const [
+                        DropdownMenuItem(value: 'Fully Awake', child: Text('Fully Awake')),
+                        DropdownMenuItem(value: 'Arousable to Voice', child: Text('Arousable to Voice')),
+                        DropdownMenuItem(value: 'Arousable to Pain', child: Text('Arousable to Pain')),
+                        DropdownMenuItem(value: 'Unresponsive', child: Text('Unresponsive')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedConsciousness = val);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _selectedPainScore,
+                      decoration: AppTheme.standardInputDecoration(
+                        label: 'Pain Score (0-10)',
+                        prefixIcon: Icons.mood_bad_outlined,
                       ),
-                    ],
-                  ),
+                      items: List.generate(11, (index) => DropdownMenuItem(value: '$index', child: Text('Score $index'))),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedPainScore = val);
+                      },
+                    ),
+                  ] else ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _selectedConsciousness,
+                            decoration: AppTheme.standardInputDecoration(
+                              label: 'Consciousness Level',
+                              prefixIcon: Icons.psychology_outlined,
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'Fully Awake', child: Text('Fully Awake')),
+                              DropdownMenuItem(value: 'Arousable to Voice', child: Text('Arousable to Voice')),
+                              DropdownMenuItem(value: 'Arousable to Pain', child: Text('Arousable to Pain')),
+                              DropdownMenuItem(value: 'Unresponsive', child: Text('Unresponsive')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) setState(() => _selectedConsciousness = val);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _selectedPainScore,
+                            decoration: AppTheme.standardInputDecoration(
+                              label: 'Pain Score (0-10)',
+                              prefixIcon: Icons.mood_bad_outlined,
+                            ),
+                            items: List.generate(11, (index) => DropdownMenuItem(value: '$index', child: Text('Score $index'))),
+                            onChanged: (val) {
+                              if (val != null) setState(() => _selectedPainScore = val);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextField(
                     controller: _pacuObservationsController,
@@ -4180,23 +4883,45 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      ElevatedButton.icon(
+                  if (widget.isMobile) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
                         onPressed: () => _approvePacuTransfer(otCase),
                         icon: const Icon(Icons.thumb_up_alt_outlined),
                         label: const Text('Approve Transfer to Ward/ICU'),
                         style: AppTheme.primaryButton,
                       ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
                         onPressed: () => _anaesthetistCloseCase(otCase),
                         icon: const Icon(Icons.archive_outlined),
                         label: const Text('Complete Anesthesia Report & Close Case'),
                         style: AppTheme.logoRedButton,
                       ),
-                    ],
-                  ),
+                    ),
+                  ] else ...[
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () => _approvePacuTransfer(otCase),
+                          icon: const Icon(Icons.thumb_up_alt_outlined),
+                          label: const Text('Approve Transfer to Ward/ICU'),
+                          style: AppTheme.primaryButton,
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: () => _anaesthetistCloseCase(otCase),
+                          icon: const Icon(Icons.archive_outlined),
+                          label: const Text('Complete Anesthesia Report & Close Case'),
+                          style: AppTheme.logoRedButton,
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -4550,296 +5275,35 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                child: Row(
+                child: Flex(
+                  direction: widget.isMobile ? Axis.vertical : Axis.horizontal,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Left Column: Patient demographics
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Patient Demographics:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
-                          const SizedBox(height: 16),
-                          if (_isLoadingPatients)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.0),
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text('Loading patients from database...', style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor)),
-                                ],
-                              ),
-                            )
-                          else ...[
-                            CustomDropdownSearch(
-                              label: 'Select Patient from DB (Auto-populates fields)',
-                              hint: 'search by name or patient id',
-                              value: _selectedPatientId,
-                              dropdownMap: {
-                                for (var p in _patients)
-                                  p.id.toString(): '${p.name} (${p.patientId ?? "ID: ${p.id}"})'
-                              },
-                              onChanged: (val) {
-                                if (val != null) {
-                                  final p = _patients.firstWhere((p) => p.id.toString() == val);
-                                  setState(() {
-                                    _selectedPatientId = val;
-                                    _selectedPatientDisplayId = p.patientId ?? 'PT-${p.id}';
-                                    _patientNameController.text = p.name;
-                                    _ageController.text = p.age.toString();
-                                    
-                                    // Normalize Gender
-                                    final gen = p.gender.trim();
-                                    if (gen.toLowerCase().startsWith('m')) {
-                                      _selectedGender = 'Male';
-                                    } else if (gen.toLowerCase().startsWith('f')) {
-                                      _selectedGender = 'Female';
-                                    } else {
-                                      _selectedGender = 'Other';
-                                    }
-
-                                    // Normalize Blood Group
-                                    final bg = p.bloodGroup.trim();
-                                    final allowedBloodGroups = ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'];
-                                    if (allowedBloodGroups.contains(bg)) {
-                                      _selectedBloodGroup = bg;
-                                    } else {
-                                      _selectedBloodGroup = 'O+';
-                                    }
-                                  });
-                                }
-                              },
+                    widget.isMobile
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: _buildDemographicsChildren(),
+                          )
+                        : Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: _buildDemographicsChildren(),
                             ),
-                            const SizedBox(height: 16),
-                          ],
-                          _buildFieldLabel('Patient Full Name *'),
-                          TextFormField(
-                            controller: _patientNameController,
-                            decoration: _noLabelDecoration(hintText: 'enter patient name'),
-                            validator: (val) => val == null || val.trim().isEmpty ? 'please enter patient name' : null,
                           ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildFieldLabel('Age *'),
-                                    TextFormField(
-                                      controller: _ageController,
-                                      keyboardType: TextInputType.number,
-                                      decoration: _noLabelDecoration(hintText: 'enter age'),
-                                      validator: (val) => val == null || val.trim().isEmpty ? 'please enter age' : null,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: CustomDropdownSearch(
-                                  label: 'Gender',
-                                  hint: 'select gender',
-                                  value: _selectedGender,
-                                  dropdownItems: const ['Male', 'Female', 'Other'],
-                                  onChanged: (val) {
-                                    if (val != null) setState(() => _selectedGender = val);
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: CustomDropdownSearch(
-                                  label: 'Blood Group',
-                                  hint: 'select blood group',
-                                  value: _selectedBloodGroup,
-                                  dropdownItems: const ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'],
-                                  onChanged: (val) {
-                                    if (val != null) setState(() => _selectedBloodGroup = val);
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          _buildFieldLabel('Diagnosis Details *'),
-                          TextFormField(
-                            controller: _diagnosisController,
-                            decoration: _noLabelDecoration(hintText: 'enter diagnosis'),
-                            validator: (val) => val == null || val.trim().isEmpty ? 'please enter diagnosis' : null,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 24),
+                    if (!widget.isMobile) const SizedBox(width: 24) else const SizedBox(height: 24),
                     // Right Column: Surgery details
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Surgery & Administrative Details:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: CustomDropdownSearch(
-                                  label: 'Surgery Type',
-                                  hint: 'select surgery type',
-                                  value: _selectedSurgeryType,
-                                  dropdownItems: const [
-                                    'Laparoscopic Cholecystectomy',
-                                    'Appendectomy',
-                                    'Hernioplasty (Mesh Repair)',
-                                    'Total Knee Replacement',
-                                    'CABG (Heart Bypass)',
-                                    'Cataract Surgery',
-                                  ],
-                                  onChanged: (val) {
-                                    if (val != null) setState(() => _selectedSurgeryType = val);
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: CustomDropdownSearch(
-                                  label: 'Priority / Urgency',
-                                  hint: 'select priority',
-                                  value: _selectedPriority,
-                                  dropdownItems: const ['Elective', 'Emergency'],
-                                  onChanged: (val) {
-                                    if (val != null) setState(() => _selectedPriority = val);
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: ListTile(
-                                    title: const Text('Surgery Date', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
-                                    subtitle: Text(DateFormat('dd/MM/yyyy').format(_selectedDate), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    trailing: const Icon(Icons.calendar_today, color: AppTheme.primaryColor, size: 18),
-                                    onTap: () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: _selectedDate,
-                                        firstDate: DateTime.now(),
-                                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                                      );
-                                      if (picked != null) setState(() => _selectedDate = picked);
-                                    },
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: ListTile(
-                                    title: const Text('Suggested Time', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
-                                    subtitle: Text(_selectedTime.format(context), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    trailing: const Icon(Icons.access_time, color: AppTheme.primaryColor, size: 18),
-                                    onTap: () async {
-                                      final picked = await showTimePicker(
-                                        context: context,
-                                        initialTime: _selectedTime,
-                                      );
-                                      if (picked != null) setState(() => _selectedTime = picked);
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _isLoadingDoctors
-                                    ? const Padding(
-                                        padding: EdgeInsets.all(8.0),
-                                        child: CircularProgressIndicator(),
-                                      )
-                                    : CustomDropdownSearch(
-                                        label: 'Primary Surgeon Name',
-                                        requiredMark: true,
-                                        hint: 'search surgeon',
-                                        value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
-                                        dropdownItems: _doctors.isNotEmpty
-                                            ? _doctors.map((d) => d.fullname).toList()
-                                            : const ['Dr. Vikram Sen', 'Dr. Rajesh Shah', 'Dr. Sanjay Gupta', 'Dr. Amit Singhal', 'Dr. Sunita Mehta'],
-                                        onChanged: (val) {
-                                          if (val != null) {
-                                            setState(() {
-                                              _surgeonController.text = val;
-                                            });
-                                          }
-                                        },
-                                        validator: (val) => val == null || val.isEmpty ? 'please select primary surgeon' : null,
-                                      ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _isLoadingAnaesthetists
-                                    ? const Padding(
-                                        padding: EdgeInsets.all(8.0),
-                                        child: CircularProgressIndicator(),
-                                      )
-                                    : CustomDropdownSearch(
-                                        label: 'Suggested Anaesthetist',
-                                        requiredMark: true,
-                                        hint: 'search anaesthetist',
-                                        value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
-                                        dropdownItems: _anaesthetists.isNotEmpty
-                                            ? _anaesthetists.map((d) => d.fullname).toList()
-                                            : const ['Dr. Vikram Sen', 'Dr. Rajesh Shah', 'Dr. Sanjay Gupta', 'Dr. Amit Singhal', 'Dr. Sunita Mehta'],
-                                        onChanged: (val) {
-                                          if (val != null) {
-                                            setState(() {
-                                              _anaesthetistController.text = val;
-                                            });
-                                          }
-                                        },
-                                        validator: (val) => val == null || val.isEmpty ? 'please select suggested anaesthetist' : null,
-                                      ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          _buildFieldLabel('Remarks / Special Instructions'),
-                          TextFormField(
-                            controller: _remarksController,
-                            maxLines: 2,
-                            decoration: _noLabelDecoration(hintText: 'enter remarks'),
-                          ),
-                          const SizedBox(height: 24),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: ElevatedButton.icon(
-                              onPressed: _saveSurgeryRequest,
-                              icon: const Icon(Icons.save),
-                              label: const Text('Request Surgery & Open Case File'),
-                              style: AppTheme.primaryButton,
+                    widget.isMobile
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: _buildSurgeryDetailsChildren(),
+                          )
+                        : Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: _buildSurgeryDetailsChildren(),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -4848,5 +5312,434 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         ),
       ),
     );
+  }
+
+  List<Widget> _buildDemographicsChildren() {
+    return [
+      const Text('Patient Demographics:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+      const SizedBox(height: 16),
+      if (_isLoadingPatients)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8.0),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 12),
+              Text('Loading patients from database...', style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor)),
+            ],
+          ),
+        )
+      else ...[
+        CustomDropdownSearch(
+          label: 'Select Patient from DB (Auto-populates fields)',
+          hint: 'search by name or patient id',
+          value: _selectedPatientId,
+          dropdownMap: {
+            for (var p in _patients)
+              p.id.toString(): '${p.name} (${p.patientId ?? "ID: ${p.id}"})'
+          },
+          onChanged: (val) {
+            if (val != null) {
+              final p = _patients.firstWhere((p) => p.id.toString() == val);
+              setState(() {
+                _selectedPatientId = val;
+                _selectedPatientDisplayId = p.patientId ?? 'PT-${p.id}';
+                _patientNameController.text = p.name;
+                _ageController.text = p.age.toString();
+                
+                // Normalize Gender
+                final gen = p.gender.trim();
+                if (gen.toLowerCase().startsWith('m')) {
+                  _selectedGender = 'Male';
+                } else if (gen.toLowerCase().startsWith('f')) {
+                  _selectedGender = 'Female';
+                } else {
+                  _selectedGender = 'Other';
+                }
+
+                // Normalize Blood Group
+                final bg = p.bloodGroup.trim();
+                final allowedBloodGroups = ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'];
+                if (allowedBloodGroups.contains(bg)) {
+                  _selectedBloodGroup = bg;
+                } else {
+                  _selectedBloodGroup = 'O+';
+                }
+              });
+            }
+          },
+        ),
+        const SizedBox(height: 16),
+      ],
+      _buildFieldLabel('Patient Full Name *'),
+      TextFormField(
+        controller: _patientNameController,
+        decoration: _noLabelDecoration(hintText: 'enter patient name'),
+        validator: (val) => val == null || val.trim().isEmpty ? 'please enter patient name' : null,
+      ),
+      const SizedBox(height: 16),
+      if (widget.isMobile) ...[
+        _buildFieldLabel('Age *'),
+        TextFormField(
+          controller: _ageController,
+          keyboardType: TextInputType.number,
+          decoration: _noLabelDecoration(hintText: 'enter age'),
+          validator: (val) => val == null || val.trim().isEmpty ? 'please enter age' : null,
+        ),
+        const SizedBox(height: 16),
+        CustomDropdownSearch(
+          label: 'Gender',
+          hint: 'select gender',
+          value: _selectedGender,
+          dropdownItems: const ['Male', 'Female', 'Other'],
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedGender = val);
+          },
+        ),
+        const SizedBox(height: 16),
+        CustomDropdownSearch(
+          label: 'Blood Group',
+          hint: 'select blood group',
+          value: _selectedBloodGroup,
+          dropdownItems: const ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'],
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedBloodGroup = val);
+          },
+        ),
+      ] else ...[
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFieldLabel('Age *'),
+                  TextFormField(
+                    controller: _ageController,
+                    keyboardType: TextInputType.number,
+                    decoration: _noLabelDecoration(hintText: 'enter age'),
+                    validator: (val) => val == null || val.trim().isEmpty ? 'please enter age' : null,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: CustomDropdownSearch(
+                label: 'Gender',
+                hint: 'select gender',
+                value: _selectedGender,
+                dropdownItems: const ['Male', 'Female', 'Other'],
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedGender = val);
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: CustomDropdownSearch(
+                label: 'Blood Group',
+                hint: 'select blood group',
+                value: _selectedBloodGroup,
+                dropdownItems: const ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'],
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedBloodGroup = val);
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+      const SizedBox(height: 16),
+      _buildFieldLabel('Diagnosis Details *'),
+      TextFormField(
+        controller: _diagnosisController,
+        decoration: _noLabelDecoration(hintText: 'enter diagnosis'),
+        validator: (val) => val == null || val.trim().isEmpty ? 'please enter diagnosis' : null,
+      ),
+    ];
+  }
+
+  List<Widget> _buildSurgeryDetailsChildren() {
+    return [
+      const Text('Surgery & Administrative Details:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+      const SizedBox(height: 16),
+      if (widget.isMobile) ...[
+        CustomDropdownSearch(
+          label: 'Surgery Type',
+          hint: 'select surgery type',
+          value: _selectedSurgeryType,
+          dropdownItems: const [
+            'Laparoscopic Cholecystectomy',
+            'Appendectomy',
+            'Hernioplasty (Mesh Repair)',
+            'Total Knee Replacement',
+            'CABG (Heart Bypass)',
+            'Cataract Surgery',
+          ],
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedSurgeryType = val);
+          },
+        ),
+        const SizedBox(height: 16),
+        CustomDropdownSearch(
+          label: 'Priority / Urgency',
+          hint: 'select priority',
+          value: _selectedPriority,
+          dropdownItems: const ['Elective', 'Emergency'],
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedPriority = val);
+          },
+        ),
+      ] else ...[
+        Row(
+          children: [
+            Expanded(
+              child: CustomDropdownSearch(
+                label: 'Surgery Type',
+                hint: 'select surgery type',
+                value: _selectedSurgeryType,
+                dropdownItems: const [
+                  'Laparoscopic Cholecystectomy',
+                  'Appendectomy',
+                  'Hernioplasty (Mesh Repair)',
+                  'Total Knee Replacement',
+                  'CABG (Heart Bypass)',
+                  'Cataract Surgery',
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedSurgeryType = val);
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: CustomDropdownSearch(
+                label: 'Priority / Urgency',
+                hint: 'select priority',
+                value: _selectedPriority,
+                dropdownItems: const ['Elective', 'Emergency'],
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedPriority = val);
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+      const SizedBox(height: 16),
+      if (widget.isMobile) ...[
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: ListTile(
+            title: const Text('Surgery Date', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+            subtitle: Text(DateFormat('dd/MM/yyyy').format(_selectedDate), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            trailing: const Icon(Icons.calendar_today, color: AppTheme.primaryColor, size: 18),
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _selectedDate,
+                firstDate: DateTime.now(),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+              );
+              if (picked != null) setState(() => _selectedDate = picked);
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: ListTile(
+            title: const Text('Suggested Time', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+            subtitle: Text(_selectedTime.format(context), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            trailing: const Icon(Icons.access_time, color: AppTheme.primaryColor, size: 18),
+            onTap: () async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: _selectedTime,
+              );
+              if (picked != null) setState(() => _selectedTime = picked);
+            },
+          ),
+        ),
+      ] else ...[
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: ListTile(
+                  title: const Text('Surgery Date', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                  subtitle: Text(DateFormat('dd/MM/yyyy').format(_selectedDate), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  trailing: const Icon(Icons.calendar_today, color: AppTheme.primaryColor, size: 18),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (picked != null) setState(() => _selectedDate = picked);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: ListTile(
+                  title: const Text('Suggested Time', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                  subtitle: Text(_selectedTime.format(context), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  trailing: const Icon(Icons.access_time, color: AppTheme.primaryColor, size: 18),
+                  onTap: () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: _selectedTime,
+                    );
+                    if (picked != null) setState(() => _selectedTime = picked);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+      const SizedBox(height: 16),
+      if (widget.isMobile) ...[
+        _isLoadingDoctors
+            ? const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: CircularProgressIndicator(),
+              )
+            : CustomDropdownSearch(
+                label: 'Primary Surgeon Name',
+                requiredMark: true,
+                hint: 'search surgeon',
+                value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
+                dropdownItems: _doctors.isNotEmpty
+                    ? _doctors.map((d) => d.fullname).toList()
+                    : const ['Dr. Vikram Sen', 'Dr. Rajesh Shah', 'Dr. Sanjay Gupta', 'Dr. Amit Singhal', 'Dr. Sunita Mehta'],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _surgeonController.text = val;
+                    });
+                  }
+                },
+                validator: (val) => val == null || val.isEmpty ? 'please select primary surgeon' : null,
+              ),
+        const SizedBox(height: 16),
+        _isLoadingAnaesthetists
+            ? const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: CircularProgressIndicator(),
+              )
+            : CustomDropdownSearch(
+                label: 'Suggested Anaesthetist',
+                requiredMark: true,
+                hint: 'search anaesthetist',
+                value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
+                dropdownItems: _anaesthetists.isNotEmpty
+                    ? _anaesthetists.map((d) => d.fullname).toList()
+                    : const ['Dr. Vikram Sen', 'Dr. Rajesh Shah', 'Dr. Sanjay Gupta', 'Dr. Amit Singhal', 'Dr. Sunita Mehta'],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _anaesthetistController.text = val;
+                    });
+                  }
+                },
+                validator: (val) => val == null || val.isEmpty ? 'please select suggested anaesthetist' : null,
+              ),
+      ] else ...[
+        Row(
+          children: [
+            Expanded(
+              child: _isLoadingDoctors
+                  ? const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator(),
+                    )
+                  : CustomDropdownSearch(
+                      label: 'Primary Surgeon Name',
+                      requiredMark: true,
+                      hint: 'search surgeon',
+                      value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
+                      dropdownItems: _doctors.isNotEmpty
+                          ? _doctors.map((d) => d.fullname).toList()
+                          : const ['Dr. Vikram Sen', 'Dr. Rajesh Shah', 'Dr. Sanjay Gupta', 'Dr. Amit Singhal', 'Dr. Sunita Mehta'],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _surgeonController.text = val;
+                          });
+                        }
+                      },
+                      validator: (val) => val == null || val.isEmpty ? 'please select primary surgeon' : null,
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _isLoadingAnaesthetists
+                  ? const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator(),
+                    )
+                  : CustomDropdownSearch(
+                      label: 'Suggested Anaesthetist',
+                      requiredMark: true,
+                      hint: 'search anaesthetist',
+                      value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
+                      dropdownItems: _anaesthetists.isNotEmpty
+                          ? _anaesthetists.map((d) => d.fullname).toList()
+                          : const ['Dr. Vikram Sen', 'Dr. Rajesh Shah', 'Dr. Sanjay Gupta', 'Dr. Amit Singhal', 'Dr. Sunita Mehta'],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _anaesthetistController.text = val;
+                          });
+                        }
+                      },
+                      validator: (val) => val == null || val.isEmpty ? 'please select suggested anaesthetist' : null,
+                    ),
+            ),
+          ],
+        ),
+      ],
+      const SizedBox(height: 16),
+      _buildFieldLabel('Remarks / Special Instructions'),
+      TextFormField(
+        controller: _remarksController,
+        maxLines: 2,
+        decoration: _noLabelDecoration(hintText: 'enter remarks'),
+      ),
+      const SizedBox(height: 24),
+      Align(
+        alignment: Alignment.centerRight,
+        child: ElevatedButton.icon(
+          onPressed: _saveSurgeryRequest,
+          icon: const Icon(Icons.save),
+          label: const Text('Request Surgery & Open Case File'),
+          style: AppTheme.primaryButton,
+        ),
+      ),
+    ];
   }
 }

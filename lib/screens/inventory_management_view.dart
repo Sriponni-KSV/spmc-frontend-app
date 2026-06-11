@@ -93,44 +93,180 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (dialogCtx, setD) => AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          title: const Text('Add Inventory Item', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: SizedBox(
-            width: 420,
-            child: SingleChildScrollView(
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Supply Category dropdown ───────────────────────────
-                    CustomDropdownSearch(
-                      label: 'Supply Category',
-                      requiredMark: true,
-                      hint: 'Select supply category',
-                      value: category,
-                      dropdownItems: const ['Medicine', 'ICU Consumable', 'Surgical Item', 'Food Stock'],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setD(() {
-                            category = val;
-                            nameCtrl.clear();
-                            unitCtrl.clear();
-                            isControlled = false;
-                          });
-                        }
-                      },
-                      validator: (v) => v == null || v.isEmpty ? 'Please select supply category' : null,
-                    ),
+        builder: (dialogCtx, setD) {
+          final Widget qtyField = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Initial Stock Quantity',
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  color: Colors.grey.shade700,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: qtyCtrl,
+                keyboardType: TextInputType.number,
+                decoration: AppTheme.standardInputDecoration(
+                  label: null,
+                  prefixIcon: Icons.inventory,
+                  hintText: 'Enter initial quantity',
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Please enter initial quantity';
+                  }
+                  final val = int.tryParse(v);
+                  if (val == null || val < 0) {
+                    return 'Must be >= 0';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          );
 
-                    const SizedBox(height: 12),
-                    // ── Stock Item Name: text field for Food, dropdown for others ──
-                    if (category == 'Food Stock') ...[
+          final Widget unitField = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Measurement Unit',
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  color: Colors.grey.shade700,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: unitCtrl,
+                decoration: AppTheme.standardInputDecoration(
+                  label: null,
+                  prefixIcon: Icons.square_foot,
+                  hintText: 'Enter unit (e.g. pcs)',
+                ),
+                validator: (v) => v == null || v.trim().isEmpty ? 'Please enter measurement unit' : null,
+              ),
+            ],
+          );
+
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            title: const Text('Add Inventory Item', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: SizedBox(
+              width: widget.isMobile ? double.infinity : 420,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Supply Category dropdown ───────────────────────────
+                      CustomDropdownSearch(
+                        label: 'Supply Category',
+                        requiredMark: true,
+                        hint: 'Select supply category',
+                        value: category,
+                        dropdownItems: const ['Medicine', 'ICU Consumable', 'Surgical Item', 'Food Stock'],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setD(() {
+                              category = val;
+                              nameCtrl.clear();
+                              unitCtrl.clear();
+                              isControlled = false;
+                            });
+                          }
+                        },
+                        validator: (v) => v == null || v.isEmpty ? 'Please select supply category' : null,
+                      ),
+
+                      const SizedBox(height: 12),
+                      // ── Stock Item Name: text field for Food, dropdown for others ──
+                      if (category == 'Food Stock') ...[
+                        Text(
+                          'Stock Item Name *',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            color: Colors.grey.shade700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: nameCtrl,
+                          decoration: AppTheme.standardInputDecoration(
+                            label: null,
+                            prefixIcon: Icons.fastfood_outlined,
+                            hintText: 'Enter food item name (e.g. Rice, Dal)',
+                          ),
+                          validator: (v) =>
+                              (v == null || v.trim().isEmpty)
+                                  ? 'Please enter food item name'
+                                  : null,
+                        ),
+                      ] else ...[
+                        CustomDropdownSearch(
+                          label: 'Stock Item Name',
+                          requiredMark: true,
+                          hint: 'Select medicine / stock item',
+                          value: nameCtrl.text.isEmpty ? null : nameCtrl.text,
+                          dropdownItems: catalog
+                              .where((m) => m['category'] == category)
+                              .map((m) => m['name'] as String)
+                              .toList(),
+                          onChanged: (val) {
+                            if (val == null) return;
+                            nameCtrl.text = val;
+                            // Auto-fill category, unit, controlled from catalog
+                            final match = catalog.firstWhere(
+                              (m) => m['name'] == val,
+                              orElse: () => {},
+                            );
+                            if (match.isNotEmpty) {
+                              setD(() {
+                                category = (match['category'] as String?) ?? 'Medicine';
+                                isControlled = (match['is_controlled'] as bool?) ?? false;
+                                unitCtrl.text = (match['default_unit'] as String?) ?? '';
+                              });
+                            } else {
+                              setD(() {});
+                            }
+                          },
+                          validator: (v) =>
+                              (v == null || v.trim().isEmpty)
+                                  ? 'Please select a stock item'
+                                  : null,
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      widget.isMobile
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                qtyField,
+                                const SizedBox(height: 12),
+                                unitField,
+                              ],
+                            )
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(child: qtyField),
+                                const SizedBox(width: 12),
+                                Expanded(child: unitField),
+                              ],
+                            ),
+                      const SizedBox(height: 12),
                       Text(
-                        'Stock Item Name *',
+                        'Low Stock Alert Threshold',
                         style: TextStyle(
                           fontFamily: 'Manrope',
                           color: Colors.grey.shade700,
@@ -140,260 +276,219 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                       ),
                       const SizedBox(height: 6),
                       TextFormField(
-                        controller: nameCtrl,
+                        controller: thresholdCtrl,
+                        keyboardType: TextInputType.number,
                         decoration: AppTheme.standardInputDecoration(
                           label: null,
-                          prefixIcon: Icons.fastfood_outlined,
-                          hintText: 'Enter food item name (e.g. Rice, Dal)',
+                          prefixIcon: Icons.notifications_active,
+                          hintText: 'Enter low stock alert threshold',
                         ),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty)
-                                ? 'Please enter food item name'
-                                : null,
-                      ),
-                    ] else ...[
-                      CustomDropdownSearch(
-                        label: 'Stock Item Name',
-                        requiredMark: true,
-                        hint: 'Select medicine / stock item',
-                        value: nameCtrl.text.isEmpty ? null : nameCtrl.text,
-                        dropdownItems: catalog
-                            .where((m) => m['category'] == category)
-                            .map((m) => m['name'] as String)
-                            .toList(),
-                        onChanged: (val) {
-                          if (val == null) return;
-                          nameCtrl.text = val;
-                          // Auto-fill category, unit, controlled from catalog
-                          final match = catalog.firstWhere(
-                            (m) => m['name'] == val,
-                            orElse: () => {},
-                          );
-                          if (match.isNotEmpty) {
-                            setD(() {
-                              category = (match['category'] as String?) ?? 'Medicine';
-                              isControlled = (match['is_controlled'] as bool?) ?? false;
-                              unitCtrl.text = (match['default_unit'] as String?) ?? '';
-                            });
-                          } else {
-                            setD(() {});
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Please enter low stock alert threshold';
                           }
+                          final val = int.tryParse(v);
+                          if (val == null || val < 0) {
+                            return 'Must be >= 0';
+                          }
+                          return null;
                         },
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty)
-                                ? 'Please select a stock item'
-                                : null,
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: widget.isMobile
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.calendar_month, color: AppTheme.textSecondaryColor, size: 20),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          expiryDate == null 
+                                              ? 'Expiration Date: Not Set' 
+                                              : 'Expiration: ${DateFormat('dd MMM yyyy').format(expiryDate!)}',
+                                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor, fontSize: 13),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: AppTheme.primaryColor,
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      onPressed: () async {
+                                        final picked = await showDatePicker(
+                                          context: dialogCtx,
+                                          initialDate: DateTime.now().add(const Duration(days: 365)),
+                                          firstDate: DateTime.now(),
+                                          lastDate: DateTime.now().add(const Duration(days: 3650)),
+                                        );
+                                        if (picked != null) {
+                                          setD(() => expiryDate = picked);
+                                        }
+                                      },
+                                      icon: const Icon(Icons.edit_calendar, size: 16),
+                                      label: const Text('Select Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.calendar_month, color: AppTheme.textSecondaryColor, size: 20),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        expiryDate == null 
+                                            ? 'Expiration Date: Not Set' 
+                                            : 'Expiration: ${DateFormat('dd MMM yyyy').format(expiryDate!)}',
+                                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor, fontSize: 13),
+                                      ),
+                                    ],
+                                  ),
+                                  TextButton.icon(
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppTheme.primaryColor,
+                                    ),
+                                    onPressed: () async {
+                                      final picked = await showDatePicker(
+                                        context: dialogCtx,
+                                        initialDate: DateTime.now().add(const Duration(days: 365)),
+                                        firstDate: DateTime.now(),
+                                        lastDate: DateTime.now().add(const Duration(days: 3650)),
+                                      );
+                                      if (picked != null) {
+                                        setD(() => expiryDate = picked);
+                                      }
+                                    },
+                                    icon: const Icon(Icons.edit_calendar, size: 16),
+                                    label: const Text('Select Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  ),
+                                ],
+                              ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: CheckboxListTile(
+                          activeColor: AppTheme.primaryColor,
+                          title: const Text(
+                            'Controlled Pharmaceutical Substance?',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                          ),
+                          subtitle: const Text(
+                            'Requires secure logging and validation when dispensing.',
+                            style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                          ),
+                          value: isControlled,
+                          onChanged: (val) {
+                            if (val != null) setD(() => isControlled = val);
+                          },
+                        ),
                       ),
                     ],
-                    const SizedBox(height: 12),
+                  ),
+                ),
+              ),
+            ),
+            actions: widget.isMobile
+                ? [
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Initial Stock Quantity',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  color: Colors.grey.shade700,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              TextFormField(
-                                controller: qtyCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: AppTheme.standardInputDecoration(
-                                  label: null,
-                                  prefixIcon: Icons.inventory,
-                                  hintText: 'Enter initial quantity',
-                                ),
-                                validator: (v) {
-                                  if (v == null || v.trim().isEmpty) {
-                                    return 'Please enter initial quantity';
-                                  }
-                                  final val = int.tryParse(v);
-                                  if (val == null || val < 0) {
-                                    return 'Must be >= 0';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ],
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF4A5568),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              minimumSize: const Size(0, 48),
+                            ),
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Measurement Unit',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  color: Colors.grey.shade700,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              TextFormField(
-                                controller: unitCtrl,
-                                decoration: AppTheme.standardInputDecoration(
-                                  label: null,
-                                  prefixIcon: Icons.square_foot,
-                                  hintText: 'Enter unit (e.g. pcs)',
-                                ),
-                                validator: (v) => v == null || v.trim().isEmpty ? 'Please enter measurement unit' : null,
-                              ),
-                            ],
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.logoRed,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              minimumSize: const Size(0, 48),
+                              elevation: 0,
+                            ),
+                            onPressed: () {
+                              if (formKey.currentState!.validate()) {
+                                Navigator.pop(ctx, true);
+                              }
+                            },
+                            child: const Text('Save Item', style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Low Stock Alert Threshold',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        color: Colors.grey.shade700,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                  ]
+                : [
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF4A5568),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 20,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        minimumSize: const Size(130, 52),
                       ),
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: thresholdCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: AppTheme.standardInputDecoration(
-                        label: null,
-                        prefixIcon: Icons.notifications_active,
-                        hintText: 'Enter low stock alert threshold',
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.logoRed,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 20,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        minimumSize: const Size(130, 52),
+                        elevation: 0,
                       ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Please enter low stock alert threshold';
+                      onPressed: () {
+                        if (formKey.currentState!.validate()) {
+                          Navigator.pop(ctx, true);
                         }
-                        final val = int.tryParse(v);
-                        if (val == null || val < 0) {
-                          return 'Must be >= 0';
-                        }
-                        return null;
                       },
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.calendar_month, color: AppTheme.textSecondaryColor, size: 20),
-                              const SizedBox(width: 8),
-                              Text(
-                                expiryDate == null 
-                                    ? 'Expiration Date: Not Set' 
-                                    : 'Expiration: ${DateFormat('dd MMM yyyy').format(expiryDate!)}',
-                                style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor, fontSize: 13),
-                              ),
-                            ],
-                          ),
-                          TextButton.icon(
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppTheme.primaryColor,
-                            ),
-                            onPressed: () async {
-                              final picked = await showDatePicker(
-                                context: dialogCtx,
-                                initialDate: DateTime.now().add(const Duration(days: 365)),
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(const Duration(days: 3650)),
-                              );
-                              if (picked != null) {
-                                setD(() => expiryDate = picked);
-                              }
-                            },
-                            icon: const Icon(Icons.edit_calendar, size: 16),
-                            label: const Text('Select Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: CheckboxListTile(
-                        activeColor: AppTheme.primaryColor,
-                        title: const Text(
-                          'Controlled Pharmaceutical Substance?',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
-                        ),
-                        subtitle: const Text(
-                          'Requires secure logging and validation when dispensing.',
-                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-                        ),
-                        value: isControlled,
-                        onChanged: (val) {
-                          if (val != null) setD(() => isControlled = val);
-                        },
-                      ),
+                      child: const Text('Save Item', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ],
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF4A5568),
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 20,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                minimumSize: const Size(130, 52),
-              ),
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.logoRed,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 40,
-                  vertical: 20,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                minimumSize: const Size(130, 52),
-                elevation: 0,
-              ),
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(ctx, true);
-                }
-              },
-              child: const Text('Save Item', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
 
@@ -502,6 +597,720 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
     }
   }
 
+  Widget _buildLeftColumn(List<dynamic> filteredItems) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Filter row
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: ['All', 'Medicine', 'ICU Consumable', 'Surgical Item', 'Food Stock'].map((cat) {
+              final isSelected = _selectedCategory == cat;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: ChoiceChip(
+                  label: Text(cat),
+                  selected: isSelected,
+                  showCheckmark: false,
+                  selectedColor: AppTheme.primaryColor,
+                  backgroundColor: Colors.white,
+                  side: BorderSide(
+                    color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+                  ),
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : AppTheme.textSecondaryColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                  onSelected: (val) {
+                    if (val) setState(() => _selectedCategory = cat);
+                  },
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Items custom card list
+        if (filteredItems.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(40),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: const Center(
+              child: Column(
+                children: [
+                  Icon(Icons.inventory, color: Colors.grey, size: 48),
+                  SizedBox(height: 16),
+                  Text('No inventory items found in this category.', style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: filteredItems.length,
+            itemBuilder: (ctx, idx) {
+              final item = filteredItems[idx];
+              final isLow = item['quantity'] <= item['threshold'];
+              final category = item['category'] ?? 'Medicine';
+              final itemColor = _getCategoryColor(category);
+              final itemIcon = _getCategoryIcon(category);
+
+              final expDate = item['expiry_date'] != null
+                  ? DateFormat('dd MMM yyyy').format(DateTime.parse(item['expiry_date']))
+                  : 'No Expiry';
+
+              final int thresholdVal = item['threshold'] ?? 10;
+              final int quantityVal = item['quantity'] ?? 0;
+              final double progress = (quantityVal / (thresholdVal > 0 ? thresholdVal * 2.5 : 25)).clamp(0.0, 1.0);
+
+              return Card(
+                color: Colors.white,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: isLow ? AppTheme.dangerColor.withValues(alpha: 0.3) : AppTheme.borderColor,
+                    width: isLow ? 1.5 : 1.0,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: widget.isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: itemColor.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(itemIcon, color: itemColor, size: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Wrap(
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        children: [
+                                          Text(
+                                            item['name'] ?? '',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                          ),
+                                          if (item['is_controlled'] == true)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.dangerBg,
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.2)),
+                                              ),
+                                              child: const Text(
+                                                'CONTROLLED',
+                                                style: TextStyle(color: AppTheme.dangerColor, fontSize: 8, fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        spacing: 12,
+                                        runSpacing: 4,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade100,
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              category.toUpperCase(),
+                                              style: TextStyle(color: Colors.grey.shade700, fontSize: 9, fontWeight: FontWeight.w600),
+                                            ),
+                                          ),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.calendar_today, size: 12, color: AppTheme.textSecondaryColor),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Exp: $expDate',
+                                                style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Divider(height: 1, color: AppTheme.borderColor),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  textBaseline: TextBaseline.alphabetic,
+                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  children: [
+                                    Text(
+                                      '$quantityVal',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 18,
+                                        color: isLow ? AppTheme.dangerColor : AppTheme.successColor,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      item['unit'] ?? 'pcs',
+                                      style: const TextStyle(
+                                        color: AppTheme.textSecondaryColor,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(
+                                          width: 80,
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(4),
+                                            child: LinearProgressIndicator(
+                                              value: progress,
+                                              minHeight: 5,
+                                              backgroundColor: Colors.grey.shade100,
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                isLow ? AppTheme.dangerColor : AppTheme.successColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '${(progress * 100).toInt()}%',
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w800,
+                                            color: isLow ? AppTheme.dangerColor : AppTheme.successColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    if (isLow)
+                                      Text(
+                                        'LOW STOCK (Min: $thresholdVal)',
+                                        style: const TextStyle(
+                                          color: AppTheme.dangerColor,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.2,
+                                        ),
+                                      )
+                                    else
+                                      Text(
+                                        'Optimal Stock',
+                                        style: const TextStyle(
+                                          color: AppTheme.successColor,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            // Category Icon badge
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: itemColor.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(itemIcon, color: itemColor, size: 24),
+                            ),
+                            const SizedBox(width: 16),
+
+                            // Middle details
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        item['name'] ?? '',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      if (item['is_controlled'] == true)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.dangerBg,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.2)),
+                                          ),
+                                          child: const Text(
+                                            'CONTROLLED',
+                                            style: TextStyle(color: AppTheme.dangerColor, fontSize: 9, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          category.toUpperCase(),
+                                          style: TextStyle(color: Colors.grey.shade700, fontSize: 10, fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      const Icon(Icons.calendar_today, size: 12, color: AppTheme.textSecondaryColor),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Exp: $expDate',
+                                        style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Right Side: Stock quantity and progress status
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Row(
+                                  textBaseline: TextBaseline.alphabetic,
+                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  children: [
+                                    Text(
+                                      '$quantityVal',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 20,
+                                        color: isLow ? AppTheme.dangerColor : AppTheme.successColor,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      item['unit'] ?? 'pcs',
+                                      style: const TextStyle(
+                                        color: AppTheme.textSecondaryColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                // Progress bar visual representation of stock
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 100,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: LinearProgressIndicator(
+                                          value: progress,
+                                          minHeight: 5,
+                                          backgroundColor: Colors.grey.shade100,
+                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                            isLow ? AppTheme.dangerColor : AppTheme.successColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${(progress * 100).toInt()}%',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        color: isLow ? AppTheme.dangerColor : AppTheme.successColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                if (isLow)
+                                  Text(
+                                    'LOW STOCK (Min: $thresholdVal)',
+                                    style: const TextStyle(
+                                      color: AppTheme.dangerColor,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    'Optimal Stock',
+                                    style: const TextStyle(
+                                      color: AppTheme.successColor,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRightColumn() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // System Warnings & Alerts Header
+        const Text('System Warnings & Alerts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        const SizedBox(height: 16),
+
+        // Grid of Alert Cards
+        Row(
+          children: [
+            // Card 1: Low Stock count
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: _lowStockItems.isNotEmpty ? AppTheme.dangerBg : AppTheme.successBg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _lowStockItems.isNotEmpty ? AppTheme.dangerColor.withValues(alpha: 0.3) : AppTheme.successColor.withValues(alpha: 0.3),
+                    width: 1.2,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      _lowStockItems.isNotEmpty ? Icons.report_problem : Icons.check_circle,
+                      color: _lowStockItems.isNotEmpty ? AppTheme.dangerColor : AppTheme.successColor,
+                      size: 28,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '${_lowStockItems.length}',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: _lowStockItems.isNotEmpty ? AppTheme.dangerColor : AppTheme.successColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Low Stock Items',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _lowStockItems.isNotEmpty ? AppTheme.dangerColor : AppTheme.successColor,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            // Card 2: Expiring Items count
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: _expiringItems.isNotEmpty ? AppTheme.warningBg : AppTheme.infoBg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _expiringItems.isNotEmpty ? AppTheme.warningColor.withValues(alpha: 0.3) : AppTheme.infoColor.withValues(alpha: 0.3),
+                    width: 1.2,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      _expiringItems.isNotEmpty ? Icons.warning : Icons.date_range,
+                      color: _expiringItems.isNotEmpty ? AppTheme.warningColor : AppTheme.infoColor,
+                      size: 28,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '${_expiringItems.length}',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: _expiringItems.isNotEmpty ? AppTheme.warningColor : AppTheme.infoColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Expiring Soon',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _expiringItems.isNotEmpty ? AppTheme.warningColor : AppTheme.infoColor,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // Purchase Requests queue Header
+        const Text('Purchase Replenishment Requests', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        const SizedBox(height: 16),
+
+        if (_purchaseRequests.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: const Center(
+              child: Column(
+                children: [
+                  Icon(Icons.shopping_cart_outlined, color: Colors.grey, size: 36),
+                  SizedBox(height: 12),
+                  Text(
+                    'No Active Purchase Requests',
+                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'System stock replenishments are fully completed.',
+                    style: TextStyle(color: Colors.grey, fontSize: 11),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          SizedBox(
+            height: 400,
+            child: ListView.builder(
+              itemCount: _purchaseRequests.length,
+              itemBuilder: (ctx, idx) {
+                final req = _purchaseRequests[idx];
+                final isPending = req['status'] == 'Pending';
+
+                return Card(
+                  color: Colors.white,
+                  surfaceTintColor: Colors.transparent,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: AppTheme.borderColor),
+                  ),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: widget.isMobile
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: isPending ? AppTheme.warningBg : AppTheme.successBg,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.shopping_bag,
+                                      color: isPending ? AppTheme.warningColor : AppTheme.successColor,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          req['item_name'] ?? 'Unknown Item',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Order Qty: ${req['quantity']} • Req: ${req['requested_by']}',
+                                          style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (isPending) ...[
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _processPurchaseRequest(req['id']),
+                                    icon: const Icon(Icons.check, size: 14, color: Colors.white),
+                                    label: const Text('Fulfill Request', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.successColor,
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      minimumSize: Size.zero,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                  ),
+                                ),
+                              ] else ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.successColor.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.check, color: AppTheme.successColor, size: 12),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'COMPLETED',
+                                        style: TextStyle(color: AppTheme.successColor, fontWeight: FontWeight.bold, fontSize: 10),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: isPending ? AppTheme.warningBg : AppTheme.successBg,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.shopping_bag,
+                                  color: isPending ? AppTheme.warningColor : AppTheme.successColor,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      req['item_name'] ?? 'Unknown Item',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Order Qty: ${req['quantity']} • Req: ${req['requested_by']}',
+                                      style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isPending)
+                                ElevatedButton.icon(
+                                  onPressed: () => _processPurchaseRequest(req['id']),
+                                  icon: const Icon(Icons.check, size: 14, color: Colors.white),
+                                  label: const Text('Fulfill', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.successColor,
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    minimumSize: Size.zero,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.successColor.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.check, color: AppTheme.successColor, size: 12),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'COMPLETED',
+                                        style: TextStyle(color: AppTheme.successColor, fontWeight: FontWeight.bold, fontSize: 10),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -532,526 +1341,107 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Hospital Inventory Management',
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Track medical supplies, ICU consumables, surgical inventory, and replenishment queues',
-                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
-                  ),
-                ],
-              ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(180, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  elevation: 0,
+          widget.isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Hospital Inventory Management',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Track medical supplies, ICU consumables, surgical inventory, and replenishment queues',
+                      style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.logoRed,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(180, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: _addInventoryItem,
+                        icon: const Icon(Icons.add, size: 20),
+                        label: const Text(
+                          'Add Stock Item',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Hospital Inventory Management',
+                            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Track medical supplies, ICU consumables, surgical inventory, and replenishment queues',
+                            style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.logoRed,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(180, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: _addInventoryItem,
+                      icon: const Icon(Icons.add, size: 20),
+                      label: const Text(
+                        'Add Stock Item',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
                 ),
-                onPressed: _addInventoryItem,
-                icon: const Icon(Icons.add, size: 20),
-                label: const Text(
-                  'Add Stock Item',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 24),
 
-          // Main Row: Left side (items grid/list) and Right side (analytics warnings + purchase queue)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Left Column: Items List & Actions
-              Expanded(
-                flex: 6,
-                child: Column(
+          // Main Section: Left and Right Columns
+          widget.isMobile
+              ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Filter row
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: ['All', 'Medicine', 'ICU Consumable', 'Surgical Item', 'Food Stock'].map((cat) {
-                          final isSelected = _selectedCategory == cat;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: ChoiceChip(
-                              label: Text(cat),
-                              selected: isSelected,
-                              showCheckmark: false,
-                              selectedColor: AppTheme.primaryColor,
-                              backgroundColor: Colors.white,
-                              side: BorderSide(
-                                color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
-                              ),
-                              labelStyle: TextStyle(
-                                color: isSelected ? Colors.white : AppTheme.textSecondaryColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                              onSelected: (val) {
-                                if (val) setState(() => _selectedCategory = cat);
-                              },
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Items custom card list
-                    if (filteredItems.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(40),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppTheme.borderColor),
-                        ),
-                        child: const Center(
-                          child: Column(
-                            children: [
-                              Icon(Icons.inventory, color: Colors.grey, size: 48),
-                              SizedBox(height: 16),
-                              Text('No inventory items found in this category.', style: TextStyle(color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: filteredItems.length,
-                        itemBuilder: (ctx, idx) {
-                          final item = filteredItems[idx];
-                          final isLow = item['quantity'] <= item['threshold'];
-                          final category = item['category'] ?? 'Medicine';
-                          final itemColor = _getCategoryColor(category);
-                          final itemIcon = _getCategoryIcon(category);
-
-                          final expDate = item['expiry_date'] != null
-                              ? DateFormat('dd MMM yyyy').format(DateTime.parse(item['expiry_date']))
-                              : 'No Expiry';
-
-                          final int thresholdVal = item['threshold'] ?? 10;
-                          final int quantityVal = item['quantity'] ?? 0;
-                          final double progress = (quantityVal / (thresholdVal > 0 ? thresholdVal * 2.5 : 25)).clamp(0.0, 1.0);
-
-                          return Card(
-                            color: Colors.white,
-                            surfaceTintColor: Colors.transparent,
-                            elevation: 0,
-                            margin: const EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              side: BorderSide(
-                                color: isLow ? Colors.red.withValues(alpha: 0.3) : AppTheme.borderColor,
-                                width: isLow ? 1.5 : 1.0,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                children: [
-                                  // Category Icon badge
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: itemColor.withValues(alpha: 0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(itemIcon, color: itemColor, size: 24),
-                                  ),
-                                  const SizedBox(width: 16),
-
-                                  // Middle details
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              item['name'] ?? '',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            if (item['is_controlled'] == true)
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.red.shade50,
-                                                  borderRadius: BorderRadius.circular(4),
-                                                  border: Border.all(color: Colors.red.shade100),
-                                                ),
-                                                child: Text(
-                                                  'CONTROLLED',
-                                                  style: TextStyle(color: Colors.red.shade700, fontSize: 9, fontWeight: FontWeight.bold),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey.shade100,
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                category.toUpperCase(),
-                                                style: TextStyle(color: Colors.grey.shade700, fontSize: 10, fontWeight: FontWeight.w600),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            const Icon(Icons.calendar_today, size: 12, color: AppTheme.textSecondaryColor),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Exp: $expDate',
-                                              style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  // Right Side: Stock quantity and progress status
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Row(
-                                        textBaseline: TextBaseline.alphabetic,
-                                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                                        children: [
-                                          Text(
-                                            '$quantityVal',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 20,
-                                              color: isLow ? Colors.red : Colors.green.shade700,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            item['unit'] ?? 'pcs',
-                                            style: const TextStyle(
-                                              color: AppTheme.textSecondaryColor,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 6),
-                                      // Progress bar visual representation of stock
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          SizedBox(
-                                            width: 100,
-                                            child: ClipRRect(
-                                              borderRadius: BorderRadius.circular(4),
-                                              child: LinearProgressIndicator(
-                                                value: progress,
-                                                minHeight: 5,
-                                                backgroundColor: Colors.grey.shade100,
-                                                valueColor: AlwaysStoppedAnimation<Color>(
-                                                  isLow ? Colors.red : Colors.green.shade600,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '${(progress * 100).toInt()}%',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w800,
-                                              color: isLow ? Colors.red : Colors.green.shade700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      if (isLow)
-                                        Text(
-                                          'LOW STOCK (Min: $thresholdVal)',
-                                          style: const TextStyle(
-                                            color: Colors.red,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 0.2,
-                                          ),
-                                        )
-                                      else
-                                        Text(
-                                          'Optimal Stock',
-                                          style: TextStyle(
-                                            color: Colors.green.shade600,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                    _buildLeftColumn(filteredItems),
+                    const SizedBox(height: 32),
+                    _buildRightColumn(),
                   ],
-                ),
-              ),
-              const SizedBox(width: 24),
-
-              // Right Column: Alerts Board & Purchase Orders
-              Expanded(
-                flex: 4,
-                child: Column(
+                )
+              : Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // System Warnings & Alerts Header
-                    const Text('System Warnings & Alerts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                    const SizedBox(height: 16),
-
-                    // Grid of Alert Cards
-                    Row(
-                      children: [
-                        // Card 1: Low Stock count
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: _lowStockItems.isNotEmpty ? Colors.red.shade50 : Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: _lowStockItems.isNotEmpty ? Colors.red.shade200 : Colors.green.shade200,
-                                width: 1.2,
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  _lowStockItems.isNotEmpty ? Icons.report_problem : Icons.check_circle,
-                                  color: _lowStockItems.isNotEmpty ? Colors.red : Colors.green,
-                                  size: 28,
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  '${_lowStockItems.length}',
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w800,
-                                    color: _lowStockItems.isNotEmpty ? Colors.red.shade800 : Colors.green.shade800,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Low Stock Items',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: _lowStockItems.isNotEmpty ? Colors.red.shade700 : Colors.green.shade700,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-
-                        // Card 2: Expiring Items count
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: _expiringItems.isNotEmpty ? Colors.orange.shade50 : Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: _expiringItems.isNotEmpty ? Colors.orange.shade200 : Colors.blue.shade200,
-                                width: 1.2,
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  _expiringItems.isNotEmpty ? Icons.warning : Icons.date_range,
-                                  color: _expiringItems.isNotEmpty ? Colors.orange : Colors.blue,
-                                  size: 28,
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  '${_expiringItems.length}',
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w800,
-                                    color: _expiringItems.isNotEmpty ? Colors.orange.shade800 : Colors.blue.shade800,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Expiring Soon',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: _expiringItems.isNotEmpty ? Colors.orange.shade700 : Colors.blue.shade700,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                    Expanded(
+                      flex: 6,
+                      child: _buildLeftColumn(filteredItems),
                     ),
-                    const SizedBox(height: 24),
-
-                    // Purchase Requests queue Header
-                    const Text('Purchase Replenishment Requests', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                    const SizedBox(height: 16),
-
-                    if (_purchaseRequests.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(32),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppTheme.borderColor),
-                        ),
-                        child: const Center(
-                          child: Column(
-                            children: [
-                              Icon(Icons.shopping_cart_outlined, color: Colors.grey, size: 36),
-                              SizedBox(height: 12),
-                              Text(
-                                'No Active Purchase Requests',
-                                style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'System stock replenishments are fully completed.',
-                                style: TextStyle(color: Colors.grey, fontSize: 11),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      SizedBox(
-                        height: 400,
-                        child: ListView.builder(
-                          itemCount: _purchaseRequests.length,
-                          itemBuilder: (ctx, idx) {
-                            final req = _purchaseRequests[idx];
-                            final isPending = req['status'] == 'Pending';
-
-                            return Card(
-                              color: Colors.white,
-                              surfaceTintColor: Colors.transparent,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: const BorderSide(color: AppTheme.borderColor),
-                              ),
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: isPending ? Colors.amber.shade50 : Colors.green.shade50,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.shopping_bag,
-                                        color: isPending ? Colors.amber.shade700 : Colors.green.shade700,
-                                        size: 20,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            req['item_name'] ?? 'Unknown Item',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Order Qty: ${req['quantity']} • Req: ${req['requested_by']}',
-                                            style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (isPending)
-                                      ElevatedButton.icon(
-                                        onPressed: () => _processPurchaseRequest(req['id']),
-                                        icon: const Icon(Icons.check, size: 14, color: Colors.white),
-                                        label: const Text('Fulfill', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green.shade600,
-                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                          minimumSize: Size.zero,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                        ),
-                                      )
-                                    else
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.check, color: Colors.green, size: 12),
-                                            SizedBox(width: 4),
-                                            Text(
-                                              'COMPLETED',
-                                              style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 10),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      flex: 4,
+                      child: _buildRightColumn(),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
         ],
       ),
     );

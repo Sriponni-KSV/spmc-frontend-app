@@ -314,20 +314,45 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
         // ── Tabs ────────────────────────────────────────────────────────────
         Container(
           margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.backgroundColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.borderColor),
           ),
           child: TabBar(
             controller: _tabController!,
             labelColor: AppTheme.primaryColor,
             unselectedLabelColor: AppTheme.textSecondaryColor,
-            indicatorColor: AppTheme.primaryColor,
-            indicatorWeight: 3,
+            indicatorSize: TabBarIndicatorSize.tab,
+            indicator: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                )
+              ],
+            ),
             tabs: [
-              Tab(text: 'Dashboard'),
-              Tab(text: 'Prescriptions (${_prescriptions.where((p) => p["pharmacy_status"] == "Pending").length})'),
-              Tab(text: 'Controlled Drugs (${_controlledDrugs.length})'),
-              Tab(text: 'Expiry & Alerts (${_lowStockItems.length + _expiringItems.length})'),
+              const Tab(text: 'Dashboard'),
+              Tab(
+                text: widget.isMobile
+                    ? 'Rx (${_prescriptions.where((p) => p["pharmacy_status"] == "Pending").length})'
+                    : 'Prescriptions (${_prescriptions.where((p) => p["pharmacy_status"] == "Pending").length})',
+              ),
+              Tab(
+                text: widget.isMobile
+                    ? 'Ctrl (${_controlledDrugs.length})'
+                    : 'Controlled Drugs (${_controlledDrugs.length})',
+              ),
+              Tab(
+                text: widget.isMobile
+                    ? 'Alerts (${_lowStockItems.length + _expiringItems.length})'
+                    : 'Expiry & Alerts (${_lowStockItems.length + _expiringItems.length})',
+              ),
             ],
           ),
         ),
@@ -360,12 +385,25 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
         _buildStatsCards(),
         const SizedBox(height: 28),
 
-        // Two columns: recent activity + alerts
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(flex: 5, child: _buildRecentActivityPanel()),
-          const SizedBox(width: 20),
-          Expanded(flex: 4, child: _buildAlertsSummaryPanel()),
-        ]),
+        // Two columns on desktop, stacked on mobile
+        if (widget.isMobile)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildRecentActivityPanel(),
+              const SizedBox(height: 20),
+              _buildAlertsSummaryPanel(),
+            ],
+          )
+        else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 5, child: _buildRecentActivityPanel()),
+              const SizedBox(width: 20),
+              Expanded(flex: 4, child: _buildAlertsSummaryPanel()),
+            ],
+          ),
       ]),
     );
   }
@@ -393,7 +431,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
         crossAxisCount: widget.isMobile ? 2 : 3,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 2.0,
+        childAspectRatio: widget.isMobile ? 2.2 : 2.6,
       ),
       itemCount: cards.length,
       itemBuilder: (_, i) => _buildStatCard(cards[i]),
@@ -402,29 +440,82 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
 
   Widget _buildStatCard(_StatCard card) {
     return Container(
-      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+        boxShadow: AppTheme.cardShadow,
       ),
-      child: Row(children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: card.color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(card.icon, color: card.color, size: 22),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 4,
+              child: Container(color: card.color),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: card.color.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(card.icon, color: card.color, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          card.value,
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: card.color,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          card.label,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimaryColor,
+                            height: 1.1,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          card.sub,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.textSecondaryColor,
+                            height: 1.1,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 14),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(card.value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: card.color)),
-          Text(card.label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor)),
-          Text(card.sub, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-        ])),
-      ]),
+      ),
     );
   }
 
@@ -433,7 +524,8 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
@@ -468,7 +560,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
           Container(
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
-              color: isOpd ? Colors.blue.shade50 : Colors.purple.shade50,
+              color: (isOpd ? Colors.blue : Colors.purple).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(isOpd ? Icons.personal_injury_outlined : Icons.hotel_outlined,
@@ -487,8 +579,12 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
             const SizedBox(height: 2),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(4)),
-              child: Text('DISPENSED', style: TextStyle(fontSize: 8, color: Colors.green.shade700, fontWeight: FontWeight.bold)),
+              decoration: BoxDecoration(
+                color: AppTheme.successBg,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.15)),
+              ),
+              child: const Text('DISPENSED', style: TextStyle(fontSize: 8, color: AppTheme.successColor, fontWeight: FontWeight.bold)),
             ),
           ]),
         ]),
@@ -504,20 +600,21 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade100),
+          border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
             child: Row(children: [
-              const Icon(Icons.inventory_2_outlined, color: Color(0xFFDC2626), size: 16),
+              const Icon(Icons.inventory_2_outlined, color: AppTheme.dangerColor, size: 16),
               const SizedBox(width: 8),
               const Text('Low Stock Items', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
-                child: Text('${_lowStockItems.length}', style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 11)),
+                decoration: BoxDecoration(color: AppTheme.dangerBg, borderRadius: BorderRadius.circular(10)),
+                child: Text('${_lowStockItems.length}', style: const TextStyle(color: AppTheme.dangerColor, fontWeight: FontWeight.bold, fontSize: 11)),
               ),
             ]),
           ),
@@ -530,7 +627,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
               child: Row(children: [
                 Expanded(child: Text(item['name'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
                 Text('${item['quantity'] ?? 0} / ${item['threshold'] ?? 0}',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
+                    style: const TextStyle(fontSize: 11, color: AppTheme.dangerColor, fontWeight: FontWeight.bold)),
               ]),
             ))),
         ]),
@@ -541,20 +638,21 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade100),
+          border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
             child: Row(children: [
-              const Icon(Icons.event_busy_outlined, color: Color(0xFFEA580C), size: 16),
+              const Icon(Icons.event_busy_outlined, color: AppTheme.warningColor, size: 16),
               const SizedBox(width: 8),
               const Text('Expiring Soon', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10)),
-                child: Text('${_expiringItems.length}', style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.bold, fontSize: 11)),
+                decoration: BoxDecoration(color: AppTheme.warningBg, borderRadius: BorderRadius.circular(10)),
+                child: Text('${_expiringItems.length}', style: const TextStyle(color: AppTheme.warningColor, fontWeight: FontWeight.bold, fontSize: 11)),
               ),
             ]),
           ),
@@ -572,7 +670,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                   Expanded(child: Text(item['name'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
                   Text(daysLeft != null ? '${daysLeft}d left' : 'Unknown',
                       style: TextStyle(fontSize: 11,
-                          color: (daysLeft ?? 100) <= 7 ? Colors.red : Colors.orange.shade700,
+                          color: (daysLeft ?? 100) <= 7 ? AppTheme.dangerColor : AppTheme.warningColor,
                           fontWeight: FontWeight.bold)),
                 ]),
               );
@@ -593,28 +691,125 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
              (p['patient_display_id'] ?? '').toString().toLowerCase().contains(q);
     }).toList();
 
-    return Padding(
-      padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Left: list
-        Expanded(flex: 4, child: Column(children: [
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'Search patient name or ID…',
-              prefixIcon: const Icon(Icons.search, size: 18),
-              fillColor: Colors.white,
-              filled: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.borderColor)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.borderColor)),
-            ),
-            onChanged: (v) => setState(() => _searchQuery = v),
+    // On mobile, show master-detail toggle
+    if (widget.isMobile) {
+      if (_selectedPrescription != null) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Back button header
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedPrescription = null;
+                  });
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.arrow_back_rounded, color: AppTheme.primaryColor, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Back to Prescriptions',
+                        style: TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _buildPrescriptionDetail(),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          if (filtered.isEmpty)
-            const Card(color: Colors.white, child: Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No prescriptions found.', style: TextStyle(color: Colors.grey)))))
-          else
-            Expanded(child: ListView.builder(
+        );
+      } else {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: _buildPrescriptionList(filtered),
+        );
+      }
+    }
+
+    // On desktop, show side-by-side view
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 4,
+            child: _buildPrescriptionList(filtered),
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            flex: 6,
+            child: _selectedPrescription == null
+                ? Container(
+                    height: 350,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+                      boxShadow: AppTheme.cardShadow,
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Select a prescription to review',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  )
+                : _buildPrescriptionDetail(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrescriptionList(List<dynamic> filtered) {
+    return Column(
+      children: [
+        TextField(
+          decoration: InputDecoration(
+            hintText: 'Search patient name or ID…',
+            prefixIcon: const Icon(Icons.search, size: 18),
+            fillColor: Colors.white,
+            filled: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.borderColor)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.borderColor)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5)),
+          ),
+          onChanged: (v) => setState(() => _searchQuery = v),
+        ),
+        const SizedBox(height: 12),
+        if (filtered.isEmpty)
+          const Card(
+            color: Colors.white,
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(
+                child: Text(
+                  'No prescriptions found.',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
               itemCount: filtered.length,
               itemBuilder: (_, i) {
                 final pres = filtered[i];
@@ -628,7 +823,10 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: isSelected ? AppTheme.primaryColor : Colors.grey.shade200),
+                    side: BorderSide(
+                      color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+                      width: isSelected ? 1.5 : 1.0,
+                    ),
                   ),
                   margin: const EdgeInsets.only(bottom: 8),
                   child: InkWell(
@@ -639,43 +837,49 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                     },
                     child: Padding(
                       padding: const EdgeInsets.all(14),
-                      child: Row(children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: (pres['type'] == 'outpatient' ? Colors.blue : Colors.purple).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: (pres['type'] == 'outpatient' ? Colors.blue : Colors.purple).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              pres['type'] == 'outpatient' ? Icons.personal_injury_outlined : Icons.hotel_outlined,
+                              color: pres['type'] == 'outpatient' ? Colors.blue : Colors.purple,
+                              size: 16,
+                            ),
                           ),
-                          child: Icon(
-                            pres['type'] == 'outpatient' ? Icons.personal_injury_outlined : Icons.hotel_outlined,
-                            color: pres['type'] == 'outpatient' ? Colors.blue : Colors.purple,
-                            size: 16,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  pres['patient_name'] ?? 'Unknown',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                Text(
+                                  'ID: ${pres['patient_display_id'] ?? '--'} • Dr. ${pres['doctor_name'] ?? '--'}',
+                                  style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(pres['patient_name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          Text('ID: ${pres['patient_display_id'] ?? '--'} • Dr. ${pres['doctor_name'] ?? '--'}',
-                              style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
-                        ])),
-                        _statusBadge(isDispensed ? 'DISPENSED' : 'PENDING', isDispensed ? Colors.green : Colors.amber.shade800),
-                      ]),
+                          _statusBadge(
+                            isDispensed ? 'DISPENSED' : 'PENDING',
+                            isDispensed ? AppTheme.successColor : Colors.amber.shade800,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
               },
-            )),
-        ])),
-        const SizedBox(width: 24),
-        // Right: detail pane
-        Expanded(flex: 6, child: _selectedPrescription == null
-            ? Container(
-                height: 350,
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
-                child: const Center(child: Text('Select a prescription to review', style: TextStyle(color: Colors.grey))),
-              )
-            : _buildPrescriptionDetail()),
-      ]),
+            ),
+          ),
+      ],
     );
   }
 
@@ -690,186 +894,275 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+        boxShadow: AppTheme.cardShadow,
       ),
-      child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Header
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(pres['patient_name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-            const SizedBox(height: 2),
-            Text('ID: ${pres['patient_display_id'] ?? '--'} • Dr. ${pres['doctor_name'] ?? '--'} • ${isOpd ? 'Outpatient' : 'Inpatient'}',
-                style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12)),
-          ])),
-          _statusBadge(isDispensed ? 'DISPENSED' : 'PENDING', isDispensed ? Colors.green : Colors.amber.shade800),
-        ]),
-        const SizedBox(height: 6),
-        Text(
-          pres['created_at'] != null
-              ? 'Prescribed: ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(pres['created_at']).toLocal())}'
-              : '',
-          style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Prescribed items with stock check
-        const Text('Prescribed Medications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        const SizedBox(height: 10),
-        ...List.generate(items.length, (i) {
-          final item = items[i];
-          final drugName = (item['name'] ?? '').toString();
-          final dosage   = (item['dosage'] ?? '').toString();
-          final freq     = (item['frequency'] ?? '').toString();
-          final dur      = (item['duration'] ?? '').toString();
-          final autoQty  = _calculateQuantity(freq, dur, dosage, drugName);
-          final stock    = _checkItemStock(drugName, dosage, _qtyControllers[i] != null
-              ? (int.tryParse(_qtyControllers[i]!.text) ?? autoQty) : autoQty);
-          final displayUnit = stock['unit'].toString().replaceAll(RegExp(r'^\d+\s*'), '');
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: stock['available'] == true ? Colors.green.shade50 : Colors.red.shade50,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: stock['available'] == true ? Colors.green.shade100 : Colors.red.shade100),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(child: Text(drugName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                if (stock['is_controlled'] == true)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    margin: const EdgeInsets.only(right: 6),
-                    decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.lock, size: 10, color: Colors.red.shade700),
-                      const SizedBox(width: 3),
-                      Text('CONTROLLED', style: TextStyle(fontSize: 8, color: Colors.red.shade700, fontWeight: FontWeight.bold)),
-                    ]),
-                  ),
-                Icon(stock['available'] == true ? Icons.check_circle : Icons.error_outline,
-                    color: stock['available'] == true ? Colors.green : Colors.red, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  stock['registered'] == true
-                      ? 'Stock: ${stock['qty']} $displayUnit'
-                      : 'Not in inventory',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: stock['available'] == true ? Colors.green.shade700 : Colors.red.shade700,
-                      fontWeight: FontWeight.bold),
-                ),
-              ]),
-              const SizedBox(height: 6),
-              Wrap(spacing: 12, children: [
-                if (dosage.isNotEmpty) _infoChip('Dose: $dosage', Icons.medication_outlined),
-                if (freq.isNotEmpty) _infoChip('Freq: $freq', Icons.schedule_outlined),
-                if (dur.isNotEmpty) _infoChip('Dur: $dur', Icons.calendar_today_outlined),
-              ]),
-              // Expiry date
-              if (stock['expiry_date'] != null) ...[
-                const SizedBox(height: 6),
-                Builder(builder: (_) {
-                  DateTime? exp;
-                  try { exp = DateTime.parse(stock['expiry_date']); } catch (_) {}
-                  final daysLeft = exp != null ? exp.difference(DateTime.now()).inDays : null;
-                  final isExpired = (daysLeft ?? 1) < 0;
-                  final color = isExpired ? Colors.red : (daysLeft ?? 100) <= 7 ? Colors.orange : Colors.grey.shade600;
-                  return Row(children: [
-                    Icon(Icons.event, size: 12, color: color),
-                    const SizedBox(width: 4),
-                    Text(
-                      isExpired
-                          ? 'EXPIRED ${DateFormat('dd MMM yyyy').format(exp!)}'
-                          : 'Expiry: ${exp != null ? DateFormat('dd MMM yyyy').format(exp) : 'Unknown'} (${daysLeft}d)',
-                      style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
-                    ),
-                  ]);
-                }),
-              ],
-              // Alternative suggestion
-              if (stock['alternative'] != null) ...[
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
-                  child: Row(children: [
-                    const Icon(Icons.swap_horiz, size: 13, color: Colors.blue),
-                    const SizedBox(width: 4),
-                    Expanded(child: Text(
-                      'Alt: ${stock['alternative']['name']} (${stock['alternative']['qty']} ${stock['alternative']['unit']} available)',
-                      style: const TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w600),
-                    )),
-                  ]),
-                ),
-              ],
-              // Quantity editor
-              if (!isDispensed) ...[
-                const SizedBox(height: 10),
-                Row(children: [
-                  const Text('Qty to Dispense:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 80,
-                    height: 32,
-                    child: TextFormField(
-                      controller: _qtyControllers[i] ??= TextEditingController(text: autoQty.toString()),
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                        filled: true,
-                        fillColor: Colors.white,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        pres['patient_name'] ?? '',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
                       ),
-                      onChanged: (_) => setState(() {}),
-                    ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'ID: ${pres['patient_display_id'] ?? '--'} • Dr. ${pres['doctor_name'] ?? '--'} • ${isOpd ? 'Outpatient' : 'Inpatient'}',
+                        style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(displayUnit, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
-                ]),
+                ),
+                _statusBadge(
+                  isDispensed ? 'DISPENSED' : 'PENDING',
+                  isDispensed ? AppTheme.successColor : Colors.amber.shade800,
+                ),
               ],
-            ]),
-          );
-        }),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              pres['created_at'] != null
+                  ? 'Prescribed: ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(pres['created_at']).toLocal())}'
+                  : '',
+              style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+            ),
 
-        const SizedBox(height: 20),
-        // Dispense / Already dispensed
-        if (!isDispensed)
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                elevation: 0,
+            const SizedBox(height: 16),
+
+            // Prescribed items with stock check
+            const Text('Prescribed Medications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 10),
+            ...List.generate(items.length, (i) {
+              final item = items[i];
+              final drugName = (item['name'] ?? '').toString();
+              final dosage   = (item['dosage'] ?? '').toString();
+              final freq     = (item['frequency'] ?? '').toString();
+              final dur      = (item['duration'] ?? '').toString();
+              final autoQty  = _calculateQuantity(freq, dur, dosage, drugName);
+              final stock    = _checkItemStock(
+                drugName,
+                dosage,
+                _qtyControllers[i] != null
+                    ? (int.tryParse(_qtyControllers[i]!.text) ?? autoQty)
+                    : autoQty,
+              );
+              final displayUnit = stock['unit'].toString().replaceAll(RegExp(r'^\d+\s*'), '');
+
+              final cardBg = stock['available'] == true ? AppTheme.successBg : AppTheme.dangerBg;
+              final cardBorderColor = stock['available'] == true
+                  ? AppTheme.successColor.withValues(alpha: 0.25)
+                  : AppTheme.dangerColor.withValues(alpha: 0.25);
+              final stockTextColor = stock['available'] == true ? AppTheme.successColor : AppTheme.dangerColor;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: cardBorderColor),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            drugName,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ),
+                        if (stock['is_controlled'] == true)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.dangerColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.lock, size: 10, color: AppTheme.dangerColor),
+                                SizedBox(width: 3),
+                                Text(
+                                  'CONTROLLED',
+                                  style: TextStyle(
+                                    fontSize: 8,
+                                    color: AppTheme.dangerColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        Icon(
+                          stock['available'] == true ? Icons.check_circle : Icons.error_outline,
+                          color: stockTextColor,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          stock['registered'] == true
+                              ? 'Stock: ${stock['qty']} $displayUnit'
+                              : 'Not in inventory',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: stockTextColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 6,
+                      children: [
+                        if (dosage.isNotEmpty) _infoChip('Dose: $dosage', Icons.medication_outlined),
+                        if (freq.isNotEmpty) _infoChip('Freq: $freq', Icons.schedule_outlined),
+                        if (dur.isNotEmpty) _infoChip('Dur: $dur', Icons.calendar_today_outlined),
+                      ],
+                    ),
+                    // Expiry date
+                    if (stock['expiry_date'] != null) ...[
+                      const SizedBox(height: 6),
+                      Builder(
+                        builder: (_) {
+                          DateTime? exp;
+                          try {
+                            exp = DateTime.parse(stock['expiry_date']);
+                          } catch (_) {}
+                          final daysLeft = exp != null ? exp.difference(DateTime.now()).inDays : null;
+                          final isExpired = (daysLeft ?? 1) < 0;
+                          final color = isExpired
+                              ? AppTheme.dangerColor
+                              : (daysLeft ?? 100) <= 7
+                                  ? AppTheme.warningColor
+                                  : AppTheme.textSecondaryColor;
+                          return Row(
+                            children: [
+                              Icon(Icons.event, size: 12, color: color),
+                              const SizedBox(width: 4),
+                              Text(
+                                isExpired
+                                    ? 'EXPIRED ${DateFormat('dd MMM yyyy').format(exp!)}'
+                                    : 'Expiry: ${exp != null ? DateFormat('dd MMM yyyy').format(exp) : 'Unknown'} (${daysLeft}d)',
+                                style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                    // Alternative suggestion
+                    if (stock['alternative'] != null) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppTheme.infoBg,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.infoColor.withValues(alpha: 0.15)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.swap_horiz, size: 13, color: AppTheme.infoColor),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Alt: ${stock['alternative']['name']} (${stock['alternative']['qty']} ${stock['alternative']['unit']} available)',
+                                style: const TextStyle(fontSize: 11, color: AppTheme.infoColor, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    // Quantity editor
+                    if (!isDispensed) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Text('Qty to Dispense:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 80,
+                            height: 32,
+                            child: TextFormField(
+                              controller: _qtyControllers[i] ??= TextEditingController(text: autoQty.toString()),
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                filled: true,
+                                fillColor: Colors.white,
+                              ),
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(displayUnit, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }),
+
+            const SizedBox(height: 20),
+            // Dispense / Already dispensed
+            if (!isDispensed)
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.successColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
+                  onPressed: () => _dispensePrescription(pres),
+                  icon: const Icon(Icons.check_circle_outline, size: 18),
+                  label: const Text('Confirm & Dispense Medications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppTheme.successBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.check, color: AppTheme.successColor, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'This prescription has already been dispensed',
+                      style: TextStyle(color: AppTheme.successColor, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
               ),
-              onPressed: () => _dispensePrescription(pres),
-              icon: const Icon(Icons.check_circle_outline, size: 18),
-              label: const Text('Confirm & Dispense Medications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            ),
-          )
-        else
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
-            ),
-            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.check, color: Colors.green, size: 18),
-              SizedBox(width: 8),
-              Text('This prescription has already been dispensed', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-            ]),
-          ),
-      ])),
+          ],
+        ),
+      ),
     );
   }
 
@@ -888,8 +1181,14 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
           const SizedBox(width: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: Colors.purple.shade50, borderRadius: BorderRadius.circular(10)),
-            child: Text('${_controlledDrugs.length} items', style: TextStyle(color: Colors.purple.shade700, fontWeight: FontWeight.bold, fontSize: 11)),
+            decoration: BoxDecoration(
+              color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '${_controlledDrugs.length} items',
+              style: const TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 11),
+            ),
           ),
         ]),
         const SizedBox(height: 16),
@@ -900,7 +1199,8 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+              boxShadow: AppTheme.cardShadow,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
@@ -930,15 +1230,15 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
 
                     return DataRow(
                       color: WidgetStateProperty.resolveWith((states) {
-                        if (isExpired) return Colors.red.shade50;
-                        if (isLow) return Colors.orange.shade50;
+                        if (isExpired) return AppTheme.dangerBg;
+                        if (isLow) return AppTheme.warningBg;
                         return null;
                       }),
                       cells: [
                         DataCell(Text(item['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                         DataCell(Text(item['category'] ?? '', style: const TextStyle(fontSize: 12))),
                         DataCell(Text('$qty', style: TextStyle(
-                            color: isLow ? Colors.red : Colors.black,
+                            color: isLow ? AppTheme.dangerColor : AppTheme.textPrimaryColor,
                             fontWeight: FontWeight.bold))),
                         DataCell(Text(item['unit'] ?? '', style: const TextStyle(fontSize: 12))),
                         DataCell(expiry == null
@@ -947,19 +1247,24 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                                 isExpired ? '⚠ EXPIRED' : '${DateFormat('dd MMM yyyy').format(expiry)} (${daysLeft}d)',
                                 style: TextStyle(
                                     fontSize: 11,
-                                    color: isExpired ? Colors.red : (daysLeft ?? 100) <= 7 ? Colors.orange : Colors.grey.shade700,
+                                    color: isExpired
+                                        ? AppTheme.dangerColor
+                                        : (daysLeft ?? 100) <= 7
+                                            ? AppTheme.warningColor
+                                            : AppTheme.textSecondaryColor,
                                     fontWeight: FontWeight.w600),
                               )),
                         DataCell(Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.red.shade50,
+                            color: AppTheme.dangerBg,
                             borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.15)),
                           ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.lock, size: 10, color: Colors.red.shade700),
-                            const SizedBox(width: 4),
-                            Text('SECURED & LOGGED', style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 9)),
+                          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.lock, size: 10, color: AppTheme.dangerColor),
+                            SizedBox(width: 4),
+                            Text('SECURED & LOGGED', style: TextStyle(color: AppTheme.dangerColor, fontWeight: FontWeight.bold, fontSize: 9)),
                           ]),
                         )),
                       ],
@@ -978,81 +1283,95 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildExpiryAlertsTab() {
+    final lowStockCol = _buildAlertColumn(
+      title: 'Low Stock Medicines',
+      icon: Icons.inventory_2_outlined,
+      iconColor: AppTheme.dangerColor,
+      emptyMsg: 'All stock levels are healthy ✅',
+      items: _lowStockItems,
+      itemBuilder: (item) {
+        final qty = item['quantity'] ?? 0;
+        final threshold = item['threshold'] ?? 10;
+        final pct = threshold > 0 ? (qty / threshold).clamp(0.0, 1.0) : 0.0;
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Expanded(child: Text(item['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+            Text('$qty / $threshold ${item['unit'] ?? ''}',
+                style: const TextStyle(fontSize: 11, color: AppTheme.dangerColor, fontWeight: FontWeight.bold)),
+          ]),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 5,
+              backgroundColor: AppTheme.dangerColor.withValues(alpha: 0.15),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                  pct <= 0.25 ? AppTheme.dangerColor : AppTheme.warningColor),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(item['category'] ?? '', style: const TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+        ]);
+      },
+    );
+
+    final expiringCol = _buildAlertColumn(
+      title: 'Expiring Medicines',
+      icon: Icons.event_busy_outlined,
+      iconColor: AppTheme.warningColor,
+      emptyMsg: 'No medicines expiring soon ✅',
+      items: _expiringItems,
+      itemBuilder: (item) {
+        DateTime? exp;
+        try { exp = DateTime.parse(item['expiry_date']); } catch (_) {}
+        final daysLeft = exp != null ? exp.difference(DateTime.now()).inDays : null;
+        final isExpired = (daysLeft ?? 1) < 0;
+        final urgencyColor = isExpired
+            ? AppTheme.dangerColor
+            : (daysLeft ?? 100) <= 7 ? AppTheme.warningColor : AppTheme.textSecondaryColor;
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Expanded(child: Text(item['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: urgencyColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+              child: Text(
+                isExpired ? 'EXPIRED' : '${daysLeft}d left',
+                style: TextStyle(fontSize: 10, color: urgencyColor, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          Text(
+            exp != null ? 'Expiry: ${DateFormat('dd MMM yyyy').format(exp)}' : 'Unknown expiry',
+            style: TextStyle(fontSize: 11, color: urgencyColor),
+          ),
+          Text('Stock: ${item['quantity'] ?? 0} ${item['unit'] ?? ''} • ${item['category'] ?? ''}',
+              style: const TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+        ]);
+      },
+    );
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Low stock column
-        Expanded(child: _buildAlertColumn(
-          title: 'Low Stock Medicines',
-          icon: Icons.inventory_2_outlined,
-          iconColor: const Color(0xFFDC2626),
-          emptyMsg: 'All stock levels are healthy ✅',
-          items: _lowStockItems,
-          itemBuilder: (item) {
-            final qty = item['quantity'] ?? 0;
-            final threshold = item['threshold'] ?? 10;
-            final pct = threshold > 0 ? (qty / threshold).clamp(0.0, 1.0) : 0.0;
-            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Expanded(child: Text(item['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                Text('$qty / $threshold ${item['unit'] ?? ''}',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
-              ]),
-              const SizedBox(height: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: pct,
-                  minHeight: 5,
-                  backgroundColor: Colors.red.shade100,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                      pct <= 0.25 ? Colors.red : Colors.orange),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(item['category'] ?? '', style: const TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
-            ]);
-          },
-        )),
-        const SizedBox(width: 20),
-        // Expiring column
-        Expanded(child: _buildAlertColumn(
-          title: 'Expiring Medicines',
-          icon: Icons.event_busy_outlined,
-          iconColor: const Color(0xFFEA580C),
-          emptyMsg: 'No medicines expiring soon ✅',
-          items: _expiringItems,
-          itemBuilder: (item) {
-            DateTime? exp;
-            try { exp = DateTime.parse(item['expiry_date']); } catch (_) {}
-            final daysLeft = exp != null ? exp.difference(DateTime.now()).inDays : null;
-            final isExpired = (daysLeft ?? 1) < 0;
-            final urgencyColor = isExpired
-                ? const Color(0xFFDC2626)
-                : (daysLeft ?? 100) <= 7 ? Colors.orange : Colors.amber.shade700;
-            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Expanded(child: Text(item['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: urgencyColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                  child: Text(
-                    isExpired ? 'EXPIRED' : '${daysLeft}d left',
-                    style: TextStyle(fontSize: 10, color: urgencyColor, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 4),
-              Text(
-                exp != null ? 'Expiry: ${DateFormat('dd MMM yyyy').format(exp)}' : 'Unknown expiry',
-                style: TextStyle(fontSize: 11, color: urgencyColor),
-              ),
-              Text('Stock: ${item['quantity'] ?? 0} ${item['unit'] ?? ''} • ${item['category'] ?? ''}',
-                  style: const TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
-            ]);
-          },
-        )),
-      ]),
+      child: widget.isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                lowStockCol,
+                const SizedBox(height: 20),
+                expiringCol,
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: lowStockCol),
+                const SizedBox(width: 20),
+                Expanded(child: expiringCol),
+              ],
+            ),
     );
   }
 
@@ -1068,7 +1387,8 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
@@ -1114,11 +1434,25 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   }
 
   Widget _infoChip(String label, IconData icon) {
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: 11, color: AppTheme.textSecondaryColor),
-      const SizedBox(width: 3),
-      Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
-    ]);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.backgroundColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: AppTheme.textSecondaryColor),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
   }
 }
 

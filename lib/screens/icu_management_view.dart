@@ -276,65 +276,123 @@ class _ICUManagementViewState extends State<ICUManagementView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'ICU & Emergency Command Centre',
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+          // Header Row (Responsive)
+          if (widget.isMobile)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'ICU Command Centre',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                      onPressed: _fetchIcuDashboard,
+                      tooltip: 'Refresh Command Centre',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Real-time patient monitoring and alerts',
+                  style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                ),
+              ],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'ICU & Emergency Command Centre',
+                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Real-time monitoring of critical patient alerts and workflow escalation levels',
+                        style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Real-time monitoring of critical patient alerts and workflow escalation levels',
-                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
-                  ),
-                ],
-              ),
-              IconButton(
-                icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
-                onPressed: _fetchIcuDashboard,
-                tooltip: 'Refresh Command Centre',
-              ),
-            ],
-          ),
+                ),
+                const SizedBox(width: 16),
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                  onPressed: _fetchIcuDashboard,
+                  tooltip: 'Refresh Command Centre',
+                ),
+              ],
+            ),
           const SizedBox(height: 24),
 
-          // Stats Cards Row
-          Row(
-            children: [
-              Expanded(
-                child: _buildSummaryCard(
+          // Stats Cards (Responsive)
+          if (widget.isMobile)
+            Column(
+              children: [
+                _buildSummaryCard(
                   'Active Critical Alerts',
                   criticalCount.toString(),
                   Icons.report_problem,
                   Colors.red,
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildSummaryCard(
+                const SizedBox(height: 12),
+                _buildSummaryCard(
                   'Active Warnings',
                   warningCount.toString(),
                   Icons.warning,
                   Colors.orange,
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildSummaryCard(
+                const SizedBox(height: 12),
+                _buildSummaryCard(
                   'ICU Bed Occupancy',
                   '${occupancyPercentage.toStringAsFixed(0)}%',
                   Icons.airline_seat_flat_angled,
                   Colors.teal,
                   subtitle: '$occupiedBeds of $totalBeds Beds Occupied',
                 ),
-              ),
-            ],
-          ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSummaryCard(
+                    'Active Critical Alerts',
+                    criticalCount.toString(),
+                    Icons.report_problem,
+                    Colors.red,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildSummaryCard(
+                    'Active Warnings',
+                    warningCount.toString(),
+                    Icons.warning,
+                    Colors.orange,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildSummaryCard(
+                    'ICU Bed Occupancy',
+                    '${occupancyPercentage.toStringAsFixed(0)}%',
+                    Icons.airline_seat_flat_angled,
+                    Colors.teal,
+                    subtitle: '$occupiedBeds of $totalBeds Beds Occupied',
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 24),
 
           // Split Layout for alerts and sidebar widgets
@@ -561,31 +619,75 @@ class _ICUManagementViewState extends State<ICUManagementView> {
                 ),
                 const Spacer(),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () => _resolveGroupedAlerts(alert['alert_ids']),
-                      icon: const Icon(Icons.check, size: 16),
-                      label: const Text('Resolve'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.green,
-                        side: const BorderSide(color: Colors.green),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                if (widget.isMobile)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => _resolveGroupedAlerts(alert['alert_ids']),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.green,
+                            side: const BorderSide(color: Colors.green),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.check, size: 14),
+                              SizedBox(width: 4),
+                              Text('Resolve', style: TextStyle(fontSize: 12)),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: escalationLevel == 'Consultant' ? null : () => _escalateGroupedAlerts(alert['alert_ids']),
-                      icon: const Icon(Icons.arrow_upward, size: 16, color: Colors.white),
-                      label: const Text('Escalate Tier', style: TextStyle(color: Colors.white)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.dangerColor,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: escalationLevel == 'Consultant' ? null : () => _escalateGroupedAlerts(alert['alert_ids']),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.dangerColor,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.arrow_upward, size: 14, color: Colors.white),
+                              SizedBox(width: 4),
+                              Text('Escalate', style: TextStyle(color: Colors.white, fontSize: 12)),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  )
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => _resolveGroupedAlerts(alert['alert_ids']),
+                        icon: const Icon(Icons.check, size: 16),
+                        label: const Text('Resolve'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.green,
+                          side: const BorderSide(color: Colors.green),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: escalationLevel == 'Consultant' ? null : () => _escalateGroupedAlerts(alert['alert_ids']),
+                        icon: const Icon(Icons.arrow_upward, size: 16, color: Colors.white),
+                        label: const Text('Escalate Tier', style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.dangerColor,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -651,8 +753,8 @@ class _ICUManagementViewState extends State<ICUManagementView> {
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 5,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: widget.isMobile ? 4 : 5,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
                   childAspectRatio: 1.0,

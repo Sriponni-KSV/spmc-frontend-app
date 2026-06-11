@@ -61,41 +61,69 @@ class _FrontDeskAdmissionCounterViewState
           // Header
           Padding(
             padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, isMobile ? 16 : 24, isMobile ? 16 : 24, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Admission Counter',
-                      style: Theme.of(context).textTheme.displayLarge,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Review and process pending IPD admission requests',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 14,
+            child: isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Admission Counter',
+                        style: Theme.of(context).textTheme.displayLarge,
                       ),
-                    ),
-                  ],
-                ),
-                ElevatedButton.icon(
-                  onPressed: _fetchRequests,
-                  icon: const Icon(Icons.refresh, size: 18, color: Colors.white),
-                  label: const Text('Refresh', style: TextStyle(color: Colors.white)),
-                  style: AppTheme.primaryButton,
-                ),
-              ],
-            ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Review and process pending IPD admission requests',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _fetchRequests,
+                          icon: const Icon(Icons.refresh, size: 18, color: Colors.white),
+                          label: const Text('Refresh', style: TextStyle(color: Colors.white)),
+                          style: AppTheme.primaryButton,
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Admission Counter',
+                            style: Theme.of(context).textTheme.displayLarge,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Review and process pending IPD admission requests',
+                            style: TextStyle(
+                              color: AppTheme.textSecondaryColor,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: _fetchRequests,
+                        icon: const Icon(Icons.refresh, size: 18, color: Colors.white),
+                        label: const Text('Refresh', style: TextStyle(color: Colors.white)),
+                        style: AppTheme.primaryButton,
+                      ),
+                    ],
+                  ),
           ),
           const SizedBox(height: 24),
 
           // Stats Row
           Padding(
             padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-            child: _buildStatsRow(),
+            child: _buildStatsRow(isMobile),
           ),
           const SizedBox(height: 24),
 
@@ -112,6 +140,8 @@ class _FrontDeskAdmissionCounterViewState
               unselectedLabelColor: AppTheme.textSecondaryColor,
               indicatorColor: AppTheme.primaryColor,
               indicatorWeight: 3,
+              isScrollable: isMobile,
+              tabAlignment: isMobile ? TabAlignment.start : null,
               tabs: [
                 Tab(text: 'Pending Requests (${_pendingRequests.length})'),
                 Tab(text: 'Bed Availability ($availableBeds/$totalBeds)'),
@@ -131,7 +161,7 @@ class _FrontDeskAdmissionCounterViewState
                   ],
                 ),
                 // Tab 2: Bed Availability
-                _buildBedAvailabilityTab(),
+                _buildBedAvailabilityTab(isMobile),
               ],
             ),
           ),
@@ -140,7 +170,64 @@ class _FrontDeskAdmissionCounterViewState
     );
   }
 
-  Widget _buildStatsRow() {
+  Widget _buildStatsRow(bool isMobile) {
+    if (isMobile) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 195,
+              child: _buildStatCard(
+                'Pending',
+                _pendingRequests.length.toString(),
+                'Awaiting processing',
+                Icons.pending_actions_outlined,
+                const Color(0xFFE67E22),
+                isMobile,
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 195,
+              child: _buildStatCard(
+                'Today',
+                _pendingRequests
+                    .where((r) {
+                      final d = r['requested_at']?.toString() ?? '';
+                      return d.startsWith(DateTime.now().toIso8601String().substring(0, 10));
+                    })
+                    .length
+                    .toString(),
+                'Requests today',
+                Icons.today_outlined,
+                const Color(0xFF2980B9),
+                isMobile,
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 195,
+              child: _buildStatCard(
+                'ICU Requests',
+                _pendingRequests
+                    .where((r) =>
+                        r['bed_type_requirement']?.toString().toUpperCase() == 'ICU')
+                    .length
+                    .toString(),
+                'High priority',
+                Icons.monitor_heart_outlined,
+                const Color(0xFFC0392B),
+                isMobile,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Row(
       children: [
         Expanded(
@@ -150,6 +237,7 @@ class _FrontDeskAdmissionCounterViewState
             'Awaiting processing',
             Icons.pending_actions_outlined,
             const Color(0xFFE67E22),
+            isMobile,
           ),
         ),
         const SizedBox(width: 16),
@@ -166,6 +254,7 @@ class _FrontDeskAdmissionCounterViewState
             'Requests today',
             Icons.today_outlined,
             const Color(0xFF2980B9),
+            isMobile,
           ),
         ),
         const SizedBox(width: 16),
@@ -180,6 +269,7 @@ class _FrontDeskAdmissionCounterViewState
             'High priority',
             Icons.monitor_heart_outlined,
             const Color(0xFFC0392B),
+            isMobile,
           ),
         ),
       ],
@@ -187,9 +277,9 @@ class _FrontDeskAdmissionCounterViewState
   }
 
   Widget _buildStatCard(
-      String title, String value, String subtitle, IconData icon, Color color) {
+      String title, String value, String subtitle, IconData icon, Color color, bool isMobile) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isMobile ? 12 : 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -198,31 +288,42 @@ class _FrontDeskAdmissionCounterViewState
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(isMobile ? 8 : 12),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(icon, color: color, size: isMobile ? 20 : 24),
           ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: color),
-              ),
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 14)),
-              Text(subtitle,
-                  style: const TextStyle(
-                      color: AppTheme.textSecondaryColor, fontSize: 12)),
-            ],
+          SizedBox(width: isMobile ? 12 : 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                      fontSize: isMobile ? 22 : 28,
+                      fontWeight: FontWeight.bold,
+                      color: color),
+                ),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: isMobile ? 12 : 14),
+                ),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: AppTheme.textSecondaryColor, fontSize: isMobile ? 10 : 12),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -246,15 +347,17 @@ class _FrontDeskAdmissionCounterViewState
                 const Icon(Icons.list_alt_outlined,
                     color: AppTheme.primaryColor, size: 20),
                 const SizedBox(width: 8),
-                const Text(
-                  'Pending Admission Requests',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppTheme.textPrimaryColor),
+                Expanded(
+                  child: Text(
+                    'Pending Admission Requests',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: isMobile ? 14 : 16,
+                        color: AppTheme.textPrimaryColor),
+                  ),
                 ),
-                const Spacer(),
-                if (_pendingRequests.isNotEmpty)
+                if (_pendingRequests.isNotEmpty) ...[
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 4),
@@ -270,6 +373,7 @@ class _FrontDeskAdmissionCounterViewState
                           fontSize: 12),
                     ),
                   ),
+                ],
               ],
             ),
           ),
@@ -487,24 +591,41 @@ class _FrontDeskAdmissionCounterViewState
             const SizedBox(height: 10),
 
             // Action button
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _showProcessDialog(req),
-                  icon: const Icon(Icons.assignment_turned_in_outlined,
-                      size: 16, color: Colors.white),
-                  label: const Text('Process Admission',
-                      style: TextStyle(color: Colors.white, fontSize: 13)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    minimumSize: const Size(0, 38),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+            isMobile
+                ? SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showProcessDialog(req),
+                      icon: const Icon(Icons.assignment_turned_in_outlined,
+                          size: 16, color: Colors.white),
+                      label: const Text('Process Admission',
+                          style: TextStyle(color: Colors.white, fontSize: 13)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        minimumSize: const Size(double.infinity, 44),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () => _showProcessDialog(req),
+                        icon: const Icon(Icons.assignment_turned_in_outlined,
+                            size: 16, color: Colors.white),
+                        label: const Text('Process Admission',
+                            style: TextStyle(color: Colors.white, fontSize: 13)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          minimumSize: const Size(0, 38),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -592,12 +713,17 @@ class _FrontDeskAdmissionCounterViewState
             });
           }
 
+          final double screenWidth = MediaQuery.of(ctx).size.width;
+          final bool isMobileWidth = screenWidth < 600;
           return Dialog(
             backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20)),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560, maxHeight: 700),
+            child: Container(
+              width: isMobileWidth ? screenWidth * 0.95 : 560,
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.9,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -818,94 +944,186 @@ class _FrontDeskAdmissionCounterViewState
                     decoration: const BoxDecoration(
                       border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          style: AppTheme.cancelButton,
-                          child: const Text('Cancel'),
-                        ),
-                        const SizedBox(width: 12),
-                        StatefulBuilder(
-                          builder: (ctx2, setBtn) => ElevatedButton.icon(
-                            onPressed: isSubmitting
-                                ? null
-                                : () async {
-                                    if (!formKey.currentState!.validate()) {
-                                      return;
-                                    }
-                                    setBtn(() => isSubmitting = true);
-                                    // Capture context-dependent objects before async gap
-                                    final nav = Navigator.of(ctx);
-                                    final messenger = ScaffoldMessenger.of(context);
-                                    try {
-                                      final insuranceDetails = {
-                                        'provider': insuranceProviderController.text.trim(),
-                                        'policy_no': insurancePolicyNoController.text.trim(),
-                                      };
-                                      await _ipdController.createAdmissionRecord({
-                                        'patient_id': req['patient_id'],
-                                        'appointment_id': req['appointment_id'],
-                                        'doctor_name': req['doctor_name'],
-                                        'diagnosis': req['diagnosis'],
-                                        'bed_type_requirement': selectedWardType,
-                                        'reason_for_admission': req['reason_for_admission'],
-                                        'bed_number': selectedBedNumber,
-                                        'insurance_details':
-                                            (insuranceDetails['provider']?.isNotEmpty ?? false)
-                                                ? insuranceDetails
-                                                : null,
-                                        'documents_verified': documentsVerified,
-                                        'advance_payment': advancePaymentController
-                                                .text
-                                                .trim()
-                                                .isNotEmpty
-                                            ? double.tryParse(
-                                                advancePaymentController.text.trim())
-                                            : null,
-                                      });
-                                      nav.pop();
-                                      messenger.showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                              'Admission record created and bed allocated successfully!'),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                      if (mounted) _fetchRequests();
-                                    } catch (e) {
-                                      setBtn(() => isSubmitting = false);
-                                      messenger.showSnackBar(SnackBar(
-                                        content: Text('Error: $e'),
-                                        backgroundColor: Colors.red,
-                                      ));
-                                    }
-                                  },
-                            icon: isSubmitting
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2, color: Colors.white))
-                                : const Icon(Icons.check_outlined,
-                                    size: 16, color: Colors.white),
-                            label: Text(
-                              isSubmitting
-                                  ? 'Processing...'
-                                  : 'Confirm & Create Record',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryColor,
-                              minimumSize: const Size(0, 44),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
-                            ),
+                    child: isMobileWidth
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              StatefulBuilder(
+                                builder: (ctx2, setBtn) => ElevatedButton.icon(
+                                  onPressed: isSubmitting
+                                      ? null
+                                      : () async {
+                                          if (!formKey.currentState!.validate()) {
+                                            return;
+                                          }
+                                          setBtn(() => isSubmitting = true);
+                                          // Capture context-dependent objects before async gap
+                                          final nav = Navigator.of(ctx);
+                                          final messenger = ScaffoldMessenger.of(context);
+                                          try {
+                                            final insuranceDetails = {
+                                              'provider': insuranceProviderController.text.trim(),
+                                              'policy_no': insurancePolicyNoController.text.trim(),
+                                            };
+                                            await _ipdController.createAdmissionRecord({
+                                              'patient_id': req['patient_id'],
+                                              'appointment_id': req['appointment_id'],
+                                              'doctor_name': req['doctor_name'],
+                                              'diagnosis': req['diagnosis'],
+                                              'bed_type_requirement': selectedWardType,
+                                              'reason_for_admission': req['reason_for_admission'],
+                                              'bed_number': selectedBedNumber,
+                                              'insurance_details':
+                                                  (insuranceDetails['provider']?.isNotEmpty ?? false)
+                                                      ? insuranceDetails
+                                                      : null,
+                                              'documents_verified': documentsVerified,
+                                              'advance_payment': advancePaymentController
+                                                      .text
+                                                      .trim()
+                                                      .isNotEmpty
+                                                  ? double.tryParse(
+                                                      advancePaymentController.text.trim())
+                                                  : null,
+                                            });
+                                            nav.pop();
+                                            messenger.showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                    'Admission record created and bed allocated successfully!'),
+                                                backgroundColor: Colors.green,
+                                              ),
+                                            );
+                                            if (mounted) _fetchRequests();
+                                          } catch (e) {
+                                            setBtn(() => isSubmitting = false);
+                                            messenger.showSnackBar(SnackBar(
+                                              content: Text('Error: $e'),
+                                              backgroundColor: Colors.red,
+                                            ));
+                                          }
+                                        },
+                                  icon: isSubmitting
+                                      ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2, color: Colors.white))
+                                      : const Icon(Icons.check_outlined,
+                                          size: 16, color: Colors.white),
+                                  label: Text(
+                                    isSubmitting
+                                        ? 'Processing...'
+                                        : 'Confirm & Create Record',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                    minimumSize: const Size(double.infinity, 44),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              OutlinedButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: AppTheme.cancelButton.copyWith(
+                                  minimumSize: WidgetStateProperty.all(
+                                      const Size(double.infinity, 44)),
+                                ),
+                                child: const Text('Cancel'),
+                              ),
+                            ],
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              OutlinedButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: AppTheme.cancelButton,
+                                child: const Text('Cancel'),
+                              ),
+                              const SizedBox(width: 12),
+                              StatefulBuilder(
+                                builder: (ctx2, setBtn) => ElevatedButton.icon(
+                                  onPressed: isSubmitting
+                                      ? null
+                                      : () async {
+                                          if (!formKey.currentState!.validate()) {
+                                            return;
+                                          }
+                                          setBtn(() => isSubmitting = true);
+                                          // Capture context-dependent objects before async gap
+                                          final nav = Navigator.of(ctx);
+                                          final messenger = ScaffoldMessenger.of(context);
+                                          try {
+                                            final insuranceDetails = {
+                                              'provider': insuranceProviderController.text.trim(),
+                                              'policy_no': insurancePolicyNoController.text.trim(),
+                                            };
+                                            await _ipdController.createAdmissionRecord({
+                                              'patient_id': req['patient_id'],
+                                              'appointment_id': req['appointment_id'],
+                                              'doctor_name': req['doctor_name'],
+                                              'diagnosis': req['diagnosis'],
+                                              'bed_type_requirement': selectedWardType,
+                                              'reason_for_admission': req['reason_for_admission'],
+                                              'bed_number': selectedBedNumber,
+                                              'insurance_details':
+                                                  (insuranceDetails['provider']?.isNotEmpty ?? false)
+                                                      ? insuranceDetails
+                                                      : null,
+                                              'documents_verified': documentsVerified,
+                                              'advance_payment': advancePaymentController
+                                                      .text
+                                                      .trim()
+                                                      .isNotEmpty
+                                                  ? double.tryParse(
+                                                      advancePaymentController.text.trim())
+                                                  : null,
+                                            });
+                                            nav.pop();
+                                            messenger.showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                    'Admission record created and bed allocated successfully!'),
+                                                backgroundColor: Colors.green,
+                                              ),
+                                            );
+                                            if (mounted) _fetchRequests();
+                                          } catch (e) {
+                                            setBtn(() => isSubmitting = false);
+                                            messenger.showSnackBar(SnackBar(
+                                              content: Text('Error: $e'),
+                                              backgroundColor: Colors.red,
+                                            ));
+                                          }
+                                        },
+                                  icon: isSubmitting
+                                      ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2, color: Colors.white))
+                                      : const Icon(Icons.check_outlined,
+                                          size: 16, color: Colors.white),
+                                  label: Text(
+                                    isSubmitting
+                                        ? 'Processing...'
+                                        : 'Confirm & Create Record',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                    minimumSize: const Size(0, 44),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               ),
@@ -963,7 +1181,7 @@ class _FrontDeskAdmissionCounterViewState
     );
   }
 
-  Widget _buildBedAvailabilityTab() {
+  Widget _buildBedAvailabilityTab(bool isMobile) {
     final Map<String, List<Map<String, dynamic>>> groupedBeds = {};
     final wardOrder = ['General', 'Semi-Private', 'Private', 'ICU'];
 
@@ -979,7 +1197,7 @@ class _FrontDeskAdmissionCounterViewState
     groupedBeds.removeWhere((key, value) => value.isEmpty);
 
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       children: groupedBeds.entries.map((entry) {
         final wardName = entry.key;
         final wardBeds = entry.value;
