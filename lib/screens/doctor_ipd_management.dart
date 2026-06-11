@@ -3055,21 +3055,31 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                       const Divider(height: 20),
                       _sectionLabel('Discharge Details'),
                       const SizedBox(height: 12),
-                      const Text('Final Diagnosis *',
+                      const Text.rich(
+                        TextSpan(
                           style: TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w600)),
+                              fontSize: 12, fontWeight: FontWeight.w600),
+                          children: [
+                            TextSpan(text: 'Final Diagnosis '),
+                            TextSpan(
+                              text: '*',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: finalDiagnosisController,
                         maxLines: 2,
                         decoration: const InputDecoration(
-                          hintText: 'Primary and secondary diagnoses...',
+                          hintText: 'Enter final diagnosis',
                           isDense: true,
                           border: OutlineInputBorder(),
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
-                            return 'Final diagnosis is required';
+                            return 'Please enter final diagnosis';
                           }
                           return null;
                         },
@@ -3083,8 +3093,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                         controller: treatmentSummaryController,
                         maxLines: 3,
                         decoration: const InputDecoration(
-                          hintText:
-                              'Procedures performed, treatments administered...',
+                          hintText: 'Enter treatment summary',
                           isDense: true,
                           border: OutlineInputBorder(),
                         ),
@@ -3098,8 +3107,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                         controller: medicationPlanController,
                         maxLines: 3,
                         decoration: const InputDecoration(
-                          hintText:
-                              'Medications prescribed, dosage, duration, follow-up date...',
+                          hintText: 'Enter medication plan',
                           isDense: true,
                           border: OutlineInputBorder(),
                         ),
@@ -3132,8 +3140,9 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
               ),
             ),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: () => Navigator.pop(context),
+                style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
               ElevatedButton.icon(

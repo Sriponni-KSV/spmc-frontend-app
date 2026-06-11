@@ -5731,13 +5731,37 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         decoration: _noLabelDecoration(hintText: 'enter remarks'),
       ),
       const SizedBox(height: 24),
-      Align(
-        alignment: Alignment.centerRight,
-        child: ElevatedButton.icon(
-          onPressed: _saveSurgeryRequest,
-          icon: const Icon(Icons.save),
-          label: const Text('Request Surgery & Open Case File'),
-          style: AppTheme.primaryButton,
+      Padding(
+        padding: const EdgeInsets.only(right: 40.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            OutlinedButton(
+              onPressed: () {
+                setState(() {
+                  _activeTab = 0;
+                  _selectedCase = null;
+                });
+              },
+              style: AppTheme.cancelButton,
+              child: const Text('Cancel'),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              onPressed: _saveSurgeryRequest,
+              icon: const Icon(Icons.save),
+              label: const Text('Request Surgery & Open Case File'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(180, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ],
         ),
       ),
     ];
