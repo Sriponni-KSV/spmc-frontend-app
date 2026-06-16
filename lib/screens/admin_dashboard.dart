@@ -2598,48 +2598,91 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Shift Allocation & Management',
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Define shift schedules and allocate nurses to active shifts',
-                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: _showAllocateNurseDialog,
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Allocate Nurse (Daily)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Shift Allocation & Management',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
-                    onPressed: _loadShiftData,
-                    tooltip: 'Refresh Shift Data',
-                  ),
-                ],
-              ),
-            ],
-          ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Define shift schedules and allocate nurses to active shifts',
+                      style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _showAllocateNurseDialog,
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Allocate Nurse (Daily)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton(
+                          icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                          onPressed: _loadShiftData,
+                          tooltip: 'Refresh Shift Data',
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Shift Allocation & Management',
+                            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Define shift schedules and allocate nurses to active shifts',
+                            style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _showAllocateNurseDialog,
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Allocate Nurse (Daily)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton(
+                          icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                          onPressed: _loadShiftData,
+                          tooltip: 'Refresh Shift Data',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
           const SizedBox(height: 24),
 
           if (isMobile) ...[
@@ -4006,76 +4049,157 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.history, color: AppTheme.primaryColor),
-                    SizedBox(width: 10),
-                    Text(
-                      'Allocation Logs & Schedule History',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _filterAllocLogDate ?? DateTime.now(),
-                          firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (picked != null) {
-                          setState(() => _filterAllocLogDate = picked);
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+            (() {
+              final bool isMobile = MediaQuery.of(context).size.width < 900;
+              return isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
+                            const Icon(Icons.history, color: AppTheme.primaryColor, size: 20),
                             const SizedBox(width: 8),
-                            Text(
-                              _filterAllocLogDate != null
-                                  ? DateFormat('yyyy-MM-dd').format(_filterAllocLogDate!)
-                                  : 'Filter by Date',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade700,
-                                fontWeight: FontWeight.w600,
+                            Expanded(
+                              child: Text(
+                                'Allocation Logs & Schedule History',
+                                style: TextStyle(
+                                  fontSize: isMobile ? 15 : 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    if (_filterAllocLogDate != null) ...[
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.clear, size: 18, color: Colors.redAccent),
-                        onPressed: () {
-                          setState(() => _filterAllocLogDate = null);
-                        },
-                        tooltip: 'Clear Filter',
-                        constraints: const BoxConstraints(),
-                        padding: EdgeInsets.zero,
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: _filterAllocLogDate ?? DateTime.now(),
+                                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  );
+                                  if (picked != null) {
+                                    setState(() => _filterAllocLogDate = picked);
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        _filterAllocLogDate != null
+                                            ? DateFormat('yyyy-MM-dd').format(_filterAllocLogDate!)
+                                            : 'Filter by Date',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade700,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (_filterAllocLogDate != null) ...[
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.clear, size: 18, color: Colors.redAccent),
+                                onPressed: () {
+                                  setState(() => _filterAllocLogDate = null);
+                                },
+                                tooltip: 'Clear Filter',
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.history, color: AppTheme.primaryColor),
+                            SizedBox(width: 10),
+                            Text(
+                              'Allocation Logs & Schedule History',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            InkWell(
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: _filterAllocLogDate ?? DateTime.now(),
+                                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  );
+                                if (picked != null) {
+                                  setState(() => _filterAllocLogDate = picked);
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _filterAllocLogDate != null
+                                          ? DateFormat('yyyy-MM-dd').format(_filterAllocLogDate!)
+                                          : 'Filter by Date',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade700,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (_filterAllocLogDate != null) ...[
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.clear, size: 18, color: Colors.redAccent),
+                                onPressed: () {
+                                  setState(() => _filterAllocLogDate = null);
+                                },
+                                tooltip: 'Clear Filter',
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    );
+            })(),
             const Divider(height: 24),
             if (_allocations.isEmpty)
               Padding(

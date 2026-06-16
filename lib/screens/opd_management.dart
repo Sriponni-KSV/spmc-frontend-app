@@ -279,28 +279,26 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+      child: widget.isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.local_hospital_outlined,
                       color: Colors.white,
-                      size: 24,
+                      size: 20,
                     ),
-                    SizedBox(width: 8),
-                    Text(
-                      'OPD Queue Management',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'OPD Queue Management',
+                        style: TextStyle(
+                          fontSize: widget.isMobile ? 18 : 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],
@@ -310,34 +308,91 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   'Today\'s OPD Pipeline: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () => _showWalkInDialog(),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text(
+                    'Walk-in',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.primaryColor,
+                    elevation: 3,
+                    shadowColor: Colors.black26,
+                    minimumSize: const Size(double.infinity, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.local_hospital_outlined,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'OPD Queue Management',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Today\'s OPD Pipeline: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _showWalkInDialog(),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(
+                    widget.isMobile ? 'Walk-in' : 'New Walk-in Entry',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.primaryColor,
+                    elevation: 3,
+                    shadowColor: Colors.black26,
+                    minimumSize: const Size(120, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => _showWalkInDialog(),
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(
-              widget.isMobile ? 'Walk-in' : 'New Walk-in Entry',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: AppTheme.primaryColor,
-              elevation: 3,
-              shadowColor: Colors.black26,
-              minimumSize: const Size(120, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -4067,14 +4122,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             return result;
           }
 
+          final screenWidth = MediaQuery.of(ctx).size.width;
+          final screenHeight = MediaQuery.of(ctx).size.height;
+
           return Dialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
             elevation: 10,
             child: Container(
-              width: 580,
-              height: 580,
+              width: screenWidth < 620 ? screenWidth * 0.95 : 580,
+              height: screenHeight < 620 ? screenHeight * 0.95 : 580,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),

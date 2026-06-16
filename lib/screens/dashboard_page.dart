@@ -1418,43 +1418,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Professional Profile',
-                    style: Theme.of(context).textTheme.displayLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Overview of your medical practice and settings',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textSecondaryColor,
+          isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Professional Profile',
+                      style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 24),
                     ),
-                  ),
-                ],
-              ),
-              ElevatedButton.icon(
-                onPressed: () => setState(() => _isEditingProfile = true),
-                icon: const Icon(
-                  Icons.edit_outlined,
-                  size: 18,
-                  color: Colors.white,
+                    const SizedBox(height: 4),
+                    Text(
+                      'Overview of your medical practice and settings',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => setState(() => _isEditingProfile = true),
+                      icon: const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Edit Profile',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: AppTheme.primaryButton.copyWith(
+                        backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
+                        minimumSize: MaterialStateProperty.all(const Size(double.infinity, 44)),
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Professional Profile',
+                          style: Theme.of(context).textTheme.displayLarge,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Overview of your medical practice and settings',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                        ),
+                      ],
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => setState(() => _isEditingProfile = true),
+                      icon: const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Edit Profile',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: AppTheme.primaryButton.copyWith(
+                        backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
+                        minimumSize: MaterialStateProperty.all(const Size(0, 48)),
+                      ),
+                    ),
+                  ],
                 ),
-                label: const Text(
-                  'Edit Profile',
-                  style: TextStyle(color: Colors.white),
-                ),
-                style: AppTheme.primaryButton.copyWith(
-                  backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
-                  minimumSize: MaterialStateProperty.all(const Size(0, 48)),
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 32),
 
           // ── Primary Information Card (Name, Email, Bio) ────────────────

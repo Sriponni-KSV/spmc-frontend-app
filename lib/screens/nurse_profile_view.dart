@@ -276,36 +276,67 @@ class _NurseProfileViewState extends State<NurseProfileView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Professional Profile',
-                    style: Theme.of(context).textTheme.displayLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Overview of your professional details and settings',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.textSecondaryColor,
-                        ),
-                  ),
-                ],
-              ),
-              ElevatedButton.icon(
-                onPressed: () => setState(() => _isEditingProfile = true),
-                icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
-                label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
-                style: AppTheme.primaryButton.copyWith(
-                  backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
-                  minimumSize: MaterialStateProperty.all(const Size(0, 48)),
+          isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Professional Profile',
+                      style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 24),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Overview of your professional details and settings',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => setState(() => _isEditingProfile = true),
+                      icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
+                      label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
+                      style: AppTheme.primaryButton.copyWith(
+                        backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
+                        minimumSize: MaterialStateProperty.all(const Size(double.infinity, 44)),
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Professional Profile',
+                            style: Theme.of(context).textTheme.displayLarge,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Overview of your professional details and settings',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => setState(() => _isEditingProfile = true),
+                      icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
+                      label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
+                      style: AppTheme.primaryButton.copyWith(
+                        backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
+                        minimumSize: MaterialStateProperty.all(const Size(0, 48)),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
           const SizedBox(height: 32),
           Container(
             padding: const EdgeInsets.all(AppTheme.paddingLarge),

@@ -1302,13 +1302,14 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
   Widget _buildOverviewTab() {
     final adm = widget.admission;
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
 
     final dateStr = DateFormat(
       'dd/MM/yyyy hh:mm a',
     ).format(DateTime.parse(adm['admission_date']).toLocal());
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
@@ -1323,80 +1324,147 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(isMobile ? 20 : 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // TOP HEADER
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(
-                      Icons.local_hospital,
-                      color: AppTheme.primaryColor,
-                      size: 28,
-                    ),
-                  ),
-
-                  const SizedBox(width: 16),
-
-                  Expanded(
-                    child: Column(
+              isMobile
+                  ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Active Admission Details',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.local_hospital,
+                                color: AppTheme.primaryColor,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Active Admission Details',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Patient admission info',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.check_circle, color: Colors.green, size: 14),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Admitted',
+                                  style: TextStyle(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-
-                        const SizedBox(height: 6),
-
-                        Text(
-                          'Current patient admission information',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 14,
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.local_hospital,
+                            color: AppTheme.primaryColor,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Active Admission Details',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Current patient admission information',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.check_circle, color: Colors.green, size: 16),
+                              SizedBox(width: 6),
+                              Text(
+                                'Admitted',
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Row(
-                      children: const [
-                        Icon(Icons.check_circle, color: Colors.green, size: 16),
-
-                        SizedBox(width: 6),
-
-                        Text(
-                          'Admitted',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
 
               const SizedBox(height: 30),
 
@@ -1484,12 +1552,12 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
               // DETAILS GRID
               GridView.count(
-                crossAxisCount: 2,
+                crossAxisCount: isMobile ? 1 : 2,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 18,
                 crossAxisSpacing: 18,
-                childAspectRatio: 3.8,
+                childAspectRatio: isMobile ? 4.5 : 3.8,
                 children: [
                   _buildOverviewTile(
                     'Admission Type',
@@ -1822,452 +1890,491 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
       ],
     );
   }
-
   Widget _buildDoctorPrescriptionTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // LEFT SIDE FORM
-          Expanded(
-            flex: 5,
-            child: Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Form(
-                  key: _prescFormKey,
-                  child: Column(
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
+
+    final Widget formCard = Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _prescFormKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // HEADER
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.medication_outlined,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // HEADER
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.medication_outlined,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'New Prescription',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Create medication prescription for patient',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      // MEDICINE NAME
-                      CustomDropdownSearch(
-                        label: 'Medicine Name',
-                        value: _medNameController.text.isEmpty ? null : _medNameController.text,
-                        dropdownItems: _medicineCatalog,
-                        hint: 'Select or search medicine',
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _medNameController.text = val;
-                              // Auto-extract and populate dosage if found in catalog name
-                              final match = RegExp(r'\d+\s*(?:mg/ml|IU/ml|mg|mcg|g|ml|IU)', caseSensitive: false).firstMatch(val);
-                              if (match != null) {
-                                _dosageController.text = match.group(0) ?? '';
-                              }
-                            });
-                          }
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // DOSAGE + FREQUENCY
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildPrescriptionField(
-                              controller: _dosageController,
-                              label: 'Dosage',
-                              hint: '500mg',
-                              icon: Icons.scale_outlined,
-                            ),
-                          ),
-                          const SizedBox(width: 20),
-                          Expanded(
-                            child: _buildPrescriptionField(
-                              controller: _freqController,
-                              label: 'Frequency',
-                              hint: '1-0-1',
-                              icon: Icons.schedule_outlined,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // ROUTE + DURATION
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildPrescriptionField(
-                              controller: _routeController,
-                              label: 'Route',
-                              hint: 'Oral / IV',
-                              icon: Icons.route_outlined,
-                            ),
-                          ),
-                          const SizedBox(width: 20),
-                          Expanded(
-                            child: _buildPrescriptionField(
-                              controller: _durController,
-                              label: 'Duration',
-                              hint: '5 Days',
-                              icon: Icons.calendar_today_outlined,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // INSTRUCTIONS
-                      const Text(
-                        'Special Instructions',
+                      Text(
+                        'New Prescription',
                         style: TextStyle(
-                          fontWeight: FontWeight.w600,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Create medication prescription for patient',
+                        style: TextStyle(
+                          color: Colors.grey,
                           fontSize: 13,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      TextFormField(
-                        controller: _instructionsController,
-                        maxLines: 5,
-                        decoration: InputDecoration(
-                          hintText: 'Enter special medication instructions...',
-                          alignLabelWithHint: true,
-                          prefixIcon: const Padding(
-                            padding: EdgeInsets.only(bottom: 90),
-                            child: Icon(
-                              Icons.description_outlined,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppTheme.primaryColor,
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      // BUTTON
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton.icon(
-                          onPressed: _addPrescription,
-                          icon: const Icon(Icons.add),
-                          label: const Text(
-                            'Add Medicine',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
+                ],
               ),
-            ),
-          ),
 
-          const SizedBox(width: 24),
+              const SizedBox(height: 30),
 
-          // RIGHT SIDE ACTIVE PRESCRIPTIONS
-          Expanded(
-            flex: 6,
-            child: Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
+              // MEDICINE NAME
+              CustomDropdownSearch(
+                label: 'Medicine Name',
+                value: _medNameController.text.isEmpty ? null : _medNameController.text,
+                dropdownItems: _medicineCatalog,
+                hint: 'Select or search medicine',
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _medNameController.text = val;
+                      // Auto-extract and populate dosage if found in catalog name
+                      final match = RegExp(r'\d+\s*(?:mg/ml|IU/ml|mg|mcg|g|ml|IU)', caseSensitive: false).firstMatch(val);
+                      if (match != null) {
+                        _dosageController.text = match.group(0) ?? '';
+                      }
+                    });
+                  }
+                },
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // HEADER
-                    Row(
+
+              const SizedBox(height: 20),
+
+              // DOSAGE + FREQUENCY
+              isMobile
+                  ? Column(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.list_alt_outlined,
-                            color: Colors.green,
+                        _buildPrescriptionField(
+                          controller: _dosageController,
+                          label: 'Dosage',
+                          hint: '500mg',
+                          icon: Icons.scale_outlined,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildPrescriptionField(
+                          controller: _freqController,
+                          label: 'Frequency',
+                          hint: '1-0-1',
+                          icon: Icons.schedule_outlined,
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: _buildPrescriptionField(
+                            controller: _dosageController,
+                            label: 'Dosage',
+                            hint: '500mg',
+                            icon: Icons.scale_outlined,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Active Prescriptions',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Currently active patient medications',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: _buildPrescriptionField(
+                            controller: _freqController,
+                            label: 'Frequency',
+                            hint: '1-0-1',
+                            icon: Icons.schedule_outlined,
+                          ),
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-                    if (_prescriptions.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 70),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.medication_outlined,
-                              size: 70,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No active prescriptions',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+              // ROUTE + DURATION
+              isMobile
+                  ? Column(
+                      children: [
+                        _buildPrescriptionField(
+                          controller: _routeController,
+                          label: 'Route',
+                          hint: 'Oral / IV',
+                          icon: Icons.route_outlined,
                         ),
-                      )
-                    else
-                      ..._prescriptions.map((prescription) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 18),
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.grey.shade200),
+                        const SizedBox(height: 16),
+                        _buildPrescriptionField(
+                          controller: _durController,
+                          label: 'Duration',
+                          hint: '5 Days',
+                          icon: Icons.calendar_today_outlined,
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: _buildPrescriptionField(
+                            controller: _routeController,
+                            label: 'Route',
+                            hint: 'Oral / IV',
+                            icon: Icons.route_outlined,
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // TOP ROW
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: Colors.green.withOpacity(
-                                      0.1,
-                                    ),
-                                    child: const Icon(
-                                      Icons.medication,
-                                      color: Colors.green,
-                                    ),
-                                  ),
-
-                                  const SizedBox(width: 12),
-
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          prescription['medicine_name'] ?? '--',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${prescription['dosage']} • ${prescription['frequency']}',
-                                          style: TextStyle(
-                                            color: Colors.grey.shade700,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: prescription['status'] == 'Active'
-                                          ? Colors.green.shade50
-                                          : Colors.red.shade50,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      prescription['status'] ?? '--',
-                                      style: TextStyle(
-                                        color:
-                                            prescription['status'] == 'Active'
-                                            ? Colors.green
-                                            : Colors.red,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 18),
-
-                              Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: [
-                                  _buildPrescriptionChip(
-                                    'Route',
-                                    prescription['route'] ?? '--',
-                                    Icons.route_outlined,
-                                  ),
-                                  _buildPrescriptionChip(
-                                    'Duration',
-                                    prescription['duration'] ?? '--',
-                                    Icons.calendar_today_outlined,
-                                  ),
-                                ],
-                              ),
-
-                              if ((prescription['instructions'] ?? '')
-                                  .toString()
-                                  .isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 18),
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.grey.shade200,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      prescription['instructions'],
-                                      style: const TextStyle(height: 1.5),
-                                    ),
-                                  ),
-                                ),
-
-                              const SizedBox(height: 18),
-
-                              if (prescription['status'] == 'Active')
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: OutlinedButton.icon(
-                                    onPressed: () =>
-                                        _stopPrescription(prescription['id']),
-                                    icon: const Icon(
-                                      Icons.stop_circle_outlined,
-                                      size: 18,
-                                      color: Colors.red,
-                                    ),
-                                    label: const Text(
-                                      'Stop Prescription',
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                    style: OutlinedButton.styleFrom(
-                                      side: const BorderSide(color: Colors.red),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: _buildPrescriptionField(
+                            controller: _durController,
+                            label: 'Duration',
+                            hint: '5 Days',
+                            icon: Icons.calendar_today_outlined,
                           ),
-                        );
-                      }),
-                  ],
+                        ),
+                      ],
+                    ),
+
+              const SizedBox(height: 24),
+
+              // INSTRUCTIONS
+              const Text(
+                'Special Instructions',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
                 ),
               ),
-            ),
+
+              const SizedBox(height: 8),
+
+              TextFormField(
+                controller: _instructionsController,
+                maxLines: 5,
+                decoration: InputDecoration(
+                  hintText: 'Enter special medication instructions...',
+                  alignLabelWithHint: true,
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 90),
+                    child: Icon(
+                      Icons.description_outlined,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppTheme.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // BUTTON
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: _addPrescription,
+                  icon: const Icon(Icons.add),
+                  label: const Text(
+                    'Add Medicine',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
+    );
+
+    final Widget listCard = Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // HEADER
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.list_alt_outlined,
+                    color: Colors.green,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Active Prescriptions',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Currently active patient medications',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            if (_prescriptions.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 70),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.medication_outlined,
+                      size: 70,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No active prescriptions',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ..._prescriptions.map((prescription) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 18),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // TOP ROW
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: Colors.green.withOpacity(
+                              0.1,
+                            ),
+                            child: const Icon(
+                              Icons.medication,
+                              color: Colors.green,
+                            ),
+                          ),
+
+                          const SizedBox(width: 12),
+
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  prescription['medicine_name'] ?? '--',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${prescription['dosage']} • ${prescription['frequency']}',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: prescription['status'] == 'Active'
+                                  ? Colors.green.shade50
+                                  : Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              prescription['status'] ?? '--',
+                              style: TextStyle(
+                                color:
+                                    prescription['status'] == 'Active'
+                                    ? Colors.green
+                                    : Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _buildPrescriptionChip(
+                            'Route',
+                            prescription['route'] ?? '--',
+                            Icons.route_outlined,
+                          ),
+                          _buildPrescriptionChip(
+                            'Duration',
+                            prescription['duration'] ?? '--',
+                            Icons.calendar_today_outlined,
+                          ),
+                        ],
+                      ),
+
+                      if ((prescription['instructions'] ?? '')
+                          .toString()
+                          .isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 18),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.grey.shade200,
+                              ),
+                            ),
+                            child: Text(
+                              prescription['instructions'],
+                              style: const TextStyle(height: 1.5),
+                            ),
+                          ),
+                        ),
+
+                      const SizedBox(height: 18),
+
+                      if (prescription['status'] == 'Active')
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: OutlinedButton.icon(
+                            onPressed: () =>
+                                _stopPrescription(prescription['id']),
+                            icon: const Icon(
+                              Icons.stop_circle_outlined,
+                              size: 18,
+                              color: Colors.red,
+                            ),
+                            label: const Text(
+                              'Stop Prescription',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.red),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                formCard,
+                const SizedBox(height: 24),
+                listCard,
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 5, child: formCard),
+                const SizedBox(width: 24),
+                Expanded(flex: 6, child: listCard),
+              ],
+            ),
     );
   }
 
@@ -2410,431 +2517,436 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildDoctorLabTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // LEFT SIDE ORDER FORM
-          Expanded(
-            flex: 5,
-            child: Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Form(
-                  key: _labFormKey,
-                  child: Column(
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
+
+    final Widget formCard = Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _labFormKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // HEADER
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.science_outlined,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // HEADER
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.science_outlined,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Order Lab Test',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Request laboratory investigations for patient',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      // TEST NAME FIELD
-                      const Text(
-                        'Test Name',
+                      Text(
+                        'Order Lab Test',
                         style: TextStyle(
-                          fontWeight: FontWeight.w600,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Request laboratory investigations for patient',
+                        style: TextStyle(
+                          color: Colors.grey,
                           fontSize: 13,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      DropdownButtonFormField<String>(
-                        value: _testNameController.text.isEmpty
-                            ? null
-                            : _testNameController.text,
-                        decoration: InputDecoration(
-                          hintText: 'Select lab test',
-                          prefixIcon: const Icon(
-                            Icons.biotech_outlined,
-                            color: AppTheme.primaryColor,
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppTheme.primaryColor,
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Complete Blood Count (CBC)',
-                            child: Text('Complete Blood Count (CBC)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Blood Sugar',
-                            child: Text('Blood Sugar'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Liver Function Test (LFT)',
-                            child: Text('Liver Function Test (LFT)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Renal Function Test (RFT)',
-                            child: Text('Renal Function Test (RFT)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Urine Routine',
-                            child: Text('Urine Routine'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'X-Ray',
-                            child: Text('X-Ray'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'CT Scan',
-                            child: Text('CT Scan'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'MRI Scan',
-                            child: Text('MRI Scan'),
-                          ),
-                          DropdownMenuItem(value: 'ECG', child: Text('ECG')),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _testNameController.text = value ?? '';
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please select lab test';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      // BUTTON
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton.icon(
-                          onPressed: _submitLabOrder,
-                          icon: const Icon(Icons.send),
-                          label: const Text(
-                            'Order Test',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
                         ),
                       ),
                     ],
                   ),
+                ],
+              ),
+
+              const SizedBox(height: 30),
+
+              // TEST NAME FIELD
+              const Text(
+                'Test Name',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
                 ),
               ),
-            ),
-          ),
 
-          const SizedBox(width: 24),
+              const SizedBox(height: 8),
 
-          // RIGHT SIDE HISTORY
-          Expanded(
-            flex: 6,
-            child: Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
+              DropdownButtonFormField<String>(
+                value: _testNameController.text.isEmpty
+                    ? null
+                    : _testNameController.text,
+                decoration: InputDecoration(
+                  hintText: 'Select lab test',
+                  prefixIcon: const Icon(
+                    Icons.biotech_outlined,
+                    color: AppTheme.primaryColor,
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppTheme.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'Complete Blood Count (CBC)',
+                    child: Text('Complete Blood Count (CBC)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Blood Sugar',
+                    child: Text('Blood Sugar'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Liver Function Test (LFT)',
+                    child: Text('Liver Function Test (LFT)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Renal Function Test (RFT)',
+                    child: Text('Renal Function Test (RFT)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Urine Routine',
+                    child: Text('Urine Routine'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'X-Ray',
+                    child: Text('X-Ray'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'CT Scan',
+                    child: Text('CT Scan'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'MRI Scan',
+                    child: Text('MRI Scan'),
+                  ),
+                  DropdownMenuItem(value: 'ECG', child: Text('ECG')),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _testNameController.text = value ?? '';
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please select lab test';
+                  }
+                  return null;
+                },
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
+
+              const SizedBox(height: 30),
+
+              // BUTTON
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: _submitLabOrder,
+                  icon: const Icon(Icons.send),
+                  label: const Text(
+                    'Order Test',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final Widget historyCard = Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // HEADER
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.history, color: Colors.green),
+                ),
+                const SizedBox(width: 12),
+                const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // HEADER
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.history, color: Colors.green),
-                        ),
-                        const SizedBox(width: 12),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Lab Test History',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Previously ordered laboratory tests',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                    Text(
+                      'Lab Test History',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Previously ordered laboratory tests',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
 
-                    const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-                    if (_labOrders.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 70),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.science_outlined,
-                              size: 70,
-                              color: Colors.grey.shade400,
+            if (_labOrders.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 70),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.science_outlined,
+                      size: 70,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No lab tests ordered',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ..._labOrders.map((lab) {
+                final status = (lab['status'] ?? 'Pending').toString();
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 18),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // TOP ROW
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: Colors.green.withOpacity(
+                              0.1,
                             ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No lab tests ordered',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: const Icon(
+                              Icons.science,
+                              color: Colors.green,
                             ),
-                          ],
-                        ),
-                      )
-                    else
-                      ..._labOrders.map((lab) {
-                        final status = (lab['status'] ?? 'Pending').toString();
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 18),
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.grey.shade200),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // TOP ROW
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: Colors.green.withOpacity(
-                                      0.1,
-                                    ),
-                                    child: const Icon(
-                                      Icons.science,
-                                      color: Colors.green,
-                                    ),
+
+                          const SizedBox(width: 12),
+
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  lab['test_name'] ?? '--',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
                                   ),
-
-                                  const SizedBox(width: 12),
-
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          lab['test_name'] ?? '--',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Ordered by Dr. ${lab['doctor_name'] ?? '--'}',
-                                          style: TextStyle(
-                                            color: Colors.grey.shade700,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: status == 'Completed'
-                                          ? Colors.green.shade50
-                                          : status == 'In Progress'
-                                          ? Colors.orange.shade50
-                                          : Colors.blue.shade50,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      status,
-                                      style: TextStyle(
-                                        color: status == 'Completed'
-                                            ? Colors.green
-                                            : status == 'In Progress'
-                                            ? Colors.orange
-                                            : Colors.blue,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 18),
-
-                              Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: [
-                                  _buildLabChip(
-                                    'Ordered',
-                                    lab['created_at'] != null
-                                        ? DateFormat('dd/MM/yyyy').format(
-                                            DateTime.parse(lab['created_at']).toLocal(),
-                                          )
-                                        : '--',
-                                    Icons.calendar_today_outlined,
-                                  ),
-
-                                  _buildLabChip(
-                                    'Status',
-                                    status,
-                                    Icons.info_outline,
-                                  ),
-                                ],
-                              ),
-
-                              if (status == 'Completed') ...[
-                                const SizedBox(height: 14),
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.grey.shade200,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: const [
-                                          Icon(
-                                            Icons.description_outlined,
-                                            size: 16,
-                                            color: AppTheme.primaryColor,
-                                          ),
-                                          SizedBox(width: 6),
-                                          Text(
-                                            'Lab Results / Notes',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        (lab['result_notes'] ?? '')
-                                                .toString()
-                                                .isNotEmpty
-                                            ? lab['result_notes']
-                                            : 'No result notes entered.',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey.shade800,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                    ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Ordered by Dr. ${lab['doctor_name'] ?? '--'}',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontSize: 13,
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: status == 'Completed'
+                                  ? Colors.green.shade50
+                                  : status == 'In Progress'
+                                  ? Colors.orange.shade50
+                                  : Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(
+                                color: status == 'Completed'
+                                    ? Colors.green
+                                    : status == 'In Progress'
+                                    ? Colors.orange
+                                    : Colors.blue,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _buildLabChip(
+                            'Ordered',
+                            lab['created_at'] != null
+                                ? DateFormat('dd/MM/yyyy').format(
+                                    DateTime.parse(lab['created_at']).toLocal(),
+                                  )
+                                : '--',
+                            Icons.calendar_today_outlined,
+                          ),
+
+                          _buildLabChip(
+                            'Status',
+                            status,
+                            Icons.info_outline,
+                          ),
+                        ],
+                      ),
+
+                      if (status == 'Completed') ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.grey.shade200,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: const [
+                                  Icon(
+                                    Icons.description_outlined,
+                                    size: 16,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Lab Results / Notes',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                (lab['result_notes'] ?? '')
+                                        .toString()
+                                        .isNotEmpty
+                                    ? lab['result_notes']
+                                    : 'No result notes entered.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade800,
+                                  height: 1.4,
+                                ),
+                              ),
                             ],
                           ),
-                        );
-                      }),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }),
+          ],
+        ),
       ),
+    );
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                formCard,
+                const SizedBox(height: 24),
+                historyCard,
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 5, child: formCard),
+                const SizedBox(width: 24),
+                Expanded(flex: 6, child: historyCard),
+              ],
+            ),
     );
   }
 
@@ -2861,429 +2973,434 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildDoctorProgressNotesTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // LEFT SIDE FORM
-          Expanded(
-            flex: 5,
-            child: Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
+
+    final Widget formCard = Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _progFormKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // HEADER
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.edit_note_outlined,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'New Progress Note',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Record doctor observations and treatment updates',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Form(
-                  key: _progFormKey,
+
+              const SizedBox(height: 30),
+
+              // MAIN NOTE
+              const Text(
+                'Observation / Note',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextFormField(
+                controller: _noteController,
+                maxLines: 5,
+                decoration: InputDecoration(
+                  hintText: 'Enter patient progress notes...',
+                  alignLabelWithHint: true,
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 90),
+                    child: Icon(
+                      Icons.description_outlined,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppTheme.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter note';
+                  }
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              // TREATMENT CHANGES
+              const Text(
+                'Treatment Changes',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextFormField(
+                controller: _changesController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Medication updates, dosage changes...',
+                  alignLabelWithHint: true,
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 45),
+                    child: Icon(
+                      Icons.medical_services_outlined,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppTheme.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // OBSERVATIONS
+              const Text(
+                'Additional Observations',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextFormField(
+                controller: _obsController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Clinical observations...',
+                  alignLabelWithHint: true,
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 45),
+                    child: Icon(
+                      Icons.visibility_outlined,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppTheme.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // BUTTON
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: _submitProgressNote,
+                  icon: const Icon(Icons.add),
+                  label: const Text(
+                    'Add Progress Note',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final Widget historyCard = Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // HEADER
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.history, color: Colors.green),
+                ),
+
+                const SizedBox(width: 12),
+
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Progress Note History',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Previously recorded doctor progress notes',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            if (_progressNotes.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 70),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.note_alt_outlined,
+                      size: 70,
+                      color: Colors.grey.shade400,
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    Text(
+                      'No progress notes recorded',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ..._progressNotes.map((note) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 18),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // HEADER
+                      // TOP ROW
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
+                          CircleAvatar(
+                            backgroundColor: Colors.green.withOpacity(
+                              0.1,
                             ),
                             child: const Icon(
-                              Icons.edit_note_outlined,
-                              color: AppTheme.primaryColor,
+                              Icons.person,
+                              color: Colors.green,
                             ),
                           ),
 
                           const SizedBox(width: 12),
 
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'New Progress Note',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  note['doctor_name'] ?? 'Doctor',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Record doctor observations and treatment updates',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 13,
+
+                                const SizedBox(height: 4),
+
+                                Text(
+                                  note['created_at'] != null
+                                      ? DateFormat(
+                                          'dd/MM/yyyy hh:mm a',
+                                        ).format(
+                                          DateTime.parse(
+                                            note['created_at'],
+                                          ).toLocal(),
+                                        )
+                                      : '--',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 12,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                       ),
 
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 18),
 
                       // MAIN NOTE
-                      const Text(
-                        'Observation / Note',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
+                      _buildProgressInfoBox(
+                        'Progress Note',
+                        note['notes'] ?? '--',
+                        Icons.description_outlined,
                       ),
 
-                      const SizedBox(height: 8),
-
-                      TextFormField(
-                        controller: _noteController,
-                        maxLines: 5,
-                        decoration: InputDecoration(
-                          hintText: 'Enter patient progress notes...',
-                          alignLabelWithHint: true,
-                          prefixIcon: const Padding(
-                            padding: EdgeInsets.only(bottom: 90),
-                            child: Icon(
-                              Icons.description_outlined,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppTheme.primaryColor,
-                              width: 1.5,
-                            ),
+                      if ((note['treatment_changes'] ?? '')
+                          .toString()
+                          .isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: _buildProgressInfoBox(
+                            'Treatment Changes',
+                            note['treatment_changes'],
+                            Icons.medical_services_outlined,
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter note';
-                          }
-                          return null;
-                        },
-                      ),
 
-                      const SizedBox(height: 20),
-
-                      // TREATMENT CHANGES
-                      const Text(
-                        'Treatment Changes',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      TextFormField(
-                        controller: _changesController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: 'Medication updates, dosage changes...',
-                          alignLabelWithHint: true,
-                          prefixIcon: const Padding(
-                            padding: EdgeInsets.only(bottom: 45),
-                            child: Icon(
-                              Icons.medical_services_outlined,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppTheme.primaryColor,
-                              width: 1.5,
-                            ),
+                      if ((note['observation'] ?? '')
+                          .toString()
+                          .isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: _buildProgressInfoBox(
+                            'Additional Observations',
+                            note['observation'],
+                            Icons.visibility_outlined,
                           ),
                         ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // OBSERVATIONS
-                      const Text(
-                        'Additional Observations',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      TextFormField(
-                        controller: _obsController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: 'Clinical observations...',
-                          alignLabelWithHint: true,
-                          prefixIcon: const Padding(
-                            padding: EdgeInsets.only(bottom: 45),
-                            child: Icon(
-                              Icons.visibility_outlined,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppTheme.primaryColor,
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      // BUTTON
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton.icon(
-                          onPressed: _submitProgressNote,
-                          icon: const Icon(Icons.add),
-                          label: const Text(
-                            'Add Progress Note',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 24),
-
-          // RIGHT SIDE HISTORY
-          Expanded(
-            flex: 6,
-            child: Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // HEADER
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.history, color: Colors.green),
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Progress Note History',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Previously recorded doctor progress notes',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    if (_progressNotes.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 70),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.note_alt_outlined,
-                              size: 70,
-                              color: Colors.grey.shade400,
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            Text(
-                              'No progress notes recorded',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      ..._progressNotes.map((note) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 18),
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // TOP ROW
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: Colors.green.withOpacity(
-                                      0.1,
-                                    ),
-                                    child: const Icon(
-                                      Icons.person,
-                                      color: Colors.green,
-                                    ),
-                                  ),
-
-                                  const SizedBox(width: 12),
-
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          note['doctor_name'] ?? 'Doctor',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                          ),
-                                        ),
-
-                                        const SizedBox(height: 4),
-
-                                        Text(
-                                          note['created_at'] != null
-                                              ? DateFormat(
-                                                  'dd/MM/yyyy hh:mm a',
-                                                ).format(
-                                                  DateTime.parse(
-                                                    note['created_at'],
-                                                  ).toLocal(),
-                                                )
-                                              : '--',
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 18),
-
-                              // MAIN NOTE
-                              _buildProgressInfoBox(
-                                'Progress Note',
-                                note['notes'] ?? '--',
-                                Icons.description_outlined,
-                              ),
-
-                              if ((note['treatment_changes'] ?? '')
-                                  .toString()
-                                  .isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 14),
-                                  child: _buildProgressInfoBox(
-                                    'Treatment Changes',
-                                    note['treatment_changes'],
-                                    Icons.medical_services_outlined,
-                                  ),
-                                ),
-
-                              if ((note['observation'] ?? '')
-                                  .toString()
-                                  .isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 14),
-                                  child: _buildProgressInfoBox(
-                                    'Additional Observations',
-                                    note['observation'],
-                                    Icons.visibility_outlined,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        );
-                      }),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+                );
+              }),
+          ],
+        ),
       ),
+    );
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                formCard,
+                const SizedBox(height: 24),
+                historyCard,
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 5, child: formCard),
+                const SizedBox(width: 24),
+                Expanded(flex: 6, child: historyCard),
+              ],
+            ),
     );
   }
 
@@ -3395,44 +3512,89 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.monitor_heart, color: Colors.greenAccent, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'ICU BEDSIDE MONITOR - BED ${widget.admission['bed_number'] ?? 'ICU'}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  _PulseDot(active: hasData && !pulseAbnormal, alert: pulseAbnormal),
-                  const SizedBox(width: 6),
-                  Text(
-                    hasData ? 'TELEMETRY LIVE' : 'MONITOR STANDBY',
-                    style: TextStyle(
-                      color: hasData 
-                        ? (pulseAbnormal || spo2Abnormal ? Colors.redAccent : Colors.greenAccent) 
-                        : Colors.amberAccent,
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          (() {
+            final bool isMobile = MediaQuery.of(context).size.width < 900;
+            return isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.monitor_heart, color: Colors.greenAccent, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'ICU BEDSIDE MONITOR - BED ${widget.admission['bed_number'] ?? 'ICU'}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _PulseDot(active: hasData && !pulseAbnormal, alert: pulseAbnormal),
+                          const SizedBox(width: 6),
+                          Text(
+                            hasData ? 'TELEMETRY LIVE' : 'MONITOR STANDBY',
+                            style: TextStyle(
+                              color: hasData 
+                                ? (pulseAbnormal || spo2Abnormal ? Colors.redAccent : Colors.greenAccent) 
+                                : Colors.amberAccent,
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.monitor_heart, color: Colors.greenAccent, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'ICU BEDSIDE MONITOR - BED ${widget.admission['bed_number'] ?? 'ICU'}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.1,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          _PulseDot(active: hasData && !pulseAbnormal, alert: pulseAbnormal),
+                          const SizedBox(width: 6),
+                          Text(
+                            hasData ? 'TELEMETRY LIVE' : 'MONITOR STANDBY',
+                            style: TextStyle(
+                              color: hasData 
+                                ? (pulseAbnormal || spo2Abnormal ? Colors.redAccent : Colors.greenAccent) 
+                                : Colors.amberAccent,
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+          })(),
           const SizedBox(height: 20),
           GridView.count(
             crossAxisCount: MediaQuery.of(context).size.width < 800 ? 2 : 4,
@@ -3509,21 +3671,42 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
             ),
           ] else ...[
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Last Streamed: ${DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.parse(latestVitals['created_at']).toLocal())}',
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 11,
-                    fontFamily: AppTheme.fontFamily,
-                  ),
-                ),
-                if (pulseAbnormal || spo2Abnormal || bpAbnormal || tempAbnormal)
-                  const _BlinkingAlertText(),
-              ],
-            ),
+            (() {
+              final bool isMobile = MediaQuery.of(context).size.width < 900;
+              return isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Last Streamed: ${DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.parse(latestVitals['created_at']).toLocal())}',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 11,
+                            fontFamily: AppTheme.fontFamily,
+                          ),
+                        ),
+                        if (pulseAbnormal || spo2Abnormal || bpAbnormal || tempAbnormal) ...[
+                          const SizedBox(height: 6),
+                          const _BlinkingAlertText(),
+                        ],
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Last Streamed: ${DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.parse(latestVitals['created_at']).toLocal())}',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 11,
+                            fontFamily: AppTheme.fontFamily,
+                          ),
+                        ),
+                        if (pulseAbnormal || spo2Abnormal || bpAbnormal || tempAbnormal)
+                          const _BlinkingAlertText(),
+                      ],
+                    );
+            })(),
           ],
         ],
       ),
@@ -3892,6 +4075,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildDoctorDischargeTab() {
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Center(
@@ -4030,58 +4214,108 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                     const SizedBox(height: 34),
 
                     // BUTTON ROW
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              _finalDiagController.clear();
-                              _treatmentSumController.clear();
-                              _medPlanController.clear();
-                            },
-                            icon: const Icon(Icons.refresh),
-                            label: const Text(
-                              'Reset Form',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.grey.shade700,
-                              side: BorderSide(color: Colors.grey.shade300),
-                              minimumSize: const Size(double.infinity, 54),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                    isMobile
+                        ? Column(
+                            children: [
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    _finalDiagController.clear();
+                                    _treatmentSumController.clear();
+                                    _medPlanController.clear();
+                                  },
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text(
+                                    'Reset Form',
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.grey.shade700,
+                                    side: BorderSide(color: Colors.grey.shade300),
+                                    minimumSize: const Size(double.infinity, 54),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: _executeDischarge,
+                                  icon: const Icon(Icons.logout, color: Colors.white),
+                                  label: const Text(
+                                    'Discharge Patient',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(double.infinity, 54),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    _finalDiagController.clear();
+                                    _treatmentSumController.clear();
+                                    _medPlanController.clear();
+                                  },
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text(
+                                    'Reset Form',
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.grey.shade700,
+                                    side: BorderSide(color: Colors.grey.shade300),
+                                    minimumSize: const Size(double.infinity, 54),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                flex: 2,
+                                child: ElevatedButton.icon(
+                                  onPressed: _executeDischarge,
+                                  icon: const Icon(Icons.logout, color: Colors.white),
+                                  label: const Text(
+                                    'Discharge Patient',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(double.infinity, 54),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-
-                        const SizedBox(width: 16),
-
-                        Expanded(
-                          flex: 2,
-                          child: ElevatedButton.icon(
-                            onPressed: _executeDischarge,
-                            icon: const Icon(Icons.logout, color: Colors.white),
-                            label: const Text(
-                              'Discharge Patient',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(double.infinity, 54),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -4205,89 +4439,157 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
               const SizedBox(height: 30),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildVitalsField(
-                      controller: _bpSystolicController,
-                      label: 'Systolic BP',
-                      hint: 'Enter Systolic',
-                      suffix: 'mmHg',
-                      icon: Icons.favorite_outline,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: _buildVitalsField(
-                      controller: _bpDiastolicController,
-                      label: 'Diastolic BP',
-                      hint: 'Enter Diastolic',
-                      suffix: 'mmHg',
-                      icon: Icons.favorite_outline,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildVitalsField(
-                      controller: _tempController,
-                      label: 'Temperature',
-                      hint: 'Enter Temperature',
-                      suffix: '°F',
-                      icon: Icons.thermostat,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              isMobile
+                  ? Column(
+                      children: [
+                        _buildVitalsField(
+                          controller: _bpSystolicController,
+                          label: 'Systolic BP',
+                          hint: 'Enter Systolic',
+                          suffix: 'mmHg',
+                          icon: Icons.favorite_outline,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        ),
+                        const SizedBox(height: 20),
+                        _buildVitalsField(
+                          controller: _bpDiastolicController,
+                          label: 'Diastolic BP',
+                          hint: 'Enter Diastolic',
+                          suffix: 'mmHg',
+                          icon: Icons.favorite_outline,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: _buildVitalsField(
+                            controller: _bpSystolicController,
+                            label: 'Systolic BP',
+                            hint: 'Enter Systolic',
+                            suffix: 'mmHg',
+                            icon: Icons.favorite_outline,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: _buildVitalsField(
+                            controller: _bpDiastolicController,
+                            label: 'Diastolic BP',
+                            hint: 'Enter Diastolic',
+                            suffix: 'mmHg',
+                            icon: Icons.favorite_outline,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: _buildVitalsField(
-                      controller: _pulseController,
-                      label: 'Pulse',
-                      hint: 'Enter Pulse',
-                      suffix: 'bpm',
-                      icon: Icons.monitor_heart_outlined,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    ),
-                  ),
-                ],
-              ),
 
               const SizedBox(height: 20),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildVitalsField(
-                      controller: _spo2Controller,
-                      label: 'SPO2',
-                      hint: 'Enter SPO2',
-                      suffix: '%',
-                      icon: Icons.air,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              isMobile
+                  ? Column(
+                      children: [
+                        _buildVitalsField(
+                          controller: _tempController,
+                          label: 'Temperature',
+                          hint: 'Enter Temperature',
+                          suffix: '°F',
+                          icon: Icons.thermostat,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        _buildVitalsField(
+                          controller: _pulseController,
+                          label: 'Pulse',
+                          hint: 'Enter Pulse',
+                          suffix: 'bpm',
+                          icon: Icons.monitor_heart_outlined,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: _buildVitalsField(
+                            controller: _tempController,
+                            label: 'Temperature',
+                            hint: 'Enter Temperature',
+                            suffix: '°F',
+                            icon: Icons.thermostat,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: _buildVitalsField(
+                            controller: _pulseController,
+                            label: 'Pulse',
+                            hint: 'Enter Pulse',
+                            suffix: 'bpm',
+                            icon: Icons.monitor_heart_outlined,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: _buildVitalsField(
-                      controller: _respRateController,
-                      label: 'Respiratory Rate',
-                      hint: 'Enter Respiratory Rate',
-                      suffix: 'bpm',
-                      icon: Icons.water_drop_outlined,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+
+              const SizedBox(height: 20),
+
+              isMobile
+                  ? Column(
+                      children: [
+                        _buildVitalsField(
+                          controller: _spo2Controller,
+                          label: 'SPO2',
+                          hint: 'Enter SPO2',
+                          suffix: '%',
+                          icon: Icons.air,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        ),
+                        const SizedBox(height: 20),
+                        _buildVitalsField(
+                          controller: _respRateController,
+                          label: 'Respiratory Rate',
+                          hint: 'Enter Respiratory Rate',
+                          suffix: 'bpm',
+                          icon: Icons.water_drop_outlined,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: _buildVitalsField(
+                            controller: _spo2Controller,
+                            label: 'SPO2',
+                            hint: 'Enter SPO2',
+                            suffix: '%',
+                            icon: Icons.air,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: _buildVitalsField(
+                            controller: _respRateController,
+                            label: 'Respiratory Rate',
+                            hint: 'Enter Respiratory Rate',
+                            suffix: 'bpm',
+                            icon: Icons.water_drop_outlined,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
 
               const SizedBox(height: 30),
 
@@ -4483,245 +4785,250 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildNurseMedAdminTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // LEFT SIDE - ACTIVE PRESCRIPTIONS
-          Expanded(
-            flex: 5,
-            child: Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.medication_outlined,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Active Prescriptions',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Record medication administrations',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 30),
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
 
-                    if (_prescriptions
-                        .where((p) => p['status'] == 'Active')
-                        .isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 60),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.medication_outlined,
-                              size: 70,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No active prescriptions from doctor',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      ..._prescriptions
-                          .where((p) => p['status'] == 'Active')
-                          .map((p) => _buildNursePrescriptionCard(p)),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 24),
-
-          // RIGHT SIDE HISTORY
-          Expanded(
-            flex: 5,
-            child: Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.history, color: Colors.green),
-                        ),
-                        const SizedBox(width: 12),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Medication Log History',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Previously administered medications',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    if (_medicationLogs.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 60),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.medication_liquid_outlined,
-                              size: 70,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No medications logged',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      ..._medicationLogs.map((log) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 14),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: log['status'] == 'Given'
-                                    ? Colors.green.withOpacity(0.1)
-                                    : Colors.orange.withOpacity(0.1),
-                                child: Icon(
-                                  Icons.medication,
-                                  color: log['status'] == 'Given'
-                                      ? Colors.green
-                                      : Colors.orange,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      log['medicine_name'] ?? '--',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Status: ${log['status']}',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade700,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    if (log['remarks'] != null &&
-                                        log['remarks'].toString().isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: Text(
-                                          log['remarks'],
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+    final Widget leftCard = Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.medication_outlined,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Active Prescriptions',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Record medication administrations',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 30),
+
+            if (_prescriptions
+                .where((p) => p['status'] == 'Active')
+                .isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 60),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.medication_outlined,
+                      size: 70,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No active prescriptions from doctor',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ..._prescriptions
+                  .where((p) => p['status'] == 'Active')
+                  .map((p) => _buildNursePrescriptionCard(p)),
+          ],
+        ),
+      ),
+    );
+
+    final Widget rightCard = Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.history, color: Colors.green),
+                ),
+                const SizedBox(width: 12),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Medication Log History',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Previously administered medications',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            if (_medicationLogs.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 60),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.medication_liquid_outlined,
+                      size: 70,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No medications logged',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ..._medicationLogs.map((log) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: log['status'] == 'Given'
+                            ? Colors.green.withOpacity(0.1)
+                            : Colors.orange.withOpacity(0.1),
+                        child: Icon(
+                          Icons.medication,
+                          color: log['status'] == 'Given'
+                              ? Colors.green
+                              : Colors.orange,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              log['medicine_name'] ?? '--',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Status: ${log['status']}',
+                              style: TextStyle(
+                                color: Colors.grey.shade700,
+                                fontSize: 13,
+                              ),
+                            ),
+                            if (log['remarks'] != null &&
+                                log['remarks'].toString().isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  log['remarks'],
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                leftCard,
+                const SizedBox(height: 24),
+                rightCard,
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 5, child: leftCard),
+                const SizedBox(width: 24),
+                Expanded(flex: 5, child: rightCard),
+              ],
+            ),
     );
   }
 
@@ -4925,401 +5232,424 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildNurseNotesTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // LEFT FORM
-          Expanded(
-            flex: 5,
-            child: Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
+
+    final Widget leftCard = Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _progFormKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // HEADER
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.note_alt_outlined,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Record Nursing Log',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Add nursing observations and patient notes',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Form(
-                  key: _progFormKey,
+
+              const SizedBox(height: 30),
+
+              // BP FIELD
+              _buildNursingField(
+                controller: _bpSystolicController,
+                label: 'Blood Pressure',
+                hint: '120/80',
+                icon: Icons.favorite_outline,
+              ),
+
+              const SizedBox(height: 20),
+
+              // TEMP & PULSE
+              isMobile
+                  ? Column(
+                      children: [
+                        _buildNursingField(
+                          controller: _tempController,
+                          label: 'Temperature',
+                          hint: '98.6 °F',
+                          icon: Icons.thermostat_outlined,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildNursingField(
+                          controller: _pulseController,
+                          label: 'Pulse',
+                          hint: '72 bpm',
+                          icon: Icons.monitor_heart_outlined,
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: _buildNursingField(
+                            controller: _tempController,
+                            label: 'Temperature',
+                            hint: '98.6 °F',
+                            icon: Icons.thermostat_outlined,
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: _buildNursingField(
+                            controller: _pulseController,
+                            label: 'Pulse',
+                            hint: '72 bpm',
+                            icon: Icons.monitor_heart_outlined,
+                          ),
+                        ),
+                      ],
+                    ),
+
+              const SizedBox(height: 20),
+
+              // SUGAR LEVEL
+              _buildNursingField(
+                controller: _spo2Controller,
+                label: 'Sugar Level',
+                hint: '98 mg/dL',
+                icon: Icons.water_drop_outlined,
+              ),
+
+              const SizedBox(height: 24),
+
+              // NOTES
+              const Text(
+                'Nursing Observation / Notes',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextFormField(
+                controller: _obsController,
+                maxLines: 6,
+                decoration: InputDecoration(
+                  hintText:
+                      'Enter nursing observations, symptoms, medication response...',
+                  alignLabelWithHint: true,
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 110),
+                    child: Icon(
+                      Icons.description_outlined,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppTheme.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter observations';
+                  }
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 30),
+
+              // BUTTON
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: _submitProgressNote,
+                  icon: const Icon(Icons.save),
+                  label: const Text(
+                    'Save Nursing Note',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final Widget rightCard = Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // HEADER
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.history, color: Colors.green),
+                ),
+                const SizedBox(width: 12),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Nursing Log History',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Previously recorded nursing observations',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            if (_progressNotes.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 70),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.note_alt_outlined,
+                      size: 70,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No nursing notes recorded',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ..._progressNotes.map((note) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 18),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // HEADER
+                      // TOP HEADER
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                          CircleAvatar(
+                            backgroundColor: AppTheme.primaryColor
+                                .withOpacity(0.1),
                             child: const Icon(
-                              Icons.note_alt_outlined,
+                              Icons.person,
                               color: AppTheme.primaryColor,
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Record Nursing Log',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Add nursing observations and patient notes',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
 
-                      const SizedBox(height: 30),
-
-                      // BP FIELD
-                      _buildNursingField(
-                        controller: _bpSystolicController,
-                        label: 'Blood Pressure',
-                        hint: '120/80',
-                        icon: Icons.favorite_outline,
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // TEMP & PULSE
-                      Row(
-                        children: [
                           Expanded(
-                            child: _buildNursingField(
-                              controller: _tempController,
-                              label: 'Temperature',
-                              hint: '98.6 °F',
-                              icon: Icons.thermostat_outlined,
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Recorded by Nurse',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  note['doctor_name'] ?? 'Duty Nurse',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 20),
-                          Expanded(
-                            child: _buildNursingField(
-                              controller: _pulseController,
-                              label: 'Pulse',
-                              hint: '72 bpm',
-                              icon: Icons.monitor_heart_outlined,
-                            ),
-                          ),
-                        ],
-                      ),
 
-                      const SizedBox(height: 20),
-
-                      // SUGAR LEVEL
-                      _buildNursingField(
-                        controller: _spo2Controller,
-                        label: 'Sugar Level',
-                        hint: '98 mg/dL',
-                        icon: Icons.water_drop_outlined,
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // NOTES
-                      const Text(
-                        'Nursing Observation / Notes',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      TextFormField(
-                        controller: _obsController,
-                        maxLines: 6,
-                        decoration: InputDecoration(
-                          hintText:
-                              'Enter nursing observations, symptoms, medication response...',
-                          alignLabelWithHint: true,
-                          prefixIcon: const Padding(
-                            padding: EdgeInsets.only(bottom: 110),
-                            child: Icon(
-                              Icons.description_outlined,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppTheme.primaryColor,
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter observations';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      // BUTTON
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton.icon(
-                          onPressed: _submitProgressNote,
-                          icon: const Icon(Icons.save),
-                          label: const Text(
-                            'Save Nursing Note',
+                          Text(
+                            note['created_at'] != null
+                                ? DateFormat(
+                                    'dd/MM/yyyy hh:mm a',
+                                  ).format(
+                                    DateTime.parse(
+                                      note['created_at'],
+                                    ).toLocal(),
+                                  )
+                                : '--',
                             style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
                             ),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // VITALS ROW
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _buildMiniVitalChip(
+                            'BP',
+                            note['blood_pressure'] ?? '--',
+                            Icons.favorite_outline,
+                          ),
+                          _buildMiniVitalChip(
+                            'Temp',
+                            note['temperature'] ?? '--',
+                            Icons.thermostat_outlined,
+                          ),
+                          _buildMiniVitalChip(
+                            'Pulse',
+                            note['pulse'] ?? '--',
+                            Icons.monitor_heart_outlined,
+                          ),
+                          _buildMiniVitalChip(
+                            'Sugar',
+                            note['sugar_level'] ?? '--',
+                            Icons.water_drop_outlined,
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.grey.shade200,
+                          ),
+                        ),
+                        child: Text(
+                          note['observation'] ??
+                              'No observations added',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.6,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 24),
-
-          // RIGHT SIDE HISTORY
-          Expanded(
-            flex: 6,
-            child: Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // HEADER
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.history, color: Colors.green),
-                        ),
-                        const SizedBox(width: 12),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Nursing Log History',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Previously recorded nursing observations',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    if (_progressNotes.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 60),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.note_alt_outlined,
-                              size: 70,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No nursing notes recorded',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      ..._progressNotes.map((note) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 18),
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // TOP HEADER
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: AppTheme.primaryColor
-                                        .withOpacity(0.1),
-                                    child: const Icon(
-                                      Icons.person,
-                                      color: AppTheme.primaryColor,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Recorded by Nurse',
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        Text(
-                                          note['doctor_name'] ?? 'Duty Nurse',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  Text(
-                                    note['created_at'] != null
-                                        ? DateFormat(
-                                            'dd/MM/yyyy hh:mm a',
-                                          ).format(
-                                            DateTime.parse(
-                                              note['created_at'],
-                                            ).toLocal(),
-                                          )
-                                        : '--',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 18),
-
-                              // VITALS ROW
-                              Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: [
-                                  _buildMiniVitalChip(
-                                    'BP',
-                                    note['blood_pressure'] ?? '--',
-                                    Icons.favorite_outline,
-                                  ),
-                                  _buildMiniVitalChip(
-                                    'Temp',
-                                    note['temperature'] ?? '--',
-                                    Icons.thermostat_outlined,
-                                  ),
-                                  _buildMiniVitalChip(
-                                    'Pulse',
-                                    note['pulse'] ?? '--',
-                                    Icons.monitor_heart_outlined,
-                                  ),
-                                  _buildMiniVitalChip(
-                                    'Sugar',
-                                    note['sugar_level'] ?? '--',
-                                    Icons.water_drop_outlined,
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 18),
-
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.grey.shade200,
-                                  ),
-                                ),
-                                child: Text(
-                                  note['observation'] ??
-                                      'No observations added',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    height: 1.6,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+                );
+              }),
+          ],
+        ),
       ),
+    );
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                leftCard,
+                const SizedBox(height: 24),
+                rightCard,
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 5, child: leftCard),
+                const SizedBox(width: 24),
+                Expanded(flex: 6, child: rightCard),
+              ],
+            ),
     );
   }
 

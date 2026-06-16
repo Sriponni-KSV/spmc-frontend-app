@@ -1187,36 +1187,64 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Profile settings',
-                    style: Theme.of(context).textTheme.displayLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Manage your personal details and duty schedule',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.textSecondaryColor,
+          isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Profile settings',
+                      style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 24),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Manage your personal details and duty schedule',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => setState(() => _isEditingProfile = true),
+                      icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
+                      label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
+                      style: AppTheme.primaryButton.copyWith(
+                        backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
+                        minimumSize: MaterialStateProperty.all(const Size(double.infinity, 44)),
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Profile settings',
+                          style: Theme.of(context).textTheme.displayLarge,
                         ),
-                  ),
-                ],
-              ),
-              ElevatedButton.icon(
-                onPressed: () => setState(() => _isEditingProfile = true),
-                icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
-                label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
-                style: AppTheme.primaryButton.copyWith(
-                  backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
-                  minimumSize: MaterialStateProperty.all(const Size(0, 48)),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Manage your personal details and duty schedule',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                        ),
+                      ],
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => setState(() => _isEditingProfile = true),
+                      icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
+                      label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
+                      style: AppTheme.primaryButton.copyWith(
+                        backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
+                        minimumSize: MaterialStateProperty.all(const Size(0, 48)),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
           const SizedBox(height: 32),
           Container(
             padding: const EdgeInsets.all(AppTheme.paddingLarge),

@@ -78,14 +78,18 @@ class _StatCardState extends State<StatCard> {
                   ),
                   child: Icon(widget.icon, color: widget.color, size: 20),
                 ),
-                Text(
-                  widget.subLabel,
-                  style: TextStyle(
-                    color: widget.subLabel.startsWith('+')
-                        ? AppTheme.successColor
-                        : widget.color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                Flexible(
+                  child: Text(
+                    widget.subLabel,
+                    style: TextStyle(
+                      color: widget.subLabel.startsWith('+')
+                          ? AppTheme.successColor
+                          : widget.color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
               ],
