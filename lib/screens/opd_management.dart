@@ -1945,9 +1945,63 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   }
 
   Widget _buildConsultationSummary(Map<String, dynamic> c) {
+    List? docsList;
+    final docs = c['documents'];
+    if (docs is List) {
+      docsList = docs;
+    } else if (docs is String && docs.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(docs);
+        if (decoded is List) docsList = decoded;
+      } catch (_) {}
+    }
+
+    final ref = c['referral'];
+    Map? refMap;
+    if (ref is Map) {
+      refMap = ref;
+    } else if (ref is String && ref.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(ref);
+        if (decoded is Map) refMap = decoded;
+      } catch (_) {}
+    }
+
+    List medsList = [];
+    if (c['medications'] != null) {
+      if (c['medications'] is String) {
+        try {
+          final decoded = jsonDecode(c['medications']);
+          if (decoded is List) medsList = decoded;
+        } catch (_) {}
+      } else if (c['medications'] is List) {
+        medsList = c['medications'];
+      }
+    }
+
+    List labsList = [];
+    if (c['lab_tests'] != null) {
+      if (c['lab_tests'] is String) {
+        try {
+          final decoded = jsonDecode(c['lab_tests']);
+          if (decoded is List) labsList = decoded;
+        } catch (_) {}
+      } else if (c['lab_tests'] is List) {
+        labsList = c['lab_tests'];
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (c['doctor_name'] != null && c['doctor_name'].toString().isNotEmpty) ...[
+          const Text(
+            'Doctor:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['doctor_name'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
         if (c['symptoms'] != null && c['symptoms'].toString().isNotEmpty) ...[
           const Text(
             'Subjective Symptoms:',
@@ -1964,15 +2018,102 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           Text(c['diagnosis'].toString(), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
         ],
-        if (c['notes'] != null && c['notes'].toString().isNotEmpty) ...[
+        if (c['history'] != null && c['history'].toString().isNotEmpty) ...[
           const Text(
-            'Doctor\'s Notes:',
+            'Clinical History:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
-          Text(c['notes'].toString(), style: const TextStyle(fontSize: 13)),
+          Text(c['history'].toString(), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
         ],
-        if (c['medications'] != null) ...[
+        if (c['examination'] != null && c['examination'].toString().isNotEmpty) ...[
+          const Text(
+            'Physical Examination:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['examination'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (c['family_history'] != null && c['family_history'].toString().isNotEmpty) ...[
+          const Text(
+            'Family History:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['family_history'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (c['social'] != null && c['social'].toString().isNotEmpty) ...[
+          const Text(
+            'Social History:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['social'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (c['allergy'] != null && c['allergy'].toString().isNotEmpty) ...[
+          const Text(
+            'Allergies:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['allergy'].toString(), style: const TextStyle(fontSize: 13, color: Colors.red)),
+          const SizedBox(height: 8),
+        ],
+        if (c['procedure'] != null && c['procedure'].toString().isNotEmpty) ...[
+          const Text(
+            'Procedures:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['procedure'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (refMap != null &&
+            ((refMap['referred_doctor']?.toString().isNotEmpty ?? false) ||
+             (refMap['referred_department']?.toString().isNotEmpty ?? false))) ...[
+          const Text(
+            'Referral Details:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(
+            'To Doctor: ${refMap['referred_doctor'] ?? 'N/A'} • Dept: ${refMap['referred_department'] ?? 'N/A'}\nNotes: ${refMap['referral_notes'] ?? ''}',
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (docsList != null && docsList.isNotEmpty) ...[
+          const Text(
+            'Attached Documents:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          ...docsList.map((d) {
+            if (d is Map) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  border: Border.all(color: Colors.grey.shade200),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.picture_as_pdf, size: 14, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${d['title']} (${d['file_name']})',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          }).toList(),
+          const SizedBox(height: 8),
+        ],
+        if (medsList.isNotEmpty) ...[
           const Text(
             'Prescribed Medications:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
@@ -1980,7 +2121,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           const SizedBox(height: 4),
           _buildMedicationList(c['medications']),
         ],
-        if (c['lab_tests'] != null) ...[
+        if (labsList.isNotEmpty) ...[
           const SizedBox(height: 8),
           const Text(
             'Ordered Lab Tests:',
@@ -1988,6 +2129,22 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           ),
           const SizedBox(height: 4),
           _buildLabTestsList(c['lab_tests']),
+        ],
+        if (c['comment'] != null && c['comment'].toString().isNotEmpty) ...[
+          const Text(
+            'Comments / General Remarks:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['comment'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (c['notes'] != null && c['notes'].toString().isNotEmpty) ...[
+          const Text(
+            'Doctor\'s Advice / Follow-up Notes:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['notes'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
         ],
         if (c['pharmacy_status'] != null) ...[
           const SizedBox(height: 12),

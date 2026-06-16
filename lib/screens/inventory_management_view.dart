@@ -94,6 +94,12 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (dialogCtx, setD) {
+          final selectedCatalogItem = catalog.firstWhere(
+            (m) => m['name'] == nameCtrl.text,
+            orElse: () => {},
+          );
+          final bool isCatalogItemControlled = selectedCatalogItem['is_controlled'] == true;
+
           final Widget qtyField = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -382,28 +388,30 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                                 ],
                               ),
                       ),
-                      const SizedBox(height: 12),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: CheckboxListTile(
-                          activeColor: AppTheme.primaryColor,
-                          title: const Text(
-                            'Controlled Pharmaceutical Substance?',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                      if (isCatalogItemControlled) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          subtitle: const Text(
-                            'Requires secure logging and validation when dispensing.',
-                            style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                          child: CheckboxListTile(
+                            activeColor: AppTheme.primaryColor,
+                            title: const Text(
+                              'Controlled Pharmaceutical Substance?',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                            ),
+                            subtitle: const Text(
+                              'Requires secure logging and validation when dispensing.',
+                              style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                            ),
+                            value: isControlled,
+                            onChanged: (val) {
+                              if (val != null) setD(() => isControlled = val);
+                            },
                           ),
-                          value: isControlled,
-                          onChanged: (val) {
-                            if (val != null) setD(() => isControlled = val);
-                          },
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -798,54 +806,24 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SizedBox(
-                                          width: 80,
-                                          child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(4),
-                                            child: LinearProgressIndicator(
-                                              value: progress,
-                                              minHeight: 5,
-                                              backgroundColor: Colors.grey.shade100,
-                                              valueColor: AlwaysStoppedAnimation<Color>(
-                                                isLow ? AppTheme.dangerColor : AppTheme.successColor,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          '${(progress * 100).toInt()}%',
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w800,
-                                            color: isLow ? AppTheme.dangerColor : AppTheme.successColor,
-                                          ),
-                                        ),
-                                      ],
+                                    Text(
+                                      'Min: $thresholdVal • Target: ${(thresholdVal * 2.5).toInt()}',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade600,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                     const SizedBox(height: 4),
-                                    if (isLow)
-                                      Text(
-                                        'LOW STOCK (Min: $thresholdVal)',
-                                        style: const TextStyle(
-                                          color: AppTheme.dangerColor,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 0.2,
-                                        ),
-                                      )
-                                    else
-                                      Text(
-                                        'Optimal Stock',
-                                        style: const TextStyle(
-                                          color: AppTheme.successColor,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                    Text(
+                                      isLow ? 'LOW STOCK' : 'Optimal Stock',
+                                      style: TextStyle(
+                                        color: isLow ? AppTheme.dangerColor : AppTheme.successColor,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.2,
                                       ),
+                                    ),
                                   ],
                                 ),
                               ],
@@ -947,55 +925,24 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                                   ],
                                 ),
                                 const SizedBox(height: 6),
-                                // Progress bar visual representation of stock
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      width: 100,
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: LinearProgressIndicator(
-                                          value: progress,
-                                          minHeight: 5,
-                                          backgroundColor: Colors.grey.shade100,
-                                          valueColor: AlwaysStoppedAnimation<Color>(
-                                            isLow ? AppTheme.dangerColor : AppTheme.successColor,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${(progress * 100).toInt()}%',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w800,
-                                        color: isLow ? AppTheme.dangerColor : AppTheme.successColor,
-                                      ),
-                                    ),
-                                  ],
+                                Text(
+                                  'Min Threshold: $thresholdVal • Target: ${(thresholdVal * 2.5).toInt()}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
-                                if (isLow)
-                                  Text(
-                                    'LOW STOCK (Min: $thresholdVal)',
-                                    style: const TextStyle(
-                                      color: AppTheme.dangerColor,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.2,
-                                    ),
-                                  )
-                                else
-                                  Text(
-                                    'Optimal Stock',
-                                    style: const TextStyle(
-                                      color: AppTheme.successColor,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                Text(
+                                  isLow ? 'LOW STOCK' : 'Optimal Stock',
+                                  style: TextStyle(
+                                    color: isLow ? AppTheme.dangerColor : AppTheme.successColor,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.2,
                                   ),
+                                ),
                               ],
                             ),
                           ],

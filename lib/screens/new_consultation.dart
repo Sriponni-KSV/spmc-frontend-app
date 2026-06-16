@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../models/appointment_model.dart';
+import '../models/user_model.dart';
 import '../controllers/patient_controller.dart';
 import '../controllers/appointment_controller.dart';
 import '../controllers/ipd_controller.dart';
+import '../controllers/admin_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -55,9 +57,35 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   final List<String> _customLabs = [];
   final TextEditingController _customLabController = TextEditingController();
 
+  // New Controllers
+  final TextEditingController _historyController = TextEditingController();
+  final TextEditingController _examinationController = TextEditingController();
+  final TextEditingController _familyHistoryController = TextEditingController();
+  final TextEditingController _socialHistoryController = TextEditingController();
+  final TextEditingController _commentController = TextEditingController();
+  final TextEditingController _procedureController = TextEditingController();
+  final TextEditingController _allergyController = TextEditingController();
+
+  // Referral Controllers
+  final TextEditingController _referredDoctorController = TextEditingController();
+  final TextEditingController _referredDeptController = TextEditingController();
+  final TextEditingController _referralNotesController = TextEditingController();
+
+  // Document attachments list
+  final List<Map<String, String>> _documents = [];
+  final TextEditingController _docTitleController = TextEditingController();
+  final TextEditingController _docFileNameController = TextEditingController();
+
+
   final PatientController _patientController = PatientController();
   final AppointmentController _appointmentController = AppointmentController();
   final IpdController _ipdController = IpdController();
+  final AdminController _adminController = AdminController();
+
+  List<UserModel> _rawDoctors = [];
+  List<String> _doctorsList = [];
+  List<String> _departmentsList = [];
+  bool _isLoadingReferralData = false;
 
   late AppointmentModel _currentAppointment;
   bool _isLoadingVitals = true;
@@ -76,6 +104,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     _fetchPreviousConsultations();
     _initializeData();
     _loadMedicineCatalog();
+    _loadReferralDropdowns();
   }
 
   Future<void> _loadMedicineCatalog() async {
@@ -94,11 +123,94 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     }
   }
 
+  Future<void> _loadReferralDropdowns() async {
+    setState(() {
+      _isLoadingReferralData = true;
+    });
+    try {
+      final doctors = await _adminController.fetchStaff(role: 'Doctor');
+      final specs = await _adminController.fetchSpecializations();
+      if (mounted) {
+        setState(() {
+          _rawDoctors = doctors
+              .where((d) => d.status.toLowerCase() == 'active' && !d.isDeleted)
+              .toList();
+          _doctorsList = _rawDoctors
+              .map((d) => d.fullname)
+              .toList();
+          _departmentsList = specs
+              .map((s) => s['name'].toString())
+              .toList();
+          _isLoadingReferralData = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading referral dropdown data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingReferralData = false;
+        });
+      }
+    }
+  }
+
   void _initializeData() {
     if (widget.initialConsultation != null) {
       _symptomsController.text = widget.initialConsultation!['symptoms'] ?? '';
       _diagnosisController.text = widget.initialConsultation!['diagnosis'] ?? '';
       _notesController.text = widget.initialConsultation!['notes'] ?? '';
+      
+      _historyController.text = widget.initialConsultation!['history'] ?? '';
+      _examinationController.text = widget.initialConsultation!['examination'] ?? '';
+      _familyHistoryController.text = widget.initialConsultation!['family_history'] ?? '';
+      _socialHistoryController.text = widget.initialConsultation!['social'] ?? '';
+      _commentController.text = widget.initialConsultation!['comment'] ?? '';
+      _procedureController.text = widget.initialConsultation!['procedure'] ?? '';
+      _allergyController.text = widget.initialConsultation!['allergy'] ?? '';
+
+      final ref = widget.initialConsultation!['referral'];
+      if (ref is Map) {
+        _referredDoctorController.text = ref['referred_doctor']?.toString() ?? '';
+        _referredDeptController.text = ref['referred_department']?.toString() ?? '';
+        _referralNotesController.text = ref['referral_notes']?.toString() ?? '';
+      } else if (ref is String && ref.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(ref);
+          if (decoded is Map) {
+            _referredDoctorController.text = decoded['referred_doctor']?.toString() ?? '';
+            _referredDeptController.text = decoded['referred_department']?.toString() ?? '';
+            _referralNotesController.text = decoded['referral_notes']?.toString() ?? '';
+          }
+        } catch (_) {}
+      }
+
+      final docs = widget.initialConsultation!['documents'];
+      if (docs is List) {
+        for (var d in docs) {
+          if (d is Map) {
+            _documents.add({
+              'title': d['title']?.toString() ?? '',
+              'file_name': d['file_name']?.toString() ?? '',
+              'date': d['date']?.toString() ?? '',
+            });
+          }
+        }
+      } else if (docs is String && docs.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(docs);
+          if (decoded is List) {
+            for (var d in decoded) {
+              if (d is Map) {
+                _documents.add({
+                  'title': d['title']?.toString() ?? '',
+                  'file_name': d['file_name']?.toString() ?? '',
+                  'date': d['date']?.toString() ?? '',
+                });
+              }
+            }
+          }
+        } catch (_) {}
+      }
       
       final meds = widget.initialConsultation!['medications'];
       if (meds is List) {
@@ -472,6 +584,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               actions: [
                 OutlinedButton(
                   onPressed: () => Navigator.pop(ctx),
+                  style: AppTheme.cancelButton,
                   child: const Text('Cancel'),
                 ),
                 StatefulBuilder(
@@ -486,8 +599,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                       style: const TextStyle(color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      minimumSize: const Size(140, 44),
+                      backgroundColor: AppTheme.dangerColor,
+                      minimumSize: const Size(130, 48),
                     ),
                     onPressed: isSubmitting
                         ? null
@@ -824,6 +937,11 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                     childrenPadding: const EdgeInsets.all(10),
                     expandedCrossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (hist['doctor_name'] != null && hist['doctor_name'].toString().isNotEmpty) ...[
+                        const Text('Doctor:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                        Text(hist['doctor_name'].toString(), style: const TextStyle(fontSize: 12)),
+                        const SizedBox(height: 6),
+                      ],
                       if (hist['symptoms'] != null && hist['symptoms'].toString().isNotEmpty) ...[
                         const Text('Symptoms:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                         Text(hist['symptoms'].toString(), style: const TextStyle(fontSize: 12)),
@@ -845,7 +963,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   Future<void> _saveConsultation() async {
     if (!_formKey.currentState!.validate()) {
-      setState(() => _currentStep = 0);
       return;
     }
     setState(() => _isSaving = true);
@@ -864,6 +981,19 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         'lab_tests': finalLabs,
         'pharmacy_status': _medications.isNotEmpty ? 'Notified' : 'Pending',
         'notes': finalNotes,
+        'history': _historyController.text.trim(),
+        'examination': _examinationController.text.trim(),
+        'family_history': _familyHistoryController.text.trim(),
+        'social': _socialHistoryController.text.trim(),
+        'comment': _commentController.text.trim(),
+        'procedure': _procedureController.text.trim(),
+        'allergy': _allergyController.text.trim(),
+        'referral': {
+          'referred_doctor': _referredDoctorController.text.trim(),
+          'referred_department': _referredDeptController.text.trim(),
+          'referral_notes': _referralNotesController.text.trim(),
+        },
+        'documents': _documents,
       };
 
       if (widget.initialConsultation != null) {
@@ -899,170 +1029,363 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     }
   }
 
-  Widget _buildConsultationForm() {
-    // Clamp the step to prevent bounds errors on hot reload state preservation
-    int safeStep = _currentStep;
-    if (safeStep < 0) safeStep = 0;
-    if (safeStep > 3) safeStep = 3;
-
+  Widget _buildSectionCard(String title, Widget content) {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        boxShadow: AppTheme.cardShadow,
       ),
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.light(primary: AppTheme.primaryColor),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryColor,
+            ),
+          ),
+          const Divider(height: 24),
+          content,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField(String label, TextEditingController controller, String hint) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black),
         ),
-        child: Stepper(
-          physics: const ClampingScrollPhysics(),
-          currentStep: safeStep,
-          onStepTapped: (step) => setState(() => _currentStep = step),
-          onStepContinue: () {
-            if (_currentStep < 3) {
-              setState(() => _currentStep += 1);
-            } else {
-              _saveConsultation();
-            }
-          },
-          onStepCancel: () {
-            if (_currentStep > 0) {
-              setState(() => _currentStep -= 1);
-            }
-          },
-          controlsBuilder: (BuildContext context, ControlsDetails details) {
-            final isLastStep = safeStep == 3;
-            return Container(
-              margin: const EdgeInsets.only(top: 24),
-              child: Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: _isSaving ? null : details.onStepContinue,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: _isSaving && isLastStep
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text(isLastStep ? (widget.initialConsultation != null ? 'Update Consultation' : 'Complete & Submit') : 'Continue', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                  ),
-                  const SizedBox(width: 12),
-                  if (_currentStep > 0)
-                    OutlinedButton(
-                      onPressed: _isSaving ? null : details.onStepCancel,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: const Text('Back', style: TextStyle(color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
-                    ),
-                ],
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: hint,
+            fillColor: AppTheme.backgroundColor,
+            filled: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConsultationForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionCard('1. Problem / Clinical Assessment', Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTextArea('Subjective Symptoms', _symptomsController, 'Describe clinical history, symptoms reported by patient...', required: true),
+            const SizedBox(height: 16),
+            _buildTextArea('Diagnosis / Impression', _diagnosisController, 'Enter the diagnostic decision or impression...', required: true),
+          ],
+        )),
+        const SizedBox(height: 16),
+        _buildSectionCard('2. Clinical History', _buildTextArea('Clinical History', _historyController, 'Enter clinical history, past medical history, surgery history...')),
+        const SizedBox(height: 16),
+        _buildSectionCard('3. Physical Examination', Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Recorded Vitals Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundColor,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.borderColor),
               ),
-            );
-          },
-          steps: [
-            Step(
-              title: const Text('Step 1: Clinical Assessment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
-              content: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Column(
                 children: [
-                  _buildTextArea('Subjective Symptoms', _symptomsController, 'Describe clinical history, symptoms reported by patient...', required: true),
-                  const SizedBox(height: 16),
-                  _buildTextArea('Diagnosis / Impression', _diagnosisController, 'Enter the diagnostic decision or impression...', required: true),
-                ],
-              ),
-              isActive: _currentStep >= 0,
-              state: _currentStep > 0 ? StepState.complete : StepState.editing,
-            ),
-            Step(
-              title: const Text('Step 2: Prescription Flow', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
-              subtitle: const Text('Automatically sent to Pharmacy upon submission', style: TextStyle(fontSize: 11, color: Color(0xFF0D9488), fontWeight: FontWeight.bold)),
-              content: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildMedicationInput(),
-                  const SizedBox(height: 12),
-                  _buildMedicationList(),
-                ],
-              ),
-              isActive: _currentStep >= 1,
-              state: _currentStep > 1 ? StepState.complete : StepState.editing,
-            ),
-            Step(
-              title: const Text('Step 3: Lab Orders', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
-              subtitle: const Text('Lab receives order directly upon submission', style: TextStyle(fontSize: 11, color: Color(0xFF0D9488), fontWeight: FontWeight.bold)),
-              content: _buildLabOrdersSection(),
-              isActive: _currentStep >= 2,
-              state: _currentStep > 2 ? StepState.complete : StepState.editing,
-            ),
-            Step(
-              title: const Text('Step 4: Finalize & Submit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
-              content: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTextArea('Additional Clinical Notes / Advice', _notesController, 'Internal advice, follow-up instructions, review notes...'),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Schedule Follow-Up Date',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black),
-                  ),
+                  _buildVitalRow('Blood Pressure', '${_currentAppointment.bloodPressureSystolic ?? '--'}/${_currentAppointment.bloodPressureDiastolic ?? '--'} mmHg', Icons.speed, Colors.blue.shade700),
                   const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: _followUpDate ?? DateTime.now().add(const Duration(days: 7)),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (picked != null) {
-                        setState(() => _followUpDate = picked);
+                  _buildVitalRow('Sugar Level', '${_currentAppointment.sugarLevel ?? '--'} mg/dL', Icons.bloodtype_outlined, Colors.red.shade700),
+                  const SizedBox(height: 8),
+                  _buildVitalRow('Temperature', '${_currentAppointment.temperature ?? '--'} °F', Icons.thermostat_outlined, Colors.orange.shade700),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildTextArea('Physical / Systemic Examination', _examinationController, 'Describe physical examination findings, general condition...'),
+          ],
+        )),
+        const SizedBox(height: 16),
+        _buildSectionCard('4. Family History', _buildTextArea('Family History', _familyHistoryController, 'Enter family medical history, chronic diseases in relatives...')),
+        const SizedBox(height: 16),
+        _buildSectionCard('5. Social History', _buildTextArea('Social History', _socialHistoryController, 'Enter social background, lifestyle, habits, occupation status...')),
+        const SizedBox(height: 16),
+        _buildSectionCard('6. Allergies', _buildTextArea('Patient Allergies', _allergyController, 'Describe drug allergies, food allergies, environmental/latex allergies...')),
+        const SizedBox(height: 16),
+        _buildSectionCard('7. Procedures', _buildTextArea('Procedure Details', _procedureController, 'Describe procedures performed or scheduled (e.g. sutures, dressings)...')),
+        const SizedBox(height: 16),
+        _buildSectionCard('8. Prescribed Medications', Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Prescription Flow', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+            const Text('Automatically sent to Pharmacy upon submission', style: TextStyle(fontSize: 11, color: Color(0xFF0D9488), fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            _buildMedicationInput(),
+            const SizedBox(height: 16),
+            _buildMedicationList(),
+          ],
+        )),
+        const SizedBox(height: 16),
+        _buildSectionCard('9. Test Request (Lab Orders)', Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Lab Orders', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+            const Text('Lab receives order directly upon submission', style: TextStyle(fontSize: 11, color: Color(0xFF0D9488), fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            _buildLabOrdersSection(),
+          ],
+        )),
+        const SizedBox(height: 16),
+        _buildSectionCard('10. Referral Details', Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Doctor / Department Referral', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+            const SizedBox(height: 16),
+            CustomDropdownSearch(
+              label: 'Referred Doctor Name',
+              hint: 'e.g. Dr. Gayathri',
+              value: _referredDoctorController.text.isEmpty ? null : _referredDoctorController.text,
+              dropdownItems: _doctorsList,
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    _referredDoctorController.text = val;
+                    final matchedDocs = _rawDoctors.where((d) => d.fullname == val).toList();
+                    if (matchedDocs.isNotEmpty) {
+                      final spec = matchedDocs.first.specialization;
+                      if (spec != null && spec.isNotEmpty) {
+                        _referredDeptController.text = spec;
                       }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.backgroundColor,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.borderColor),
+                    }
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            CustomDropdownSearch(
+              label: 'Referred Department',
+              hint: 'e.g. Cardiology, Paediatrics',
+              value: _referredDeptController.text.isEmpty ? null : _referredDeptController.text,
+              dropdownItems: _departmentsList,
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    _referredDeptController.text = val;
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildTextArea('Referral Reason & Clinical Notes', _referralNotesController, 'Provide details for the receiving doctor...'),
+          ],
+        )),
+        const SizedBox(height: 16),
+        _buildSectionCard('11. Document Attachments', Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Simulated Document Attachments', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+            const Text('Log and link patient diagnostic files, scan reports or external letters.', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundColor,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildSmallField('Document Title', _docTitleController, 'e.g. Chest X-Ray Report'),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 16, color: AppTheme.primaryColor),
-                          const SizedBox(width: 12),
-                          Text(
-                            _followUpDate == null
-                                ? 'Select Date (Optional)'
-                                : DateFormat('dd/MM/yyyy').format(_followUpDate!),
-                            style: TextStyle(
-                              color: _followUpDate == null ? AppTheme.textSecondaryColor : Colors.black,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const Spacer(),
-                          if (_followUpDate != null)
-                            IconButton(
-                              icon: const Icon(Icons.clear, size: 16, color: Colors.red),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () {
-                                setState(() => _followUpDate = null);
-                              },
-                            ),
-                        ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildSmallField('File Name (Reference)', _docFileNameController, 'e.g. xray_150626.pdf'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (_docTitleController.text.trim().isEmpty) return;
+                        setState(() {
+                          _documents.add({
+                            'title': _docTitleController.text.trim(),
+                            'file_name': _docFileNameController.text.trim().isEmpty 
+                                ? 'attached_doc_${DateTime.now().millisecondsSinceEpoch}.pdf' 
+                                : _docFileNameController.text.trim(),
+                            'date': DateFormat('dd/MM/yyyy').format(DateTime.now()),
+                          });
+                          _docTitleController.clear();
+                          _docFileNameController.clear();
+                        });
+                      },
+                      icon: const Icon(Icons.add_to_photos_outlined, size: 16, color: Colors.white),
+                      label: const Text('Add Document Reference', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.secondaryColor,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                       ),
                     ),
                   ),
                 ],
               ),
-              isActive: _currentStep >= 3,
-              state: _currentStep == 3 ? StepState.editing : StepState.indexed,
+            ),
+            const SizedBox(height: 16),
+            if (_documents.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('No documents reference attached yet.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _documents.length,
+                itemBuilder: (context, idx) {
+                  final doc = _documents[idx];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.borderColor),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.picture_as_pdf, color: Colors.red, size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(doc['title']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              Text('${doc['file_name']} • Attached on: ${doc['date']}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                          onPressed: () => setState(() => _documents.removeAt(idx)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+          ],
+        )),
+        const SizedBox(height: 16),
+        _buildSectionCard('12. Follow-Up Schedule', Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTextArea('Additional Follow-Up Advice / Instructions', _notesController, 'Specific follow-up instruction notes...'),
+            const SizedBox(height: 20),
+            const Text(
+              'Schedule Follow-Up Date',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black),
+            ),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _followUpDate ?? DateTime.now().add(const Duration(days: 7)),
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (picked != null) {
+                  setState(() => _followUpDate = picked);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 16, color: AppTheme.primaryColor),
+                    const SizedBox(width: 12),
+                    Text(
+                      _followUpDate == null
+                          ? 'Select Date (Optional)'
+                          : DateFormat('dd/MM/yyyy').format(_followUpDate!),
+                      style: TextStyle(
+                        color: _followUpDate == null ? AppTheme.textSecondaryColor : Colors.black,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_followUpDate != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 16, color: Colors.red),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          setState(() => _followUpDate = null);
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        )),
+        const SizedBox(height: 16),
+        _buildSectionCard('13. Comments & Remarks', _buildTextArea('Comments / General Remarks', _commentController, 'Enter general remarks, advice notes...')),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            OutlinedButton(
+              onPressed: widget.onBack,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Cancel / Back', style: TextStyle(color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 16),
+            ElevatedButton(
+              onPressed: _isSaving ? null : _saveConsultation,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.logoRed,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: _isSaving
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text(widget.initialConsultation != null ? 'Update & Save' : 'Complete & Submit', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 
@@ -1267,6 +1590,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               ),
               const Divider(height: 20),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
                     child: _buildSmallField('Other Custom Lab Test', _customLabController, 'e.g. Liver Function Test (LFT)'),
@@ -1283,6 +1607,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       backgroundColor: AppTheme.secondaryColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
                     child: const Text('Add Test', style: TextStyle(color: Colors.white, fontSize: 12)),
                   ),

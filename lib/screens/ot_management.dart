@@ -307,50 +307,25 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         _anaesthetists = results[3] as List<UserModel>;
         _nurses = results[4] as List<UserModel>;
 
-        if (fetchedCases.isEmpty && _patients.isNotEmpty) {
-          // Seed DB with mock cases dynamically mapped to loaded patients/doctors
-          await _seedMockCasesToDatabase();
-          final refetched = await _otController.fetchOtCases();
-          setState(() {
-            _otCases = refetched;
-            if (widget.initialSelectedCase != null) {
-              final match = refetched.firstWhere(
-                (c) => c.dbId == widget.initialSelectedCase!.dbId,
-                orElse: () => refetched.firstWhere(
-                  (c) => c.id == widget.initialSelectedCase!.id,
-                  orElse: () => null as dynamic,
-                ),
-              );
-              if (match != null) {
-                _selectedCase = match;
-                _populateControllersForCase(match);
-                _activeTab = widget.initialTab ?? 1;
-              }
-            } else {
-              _selectedCase = null;
+        setState(() {
+          _otCases = fetchedCases;
+          if (widget.initialSelectedCase != null) {
+            final match = fetchedCases.firstWhere(
+              (c) => c.dbId == widget.initialSelectedCase!.dbId,
+              orElse: () => fetchedCases.firstWhere(
+                (c) => c.id == widget.initialSelectedCase!.id,
+                orElse: () => null as dynamic,
+              ),
+            );
+            if (match != null) {
+              _selectedCase = match;
+              _populateControllersForCase(match);
+              _activeTab = widget.initialTab ?? 1;
             }
-          });
-        } else {
-          setState(() {
-            _otCases = fetchedCases;
-            if (widget.initialSelectedCase != null) {
-              final match = fetchedCases.firstWhere(
-                (c) => c.dbId == widget.initialSelectedCase!.dbId,
-                orElse: () => fetchedCases.firstWhere(
-                  (c) => c.id == widget.initialSelectedCase!.id,
-                  orElse: () => null as dynamic,
-                ),
-              );
-              if (match != null) {
-                _selectedCase = match;
-                _populateControllersForCase(match);
-                _activeTab = widget.initialTab ?? 1;
-              }
-            } else {
-              _selectedCase = null;
-            }
-          });
-        }
+          } else {
+            _selectedCase = null;
+          }
+        });
         setState(() {
           _isLoadingPatients = false;
           _isLoadingDoctors = false;
@@ -371,157 +346,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     }
   }
 
-  Future<void> _seedMockCasesToDatabase() async {
-    if (_patients.isEmpty) return;
-    try {
-      final String baseUrl = dotenv.env['BASE_URL']!;
-      final mockData = [
-        {
-          'diagnosis': 'Chronic Calculous Cholecystitis',
-          'surgery_type': 'Laparoscopic Cholecystectomy',
-          'priority': 'Elective',
-          'surgeon': 'Dr. Vikram Sen',
-          'anaesthetist': 'Dr. Rajesh Shah',
-          'remarks': 'Patient has stable vitals. Scheduled for elective gallbladder removal.',
-          'status': 'OT Requested',
-          'audit_logs': [
-            {
-              'actorName': 'Dr. Vikram Sen',
-              'role': 'Surgeon',
-              'timestamp': DateTime.now().subtract(const Duration(hours: 3)).toIso8601String(),
-              'action': 'Created Surgery Request: Laparoscopic Cholecystectomy (Priority: Elective).',
-            }
-          ]
-        },
-        {
-          'diagnosis': 'Acute Appendicitis',
-          'surgery_type': 'Appendectomy',
-          'priority': 'Emergency',
-          'surgeon': 'Dr. Vikram Sen',
-          'anaesthetist': 'Dr. Sunita Mehta',
-          'remarks': 'Acute symptoms. Immediate surgery requested.',
-          'status': 'Pre-Op Completed',
-          'ot_room': 'OT 2',
-          'surgery_slot': '10:30 AM - 12:00 PM',
-          'nursing_team': 'Nursing Team B (Nurse Maria, Nurse Kevin)',
-          'id_verified': true,
-          'consent_signed': true,
-          'fasting_confirmed': true,
-          'lab_verified': true,
-          'blood_available': true,
-          'pre_op_bp': '118/75',
-          'pre_op_pulse': 82,
-          'pre_op_temp': 99.1,
-          'pre_op_spo2': 98,
-          'audit_logs': [
-            {
-              'actorName': 'Dr. Vikram Sen',
-              'role': 'Surgeon',
-              'timestamp': DateTime.now().subtract(const Duration(hours: 5)).toIso8601String(),
-              'action': 'Created Emergency Surgery Request for Appendectomy.',
-            },
-            {
-              'actorName': 'Nurse Maria',
-              'role': 'Nurse Coordinator',
-              'timestamp': DateTime.now().subtract(const Duration(hours: 4)).toIso8601String(),
-              'action': 'Scheduled OT 2 and slot 10:30 AM - 12:00 PM.',
-            },
-            {
-              'actorName': 'Nurse Kevin',
-              'role': 'Pre-Op Nurse',
-              'timestamp': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
-              'action': 'Completed pre-operative checklist and recorded vitals. Patient ready for transfer.',
-            }
-          ]
-        },
-        {
-          'diagnosis': 'Triple Vessel Coronary Artery Disease',
-          'surgery_type': 'CABG (Heart Bypass)',
-          'priority': 'Elective',
-          'surgeon': 'Dr. Sanjay Gupta',
-          'anaesthetist': 'Dr. Sunita Mehta',
-          'remarks': 'Double check heparin availability.',
-          'status': 'Patient In OT',
-          'ot_room': 'OT 1',
-          'surgery_slot': '08:00 AM - 12:00 PM',
-          'nursing_team': 'Cardiac Nurse Team (Nurse Albert, Nurse Stella)',
-          'id_verified': true,
-          'consent_signed': true,
-          'fasting_confirmed': true,
-          'lab_verified': true,
-          'blood_available': true,
-          'pre_op_bp': '130/82',
-          'pre_op_pulse': 68,
-          'pre_op_temp': 98.4,
-          'pre_op_spo2': 97,
-          'anaesthesia_notes': 'Patient cleared. No difficult airway predicted.',
-          'anaesthesia_type': 'General Anaesthesia',
-          'anaesthesia_cleared': true,
-          'patient_arrived': true,
-          'handover_verified': true,
-          'handover_notes': 'All parameters stable. Skin prep complete.',
-          'audit_logs': [
-            {'actorName': 'Dr. Sanjay Gupta', 'role': 'Surgeon', 'timestamp': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(), 'action': 'Scheduled Elective CABG.'},
-            {'actorName': 'Nurse Stella', 'role': 'OT Coordinator', 'timestamp': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(), 'action': 'Allocated OT 1.'},
-            {'actorName': 'Nurse Stella', 'role': 'Pre-Op Nurse', 'timestamp': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(), 'action': 'Completed pre-op verification.'},
-            {'actorName': 'Dr. Sunita Mehta', 'role': 'Anaesthetist', 'timestamp': DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(), 'action': 'Completed assessment and cleared patient under General Anaesthesia.'},
-            {'actorName': 'Nurse Albert', 'role': 'OT Nurse', 'timestamp': DateTime.now().subtract(const Duration(minutes: 20)).toIso8601String(), 'action': 'Verified handover checklist and confirmed patient arrival in OT 1.'},
-          ]
-        }
-      ];
 
-      for (int i = 0; i < mockData.length; i++) {
-        final data = mockData[i];
-        final realPatient = _patients[i % _patients.length];
-        
-        final requestBody = {
-          'patient_id': realPatient.id,
-          'diagnosis': data['diagnosis'],
-          'surgery_type': data['surgery_type'],
-          'priority': data['priority'],
-          'surgery_date_time': DateTime.now().add(Duration(days: i + 1)).toIso8601String(),
-          'surgeon': _doctors.isNotEmpty ? _doctors[i % _doctors.length].fullname : data['surgeon'],
-          'anaesthetist': _doctors.isNotEmpty ? _doctors[(i + 1) % _doctors.length].fullname : data['anaesthetist'],
-          'remarks': data['remarks'],
-          'audit_logs': data['audit_logs'],
-        };
-        
-        final response = await ApiService.post('$baseUrl/ot/cases', requestBody);
-        if (response.statusCode == 201) {
-          final createdJson = jsonDecode(response.body)['data'];
-          final dbId = createdJson['id'];
-          
-          if (data['status'] != 'OT Requested') {
-            final Map<String, dynamic> updateFields = {
-              'status': data['status'],
-              'ot_room': data['ot_room'],
-              'surgery_slot': data['surgery_slot'],
-              'nursing_team': data['nursing_team'],
-              'id_verified': data['id_verified'] ?? false,
-              'consent_signed': data['consent_signed'] ?? false,
-              'fasting_confirmed': data['fasting_confirmed'] ?? false,
-              'lab_verified': data['lab_verified'] ?? false,
-              'blood_available': data['blood_available'] ?? false,
-              'pre_op_bp': data['pre_op_bp'],
-              'pre_op_pulse': data['pre_op_pulse'],
-              'pre_op_temp': data['pre_op_temp'],
-              'pre_op_spo2': data['pre_op_spo2'],
-              'anaesthesia_notes': data['anaesthesia_notes'],
-              'anaesthesia_type': data['anaesthesia_type'],
-              'anaesthesia_cleared': data['anaesthesia_cleared'] ?? false,
-              'patient_arrived': data['patient_arrived'] ?? false,
-              'handover_verified': data['handover_verified'] ?? false,
-              'handover_notes': data['handover_notes'],
-            };
-            
-            await _otController.updateOtCase(dbId, updateFields);
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Failed to seed database mock cases: $e');
-    }
-  }
 
   Map<String, dynamic> parseAnaesthesiaNotes(String? notes) {
     if (notes == null || notes.isEmpty) {
@@ -5635,7 +5460,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
                 dropdownItems: _doctors.isNotEmpty
                     ? _doctors.map((d) => d.fullname).toList()
-                    : const ['Dr. Vikram Sen', 'Dr. Rajesh Shah', 'Dr. Sanjay Gupta', 'Dr. Amit Singhal', 'Dr. Sunita Mehta'],
+                    : const [],
                 onChanged: (val) {
                   if (val != null) {
                     setState(() {
@@ -5658,7 +5483,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
                 dropdownItems: _anaesthetists.isNotEmpty
                     ? _anaesthetists.map((d) => d.fullname).toList()
-                    : const ['Dr. Vikram Sen', 'Dr. Rajesh Shah', 'Dr. Sanjay Gupta', 'Dr. Amit Singhal', 'Dr. Sunita Mehta'],
+                    : const [],
                 onChanged: (val) {
                   if (val != null) {
                     setState(() {
@@ -5684,7 +5509,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
                       dropdownItems: _doctors.isNotEmpty
                           ? _doctors.map((d) => d.fullname).toList()
-                          : const ['Dr. Vikram Sen', 'Dr. Rajesh Shah', 'Dr. Sanjay Gupta', 'Dr. Amit Singhal', 'Dr. Sunita Mehta'],
+                          : const [],
                       onChanged: (val) {
                         if (val != null) {
                           setState(() {
@@ -5709,7 +5534,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
                       dropdownItems: _anaesthetists.isNotEmpty
                           ? _anaesthetists.map((d) => d.fullname).toList()
-                          : const ['Dr. Vikram Sen', 'Dr. Rajesh Shah', 'Dr. Sanjay Gupta', 'Dr. Amit Singhal', 'Dr. Sunita Mehta'],
+                          : const [],
                       onChanged: (val) {
                         if (val != null) {
                           setState(() {

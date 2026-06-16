@@ -416,22 +416,16 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
           Icons.pending_actions_outlined, const Color(0xFFF59E0B), 'Awaiting dispensing'),
       _StatCard('Dispensed Today', '${_stats['dispensed_today'] ?? 0}',
           Icons.check_circle_outline, const Color(0xFF16A34A), 'Completed today'),
-      _StatCard('Low Stock', '${_stats['low_stock_count'] ?? 0}',
-          Icons.inventory_2_outlined, const Color(0xFFDC2626), 'Items below threshold'),
-      _StatCard('Expiring Soon', '${_stats['expiring_count'] ?? 0}',
-          Icons.event_busy_outlined, const Color(0xFFEA580C), 'Within 30 days'),
-      _StatCard('Controlled Drugs', '${_stats['controlled_drug_count'] ?? 0}',
-          Icons.lock_outlined, const Color(0xFF7C3AED), 'Secured & logged'),
     ];
 
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: widget.isMobile ? 2 : 3,
+        crossAxisCount: widget.isMobile ? 1 : 3,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: widget.isMobile ? 2.2 : 2.6,
+        childAspectRatio: widget.isMobile ? 3.0 : 2.6,
       ),
       itemCount: cards.length,
       itemBuilder: (_, i) => _buildStatCard(cards[i]),

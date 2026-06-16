@@ -864,7 +864,7 @@ class _ICUManagementViewState extends State<ICUManagementView> {
 
                   String dateStr = '';
                   try {
-                    final date = DateTime.parse(alert['updated_at'] ?? alert['created_at']);
+                    final date = DateTime.parse(alert['updated_at'] ?? alert['created_at']).toLocal();
                     dateStr = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
                   } catch (e) {
                     dateStr = '--:--';

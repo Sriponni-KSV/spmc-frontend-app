@@ -3080,9 +3080,75 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     if (confirm != true) return;
 
-    // 3. Shuffle the nurse IDs
-    final List<int> nurseIds = activeSlots.map((s) => s['nurse_id'] as int).toList();
-    nurseIds.shuffle();
+    // 3. Create a pool of unique nurse IDs to assign to the active slots
+    // We prioritize the nurse IDs that are already active this week
+    final List<int> activeNurseIds = activeSlots.map((s) => s['nurse_id'] as int).toSet().toList();
+    final List<int> targetNurseIds = [...activeNurseIds];
+
+    // If we have fewer unique active nurses than active slots, backfill from the general nurses pool
+    if (targetNurseIds.length < activeSlots.length) {
+      for (final nurse in _nurses) {
+        if (!targetNurseIds.contains(nurse.id)) {
+          targetNurseIds.add(nurse.id);
+        }
+        if (targetNurseIds.length >= activeSlots.length) {
+          break;
+        }
+      }
+    }
+
+    // If we STILL don't have enough unique nurses (extreme nurse shortage), repeat the pool
+    while (targetNurseIds.length < activeSlots.length) {
+      targetNurseIds.addAll(activeNurseIds);
+    }
+    
+    final List<int> finalNurseIds = targetNurseIds.sublist(0, activeSlots.length);
+
+    // Helper to verify if a nurse is assigned to continuous shifts or duplicates on the same shift
+    bool areShiftsContinuous(Map<String, dynamic> s1, Map<String, dynamic> s2) {
+      final end1 = s1['end_time']?.toString().trim();
+      final start1 = s1['start_time']?.toString().trim();
+      final end2 = s2['end_time']?.toString().trim();
+      final start2 = s2['start_time']?.toString().trim();
+
+      if (end1 == null || start1 == null || end2 == null || start2 == null) return false;
+
+      // Check if s1 ends when s2 starts, or s2 ends when s1 starts
+      return end1 == start2 || end2 == start1;
+    }
+
+    bool isValidRoster(List<int> list) {
+      final Map<int, List<Map<String, dynamic>>> nurseShifts = {};
+      for (int i = 0; i < list.length; i++) {
+        final nurseId = list[i];
+        final slot = activeSlots[i];
+        final shiftId = slot['shift_id'] as int;
+
+        final shiftDetail = _shifts.firstWhere((s) => s['id'] == shiftId, orElse: () => <String, dynamic>{});
+        if (shiftDetail.isEmpty) continue;
+
+        if (!nurseShifts.containsKey(nurseId)) {
+          nurseShifts[nurseId] = [];
+        }
+
+        for (final assignedShift in nurseShifts[nurseId]!) {
+          if (assignedShift['id'] == shiftId) return false;
+          if (areShiftsContinuous(assignedShift, shiftDetail)) return false;
+        }
+
+        nurseShifts[nurseId]!.add(shiftDetail);
+      }
+      return true;
+    }
+
+    bool foundValid = false;
+    for (int iter = 0; iter < 1000; iter++) {
+      finalNurseIds.shuffle();
+      if (isValidRoster(finalNurseIds)) {
+        foundValid = true;
+        break;
+      }
+    }
 
     // 4. Save slots for next week using the shuffled list
     final targetWeekStartStr = DateFormat('yyyy-MM-dd').format(nextWeekStart);
@@ -3093,7 +3159,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       int successCount = 0;
       for (int i = 0; i < activeSlots.length; i++) {
         final slot = activeSlots[i];
-        final nurseId = nurseIds[i];
+        final nurseId = finalNurseIds[i];
         await _shiftCtrl.saveRosterEntry(nurseId, slot['shift_id'], slot['ward'], targetWeekStartStr);
         successCount++;
       }
@@ -3117,140 +3183,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error shuffling roster: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingShifts = false);
-      }
-    }
-  }
-
-  Future<void> _autoShuffleFromPrevWeek() async {
-    final WARD_TYPES = ['General', 'ICU', 'Private', 'Semi-Private'];
-    final prevWeekStart = _selectedRosterWeekStart.subtract(const Duration(days: 7));
-    final prevWeekStartStr = DateFormat('yyyy-MM-dd').format(prevWeekStart);
-
-    setState(() => _isLoadingShifts = true);
-
-    try {
-      final prevRosters = await _shiftCtrl.fetchRosters(prevWeekStartStr);
-
-      if (prevRosters.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No allocations found in the previous week to shuffle from.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-        return;
-      }
-
-      List<Map<String, dynamic>> prevSlots = [];
-      for (final r in prevRosters) {
-        final ward = r['ward_type']?.toString();
-        final shiftId = r['shift_id'] as int?;
-        final nurseId = r['nurse_id'] as int?;
-        if (ward != null && shiftId != null && nurseId != null) {
-          final exists = prevSlots.any((s) => s['ward'] == ward && s['shift_id'] == shiftId);
-          if (!exists) {
-            prevSlots.add({
-              'ward': ward,
-              'shift_id': shiftId,
-              'nurse_id': nurseId,
-              'nurse_name': r['nurse_name'],
-            });
-          }
-        }
-      }
-
-      if (prevSlots.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No valid shift assignments found in the previous week.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-        return;
-      }
-
-      final currentWeekStartStr = DateFormat('dd MMM').format(_selectedRosterWeekStart);
-      final currentWeekEndStr = DateFormat('dd MMM yyyy').format(_selectedRosterWeekStart.add(const Duration(days: 6)));
-      final prevWeekStartStrDisplay = DateFormat('dd MMM').format(prevWeekStart);
-      final prevWeekEndStrDisplay = DateFormat('dd MMM yyyy').format(prevWeekStart.add(const Duration(days: 6)));
-
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              const Icon(Icons.shuffle_rounded, color: AppTheme.primaryColor),
-              const SizedBox(width: 10),
-              const Text('Shuffle & Allocate from Previous Week', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Text(
-            'This will automatically assign shifts for the current viewed week ($currentWeekStartStr - $currentWeekEndStr) '
-            'by shuffling the ${prevSlots.length} nurse assignments from the previous week ($prevWeekStartStrDisplay - $prevWeekEndStrDisplay).\n\n'
-            'Existing assignments in the current week will be overwritten.\n\n'
-            'Do you want to proceed?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Shuffle & Allocate'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirm != true) return;
-
-      final List<int> nurseIds = prevSlots.map((s) => s['nurse_id'] as int).toList();
-      nurseIds.shuffle();
-
-      final targetWeekStartStr = DateFormat('yyyy-MM-dd').format(_selectedRosterWeekStart);
-
-      int successCount = 0;
-      for (int i = 0; i < prevSlots.length; i++) {
-        final slot = prevSlots[i];
-        final nurseId = nurseIds[i];
-        await _shiftCtrl.saveRosterEntry(nurseId, slot['shift_id'], slot['ward'], targetWeekStartStr);
-        successCount++;
-      }
-
-      await _loadRosterData();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Successfully shuffled and allocated $successCount shifts from the previous week to the current week!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error allocating roster: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -3313,17 +3245,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            onPressed: _autoShuffleFromPrevWeek,
-                            icon: const Icon(Icons.shuffle_on_outlined, size: 14),
-                            label: const Text('Shuffle Prev Week', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.primaryColor,
-                              side: const BorderSide(color: AppTheme.borderColor),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
                           Container(
                             decoration: BoxDecoration(
                               color: const Color(0xFFF1F5F9),
@@ -3407,17 +3328,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
-                          OutlinedButton.icon(
-                            onPressed: _autoShuffleFromPrevWeek,
-                            icon: const Icon(Icons.shuffle_on_outlined, size: 14),
-                            label: const Text('Shuffle & Allocate from Prev Week', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.primaryColor,
-                              side: const BorderSide(color: AppTheme.borderColor),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
+
                           Container(
                             decoration: BoxDecoration(
                               color: const Color(0xFFF1F5F9),
@@ -3520,20 +3431,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                             const SizedBox(height: 8),
                             const Text(
-                              'Automatically shuffle the shift configurations from the previous week and allocate them to the current week.',
+                              'Please allocate shifts manually or navigate to the previous week to auto-shuffle slots into this week.',
                               style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
-                            ),
-                            const SizedBox(height: 12),
-                            ElevatedButton.icon(
-                              onPressed: _autoShuffleFromPrevWeek,
-                              icon: const Icon(Icons.shuffle_rounded, size: 14),
-                              label: const Text('Shuffle & Allocate Now', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryColor,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                padding: const EdgeInsets.symmetric(vertical: 10),
-                              ),
                             ),
                           ],
                         )
@@ -3551,22 +3450,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   ),
                                   SizedBox(height: 2),
                                   Text(
-                                    'Automatically shuffle the shift configurations from the previous week and allocate them to the current week.',
+                                    'Please allocate shifts manually or navigate to the previous week to auto-shuffle slots into this week.',
                                     style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
                                   ),
                                 ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            ElevatedButton.icon(
-                              onPressed: _autoShuffleFromPrevWeek,
-                              icon: const Icon(Icons.shuffle_rounded, size: 14),
-                              label: const Text('Shuffle & Allocate from Previous Week', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryColor,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               ),
                             ),
                           ],

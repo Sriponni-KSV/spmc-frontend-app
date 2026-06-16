@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -39,6 +40,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final FocusNode _mainFocusNode = FocusNode();
   AppointmentModel? _activeAppointment;
   bool _isEditingProfile = false;
+  String? _selectedPatientName;
+  String _selectedConsultationYearFilter = 'All';
+  String _consultationSearchQuery = '';
+  late TextEditingController _consultationSearchController;
   DoctorController get _doctorController => DoctorController();
   final OtController _otController = OtController();
   List<OtCase> _anaesthetistOtCases = [];
@@ -141,6 +146,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _consultationFeeController = TextEditingController(
       text: user?.consultationFee ?? '',
     );
+    _consultationSearchController = TextEditingController();
   }
 
   @override
@@ -163,6 +169,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _clinicNameController.dispose();
     _clinicLocationController.dispose();
     _consultationFeeController.dispose();
+    _consultationSearchController.dispose();
     super.dispose();
   }
 
@@ -352,21 +359,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!mounted) return;
     setState(() => _isLoadingConsultations = true);
     try {
-      final user = Provider.of<AuthProvider>(context, listen: false).user;
-      if (user != null) {
-        final consultations = await _appointmentController
-            .fetchConsultationsByDoctor(user.fullname);
-        if (mounted) {
-          setState(() {
-            _consultations = consultations;
-            _isLoadingConsultations = false;
-          });
-        }
+      final consultations = await _appointmentController.fetchConsultations();
+      if (mounted) {
+        setState(() {
+          _consultations = consultations;
+          _isLoadingConsultations = false;
+        });
       }
     } catch (e) {
-      debugPrint('Error fetching doctor consultations: $e');
+      debugPrint('Error fetching consultations: $e');
       if (mounted) setState(() => _isLoadingConsultations = false);
     }
+  }
+
+  final List<String> _monthNames = [
+    '', // 1-indexed
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  Map<String, Map<int, Map<int, List<Map<String, dynamic>>>>> _getGroupedConsultationsByPatient() {
+    final Map<String, Map<int, Map<int, List<Map<String, dynamic>>>>> grouped = {};
+    for (var c in _consultations) {
+      final String patientName = c['patient_name'] ?? 'Unknown Patient';
+      final date = DateFormatter.toDateTime(c['appointment_date']) ?? DateTime.now();
+      final year = date.year;
+      final month = date.month;
+
+      grouped.putIfAbsent(patientName, () => {});
+      grouped[patientName]!.putIfAbsent(year, () => {});
+      grouped[patientName]![year]!.putIfAbsent(month, () => []);
+      grouped[patientName]![year]![month]!.add(c);
+    }
+    return grouped;
   }
 
   @override
@@ -480,6 +515,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildConsultationsView(bool isMobile) {
+    if (_isLoadingConsultations) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    } else if (_consultations.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.history_edu_outlined,
+                size: 64,
+                color: Colors.grey.withOpacity(0.3),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'No consultations found',
+                style: TextStyle(color: AppTheme.textSecondaryColor),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final grouped = _getGroupedConsultationsByPatient();
+    final sortedPatients = (user == null || user.role == 'Admin')
+        ? (grouped.keys.toList()..sort())
+        : (grouped.keys.where((pName) {
+            final patientConsuls = _consultations
+                .where((c) => (c['patient_name'] ?? 'Unknown Patient') == pName)
+                .toList();
+            return patientConsuls.any((c) => c['doctor_name'] == user.fullname);
+          }).toList()..sort());
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
       child: Column(
@@ -495,128 +571,661 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
           ),
           const SizedBox(height: 24),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: sortedPatients.length,
+            itemBuilder: (context, pIndex) {
+              final patientName = sortedPatients[pIndex];
+              final yearsMap = grouped[patientName]!;
 
-          if (_isLoadingConsultations)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(40.0),
-                child: CircularProgressIndicator(),
-              ),
-            )
-          else if (_consultations.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(40.0),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.history_edu_outlined,
-                      size: 64,
-                      color: Colors.grey.withOpacity(0.3),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'No consultations found',
-                      style: TextStyle(color: AppTheme.textSecondaryColor),
-                    ),
-                  ],
+              int totalConsultations = 0;
+              for (var year in yearsMap.keys) {
+                for (var month in yearsMap[year]!.keys) {
+                  totalConsultations += yearsMap[year]![month]!.length;
+                }
+              }
+
+              // Selected Patient details inline
+              final patientConsuls = _consultations
+                  .where((c) => (c['patient_name'] ?? 'Unknown Patient') == patientName)
+                  .toList();
+
+              final Set<int> uniqueYears = {};
+              for (var c in patientConsuls) {
+                final dt = DateFormatter.toDateTime(c['appointment_date']) ?? DateTime.now();
+                uniqueYears.add(dt.year);
+              }
+              final sortedYears = uniqueYears.toList()..sort((a, b) => b.compareTo(a));
+
+              // If this patient is expanded, calculate filtered consultations
+              List<Map<String, dynamic>> filtered = [];
+              if (_selectedPatientName == patientName) {
+                filtered = patientConsuls.where((c) {
+                  final dt = DateFormatter.toDateTime(c['appointment_date']) ?? DateTime.now();
+                  final yr = dt.year;
+                  if (_selectedConsultationYearFilter != 'All' &&
+                      yr.toString() != _selectedConsultationYearFilter) {
+                    return false;
+                  }
+                  if (_consultationSearchQuery.isNotEmpty) {
+                    final q = _consultationSearchQuery.toLowerCase();
+                    final symptoms = (c['symptoms'] ?? '').toString().toLowerCase();
+                    final history = (c['history'] ?? '').toString().toLowerCase();
+                    final diagnosis = (c['diagnosis'] ?? '').toString().toLowerCase();
+                    final dept = (c['department'] ?? '').toString().toLowerCase();
+                    final doc = (c['doctor_name'] ?? '').toString().toLowerCase();
+                    final date = (c['appointment_date'] ?? '').toString().toLowerCase();
+                    if (!symptoms.contains(q) &&
+                        !history.contains(q) &&
+                        !diagnosis.contains(q) &&
+                        !dept.contains(q) &&
+                        !doc.contains(q) &&
+                        !date.contains(q)) {
+                      return false;
+                    }
+                  }
+                  return true;
+                }).toList();
+              }
+
+              return Card(
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: AppTheme.borderColor.withOpacity(0.5),
+                  ),
                 ),
-              ),
-            )
-          else
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppTheme.borderColor.withOpacity(0.5),
-                ),
-              ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _consultations.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final c = _consultations[index];
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    title: Row(
-                      children: [
-                        Text(
-                          c['patient_name'] ?? 'Unknown Patient',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    dividerColor: Colors.transparent,
+                  ),
+                  child: ExpansionTile(
+                    key: Key('patient_${patientName}_${_selectedPatientName == patientName}'),
+                    initiallyExpanded: _selectedPatientName == patientName,
+                    onExpansionChanged: (isExpanded) {
+                      setState(() {
+                        if (isExpanded) {
+                          _selectedPatientName = patientName;
+                          _selectedConsultationYearFilter = 'All';
+                          _consultationSearchQuery = '';
+                          _consultationSearchController.clear();
+                        } else if (_selectedPatientName == patientName) {
+                          _selectedPatientName = null;
+                        }
+                      });
+                    },
+                    leading: CircleAvatar(
+                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                      child: Text(
+                        patientName.isNotEmpty ? patientName[0].toUpperCase() : 'P',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
                         ),
-                        const SizedBox(width: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            c['appointment_type'] ?? 'Consultation',
-                            style: const TextStyle(
-                              color: AppTheme.primaryColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        Row(
+                    title: Text(
+                      patientName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2D3748),
+                      ),
+                    ),
+                    subtitle: Text(
+                      '$totalConsultations consultation${totalConsultations > 1 ? "s" : ""}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                    childrenPadding: const EdgeInsets.all(16.0),
+                    expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Divider(height: 1, color: AppTheme.borderColor),
+                      const SizedBox(height: 16),
+                      if (isMobile)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Icon(
-                              Icons.calendar_today,
-                              size: 12,
-                              color: AppTheme.textSecondaryColor,
+                            _buildFilterSidebar(patientConsuls, sortedYears),
+                            const SizedBox(height: 20),
+                            _buildSearchAndDetailsPanel(filtered, patientConsuls),
+                          ],
+                        )
+                      else
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 220,
+                              child: _buildFilterSidebar(patientConsuls, sortedYears),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${DateFormatter.toUi(c['appointment_date'])} at ${c['appointment_time']}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            const SizedBox(width: 16),
-                            const Icon(
-                              Icons.medical_services_outlined,
-                              size: 12,
-                              color: AppTheme.textSecondaryColor,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              c['diagnosis'] ?? 'No diagnosis',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontStyle: FontStyle.italic,
-                              ),
+                            const SizedBox(width: 24),
+                            Expanded(
+                              child: _buildSearchAndDetailsPanel(filtered, patientConsuls),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                    trailing: const Icon(
-                      Icons.chevron_right,
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                    onTap: () => _showConsultationDetail(c),
-                  );
-                },
-              ),
-            ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildFilterSidebar(
+    List<Map<String, dynamic>> patientConsuls,
+    List<int> sortedYears,
+  ) {
+    final allCount = patientConsuls.length;
+    final Map<int, int> yearCounts = {};
+    for (var yr in sortedYears) {
+      yearCounts[yr] = patientConsuls.where((c) {
+        final dt = DateFormatter.toDateTime(c['appointment_date']) ?? DateTime.now();
+        return dt.year == yr;
+      }).length;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(
+            'FILTER',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textSecondaryColor,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _buildSidebarFilterItem(
+          label: 'All',
+          count: allCount,
+          isActive: _selectedConsultationYearFilter == 'All',
+          onTap: () {
+            setState(() {
+              _selectedConsultationYearFilter = 'All';
+            });
+          },
+        ),
+        ...sortedYears.map((yr) {
+          final count = yearCounts[yr] ?? 0;
+          final label = yr.toString();
+          return _buildSidebarFilterItem(
+            label: label,
+            count: count,
+            isActive: _selectedConsultationYearFilter == label,
+            onTap: () {
+              setState(() {
+                _selectedConsultationYearFilter = label;
+              });
+            },
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildSidebarFilterItem({
+    required String label,
+    required int count,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: isActive ? const Color(0xFFFFF5F5) : Colors.transparent,
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(8),
+          bottomRight: Radius.circular(8),
+        ),
+        border: isActive
+            ? const Border(
+                left: BorderSide(
+                  color: AppTheme.primaryColor,
+                  width: 4,
+                ),
+              )
+            : null,
+      ),
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        title: Text(
+          label,
+          style: TextStyle(
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            color: isActive ? AppTheme.primaryColor : const Color(0xFF2D3748),
+            fontSize: 14,
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: isActive ? AppTheme.primaryColor : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  color: isActive ? Colors.white : Colors.grey.shade700,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            if (!isActive) ...[
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right,
+                size: 14,
+                color: AppTheme.textSecondaryColor,
+              ),
+            ],
+          ],
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _buildSearchAndDetailsPanel(
+    List<Map<String, dynamic>> filtered,
+    List<Map<String, dynamic>> patientConsuls,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+
+        Row(
+          children: [
+            const SizedBox(width: 16),
+            const Text(
+              'Date',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(width: 200),
+            const Text(
+              'Consultation Details',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (filtered.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(40.0),
+              child: Text(
+                _consultationSearchQuery.isEmpty
+                    ? 'No consultations recorded for this filter'
+                    : 'No matching consultations found',
+                style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+              ),
+            ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: filtered.length,
+            itemBuilder: (context, index) {
+              final c = filtered[index];
+              return Card(
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  side: BorderSide(color: Colors.grey.shade200),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    dividerColor: Colors.transparent,
+                  ),
+                  child: ExpansionTile(
+                    backgroundColor: const Color(0xFFF7FAFC),
+                    collapsedBackgroundColor: const Color(0xFFF7FAFC),
+                    iconColor: AppTheme.primaryColor,
+                    collapsedIconColor: AppTheme.primaryColor,
+                    title: Text(
+                      '${_formatConsultationDate(c['appointment_date'])} / ${c['appointment_time']}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2D3748),
+                        fontSize: 13,
+                      ),
+                    ),
+                    childrenPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildConsultationDetailsGrid(c, index, patientConsuls),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildConsultationDetailsGrid(
+    Map<String, dynamic> c,
+    int index,
+    List<Map<String, dynamic>> patientConsuls,
+  ) {
+    final doctor = c['doctor_name'] ?? 'General Practitioner';
+    final dept = c['department'] ?? 'General Medicine';
+
+    List medsList = [];
+    if (c['medications'] != null) {
+      if (c['medications'] is String) {
+        try {
+          medsList = jsonDecode(c['medications']);
+        } catch (_) {}
+      } else if (c['medications'] is List) {
+        medsList = c['medications'];
+      }
+    }
+
+    List labsList = [];
+    if (c['lab_tests'] != null) {
+      if (c['lab_tests'] is String) {
+        try {
+          labsList = jsonDecode(c['lab_tests']);
+        } catch (_) {}
+      } else if (c['lab_tests'] is List) {
+        labsList = c['lab_tests'];
+      }
+    }
+
+    final ref = c['referral'];
+    Map? refMap;
+    if (ref is Map) {
+      refMap = ref;
+    } else if (ref is String && ref.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(ref);
+        if (decoded is Map) refMap = decoded;
+      } catch (_) {}
+    }
+
+    List? docsList;
+    final docs = c['documents'];
+    if (docs is List) {
+      docsList = docs;
+    } else if (docs is String && docs.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(docs);
+        if (decoded is List) docsList = decoded;
+      } catch (_) {}
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildGridRow(
+          'Doctor',
+          doctor,
+          isHeader: true,
+        ),
+        const SizedBox(height: 12),
+        _buildGridRow(
+          dept,
+          null,
+          customValueWidget: _buildEditPencilButton(c),
+        ),
+        const SizedBox(height: 12),
+        if (c['symptoms'] != null && c['symptoms'].toString().isNotEmpty) ...[
+          _buildGridRow(
+            'Problem',
+            c['symptoms'].toString(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (c['history'] != null && c['history'].toString().isNotEmpty) ...[
+          _buildGridRow(
+            'History',
+            c['history'].toString(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (c['examination'] != null && c['examination'].toString().isNotEmpty) ...[
+          _buildGridRow(
+            'Examination',
+            c['examination'].toString(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (c['family_history'] != null && c['family_history'].toString().isNotEmpty) ...[
+          _buildGridRow(
+            'Family History',
+            c['family_history'].toString(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (c['social'] != null && c['social'].toString().isNotEmpty) ...[
+          _buildGridRow(
+            'Social History',
+            c['social'].toString(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (c['allergy'] != null && c['allergy'].toString().isNotEmpty) ...[
+          _buildGridRow(
+            'Allergies',
+            c['allergy'].toString(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (c['procedure'] != null && c['procedure'].toString().isNotEmpty) ...[
+          _buildGridRow(
+            'Procedure',
+            c['procedure'].toString(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (c['diagnosis'] != null && c['diagnosis'].toString().isNotEmpty) ...[
+          _buildGridRow(
+            'Diagnosis',
+            c['diagnosis'].toString(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (medsList.isNotEmpty) ...[
+          _buildGridRow(
+            'Medications',
+            medsList.map((m) => '${m['name']} - ${m['dosage']} (${m['frequency']})').join('\n'),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (labsList.isNotEmpty) ...[
+          _buildGridRow(
+            'Lab Tests',
+            labsList.join(', '),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (refMap != null &&
+            ((refMap['referred_doctor']?.toString().isNotEmpty ?? false) ||
+             (refMap['referred_department']?.toString().isNotEmpty ?? false) ||
+             (refMap['referral_notes']?.toString().isNotEmpty ?? false))) ...[
+          _buildGridRow(
+            'Referral',
+            'To Doctor: ${refMap['referred_doctor'] ?? 'N/A'} • Dept: ${refMap['referred_department'] ?? 'N/A'}${refMap['referral_notes'] != null && refMap['referral_notes'].toString().isNotEmpty ? "\nNotes: " + refMap['referral_notes'] : ""}',
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (docsList != null && docsList.isNotEmpty) ...[
+          _buildGridRow(
+            'Documents',
+            docsList.map((d) {
+              if (d is Map) {
+                return '${d['title']} (${d['file_name']})';
+              }
+              return '';
+            }).where((str) => str.isNotEmpty).join('\n'),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (c['comment'] != null && c['comment'].toString().isNotEmpty) ...[
+          _buildGridRow(
+            'Comments',
+            c['comment'].toString(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (c['notes'] != null && c['notes'].toString().isNotEmpty) ...[
+          _buildGridRow(
+            'Notes',
+            c['notes'].toString(),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildGridRow(
+    String label,
+    String? value, {
+    Widget? customValueWidget,
+    bool isHeader = false,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 150,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isHeader ? const Color(0xFF2D3748) : AppTheme.primaryColor,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: customValueWidget ??
+              Text(
+                value ?? '',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isHeader ? FontWeight.w600 : FontWeight.normal,
+                  color: const Color(0xFF2D3748),
+                ),
+              ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEditPencilButton(Map<String, dynamic> c) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Material(
+        color: const Color(0xFF718096),
+        borderRadius: BorderRadius.circular(4),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: () {
+            final appt = AppointmentModel(
+              id: c['appointment_id'] is int
+                  ? c['appointment_id']
+                  : int.tryParse(c['appointment_id']?.toString() ?? ''),
+              patientId: c['patient_id'] is int
+                  ? c['patient_id']
+                  : int.tryParse(c['patient_id']?.toString() ?? '') ?? 0,
+              patientName: c['patient_name'] ?? _selectedPatientName ?? '',
+              department: c['department'] ?? 'General',
+              doctorName: c['doctor_name'] ?? '',
+              appointmentDate: DateFormatter.toUi(c['appointment_date']),
+              appointmentTime: c['appointment_time'] ?? '',
+              patientPhone: c['patient_phone']?.toString(),
+              patientGender: c['patient_gender']?.toString(),
+              bloodPressureSystolic: c['blood_pressure_systolic'] is int
+                  ? c['blood_pressure_systolic']
+                  : int.tryParse(c['blood_pressure_systolic']?.toString() ?? ''),
+              bloodPressureDiastolic: c['blood_pressure_diastolic'] is int
+                  ? c['blood_pressure_diastolic']
+                  : int.tryParse(c['blood_pressure_diastolic']?.toString() ?? ''),
+              sugarLevel: c['sugar_level'] != null
+                  ? double.tryParse(c['sugar_level'].toString())
+                  : null,
+              temperature: c['temperature'] != null
+                  ? double.tryParse(c['temperature'].toString())
+                  : null,
+              reasonForVisit: c['reason_for_visit'] ?? c['symptoms'] ?? '',
+              status: c['status'] ?? 'Completed',
+              appointmentType: c['appointment_type'] ?? 'Routine',
+            );
+
+            setState(() {
+              _activeAppointment = appt;
+            });
+          },
+          child: const Padding(
+            padding: EdgeInsets.all(6.0),
+            child: Icon(
+              Icons.edit,
+              size: 16,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatConsultationDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return 'Date N/A';
+    try {
+      DateTime? dt;
+      if (dateStr.contains('/')) {
+        final parts = dateStr.split('/');
+        if (parts.length == 3) {
+          dt = DateTime.tryParse('${parts[2]}-${parts[1]}-${parts[0]}');
+        }
+      } else {
+        dt = DateTime.tryParse(dateStr);
+      }
+      if (dt == null) {
+        final dbDate = DateFormatter.toDb(dateStr);
+        dt = DateTime.tryParse(dbDate);
+      }
+      if (dt != null) {
+        return DateFormat('dd-MMM-yyyy').format(dt);
+      }
+    } catch (_) {}
+    return dateStr;
   }
 
   void _showConsultationDetail(Map<String, dynamic> consultation) {
