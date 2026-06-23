@@ -1102,7 +1102,156 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (labsList.isNotEmpty) ...[
           _buildGridRow(
             'Lab Tests',
-            labsList.join(', '),
+            null,
+            customValueWidget: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  labsList.join(', '),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2D3748),
+                  ),
+                ),
+                if (c['lab_results'] != null && (c['lab_results'] as List).isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  ...(c['lab_results'] as List).map<Widget>((labReq) {
+                    final status = labReq['status'] ?? 'Pending';
+                    final testName = labReq['test_name'] ?? 'Test';
+                    
+                    List params = [];
+                    if (labReq['result_details'] != null) {
+                      if (labReq['result_details'] is String) {
+                        try {
+                          params = jsonDecode(labReq['result_details']);
+                        } catch (_) {}
+                      } else if (labReq['result_details'] is List) {
+                        params = labReq['result_details'];
+                      }
+                    }
+                    
+                    final isCompleted = status == 'Completed';
+                    
+                    return Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                testName,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isCompleted ? Colors.green.shade50 : Colors.orange.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  status,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: isCompleted ? Colors.green : Colors.orange,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (isCompleted && params.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            const Divider(height: 8),
+                            const SizedBox(height: 4),
+                            ...params.map<Widget>((p) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        p['parameter'] ?? '',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 1,
+                                      child: Text(
+                                        '${p['value'] ?? ''} ${p['unit'] ?? ''}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 1,
+                                      child: Text(
+                                        'Ref: ${p['reference_range'] ?? 'Normal'}',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.grey,
+                                        ),
+                                        textAlign: TextAlign.end,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ],
+                          if (isCompleted && labReq['remarks'] != null && labReq['remarks'].toString().isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Remarks: ${labReq['remarks']}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          ],
+                          if (isCompleted && labReq['attachment_url'] != null && labReq['attachment_url'].toString().isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.attach_file, size: 12, color: Colors.red),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Report: ${labReq['attachment_url']}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ],
+              ],
+            ),
           ),
           const SizedBox(height: 12),
         ],

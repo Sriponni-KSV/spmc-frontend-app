@@ -10,6 +10,7 @@ import '../../screens/login_page.dart';
 import '../../screens/force_change_password_screen.dart';
 import '../../screens/nurse_dashboard.dart';
 import '../../screens/front_desk_dashboard.dart';
+import '../../screens/lab_dashboard.dart';
 import 'route_constants.dart';
 import 'screens/not_found_screen.dart';
 
@@ -60,6 +61,8 @@ class AppRouter {
               role == 'Receptionist' ||
               role == 'Reception') {
             return AppRoutes.receptionDashboard;
+          } else if (role == 'Lab') {
+            return AppRoutes.labDashboard;
           } else {
             return AppRoutes.doctorDashboard; // Default to Doctor dashboard
           }
@@ -94,6 +97,11 @@ class AppRouter {
               userRole == 'Nurse' ||
               userRole == 'Head Nurse';
           if (!isReception) {
+            return AppRoutes.dashboard;
+          }
+        } else if (path.startsWith('/lab')) {
+          final isLab = userRole == 'Lab';
+          if (!isLab) {
             return AppRoutes.dashboard;
           }
         }
@@ -292,6 +300,15 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('nurse_dashboard'),
             child: NurseDashboardScreen(initialIndex: 7),
+          ),
+        ),
+
+        // --- Lab Protected Routes ---
+        GoRoute(
+          path: AppRoutes.labDashboard,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('lab_dashboard'),
+            child: LabDashboardScreen(initialIndex: 0),
           ),
         ),
 

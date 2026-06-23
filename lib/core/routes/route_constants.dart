@@ -54,4 +54,7 @@ class AppRoutes {
   static const String frontDeskDoctors = '/reception/doctors';
   static const String frontDeskAdmissionCounter = '/reception/admission-counter';
   static const String frontDeskProfile = '/reception/profile';
+
+  // Lab Routes
+  static const String labDashboard = '/lab/dashboard';
 }
