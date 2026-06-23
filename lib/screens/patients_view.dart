@@ -4062,6 +4062,13 @@ class _PatientDetailViewState extends State<PatientDetailView>
             ),
             const SizedBox(height: 12),
           ],
+          if (c['leading_questions'] != null && c['leading_questions'].toString().isNotEmpty) ...[
+            _buildGridRow(
+              'Leading Questions',
+              c['leading_questions'].toString(),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (c['history'] != null && c['history'].toString().isNotEmpty) ...[
             _buildGridRow(
               'History',
@@ -4108,6 +4115,13 @@ class _PatientDetailViewState extends State<PatientDetailView>
             _buildGridRow(
               'Diagnosis',
               c['diagnosis'].toString(),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (c['plan'] != null && c['plan'].toString().isNotEmpty) ...[
+            _buildGridRow(
+              'Plan',
+              c['plan'].toString(),
             ),
             const SizedBox(height: 12),
           ],

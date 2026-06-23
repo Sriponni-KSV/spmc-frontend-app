@@ -90,6 +90,52 @@ class OtController {
     }
   }
 
+  /// Parse dictation text into structured section and fields
+  Future<Map<String, dynamic>> parseDictation(String dictationText) async {
+    try {
+      final response = await ApiService.post('$baseUrl/ot/dictate', {
+        'dictationText': dictationText,
+      });
+      if (response.statusCode != 200) {
+        final body = jsonDecode(response.body);
+        throw Exception(body['message'] ?? 'Failed to parse dictation');
+      }
+
+      final body = jsonDecode(response.body);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Unknown parse error');
+      }
+
+      return body['data'] as Map<String, dynamic>;
+    } catch (e) {
+      print('Error in parseDictation: $e');
+      rethrow;
+    }
+  }
+
+  /// Parse base64 audio dictation into structured section and fields
+  Future<Map<String, dynamic>> parseAudioDictation(String base64Audio) async {
+    try {
+      final response = await ApiService.post('$baseUrl/ot/dictate-audio', {
+        'base64Audio': base64Audio,
+      });
+      if (response.statusCode != 200) {
+        final body = jsonDecode(response.body);
+        throw Exception(body['message'] ?? 'Failed to parse audio dictation');
+      }
+
+      final body = jsonDecode(response.body);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Unknown parse error');
+      }
+
+      return body['data'] as Map<String, dynamic>;
+    } catch (e) {
+      print('Error in parseAudioDictation: $e');
+      rethrow;
+    }
+  }
+
   /// Helper to convert backend JSON to frontend OtCase model
   OtCase _mapJsonToOtCase(Map<String, dynamic> json) {
     final otCase = OtCase(

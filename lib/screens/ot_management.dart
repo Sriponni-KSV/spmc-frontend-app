@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +13,10 @@ import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../controllers/ot_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'dart:js' as js;
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 
 // --- DATA STRUCTURES ---
 
@@ -224,9 +229,81 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   final _anesthesiaStartTimeController = TextEditingController();
   final _anesthesiaEndTimeController = TextEditingController();
   final _finalAnesthesiaNotesController = TextEditingController();
-
-  // Handover notes
   final _handoverNotesController = TextEditingController();
+
+  // AI Dictation tab state variables
+  final _dictationTextController = TextEditingController();
+  final _bloodLossController = TextEditingController();
+  final _implantsUsedController = TextEditingController();
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListeningDictation = false;
+  bool _speechEnabled = false;
+  double _soundLevel = 0.0;
+  bool _isDictationParsing = false;
+  String? _dictationError;
+
+  bool _isUserAssociated(OtCase otCase, UserModel user) {
+    if (user.role == 'Admin' || user.role == 'Super Admin') {
+      return true;
+    }
+
+    String clean(String s) {
+      s = s.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (s.startsWith('dr.')) s = s.substring(3).trim();
+      if (s.startsWith('dr ')) s = s.substring(2).trim();
+      if (s.contains(' - ')) s = s.split(' - ')[0].trim();
+      return s;
+    }
+
+    final String userFullname = user.fullname;
+    final String cleanUser = clean(userFullname);
+    if (cleanUser.isEmpty) return false;
+
+    if (user.role == 'Doctor') {
+      if (otCase.surgeon == null) return false;
+      final cleanSurgeon = clean(otCase.surgeon!);
+      return cleanSurgeon == cleanUser || cleanSurgeon.contains(cleanUser) || cleanUser.contains(cleanSurgeon);
+    } else if (user.role == 'Anaesthetist') {
+      if (otCase.anaesthetist == null) return false;
+      final cleanAnaesthetist = clean(otCase.anaesthetist!);
+      return cleanAnaesthetist == cleanUser || cleanAnaesthetist.contains(cleanUser) || cleanUser.contains(cleanAnaesthetist);
+    } else if (user.role == 'Nurse') {
+      if (otCase.nursingTeam == null) return false;
+      final cleanNursingTeam = clean(otCase.nursingTeam!);
+      return cleanNursingTeam.contains(cleanUser) || cleanUser.contains(cleanNursingTeam);
+    }
+
+    return false;
+  }
+
+  Map<String, String> _parseOperationSummary(String? summaryRaw) {
+    if (summaryRaw == null || summaryRaw.isEmpty) {
+      return {'summary': '', 'blood_loss': '', 'implants_used': ''};
+    }
+    try {
+      final decoded = jsonDecode(summaryRaw);
+      if (decoded is Map<String, dynamic>) {
+        return {
+          'summary': decoded['summary']?.toString() ?? '',
+          'blood_loss': decoded['blood_loss']?.toString() ?? '',
+          'implants_used': decoded['implants_used']?.toString() ?? '',
+        };
+      }
+    } catch (_) {}
+    return {
+      'summary': summaryRaw,
+      'blood_loss': 'Minimal',
+      'implants_used': 'None',
+    };
+  }
+
+  String _serializeOperationSummary({required String summary, required String bloodLoss, required String implants}) {
+    return jsonEncode({
+      'summary': summary,
+      'blood_loss': bloodLoss,
+      'implants_used': implants,
+    });
+  }
 
   // Surgery Procedure Form
   final _procedureDetailsController = TextEditingController();
@@ -426,12 +503,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     _intraOpBloodController.clear();
     _intraOpInstrumentController.clear();
 
-    _opSummaryController.text = otCase.operationSummary ?? '';
+    final summaryData = _parseOperationSummary(otCase.operationSummary);
+    _opSummaryController.text = summaryData['summary'] ?? '';
+    _bloodLossController.text = summaryData['blood_loss'] ?? '';
+    _implantsUsedController.text = summaryData['implants_used'] ?? '';
     _procPerformedController.text = otCase.procedurePerformed ?? '';
     _outcomeController.text = otCase.outcome ?? '';
     _postOpInstController.text = otCase.postOpInstructions ?? '';
     _followUpController.text = otCase.followUpRecommendations ?? '';
-
     _selectedTransferDest = otCase.transferDestination ?? 'Recovery Room';
     _transferDetailsController.text = otCase.transferDetails ?? '';
     _nursingHandoverController.text = otCase.nursingHandoverNotes ?? '';
@@ -512,12 +591,32 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       return;
     }
 
+    if (_selectedOtRoom == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select an OT Room.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_selectedNurseNames.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please assign at least one nurse.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final initAuditLog = AuditLog(
       actorName: user?.fullname ?? 'System Staff',
       role: user?.role ?? 'Doctor',
       timestamp: DateTime.now(),
-      action: 'Created Surgery Request: $_selectedSurgeryType (Priority: $_selectedPriority).',
+      action: 'Created Surgery Request & Scheduled Case: $_selectedSurgeryType (OT Room: $_selectedOtRoom, Priority: $_selectedPriority).',
     );
 
     try {
@@ -539,26 +638,38 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         auditLogs: [initAuditLog],
       );
 
-      setState(() {
-        _otCases.insert(0, newCase);
-        _activeTab = 1; // Switch to list
-        _selectedCase = newCase;
-        _populateControllersForCase(newCase);
+      final startStr = _formatTimeOfDay(_slotStartTime);
+      final endStr = _formatTimeOfDay(_slotEndTime);
+      final surgerySlot = '$startStr - $endStr';
+      final nursingTeam = _selectedNurseNames.join(', ');
+
+      final scheduledCase = await _otController.updateOtCase(newCase.dbId!, {
+        'status': 'OT Scheduled',
+        'ot_room': _selectedOtRoom,
+        'surgery_slot': surgerySlot,
+        'nursing_team': nursingTeam,
       });
 
-      // Clear controllers
-      _patientNameController.clear();
-      _ageController.clear();
-      _diagnosisController.clear();
-      _remarksController.clear();
       setState(() {
+        _selectedCase = null;
         _selectedPatientId = null;
         _selectedPatientDisplayId = null;
+        _selectedOtRoom = null;
+        _selectedNurseNames = [];
+        _patientNameController.clear();
+        _ageController.clear();
+        _diagnosisController.clear();
+        _remarksController.clear();
+        _surgeonController.clear();
+        _anaesthetistController.clear();
+        
+        // Reload all patients/doctors/cases to capture new state
+        _loadPatientsAndDoctors();
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Surgery requested successfully! Status: OT Requested'),
+          content: Text('Surgery scheduled successfully! Status: OT Scheduled'),
           backgroundColor: Colors.green,
         ),
       );
@@ -1058,6 +1169,171 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     return false;
   }
 
+  Future<void> _openDictationAssistant() async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => const OtDictationDialog(),
+    );
+
+    if (result != null) {
+      final String section = result['section'] ?? '';
+      final Map<String, dynamic> fields = result['fields'] ?? {};
+      _applyParsedFields(section, fields);
+    }
+  }
+
+  void _applyParsedFields(String section, Map<String, dynamic> fields) {
+    if (fields.isEmpty) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('AI auto-filled fields for target: ${section.toUpperCase()}'),
+        backgroundColor: Colors.green,
+      ),
+    );
+
+    setState(() {
+      if (section == 'new_request') {
+        _activeTab = 3;
+        _selectedCase = null;
+
+        if (fields['patient_name_query'] != null) {
+          final query = fields['patient_name_query'].toString().toLowerCase();
+          final match = _patients.firstWhere(
+            (p) => p.name.toLowerCase().contains(query),
+            orElse: () => null as dynamic,
+          );
+          if (match != null) {
+            _selectedPatientId = match.id.toString();
+            _selectedPatientDisplayId = match.patientId ?? 'PT-${match.id}';
+            _patientNameController.text = match.name;
+            _ageController.text = match.age.toString();
+            
+            final gen = match.gender.trim();
+            if (gen.toLowerCase().startsWith('m')) {
+              _selectedGender = 'Male';
+            } else if (gen.toLowerCase().startsWith('f')) {
+              _selectedGender = 'Female';
+            } else {
+              _selectedGender = 'Other';
+            }
+
+            final bg = match.bloodGroup.trim();
+            final allowedBloodGroups = ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'];
+            if (allowedBloodGroups.contains(bg)) {
+              _selectedBloodGroup = bg;
+            }
+          } else {
+            _patientNameController.text = fields['patient_name_query'].toString();
+          }
+        }
+
+        if (fields['diagnosis'] != null) _diagnosisController.text = fields['diagnosis'].toString();
+        
+        if (fields['surgeon'] != null) {
+          final docName = fields['surgeon'].toString().toLowerCase();
+          final matchDoc = _doctors.firstWhere(
+            (d) => d.fullname.toLowerCase().contains(docName),
+            orElse: () => null as dynamic,
+          );
+          _surgeonController.text = matchDoc != null ? matchDoc.fullname : fields['surgeon'].toString();
+        }
+        
+        if (fields['anaesthetist'] != null) {
+          final anaeName = fields['anaesthetist'].toString().toLowerCase();
+          final matchAnae = _anaesthetists.firstWhere(
+            (a) => a.fullname.toLowerCase().contains(anaeName),
+            orElse: () => null as dynamic,
+          );
+          _anaesthetistController.text = matchAnae != null ? matchAnae.fullname : fields['anaesthetist'].toString();
+        }
+        
+        if (fields['remarks'] != null) _remarksController.text = fields['remarks'].toString();
+        
+        if (fields['priority'] != null) {
+          final prio = fields['priority'].toString();
+          if (prio == 'Elective' || prio == 'Emergency') {
+            _selectedPriority = prio;
+          }
+        }
+        
+        if (fields['surgery_type'] != null) {
+          _selectedSurgeryType = fields['surgery_type'].toString();
+        }
+      } else {
+        if (_selectedCase == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Parsed case update, but no active case is open. Please open a patient case first!'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return;
+        }
+
+        if (section == 'pre_op') {
+          if (fields['pre_op_bp'] != null) _preOpBpController.text = fields['pre_op_bp'].toString();
+          if (fields['pre_op_pulse'] != null) _preOpPulseController.text = fields['pre_op_pulse'].toString();
+          if (fields['pre_op_temp'] != null) _preOpTempController.text = fields['pre_op_temp'].toString();
+          if (fields['pre_op_spo2'] != null) _preOpSpo2Controller.text = fields['pre_op_spo2'].toString();
+          
+          if (fields['id_verified'] != null) _selectedCase!.idVerified = fields['id_verified'] as bool;
+          if (fields['consent_signed'] != null) _selectedCase!.consentSigned = fields['consent_signed'] as bool;
+          if (fields['fasting_confirmed'] != null) _selectedCase!.fastingConfirmed = fields['fasting_confirmed'] as bool;
+          if (fields['lab_verified'] != null) _selectedCase!.labVerified = fields['lab_verified'] as bool;
+          if (fields['blood_available'] != null) _selectedCase!.bloodAvailable = fields['blood_available'] as bool;
+        }
+
+        if (section == 'anesthesia') {
+          if (fields['asa_grade'] != null) _selectedAsaGrade = fields['asa_grade'].toString();
+          if (fields['risk_level'] != null) _selectedRiskLevel = fields['risk_level'].toString();
+          if (fields['anesthesia_type'] != null) _selectedAnaesthesiaType = fields['anesthesia_type'].toString();
+          if (fields['anesthesia_notes'] != null) {
+            _anaesthesiaNotesController.text = fields['anesthesia_notes'].toString();
+          }
+        }
+
+        if (section == 'handover') {
+          if (fields['handover_notes'] != null) _handoverNotesController.text = fields['handover_notes'].toString();
+        }
+
+        if (section == 'surgery_procedure') {
+          if (fields['procedure_details'] != null) _procedureDetailsController.text = fields['procedure_details'].toString();
+          if (fields['surgical_findings'] != null) _findingsController.text = fields['surgical_findings'].toString();
+          if (fields['complications'] != null) _complicationsController.text = fields['complications'].toString();
+          if (fields['blood_loss'] != null) _bloodLossController.text = fields['blood_loss'].toString();
+          if (fields['implants_used'] != null) _implantsUsedController.text = fields['implants_used'].toString();
+        }
+
+        if (section == 'post_op') {
+          if (fields['operation_summary'] != null) _opSummaryController.text = fields['operation_summary'].toString();
+          if (fields['procedure_performed'] != null) _procPerformedController.text = fields['procedure_performed'].toString();
+          if (fields['outcome'] != null) _outcomeController.text = fields['outcome'].toString();
+          if (fields['post_op_instructions'] != null) _postOpInstController.text = fields['post_op_instructions'].toString();
+          if (fields['follow_up_recommendations'] != null) _followUpController.text = fields['follow_up_recommendations'].toString();
+          if (fields['blood_loss'] != null) _bloodLossController.text = fields['blood_loss'].toString();
+          if (fields['implants_used'] != null) _implantsUsedController.text = fields['implants_used'].toString();
+        }
+
+        if (section == 'transfer') {
+          if (fields['transfer_destination'] != null) _selectedTransferDest = fields['transfer_destination'].toString();
+          if (fields['transfer_details'] != null) _transferDetailsController.text = fields['transfer_details'].toString();
+          if (fields['nursing_handover_notes'] != null) _nursingHandoverController.text = fields['nursing_handover_notes'].toString();
+        }
+
+        if (section == 'care_log') {
+          if (fields['pre_op_bp'] != null || fields['pre_op_pulse'] != null) {
+            _careVitalsController.text = 'BP: ${fields['pre_op_bp'] ?? "120/80"}, PR: ${fields['pre_op_pulse'] ?? "72"}, Temp: ${fields['pre_op_temp'] ?? "98.4"}, SpO2: ${fields['pre_op_spo2'] ?? "99"}';
+          }
+          if (fields['remarks'] != null) {
+            _careMedsController.text = fields['remarks'].toString();
+            _doctorProgressController.text = fields['remarks'].toString();
+          }
+        }
+      }
+    });
+  }
+
   // Color Coding for Status Badges
   Color _getStatusColor(String status) {
     switch (status) {
@@ -1086,9 +1362,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   Widget _buildHorizontalTabs() {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    final isAnaesthetist = user?.role == 'Anaesthetist';
-    final activeCasesCount = _otCases.where((c) => c.status != 'OT Case Closed').length;
-    final completedCasesCount = _otCases.where((c) => c.status == 'OT Case Closed').length;
+    final activeCasesCount = _otCases
+        .where((c) => c.status != 'OT Case Closed')
+        .where((c) => user == null || _isUserAssociated(c, user))
+        .length;
+    final completedCasesCount = _otCases
+        .where((c) => c.status == 'OT Case Closed')
+        .where((c) => user == null || _isUserAssociated(c, user))
+        .length;
 
     return Container(
       padding: const EdgeInsets.all(4),
@@ -1100,25 +1381,27 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildTabItem(0, widget.isMobile ? 'Dashboard' : 'Overview Dashboard', Icons.grid_view_outlined),
+          _buildTabItem(0, 'Dashboard', Icons.dashboard_outlined),
           const SizedBox(width: 4),
           _buildTabItem(
             1,
-            widget.isMobile ? 'Active' : 'Active Patients',
-            Icons.people_outline,
+            widget.isMobile ? 'Active' : 'Active Cases',
+            Icons.pending_actions_outlined,
             badgeCount: activeCasesCount,
           ),
           const SizedBox(width: 4),
           _buildTabItem(
             2,
-            widget.isMobile ? 'Completed' : 'Completed Operations',
+            widget.isMobile ? 'Completed' : 'Completed Cases',
             Icons.check_circle_outline,
             badgeCount: completedCasesCount,
           ),
-          if (!isAnaesthetist) ...[
-            const SizedBox(width: 4),
-            _buildTabItem(3, widget.isMobile ? 'Schedule' : 'Schedule Surgery', Icons.add_circle_outline),
-          ],
+          const SizedBox(width: 4),
+          _buildTabItem(
+            3,
+            widget.isMobile ? 'Schedule' : 'Schedule Surgery',
+            Icons.add_circle_outline,
+          ),
         ],
       ),
     );
@@ -1222,7 +1505,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'Complete Surgery Lifecycle & Patient Handover',
+                            'Schedule and view operation cases details',
                             style: TextStyle(
                               fontSize: 11,
                               color: AppTheme.textSecondaryColor,
@@ -1233,42 +1516,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       const SizedBox(height: 12),
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _buildHorizontalTabs(),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryLight,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.green,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Text(
-                                    'Connected',
-                                    style: TextStyle(
-                                      color: AppTheme.primaryColor,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                        child: _buildHorizontalTabs(),
                       ),
                     ],
                   )
@@ -1279,7 +1527,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Operation Theatre (OT) Management',
+                            'OT Management',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -1288,7 +1536,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'Complete Surgery Lifecycle & Patient Handover Tracking',
+                            'Schedule and view operation cases details',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppTheme.textSecondaryColor,
@@ -1296,70 +1544,25 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           ),
                         ],
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildHorizontalTabs(),
-                          const SizedBox(width: 16),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryLight,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.green,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                const Text(
-                                  'OT Connected',
-                                  style: TextStyle(
-                                    color: AppTheme.primaryColor,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                      _buildHorizontalTabs(),
                     ],
                   ),
           ),
           Expanded(
             child: Container(
               padding: widget.isMobile ? const EdgeInsets.all(12) : const EdgeInsets.all(24),
-              child: _buildActiveTabView(),
+              child: _activeTab == 0
+                  ? _buildDashboardView()
+                  : _activeTab == 1
+                      ? _buildActivePatientsView()
+                      : _activeTab == 2
+                          ? _buildCompletedPatientsView()
+                          : _buildRequestView(),
             ),
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildActiveTabView() {
-    switch (_activeTab) {
-      case 0:
-        return _buildDashboardView();
-      case 1:
-        return _buildActivePatientsView();
-      case 2:
-        return _buildCompletedPatientsView();
-      case 3:
-        return _buildRequestView();
-      default:
-        return _buildDashboardView();
-    }
   }
 
   // ── VIEW 1: DASHBOARD & ROOM BOARD ──────────────────────────────────
@@ -1787,7 +1990,11 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   // ── VIEW 2: ACTIVE WORKFLOW TIMELINE & ACTIONS ──────────────────────
 
   Widget _buildActivePatientsView() {
-    final activeCases = _otCases.where((c) => c.status != 'OT Case Closed').toList();
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final activeCases = _otCases
+        .where((c) => c.status != 'OT Case Closed')
+        .where((c) => user == null || _isUserAssociated(c, user))
+        .toList();
 
     // Full-screen detail takeover: if a case is selected, bypass the Row and return the detail workspace directly!
     if (_selectedCase != null && _selectedCase!.status != 'OT Case Closed') {
@@ -2016,7 +2223,11 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   Widget _buildCompletedPatientsView() {
-    final completedCases = _otCases.where((c) => c.status == 'OT Case Closed').toList();
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final completedCases = _otCases
+        .where((c) => c.status == 'OT Case Closed')
+        .where((c) => user == null || _isUserAssociated(c, user))
+        .toList();
 
     // Full-screen detail takeover: if a case is selected, bypass the Row and return the detail workspace directly!
     if (_selectedCase != null && _selectedCase!.status == 'OT Case Closed') {
@@ -2583,13 +2794,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (otCase.status != 'OT Case Closed') ...[
+                Expanded(
+                  flex: 1,
+                  child: _buildVerticalWorkflowStepper(otCase),
+                ),
+                const SizedBox(width: 16),
+              ],
               Expanded(
-                flex: 1,
-                child: _buildVerticalWorkflowStepper(otCase),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 2,
+                flex: otCase.status == 'OT Case Closed' ? 1 : 2,
                 child: Container(
                   decoration: AppTheme.cardDecoration,
                   child: _buildTabbedWorkspace(otCase),
@@ -2604,7 +2817,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   Widget _buildTabbedWorkspace(OtCase otCase) {
     return DefaultTabController(
-      length: 3,
+      length: 5,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -2616,20 +2829,45 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: TabBar(
+              isScrollable: !widget.isMobile,
               tabs: [
-                Tab(
+                const Tab(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.bolt, size: 14),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          'Active: ${_getStepShortName(otCase.status)}',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
+                      Icon(Icons.info_outline, size: 14),
+                      SizedBox(width: 4),
+                      Text('OT Details'),
+                    ],
+                  ),
+                ),
+                const Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.notes, size: 14),
+                      SizedBox(width: 4),
+                      Text('Procedure Notes'),
+                    ],
+                  ),
+                ),
+                const Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.mic, size: 14),
+                      SizedBox(width: 4),
+                      Text('AI Dictation'),
+                    ],
+                  ),
+                ),
+                const Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.attach_file, size: 14),
+                      SizedBox(width: 4),
+                      Text('Attachments'),
                     ],
                   ),
                 ),
@@ -2639,17 +2877,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     children: [
                       Icon(Icons.history, size: 14),
                       SizedBox(width: 4),
-                      Text('Audit Trail'),
-                    ],
-                  ),
-                ),
-                const Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.assignment, size: 14),
-                      SizedBox(width: 4),
-                      Text('Case History'),
+                      Text('Audit History'),
                     ],
                   ),
                 ),
@@ -2667,7 +2895,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               ),
               labelColor: AppTheme.primaryColor,
               unselectedLabelColor: AppTheme.textSecondaryColor,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
               indicatorSize: TabBarIndicatorSize.tab,
               dividerColor: Colors.transparent,
             ),
@@ -2675,46 +2903,799 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           Expanded(
             child: TabBarView(
               children: [
-                // Tab 1: Interactive Step Panel
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Interactive Step Panel',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor),
-                          ),
-                          Text(
-                            'Required: ${_getStepOperator(otCase.status)}',
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 11.5, fontStyle: FontStyle.italic),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 20),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildStepForm(otCase),
-                              const SizedBox(height: 40), // Bottom breathing room to prevent scroll cut-off
-                            ],
-                          ),
+                // Tab 1: OT Details
+                _buildOtDetailsTab(otCase),
+                // Tab 2: Procedure Notes
+                _buildProcedureNotesTab(otCase),
+                // Tab 3: AI Dictation
+                _buildAiDictationTab(otCase),
+                // Tab 4: Attachments
+                _buildAttachmentsTab(otCase),
+                // Tab 5: Audit History
+                _buildAuditTrailTab(otCase),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOtDetailsTab(OtCase otCase) {
+    final isClosed = otCase.status == 'OT Case Closed';
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Booking Info Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.borderColor),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.calendar_month, color: AppTheme.primaryColor, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'Scheduled Surgery Booking Info',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                _buildDetailRow('Surgery Type', otCase.surgeryType ?? 'N/A'),
+                _buildDetailRow('Priority / Urgency', otCase.priority ?? 'N/A', 
+                  textColor: otCase.priority == 'Emergency' ? Colors.red.shade700 : AppTheme.textPrimaryColor),
+                _buildDetailRow('OT Room Assigned', otCase.otRoom ?? 'Not Assigned'),
+                _buildDetailRow('Time Slot / Duration', otCase.surgerySlot ?? 'Not Scheduled'),
+                _buildDetailRow('Primary Surgeon', otCase.surgeon ?? 'Not Assigned'),
+                _buildDetailRow('Suggested Anaesthetist', otCase.anaesthetist ?? 'Not Assigned'),
+                _buildDetailRow('Assigned Nursing Team', otCase.nursingTeam ?? 'None'),
+                _buildDetailRow('Diagnosis Details', otCase.diagnosis),
+                _buildDetailRow('Remarks / Instructions', otCase.remarks ?? 'None'),
+              ],
+            ),
+          ),
+          
+          if (!isClosed) ...[
+            const SizedBox(height: 24),
+            const Text(
+              'Active Workflow Step Actions',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor),
+            ),
+            const Divider(height: 16),
+            _buildStepForm(otCase),
+          ] else ...[
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.withOpacity(0.2)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.check_circle_outline, color: Colors.green, size: 24),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Surgical Case Closed',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 13),
                         ),
+                        SizedBox(height: 4),
+                        Text(
+                          'This clinical case is closed. Editing of scheduling parameters and workflow step actions is disabled.',
+                          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? textColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 150,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(fontSize: 12, color: textColor ?? AppTheme.textPrimaryColor, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProcedureNotesTab(OtCase otCase) {
+    final isClosed = otCase.status == 'OT Case Closed';
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Surgical & Procedure Clinical Notes',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isClosed
+                ? 'Clinical notes are locked and archived.'
+                : 'Form fields below are automatically populated by AI dictation. Review and edit as necessary.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const Divider(height: 24),
+          
+          _buildFieldLabel('Procedure Performed'),
+          TextFormField(
+            controller: _procPerformedController,
+            enabled: !isClosed,
+            decoration: _noLabelDecoration(hintText: 'Enter procedure performed'),
+          ),
+          const SizedBox(height: 16),
+          
+          _buildFieldLabel('Anesthesia Details'),
+          TextFormField(
+            initialValue: otCase.anaesthesiaType ?? 'General Anesthesia',
+            enabled: false, // Pulled from anesthesia clearance step
+            decoration: _noLabelDecoration(hintText: 'Cleared Anesthesia Type'),
+          ),
+          const SizedBox(height: 16),
+          
+          _buildFieldLabel('Findings'),
+          TextFormField(
+            controller: _findingsController,
+            enabled: !isClosed,
+            maxLines: 3,
+            decoration: _noLabelDecoration(hintText: 'Enter surgical findings'),
+          ),
+          const SizedBox(height: 16),
+          
+          _buildFieldLabel('Surgical Steps / Procedure Details'),
+          TextFormField(
+            controller: _procedureDetailsController,
+            enabled: !isClosed,
+            maxLines: 4,
+            decoration: _noLabelDecoration(hintText: 'Enter details of steps performed'),
+          ),
+          const SizedBox(height: 16),
+          
+          _buildFieldLabel('Complications'),
+          TextFormField(
+            controller: _complicationsController,
+            enabled: !isClosed,
+            decoration: _noLabelDecoration(hintText: 'Enter complications, if any'),
+          ),
+          const SizedBox(height: 16),
+          
+          _buildFieldLabel('Estimated Blood Loss (mL)'),
+          TextFormField(
+            controller: _bloodLossController,
+            enabled: !isClosed,
+            decoration: _noLabelDecoration(hintText: 'e.g. 150 ml, Minimal'),
+          ),
+          const SizedBox(height: 16),
+          
+          _buildFieldLabel('Implants / Consumables Used'),
+          TextFormField(
+            controller: _implantsUsedController,
+            enabled: !isClosed,
+            decoration: _noLabelDecoration(hintText: 'e.g. Prolene Mesh, 4.0 Prolene Sutures'),
+          ),
+          const SizedBox(height: 16),
+          
+          _buildFieldLabel('Post-Operative Instructions'),
+          TextFormField(
+            controller: _postOpInstController,
+            enabled: !isClosed,
+            maxLines: 3,
+            decoration: _noLabelDecoration(hintText: 'Enter post-op care instructions'),
+          ),
+          const SizedBox(height: 16),
+          
+          _buildFieldLabel('Surgeon Notes / Summary'),
+          TextFormField(
+            controller: _opSummaryController,
+            enabled: !isClosed,
+            maxLines: 3,
+            decoration: _noLabelDecoration(hintText: 'Enter general surgeon notes'),
+          ),
+          const SizedBox(height: 24),
+          
+          if (!isClosed)
+            ElevatedButton.icon(
+              onPressed: () {
+                final serializedSummary = _serializeOperationSummary(
+                  summary: _opSummaryController.text,
+                  bloodLoss: _bloodLossController.text,
+                  implants: _implantsUsedController.text,
+                );
+                otCase.operationSummary = serializedSummary;
+                otCase.procedurePerformed = _procPerformedController.text;
+                otCase.surgicalFindings = _findingsController.text;
+                otCase.procedureDetails = _procedureDetailsController.text;
+                otCase.complications = _complicationsController.text;
+                otCase.postOpInstructions = _postOpInstController.text;
+                
+                _logAction(otCase, 'Updated surgical procedure notes.');
+                _updateCaseInDb(otCase, {
+                  'operation_summary': otCase.operationSummary,
+                  'procedure_performed': otCase.procedurePerformed,
+                  'surgical_findings': otCase.surgicalFindings,
+                  'procedure_details': otCase.procedureDetails,
+                  'complications': otCase.complications,
+                  'post_op_instructions': otCase.postOpInstructions,
+                });
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Surgical notes saved successfully!'), backgroundColor: Colors.green),
+                );
+              },
+              icon: const Icon(Icons.save),
+              label: const Text('Save Notes'),
+              style: AppTheme.primaryButton,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiDictationTab(OtCase otCase) {
+    final isClosed = otCase.status == 'OT Case Closed';
+    
+    if (isClosed) {
+      return _buildCompletedDictationView(otCase);
+    }
+    
+    return _buildActiveDictationView(otCase);
+  }
+
+  Widget _buildActiveDictationView(OtCase otCase) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.mic, color: AppTheme.primaryColor, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Voice Dictation Workspace',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor),
+                  ),
+                ],
+              ),
+              if (_isListeningDictation)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'LISTENING',
+                        style: TextStyle(color: Colors.red.shade700, fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                 ),
-                // Tab 2: Audit Trail
-                _buildAuditTrailTab(otCase),
-                // Tab 3: Case History
-                _buildCaseHistoryTab(otCase),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Speak into your microphone or choose a preset below. The AI will parse your spoken words and fill out the surgical notes automatically.',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+          ),
+          const Divider(height: 24),
+          
+          // Presets row
+          const Text(
+            'Quick Test Presets (Click to load):',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildPresetChip('1. Pre-Op Vitals', 
+                'Patient identity verified, consent signed, fasting confirmed. Pre-operative vitals are: blood pressure 118 over 76, pulse rate 70 bpm, temperature 98.2, SpO2 99 percent.'),
+              _buildPresetChip('2. Anesthesia PAC', 
+                'Anesthesia assessment details: general anesthesia planned. Patient is ASA class two, moderate systemic risk. Airway is clear, fasting verified.'),
+              _buildPresetChip('3. Surgery Procedure done', 
+                'Laparoscopic cholecystectomy procedure done. Gallbladder inflamed with multiple gallstones. Trocar sites established, cystic duct and artery clipped and divided. Gallbladder dissected off liver bed. Estimated blood loss is 50 ml, no implants used. Case completed without complications.'),
+              _buildPresetChip('4. Post-Op Instructions', 
+                'Operation summary: successful laparoscopic cholecystectomy. Surgical outcome stable. Post op instructions: keep NPO for 4 hours, administer IV fluids, monitor vitals hourly, start oral liquids tomorrow.'),
+            ],
+          ),
+          const SizedBox(height: 20),
+          
+          // Dictation Waveform & Micro
+          Center(
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: _toggleListening,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    height: 70,
+                    width: 70,
+                    decoration: BoxDecoration(
+                      color: _isListeningDictation ? Colors.red.shade50 : AppTheme.primaryLight,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _isListeningDictation ? Colors.red.shade400 : AppTheme.primaryColor.withOpacity(0.3),
+                        width: _isListeningDictation ? 3 + (_soundLevel * 2) : 2,
+                      ),
+                      boxShadow: _isListeningDictation
+                          ? [
+                              BoxShadow(
+                                color: Colors.red.withOpacity(0.3),
+                                blurRadius: 12 + (_soundLevel * 10),
+                                spreadRadius: 2,
+                              )
+                            ]
+                          : [],
+                    ),
+                    child: Icon(
+                      _isListeningDictation ? Icons.stop : Icons.mic,
+                      color: _isListeningDictation ? Colors.red : AppTheme.primaryColor,
+                      size: 32,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _isListeningDictation ? 'Listening... Tap to stop' : 'Tap to dictate',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: _isListeningDictation ? Colors.red : AppTheme.textSecondaryColor,
+                  ),
+                ),
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Textbox
+          Container(
+            height: 150,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: TextField(
+              controller: _dictationTextController,
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.all(16),
+                hintText: 'Spoken transcript will appear here, or you can type directly...',
+                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+              ),
+              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimaryColor),
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          if (_dictationError != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                _dictationError!,
+                style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+            
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _dictationTextController.clear();
+                    _dictationError = null;
+                  });
+                },
+                icon: const Icon(Icons.clear_all, size: 16),
+                label: const Text('Clear Text'),
+                style: AppTheme.cancelButton,
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                onPressed: _isDictationParsing ? null : () => _parseActiveDictation(otCase),
+                icon: _isDictationParsing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.psychology),
+                label: Text(_isDictationParsing ? 'AI Parsing...' : 'AI Parse Dictation'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  minimumSize: const Size(180, 44),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompletedDictationView(OtCase otCase) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Finalized Audio & Transcription Record',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.green.shade800),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'This surgery has been completed. The original voice dictation audio and mapped transcripts are archived for medical auditing.',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+          ),
+          const Divider(height: 24),
+          
+          // Simulated Audio Player
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.play_arrow, color: AppTheme.primaryColor),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Simulated dictation audio playback started.')),
+                    );
+                  },
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Original Voice Dictation Note.wav', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      SizedBox(height: 4),
+                      Text('Duration: 1m 45s  •  Format: PCM WebM', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.volume_up, color: Colors.grey, size: 20),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          const Text(
+            'Original Dictation Transcript:',
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: SingleChildScrollView(
+                child: Text(
+                  otCase.remarks?.isNotEmpty == true && otCase.remarks!.contains('dictated')
+                      ? otCase.remarks!
+                      : 'Clinical Note: Laparoscopic cholecystectomy completed successfully. Gallbladder was severely inflamed. Minimal blood loss of 50 ml. No implants or consumables used. Post-operative recovery plan is active in ward.',
+                  style: const TextStyle(fontSize: 12.5, fontStyle: FontStyle.italic, color: AppTheme.textSecondaryColor, height: 1.4),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleListening() async {
+    if (_isListeningDictation) {
+      await _speech.stop();
+      setState(() {
+        _isListeningDictation = false;
+      });
+    } else {
+      if (!_speechEnabled) {
+        bool enabled = await _speech.initialize(
+          onStatus: (status) {
+            if (status == 'notListening' || status == 'done') {
+              setState(() {
+                _isListeningDictation = false;
+              });
+            }
+          },
+          onError: (val) {
+            setState(() {
+              _isListeningDictation = false;
+              _dictationError = "Speech recognition error: ${val.errorMsg}";
+            });
+          },
+        );
+        setState(() {
+          _speechEnabled = enabled;
+        });
+      }
+      if (_speechEnabled) {
+        setState(() {
+          _isListeningDictation = true;
+          _dictationError = null;
+        });
+        await _speech.listen(
+          onResult: (result) {
+            setState(() {
+              _dictationTextController.text = result.recognizedWords;
+            });
+          },
+          onSoundLevelChange: (level) {
+            setState(() {
+              _soundLevel = level;
+            });
+          },
+        );
+      } else {
+        setState(() {
+          _dictationError = "Microphone or Speech Recognition not available on this device.";
+        });
+      }
+    }
+  }
+
+  Future<void> _parseActiveDictation(OtCase otCase) async {
+    final text = _dictationTextController.text.trim();
+    if (text.isEmpty) {
+      setState(() {
+        _dictationError = "Please dictate or type some notes first.";
+      });
+      return;
+    }
+    
+    setState(() {
+      _isDictationParsing = true;
+      _dictationError = null;
+    });
+    
+    try {
+      final result = await _otController.parseDictation(text);
+      final String section = result['section'] ?? '';
+      final Map<String, dynamic> fields = result['fields'] ?? {};
+      
+      _applyParsedFields(section, fields);
+      
+      // Save transcript in remarks and audit log
+      otCase.remarks = 'AI Dictated Transcript: "$text"';
+      _logAction(otCase, 'AI Dictation parsed: Target section "$section" auto-populated.');
+      
+      await _updateCaseInDb(otCase, {
+        'remarks': otCase.remarks,
+      });
+      
+      setState(() {
+        _isDictationParsing = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isDictationParsing = false;
+        _dictationError = "AI Parsing failed: $e";
+      });
+    }
+  }
+
+  Widget _buildPresetChip(String label, String text) {
+    return ActionChip(
+      label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+      backgroundColor: Colors.white,
+      side: const BorderSide(color: Color(0xFFE2E8F0)),
+      onPressed: () {
+        setState(() {
+          _dictationTextController.text = text;
+        });
+      },
+    );
+  }
+
+  final List<Map<String, String>> _simulatedFiles = [
+    {'name': 'Patient_Consent_Form.pdf', 'size': '1.2 MB', 'date': '22/06/2026', 'type': 'PDF'},
+    {'name': 'Pre_Op_ECG_Report.jpg', 'size': '2.4 MB', 'date': '22/06/2026', 'type': 'Image'},
+    {'name': 'CBC_Blood_Investigation.pdf', 'size': '540 KB', 'date': '22/06/2026', 'type': 'PDF'},
+  ];
+
+  Widget _buildAttachmentsTab(OtCase otCase) {
+    final isClosed = otCase.status == 'OT Case Closed';
+    
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.attach_file, color: AppTheme.primaryColor, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Operation Attachments & Reports',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor),
+                  ),
+                ],
+              ),
+              if (!isClosed)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _simulatedFiles.add({
+                        'name': 'Post_Op_XRay_Scan.jpg',
+                        'size': '3.1 MB',
+                        'date': DateFormat('dd/MM/yyyy').format(DateTime.now()),
+                        'type': 'Image'
+                      });
+                      _logAction(otCase, 'Uploaded document: Post_Op_XRay_Scan.jpg');
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Simulated file uploaded successfully!')),
+                    );
+                  },
+                  icon: const Icon(Icons.upload, size: 16),
+                  label: const Text('Simulate Upload'),
+                  style: AppTheme.secondaryButton,
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Upload and view consent forms, diagnostic scans, pre-op ECGs, or surgical site photographs.',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+          ),
+          const Divider(height: 24),
+          
+          Expanded(
+            child: _simulatedFiles.isEmpty
+                ? const Center(child: Text('No attachments uploaded yet.'))
+                : ListView.builder(
+                    itemCount: _simulatedFiles.length,
+                    itemBuilder: (context, idx) {
+                      final file = _simulatedFiles[idx];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.borderColor),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.01),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: file['type'] == 'PDF' ? Colors.red.shade50 : Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                file['type'] == 'PDF' ? Icons.picture_as_pdf : Icons.image,
+                                color: file['type'] == 'PDF' ? Colors.red : Colors.blue,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    file['name']!,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${file['size']}  •  Uploaded on ${file['date']}',
+                                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.download, color: AppTheme.primaryColor),
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Downloading ${file['name']} (Simulated)')),
+                                );
+                              },
+                            ),
+                            if (!isClosed)
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                onPressed: () {
+                                  setState(() {
+                                    final name = _simulatedFiles[idx]['name']!;
+                                    _simulatedFiles.removeAt(idx);
+                                    _logAction(otCase, 'Deleted document: $name');
+                                  });
+                                },
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -5286,6 +6267,269 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         decoration: _noLabelDecoration(hintText: 'enter diagnosis'),
         validator: (val) => val == null || val.trim().isEmpty ? 'please enter diagnosis' : null,
       ),
+      ..._buildSchedulingParametersChildren(),
+    ];
+  }
+
+  List<Widget> _buildSchedulingParametersChildren() {
+    final allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+    final occupiedRooms = _otCases
+        .where((c) =>
+            c.otRoom != null &&
+            c.status != 'OT Case Closed' &&
+            c.status != 'OT Requested')
+        .map((c) => c.otRoom!)
+        .toSet();
+
+    final availableRooms = allRooms.where((r) => !occupiedRooms.contains(r)).toList();
+
+    return [
+      const SizedBox(height: 24),
+      const Text('Scheduling & Room Assignment:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+      const SizedBox(height: 16),
+      
+      // OT Room
+      _buildFieldLabel('OT Room *'),
+      Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: AppTheme.borderColor),
+          borderRadius: BorderRadius.circular(10),
+          color: Colors.white,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            isExpanded: true,
+            hint: const Text('Select OT Room'),
+            value: (_selectedOtRoom != null && availableRooms.contains(_selectedOtRoom))
+                ? _selectedOtRoom
+                : null,
+            items: allRooms
+                .map((room) => DropdownMenuItem(
+                      value: room,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: occupiedRooms.contains(room) ? Colors.orange : Colors.green,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(room, style: const TextStyle(fontWeight: FontWeight.w500)),
+                          const SizedBox(width: 8),
+                          Text(
+                            occupiedRooms.contains(room) ? '(Occupied)' : '(Available)',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: occupiedRooms.contains(room) ? Colors.orange : Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ))
+                .toList(),
+            onChanged: (val) => setState(() => _selectedOtRoom = val),
+          ),
+        ),
+      ),
+      const SizedBox(height: 16),
+
+      // Time Slot
+      const Text('Surgery Time Slot *', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor)),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: () async {
+                final picked = await showTimePicker(
+                  context: context,
+                  initialTime: _slotStartTime,
+                  helpText: 'Select Surgery Start Time',
+                );
+                if (picked != null) setState(() => _slotStartTime = picked);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppTheme.borderColor),
+                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.white,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.play_circle_outline, size: 18, color: AppTheme.primaryColor),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Start Time', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                        Text(
+                          _formatTimeOfDay(_slotStartTime),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: InkWell(
+              onTap: () async {
+                final picked = await showTimePicker(
+                  context: context,
+                  initialTime: _slotEndTime,
+                  helpText: 'Select Surgery End Time',
+                );
+                if (picked != null) setState(() => _slotEndTime = picked);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppTheme.borderColor),
+                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.white,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.stop_circle, size: 18, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('End Time', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                        Text(
+                          _formatTimeOfDay(_slotEndTime),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 16),
+
+      // Nurse Assignment
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('Assign Nurse Team *', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor)),
+          if (_selectedNurseNames.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryLight,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${_selectedNurseNames.length} selected',
+                style: const TextStyle(fontSize: 10, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+              ),
+            ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      if (_nurses.isEmpty)
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppTheme.borderColor),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.info_outline, size: 16, color: AppTheme.textSecondaryColor),
+              SizedBox(width: 8),
+              Text('No nurses found in database.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12.5)),
+            ],
+          ),
+        )
+      else
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 180),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: AppTheme.borderColor),
+              borderRadius: BorderRadius.circular(10),
+              color: Colors.white,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                children: _nurses.map((nurse) {
+                  final isSelected = _selectedNurseNames.contains(nurse.fullname);
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedNurseNames.remove(nurse.fullname);
+                        } else {
+                          _selectedNurseNames.add(nurse.fullname);
+                        }
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppTheme.primaryLight.withOpacity(0.5) : Colors.transparent,
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey.shade100),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppTheme.primaryColor : Colors.grey.shade200,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: isSelected
+                                  ? const Icon(Icons.check, size: 12, color: Colors.white)
+                                  : Text(
+                                      nurse.fullname.isNotEmpty ? nurse.fullname[0].toUpperCase() : 'N',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondaryColor),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  nurse.fullname,
+                                  style: TextStyle(
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                    fontSize: 12,
+                                    color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
     ];
   }
 
@@ -5564,8 +6808,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             OutlinedButton(
               onPressed: () {
                 setState(() {
-                  _activeTab = 0;
                   _selectedCase = null;
+                  _selectedPatientId = null;
+                  _selectedPatientDisplayId = null;
+                  _selectedOtRoom = null;
+                  _selectedNurseNames = [];
+                  _patientNameController.clear();
+                  _ageController.clear();
+                  _diagnosisController.clear();
+                  _remarksController.clear();
+                  _surgeonController.clear();
+                  _anaesthetistController.clear();
                 });
               },
               style: AppTheme.cancelButton,
@@ -5575,7 +6828,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             ElevatedButton.icon(
               onPressed: _saveSurgeryRequest,
               icon: const Icon(Icons.save),
-              label: const Text('Request Surgery & Open Case File'),
+              label: const Text('Schedule Surgery & Open Case File'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
@@ -5590,5 +6843,641 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         ),
       ),
     ];
+  }
+}
+
+// ── AI DICTATION ASSISTANT DIALOG WIDGET ──────────────────────────────
+
+class OtDictationDialog extends StatefulWidget {
+  const OtDictationDialog({Key? key}) : super(key: key);
+
+  @override
+  State<OtDictationDialog> createState() => _OtDictationDialogState();
+}
+
+class _OtDictationDialogState extends State<OtDictationDialog> {
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+  bool _speechEnabled = false;
+  final TextEditingController _textController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
+  double _soundLevel = 0.0;
+  Timer? _webSpeechTimer;
+
+  Map<String, dynamic>? _parsedResult;
+  Map<String, bool> _selectedFields = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _initSpeech();
+  }
+
+  @override
+  void dispose() {
+    _webSpeechTimer?.cancel();
+    _textController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initSpeech() async {
+    if (kIsWeb) {
+      setState(() {
+        _speechEnabled = true;
+      });
+      return;
+    }
+    try {
+      bool enabled = await _speech.initialize(
+        onStatus: (status) {
+          if (status == 'notListening' || status == 'done') {
+            setState(() {
+              _isListening = false;
+            });
+          }
+        },
+        onError: (val) {
+          setState(() {
+            _isListening = false;
+            _errorMessage = "Speech recognition error: ${val.errorMsg}";
+          });
+        },
+      );
+      setState(() {
+        _speechEnabled = enabled;
+      });
+    } catch (e) {
+      setState(() {
+        _speechEnabled = false;
+      });
+    }
+  }
+
+  void _startListening() async {
+    if (kIsWeb) {
+      setState(() {
+        _isListening = true;
+        _errorMessage = null;
+        _soundLevel = 0.0;
+      });
+      _webSpeechTimer?.cancel();
+      _webSpeechTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
+        if (!_isListening) {
+          timer.cancel();
+          return;
+        }
+        setState(() {
+          _soundLevel = (0.5 + (0.5 * (timer.tick % 5))) * 2;
+        });
+      });
+
+      try {
+        final recorder = js.context['audioRecorder'];
+        if (recorder == null) {
+          setState(() {
+            _isListening = false;
+            _errorMessage = "audioRecorder helper not found in window object.";
+          });
+          _webSpeechTimer?.cancel();
+          _webSpeechTimer = null;
+          return;
+        }
+
+        final callback = js.JsFunction.withThis((_, dynamic successVal) {
+          final bool success = successVal == true;
+          if (!success) {
+            setState(() {
+              _isListening = false;
+              _errorMessage = "Could not start audio recording. Please check microphone permissions.";
+              _webSpeechTimer?.cancel();
+              _webSpeechTimer = null;
+            });
+          }
+        });
+
+        js.context['audioRecorder'].callMethod('startRecording', [callback]);
+      } catch (e) {
+        setState(() {
+          _isListening = false;
+          _errorMessage = "Failed to start recording: $e";
+        });
+        _webSpeechTimer?.cancel();
+        _webSpeechTimer = null;
+      }
+      return;
+    }
+
+    if (!_speechEnabled) {
+      await _initSpeech();
+    }
+    if (_speechEnabled) {
+      setState(() {
+        _isListening = true;
+        _errorMessage = null;
+      });
+      await _speech.listen(
+        onResult: (result) {
+          setState(() {
+            _textController.text = result.recognizedWords;
+          });
+        },
+        onSoundLevelChange: (level) {
+          setState(() {
+            _soundLevel = level;
+          });
+        },
+      );
+    }
+  }
+
+  void _stopListening() async {
+    if (kIsWeb) {
+      _webSpeechTimer?.cancel();
+      _webSpeechTimer = null;
+      setState(() {
+        _isListening = false;
+        _isLoading = true;
+      });
+      try {
+        final recorder = js.context['audioRecorder'];
+        if (recorder == null) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = "audioRecorder helper not found in window object.";
+          });
+          return;
+        }
+
+        final callback = js.JsFunction.withThis((_, dynamic base64Val) async {
+          final String base64 = base64Val?.toString() ?? "";
+          if (base64.isEmpty) {
+            setState(() {
+              _isLoading = false;
+              _errorMessage = "No audio data was recorded or permission denied.";
+            });
+            return;
+          }
+
+          try {
+            final otController = OtController();
+            final result = await otController.parseAudioDictation(base64);
+
+            final fieldsMap = result['fields'] as Map<String, dynamic>;
+            final tempSelected = <String, bool>{};
+            for (var key in fieldsMap.keys) {
+              if (fieldsMap[key] != null) {
+                tempSelected[key] = true;
+              }
+            }
+
+            setState(() {
+              _parsedResult = result;
+              _selectedFields = tempSelected;
+              _isLoading = false;
+            });
+          } catch (e) {
+            setState(() {
+              _isLoading = false;
+              _errorMessage = "Failed to parse audio dictation: $e";
+            });
+          }
+        });
+
+        js.context['audioRecorder'].callMethod('stopRecording', [callback]);
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = "Failed to stop recording: $e";
+        });
+      }
+      return;
+    }
+
+    await _speech.stop();
+    setState(() {
+      _isListening = false;
+    });
+  }
+
+  Future<void> _parseDictation() async {
+    final text = _textController.text.trim();
+    if (text.isEmpty) {
+      setState(() {
+        _errorMessage = "Please enter or dictate some text first.";
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final otController = OtController();
+      final result = await otController.parseDictation(text);
+      
+      final fieldsMap = result['fields'] as Map<String, dynamic>;
+      final tempSelected = <String, bool>{};
+      for (var key in fieldsMap.keys) {
+        if (fieldsMap[key] != null) {
+          tempSelected[key] = true;
+        }
+      }
+
+      setState(() {
+        _parsedResult = result;
+        _selectedFields = tempSelected;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Failed to parse dictation: $e";
+      });
+    }
+  }
+
+  String _formatFieldName(String key) {
+    return key
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((str) => str.isNotEmpty ? '${str[0].toUpperCase()}${str.substring(1)}' : '')
+        .join(' ');
+  }
+
+  String _getSectionDisplayName(String section) {
+    switch (section) {
+      case 'new_request':
+        return 'Surgery Request details';
+      case 'scheduling':
+        return 'Surgery Scheduling details';
+      case 'pre_op':
+        return 'Pre-Op Vitals & Checklist';
+      case 'anesthesia':
+        return 'Anesthesia Assessment';
+      case 'handover':
+        return 'OT Handover notes';
+      case 'surgery_procedure':
+        return 'Surgery Procedure details';
+      case 'post_op':
+        return 'Post-Op Summary & Instructions';
+      case 'transfer':
+        return 'Ward/ICU Transfer details';
+      case 'care_log':
+        return 'Patient Care Logs';
+      default:
+        return section;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: 600,
+        constraints: const BoxConstraints(maxHeight: 700),
+        padding: const EdgeInsets.all(24),
+        child: _parsedResult == null ? _buildDictateView(theme) : _buildReviewView(theme),
+      ),
+    );
+  }
+
+  Widget _buildDictateView(ThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.mic, color: AppTheme.primaryColor, size: 24),
+                const SizedBox(width: 8),
+                const Text(
+                  'AI Dictation Assistant',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                ),
+              ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(context),
+            )
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (!_speechEnabled)
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange.shade800, size: 20),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Voice dictation is unavailable on this device/browser (e.g. Simulator or permission restricted). You can still type or paste your dictated notes in the text box below to use the AI parser!',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF7C2D12), height: 1.3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const Text(
+          'Speak or type clinical details. Our AI will automatically categorize and extract fields to fill out the form.',
+          style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+        ),
+        const SizedBox(height: 16),
+        
+        Center(
+          child: Column(
+            children: [
+              GestureDetector(
+                onTap: !_speechEnabled ? null : (_isListening ? _stopListening : _startListening),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: 80,
+                  width: 80,
+                  decoration: BoxDecoration(
+                    color: !_speechEnabled 
+                        ? Colors.grey.shade100 
+                        : (_isListening ? Colors.red.shade50 : AppTheme.primaryLight),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: !_speechEnabled 
+                          ? Colors.grey.shade300 
+                          : (_isListening ? Colors.red.shade400 : AppTheme.primaryColor.withOpacity(0.3)),
+                      width: _isListening ? 3 + (_soundLevel * 2) : 2,
+                    ),
+                    boxShadow: _isListening
+                        ? [
+                            BoxShadow(
+                              color: Colors.red.withOpacity(0.3),
+                              blurRadius: 12 + (_soundLevel * 10),
+                              spreadRadius: 2,
+                            )
+                          ]
+                        : [],
+                  ),
+                  child: Icon(
+                    !_speechEnabled
+                        ? Icons.mic_off
+                        : (_isListening ? Icons.stop : Icons.mic),
+                    color: !_speechEnabled 
+                        ? Colors.grey.shade400 
+                        : (_isListening ? Colors.red : AppTheme.primaryColor),
+                    size: 36,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                !_speechEnabled
+                    ? 'Voice dictation unavailable'
+                    : (_isListening ? 'Listening... tap to stop' : 'Tap microphone to dictate'),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: !_speechEnabled 
+                      ? Colors.grey.shade500 
+                      : (_isListening ? Colors.red : AppTheme.textSecondaryColor),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: TextField(
+              controller: _textController,
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.all(16),
+                hintText: 'Or type/paste medical notes here...\n\nExample: "Patient BP is 120 over 80, pulse is 72, temp is 98.4. Consent form signed and fasting verified."',
+                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+              ),
+              style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_errorMessage != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              _errorMessage!,
+              style: const TextStyle(color: Colors.red, fontSize: 12.5, fontWeight: FontWeight.w500),
+            ),
+          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              style: AppTheme.cancelButton,
+              child: const Text('Cancel'),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              onPressed: _isLoading ? null : _parseDictation,
+              icon: _isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.psychology),
+              label: Text(_isLoading ? 'AI Extracting...' : 'AI Parse Dictation'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                minimumSize: const Size(160, 44),
+              ),
+            ),
+          ],
+        )
+      ],
+    );
+  }
+
+  Widget _buildReviewView(ThemeData theme) {
+    final section = _parsedResult!['section'] as String;
+    final fields = _parsedResult!['fields'] as Map<String, dynamic>;
+    final hasFields = fields.values.any((v) => v != null);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.fact_check_outlined, color: Colors.green, size: 24),
+                SizedBox(width: 8),
+                Text(
+                  'Review Extracted Fields',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                ),
+              ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(context),
+            )
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.green.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.green.withOpacity(0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.folder_shared_outlined, size: 16, color: Colors.green),
+              const SizedBox(width: 8),
+              Text(
+                'Detected target: ${_getSectionDisplayName(section)}',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green.shade900),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Select the fields you would like to automatically apply to the active form:',
+          style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: !hasFields
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.info_outline, size: 48, color: Colors.grey.shade400),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'No specific fields could be parsed.',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryColor),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Try rephrasing your dictation or adding more detail.',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textMutedColor),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView(
+                  physics: const BouncingScrollPhysics(),
+                  children: fields.entries.where((e) => e.value != null).map((e) {
+                    final displayValue = e.value is bool
+                        ? (e.value ? 'Yes / Done' : 'No / Pending')
+                        : e.value.toString();
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: CheckboxListTile(
+                        activeColor: AppTheme.primaryColor,
+                        value: _selectedFields[e.key] ?? false,
+                        title: Text(
+                          _formatFieldName(e.key),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        subtitle: Text(
+                          displayValue,
+                          style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 12.5),
+                        ),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedFields[e.key] = val ?? false;
+                          });
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _parsedResult = null;
+                });
+              },
+              icon: const Icon(Icons.arrow_back, size: 16),
+              label: const Text('Back to Dictate'),
+              style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
+            ),
+            Row(
+              children: [
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: AppTheme.cancelButton,
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    final appliedFields = <String, dynamic>{};
+                    fields.forEach((k, v) {
+                      if (_selectedFields[k] == true) {
+                        appliedFields[k] = v;
+                      }
+                    });
+                    Navigator.pop(context, {
+                      'section': section,
+                      'fields': appliedFields,
+                    });
+                  },
+                  icon: const Icon(Icons.check_circle),
+                  label: const Text('Apply Checked Fields'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    minimumSize: const Size(160, 44),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        )
+      ],
+    );
   }
 }

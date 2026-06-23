@@ -42,6 +42,7 @@ class AppRoutes {
   static const String doctorIpd = '/doctor/ipd';
   static const String doctorProfile = '/doctor/profile';
   static const String doctorOt = '/doctor/ot';
+  static const String doctorDictation = '/doctor/dictation';
 
   // Reception & Front Desk Routes
   static const String receptionDashboard = '/reception/dashboard';

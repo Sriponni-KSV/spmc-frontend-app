@@ -2065,6 +2065,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           Text(c['symptoms'].toString(), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
         ],
+        if (c['leading_questions'] != null && c['leading_questions'].toString().isNotEmpty) ...[
+          const Text(
+            'Leading Questions:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['leading_questions'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
         if (c['diagnosis'] != null && c['diagnosis'].toString().isNotEmpty) ...[
           const Text(
             'Diagnosis / Impression:',
@@ -2119,6 +2127,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
           Text(c['procedure'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (c['plan'] != null && c['plan'].toString().isNotEmpty) ...[
+          const Text(
+            'Plan:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['plan'].toString(), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
         ],
         if (refMap != null &&

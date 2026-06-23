@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This application requires speech recognition to transcribe surgical dictations in the OT Management module.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This application requires microphone access to record voice dictations for clinical forms.</string>
 </dict>
 </plist>

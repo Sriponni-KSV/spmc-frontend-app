@@ -19,6 +19,7 @@ import '../utils/date_formatter.dart';
 import '../utils/logout_helper.dart';
 import 'doctor_ipd_management.dart';
 import 'ot_management.dart';
+import 'ot_dictation_dashboard.dart';
 import '../controllers/ot_controller.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -481,6 +482,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           initialSelectedCase: _otInitialSelectedCase,
           initialTab: _otInitialTab,
         );
+      case 5:
+        return OtDictationDashboardView(isMobile: isMobile);
       default:
         return isAnaesthetist
             ? _buildAnaesthetistDashboardView(isMobile)
@@ -993,19 +996,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _buildGridRow(
           'Doctor',
           doctor,
+          customValueWidget: Row(
+            children: [
+              Text(
+                doctor,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF2D3748),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '($dept)',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              _buildEditPencilButton(c),
+            ],
+          ),
           isHeader: true,
-        ),
-        const SizedBox(height: 12),
-        _buildGridRow(
-          dept,
-          null,
-          customValueWidget: _buildEditPencilButton(c),
         ),
         const SizedBox(height: 12),
         if (c['symptoms'] != null && c['symptoms'].toString().isNotEmpty) ...[
           _buildGridRow(
             'Problem',
             c['symptoms'].toString(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (c['leading_questions'] != null && c['leading_questions'].toString().isNotEmpty) ...[
+          _buildGridRow(
+            'Leading Questions',
+            c['leading_questions'].toString(),
           ),
           const SizedBox(height: 12),
         ],
@@ -1055,6 +1082,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _buildGridRow(
             'Diagnosis',
             c['diagnosis'].toString(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (c['plan'] != null && c['plan'].toString().isNotEmpty) ...[
+          _buildGridRow(
+            'Plan',
+            c['plan'].toString(),
           ),
           const SizedBox(height: 12),
         ],
@@ -1244,9 +1278,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Icons.sick_outlined,
               ),
               _buildDetailRow(
+                'Leading Questions',
+                consultation['leading_questions'] ?? 'None recorded',
+                Icons.question_answer_outlined,
+              ),
+              _buildDetailRow(
                 'Diagnosis',
                 consultation['diagnosis'] ?? 'None recorded',
                 Icons.biotech_outlined,
+              ),
+              _buildDetailRow(
+                'Plan',
+                consultation['plan'] ?? 'None recorded',
+                Icons.assignment_outlined,
               ),
               _buildDetailRow(
                 'Notes',
@@ -2890,6 +2934,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Icons.healing_outlined,
                       'OT Management',
                     ),
+                    _buildSidebarItem(
+                      5,
+                      Icons.mic_none_outlined,
+                      'AI Dictation',
+                    ),
                     _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
                   ] else ...[
                     _buildSidebarItem(0, Icons.grid_view_outlined, 'Dashboard'),
@@ -2907,6 +2956,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       4,
                       Icons.healing_outlined,
                       'OT Management',
+                    ),
+                    _buildSidebarItem(
+                      5,
+                      Icons.mic_none_outlined,
+                      'AI Dictation',
                     ),
                     _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
                   ],
@@ -3017,6 +3071,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           context.go(AppRoutes.doctorIpd);
         } else if (index == 4) {
           context.go(AppRoutes.doctorOt);
+        } else if (index == 5) {
+          context.go(AppRoutes.doctorDictation);
         } else {
           context.go(AppRoutes.doctorDashboard);
         }

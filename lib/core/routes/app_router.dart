@@ -332,6 +332,13 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.doctorDictation,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('doctor_dashboard'),
+            child: DashboardScreen(initialIndex: 5),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.doctorProfile,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('doctor_dashboard'),
