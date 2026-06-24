@@ -154,7 +154,7 @@ class OtController {
 
     otCase.surgeryType = json['surgery_type'];
     otCase.priority = json['priority'];
-    otCase.surgeryDateTime = json['surgery_date_time'] != null ? DateTime.parse(json['surgery_date_time']) : null;
+    otCase.surgeryDateTime = json['surgery_date_time'] != null ? DateTime.parse(json['surgery_date_time']).toLocal() : null;
     otCase.surgeon = json['surgeon'];
     otCase.anaesthetist = json['anaesthetist'];
     otCase.remarks = json['remarks'];
@@ -181,8 +181,8 @@ class OtController {
     otCase.handoverVerified = json['handover_verified'] ?? false;
     otCase.handoverNotes = json['handover_notes'];
 
-    otCase.surgeryStartTime = json['surgery_start_time'] != null ? DateTime.parse(json['surgery_start_time']) : null;
-    otCase.surgeryEndTime = json['surgery_end_time'] != null ? DateTime.parse(json['surgery_end_time']) : null;
+    otCase.surgeryStartTime = json['surgery_start_time'] != null ? DateTime.parse(json['surgery_start_time']).toLocal() : null;
+    otCase.surgeryEndTime = json['surgery_end_time'] != null ? DateTime.parse(json['surgery_end_time']).toLocal() : null;
     otCase.procedureDetails = json['procedure_details'];
     otCase.surgicalFindings = json['surgical_findings'];
     otCase.complications = json['complications'];
@@ -193,7 +193,7 @@ class OtController {
           ? jsonDecode(json['intra_op_logs']) 
           : json['intra_op_logs'];
       otCase.intraOpLogs = logsJson.map((l) => IntraOpLog(
-        timestamp: DateTime.parse(l['timestamp']),
+        timestamp: DateTime.parse(l['timestamp']).toLocal(),
         bp: l['bp'] ?? '',
         pulse: l['pulse'] ?? 72,
         temp: double.tryParse(l['temp'].toString()) ?? 98.4,
@@ -253,7 +253,7 @@ class OtController {
       otCase.auditLogs = list.map((l) => AuditLog(
         actorName: l['actorName'] ?? 'Unknown',
         role: l['role'] ?? 'Staff',
-        timestamp: DateTime.parse(l['timestamp']),
+        timestamp: DateTime.parse(l['timestamp']).toLocal(),
         action: l['action'] ?? '',
       )).toList();
     } else {

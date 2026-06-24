@@ -89,6 +89,9 @@ class AppRouter {
           if (!isDoctor) {
             return AppRoutes.dashboard;
           }
+          if (path == AppRoutes.doctorDictation && userRole == 'Anaesthetist') {
+            return AppRoutes.dashboard;
+          }
         } else if (path.startsWith('/reception')) {
           // Allow reception routes or redirect (in case reception features are merged with Nurse)
           final isReception = userRole == 'Receptionist' ||

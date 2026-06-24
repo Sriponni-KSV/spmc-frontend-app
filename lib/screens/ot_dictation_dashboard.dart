@@ -45,6 +45,12 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
 
   bool get _isCaseCompleted => _selectedCase?.status == 'Surgery Completed' || _selectedCase?.status == 'Post-Op Monitoring' || _selectedCase?.status == 'OT Case Closed';
 
+  bool get _isDictationLocked {
+    if (_selectedCase == null) return false;
+    if (_selectedCase!.surgeryDateTime == null) return false;
+    return DateTime.now().isBefore(_selectedCase!.surgeryDateTime!);
+  }
+
   // Extracted/Parsed Fields (Active Editor State)
   String _procedureDetails = "";
   String _surgicalFindings = "";
@@ -52,6 +58,8 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
   String _operationSummary = "";
   String _outcome = "Successful";
   String _postOpInstructions = "";
+  String _anesthesiaType = "General Anesthesia";
+  String _anesthesiaNotes = "";
   
   // Vitals simulation/extracted state
   String _extractedBp = "120/80";
@@ -184,13 +192,14 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
     });
     try {
       final cases = await _otController.fetchOtCases();
+      final filteredCases = cases.where((c) => c.status != 'OT Case Closed' && c.anaesthesiaCleared == true).toList();
       final user = Provider.of<AuthProvider>(context, listen: false).user;
       setState(() {
-        _otCases = cases;
+        _otCases = filteredCases;
         if (user != null) {
-          _activeOtCases = cases.where((c) => _isUserAssociated(c, user)).toList();
+          _activeOtCases = filteredCases.where((c) => _isUserAssociated(c, user)).toList();
         } else {
-          _activeOtCases = cases;
+          _activeOtCases = filteredCases;
         }
 
         if (_activeOtCases.isNotEmpty) {
@@ -225,6 +234,19 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
       _operationSummary = otCase.operationSummary ?? "";
       _outcome = otCase.outcome ?? "Successful";
       _postOpInstructions = otCase.postOpInstructions ?? "";
+      _anesthesiaType = otCase.anaesthesiaType ?? "General Anesthesia";
+      
+      // Parse anesthesia notes JSON if applicable
+      Map<String, dynamic> pacData = {};
+      if (otCase.anaesthesiaNotes != null && otCase.anaesthesiaNotes!.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(otCase.anaesthesiaNotes!);
+          if (decoded is Map<String, dynamic>) {
+            pacData = decoded;
+          }
+        } catch (_) {}
+      }
+      _anesthesiaNotes = pacData['userNotes'] ?? otCase.anaesthesiaNotes ?? "";
 
       // Load vitals from pre-op if intra-op is empty
       _extractedBp = otCase.preOpBp ?? "120/80";
@@ -416,6 +438,16 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
         if (fields['post_op_instructions'] != null) {
           _postOpInstructions = fields['post_op_instructions'].toString();
         }
+        if (fields['anesthesia_type'] != null) {
+          _anesthesiaType = fields['anesthesia_type'].toString();
+        } else if (fields['anaesthesia_type'] != null) {
+          _anesthesiaType = fields['anaesthesia_type'].toString();
+        }
+        if (fields['anesthesia_notes'] != null) {
+          _anesthesiaNotes = fields['anesthesia_notes'].toString();
+        } else if (fields['anaesthesia_notes'] != null) {
+          _anesthesiaNotes = fields['anaesthesia_notes'].toString();
+        }
 
         // Vitals mapping
         if (fields['pre_op_bp'] != null) _extractedBp = fields['pre_op_bp'].toString();
@@ -449,6 +481,12 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
 
     final spo2Match = RegExp(r'spo2\s*(?:is)?\s*(\d{2,3})', caseSensitive: false).firstMatch(text);
     if (spo2Match != null) _extractedSpo2 = int.tryParse(spo2Match.group(1)!) ?? _extractedSpo2;
+
+    final anesTypeMatch = RegExp(r'(?:anesthesia|anaesthesia)\s*(?:type)?\s*(?:is)?\s*([a-zA-Z\s]{3,30})', caseSensitive: false).firstMatch(text);
+    if (anesTypeMatch != null) _anesthesiaType = anesTypeMatch.group(1)!.trim();
+
+    final anesNotesMatch = RegExp(r'(?:anesthesia|anaesthesia)\s*notes\s*(?:is|show|are)?\s*([^.]+)', caseSensitive: false).firstMatch(text);
+    if (anesNotesMatch != null) _anesthesiaNotes = anesNotesMatch.group(1)!.trim();
 
     setState(() {
       _procedureDetails = text;
@@ -509,6 +547,17 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
 
     final updatedLogs = List<IntraOpLog>.from(_selectedCase!.intraOpLogs)..add(newVitalLog);
 
+    Map<String, dynamic> pacData = {};
+    if (_selectedCase!.anaesthesiaNotes != null && _selectedCase!.anaesthesiaNotes!.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(_selectedCase!.anaesthesiaNotes!);
+        if (decoded is Map<String, dynamic>) {
+          pacData = Map<String, dynamic>.from(decoded);
+        }
+      } catch (_) {}
+    }
+    pacData['userNotes'] = _anesthesiaNotes;
+
     final updates = {
       'status': 'Surgery Completed',
       'procedure_details': _procedureDetails,
@@ -517,6 +566,8 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
       'operation_summary': _operationSummary,
       'outcome': _outcome,
       'post_op_instructions': _postOpInstructions,
+      'anaesthesia_type': _anesthesiaType,
+      'anaesthesia_notes': jsonEncode(pacData),
       'intra_op_logs': updatedLogs.map((l) => {
         'timestamp': l.timestamp.toIso8601String(),
         'bp': l.bp,
@@ -794,6 +845,32 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
           const SizedBox(height: 16),
           _buildVoiceCommandsGuide(cardBg, textPrimary, textSecondary, borderClr),
           const SizedBox(height: 16),
+          if (_isDictationLocked)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                border: Border.all(color: Colors.orange.shade200, width: 1.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lock_clock, color: Colors.orange, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'AI Dictation is locked. It will automatically activate on the scheduled surgery date and time: ${DateFormat('dd/MM/yyyy hh:mm a').format(_selectedCase!.surgeryDateTime!)}.',
+                      style: TextStyle(
+                        color: Colors.orange.shade900,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (_isCaseCompleted)
             Container(
               margin: const EdgeInsets.only(bottom: 16),
@@ -1093,6 +1170,32 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_isDictationLocked)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                border: Border.all(color: Colors.orange.shade200, width: 1.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lock_clock, color: Colors.orange, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'AI Dictation is locked. It will automatically activate on the scheduled surgery date and time: ${DateFormat('dd/MM/yyyy hh:mm a').format(_selectedCase!.surgeryDateTime!)}.',
+                      style: TextStyle(
+                        color: Colors.orange.shade900,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (_isCaseCompleted)
             Container(
               margin: const EdgeInsets.only(bottom: 16),
@@ -1362,7 +1465,7 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
                 child: ElevatedButton(
-                  onPressed: _isCaseCompleted ? null : () {
+                  onPressed: (_isCaseCompleted || _isDictationLocked) ? null : () {
                     setState(() {
                       _textController.text = preset['text']!;
                     });
@@ -1548,7 +1651,7 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _isCaseCompleted ? null : (_isListening ? _stopListening : _startListening),
+                  onPressed: (_isCaseCompleted || _isDictationLocked) ? null : (_isListening ? _stopListening : _startListening),
                   icon: Icon(_isListening ? Icons.stop : Icons.mic, color: Colors.white),
                   label: Text(_isListening ? 'Stop & Compile' : 'Start Speech Dictation'),
                   style: ElevatedButton.styleFrom(
@@ -1561,7 +1664,7 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
               ),
               const SizedBox(width: 12),
               OutlinedButton(
-                onPressed: _isCaseCompleted ? null : () {
+                onPressed: (_isCaseCompleted || _isDictationLocked) ? null : () {
                   setState(() {
                     _textController.clear();
                     _transcribedText = "";
@@ -1635,13 +1738,13 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
             setState(() {
               _procedureDetails = val;
             });
-          }, textPrimary, borderClr, 3, readOnly: _isCaseCompleted),
+          }, textPrimary, borderClr, 3, readOnly: _isCaseCompleted || _isDictationLocked),
           const SizedBox(height: 14),
           _buildTextFieldWithAI('Surgical Findings', _surgicalFindings, (val) {
             setState(() {
               _surgicalFindings = val;
             });
-          }, textPrimary, borderClr, 2, readOnly: _isCaseCompleted),
+          }, textPrimary, borderClr, 2, readOnly: _isCaseCompleted || _isDictationLocked),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -1650,7 +1753,7 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
                   setState(() {
                     _complications = val;
                   });
-                }, textPrimary, borderClr, 1, readOnly: _isCaseCompleted),
+                }, textPrimary, borderClr, 1, readOnly: _isCaseCompleted || _isDictationLocked),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1658,7 +1761,27 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
                   setState(() {
                     _outcome = val;
                   });
-                }, textPrimary, borderClr, 1, readOnly: _isCaseCompleted),
+                }, textPrimary, borderClr, 1, readOnly: _isCaseCompleted || _isDictationLocked),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _buildTextFieldWithAI('Anesthesia Type', _anesthesiaType, (val) {
+                  setState(() {
+                    _anesthesiaType = val;
+                  });
+                }, textPrimary, borderClr, 1, readOnly: _isCaseCompleted || _isDictationLocked),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildTextFieldWithAI('Anesthesia Notes', _anesthesiaNotes, (val) {
+                  setState(() {
+                    _anesthesiaNotes = val;
+                  });
+                }, textPrimary, borderClr, 1, readOnly: _isCaseCompleted || _isDictationLocked),
               ),
             ],
           ),
@@ -1667,11 +1790,11 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
             setState(() {
               _postOpInstructions = val;
             });
-          }, textPrimary, borderClr, 2, readOnly: _isCaseCompleted),
+          }, textPrimary, borderClr, 2, readOnly: _isCaseCompleted || _isDictationLocked),
 
           const SizedBox(height: 20),
           ElevatedButton.icon(
-            onPressed: (_isSaving || _isCaseCompleted) ? null : _saveToPatientFile,
+            onPressed: (_isSaving || _isCaseCompleted || _isDictationLocked) ? null : _saveToPatientFile,
             icon: const Icon(Icons.cloud_upload_outlined, color: Colors.white),
             label: const Text('Compile and Save to Patient EMR File', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             style: ElevatedButton.styleFrom(

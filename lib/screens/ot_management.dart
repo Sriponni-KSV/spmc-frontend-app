@@ -483,7 +483,13 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     _anaesthesiaNotesController.text = pacData['userNotes'] ?? '';
 
     if (otCase.anaesthesiaType != null) {
-      _selectedAnaesthesiaType = otCase.anaesthesiaType!;
+      String type = otCase.anaesthesiaType!;
+      if (type == 'General Anesthesia') type = 'General Anaesthesia';
+      if (type == 'Spinal Anesthesia') type = 'Spinal Anaesthesia';
+      if (type == 'Epidural Anesthesia') type = 'Epidural Anaesthesia';
+      if (type == 'Local Anesthesia') type = 'Local Anaesthesia';
+      if (type == 'Regional Anesthesia') type = 'Regional Anaesthesia';
+      _selectedAnaesthesiaType = type;
     } else {
       _selectedAnaesthesiaType = 'General Anaesthesia';
     }
@@ -629,8 +635,8 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           _selectedDate.year,
           _selectedDate.month,
           _selectedDate.day,
-          _selectedTime.hour,
-          _selectedTime.minute,
+          _slotStartTime.hour,
+          _slotStartTime.minute,
         ),
         surgeon: _surgeonController.text.trim(),
         anaesthetist: _anaesthetistController.text.trim(),
@@ -722,6 +728,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     otCase.nursingTeam = _selectedNurseNames.join(', ');
     otCase.status = 'OT Scheduled';
 
+    final existingDate = otCase.surgeryDateTime ?? DateTime.now();
+    otCase.surgeryDateTime = DateTime(
+      existingDate.year,
+      existingDate.month,
+      existingDate.day,
+      _slotStartTime.hour,
+      _slotStartTime.minute,
+    );
+
     _logAction(otCase, 'Scheduled surgery: Room ${otCase.otRoom}, Slot: ${otCase.surgerySlot}, Nursing Team: ${otCase.nursingTeam}.');
     
     _updateCaseInDb(otCase, {
@@ -729,6 +744,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       'ot_room': otCase.otRoom,
       'surgery_slot': otCase.surgerySlot,
       'nursing_team': otCase.nursingTeam,
+      'surgery_date_time': otCase.surgeryDateTime?.toIso8601String(),
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1287,7 +1303,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         if (section == 'anesthesia') {
           if (fields['asa_grade'] != null) _selectedAsaGrade = fields['asa_grade'].toString();
           if (fields['risk_level'] != null) _selectedRiskLevel = fields['risk_level'].toString();
-          if (fields['anesthesia_type'] != null) _selectedAnaesthesiaType = fields['anesthesia_type'].toString();
+          if (fields['anesthesia_type'] != null) {
+            String type = fields['anesthesia_type'].toString();
+            if (type == 'General Anesthesia') type = 'General Anaesthesia';
+            if (type == 'Spinal Anesthesia') type = 'Spinal Anaesthesia';
+            if (type == 'Epidural Anesthesia') type = 'Epidural Anaesthesia';
+            if (type == 'Local Anesthesia') type = 'Local Anaesthesia';
+            if (type == 'Regional Anesthesia') type = 'Regional Anaesthesia';
+            _selectedAnaesthesiaType = type;
+          }
           if (fields['anesthesia_notes'] != null) {
             _anaesthesiaNotesController.text = fields['anesthesia_notes'].toString();
           }
@@ -2817,7 +2841,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   Widget _buildTabbedWorkspace(OtCase otCase) {
     return DefaultTabController(
-      length: 5,
+      length: 4,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -2845,9 +2869,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.notes, size: 14),
+                      Icon(Icons.vaccines_outlined, size: 14),
                       SizedBox(width: 4),
-                      Text('Procedure Notes'),
+                      Text('Anesthesia Details'),
                     ],
                   ),
                 ),
@@ -2855,19 +2879,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.mic, size: 14),
+                      Icon(Icons.assignment_outlined, size: 14),
                       SizedBox(width: 4),
-                      Text('AI Dictation'),
-                    ],
-                  ),
-                ),
-                const Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.attach_file, size: 14),
-                      SizedBox(width: 4),
-                      Text('Attachments'),
+                      Text('Surgical Summary'),
                     ],
                   ),
                 ),
@@ -2905,16 +2919,699 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               children: [
                 // Tab 1: OT Details
                 _buildOtDetailsTab(otCase),
-                // Tab 2: Procedure Notes
-                _buildProcedureNotesTab(otCase),
-                // Tab 3: AI Dictation
-                _buildAiDictationTab(otCase),
-                // Tab 4: Attachments
-                _buildAttachmentsTab(otCase),
-                // Tab 5: Audit History
+                // Tab 2: Anesthesia Details (Form)
+                _buildAnesthesiaDetailsTab(otCase),
+                // Tab 3: Surgical Summary
+                _buildSurgicalSummaryTab(otCase),
+                // Tab 4: Audit History
                 _buildAuditTrailTab(otCase),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _saveAnesthesiaFormDetails(OtCase otCase) {
+    final pacData = {
+      'asaGrade': _selectedAsaGrade,
+      'riskLevel': _selectedRiskLevel,
+      'fastingVerified': _pacFastingVerified,
+      'consentVerified': _pacConsentVerified,
+      'instructionsReviewed': _pacInstructionsReviewed,
+      'medsEquipmentReady': _pacMedsEquipmentReady,
+      'consciousnessLevel': _selectedConsciousness,
+      'painScore': _selectedPainScore,
+      'observations': _pacuObservationsController.text,
+      'anesthesiaStartTime': _anesthesiaStartTimeController.text,
+      'anesthesiaEndTime': _anesthesiaEndTimeController.text,
+      'userNotes': _anaesthesiaNotesController.text,
+    };
+    
+    otCase.anaesthesiaNotes = jsonEncode(pacData);
+    otCase.anaesthesiaType = _selectedAnaesthesiaType;
+    otCase.anaesthesiaCleared = true;
+    
+    final Map<String, dynamic> updates = {
+      'anaesthesia_notes': otCase.anaesthesiaNotes,
+      'anaesthesia_type': otCase.anaesthesiaType,
+      'anaesthesia_cleared': true,
+    };
+
+    if (otCase.status == 'Pre-Op Completed') {
+      otCase.status = 'Anaesthesia Cleared';
+      updates['status'] = 'Anaesthesia Cleared';
+      _logAction(otCase, 'Cleared patient for surgery. ASA: $_selectedAsaGrade, Risk: $_selectedRiskLevel, Anesthesia: $_selectedAnaesthesiaType.');
+    } else {
+      _logAction(otCase, 'Updated anesthesia assessment details.');
+    }
+
+    _updateCaseInDb(otCase, updates);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Anesthesia details saved successfully!'), backgroundColor: Colors.green),
+    );
+  }
+
+  Widget _buildChecklistStatusRow(String label, bool verified) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        children: [
+          Icon(
+            verified ? Icons.check_circle_outline : Icons.cancel_outlined,
+            color: verified ? Colors.green : Colors.red.shade400,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13, 
+              color: verified ? Colors.green.shade800 : Colors.red.shade800,
+              fontWeight: verified ? FontWeight.w600 : FontWeight.normal
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyAnesthesiaDetails(OtCase otCase) {
+    final hasCleared = otCase.anaesthesiaCleared == true;
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.medical_services_outlined, color: AppTheme.primaryColor, size: 22),
+              const SizedBox(width: 8),
+              const Text(
+                'Pre-Anesthetic Assessment (PAC) Clearance',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: AppTheme.textPrimaryColor,
+                  fontFamily: 'Manrope',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Clearance details recorded by the Anaesthetist.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const Divider(height: 24, thickness: 1),
+          
+          if (!hasCleared) ...[
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.hourglass_empty, color: Colors.orange.shade400, size: 48),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Anesthesia Assessment Pending',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Clearance details are not yet available for this case. The assessment is pending clearance by the Anaesthetist.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
+            _buildSummaryCard(
+              title: 'Anesthesia Assessment Summary',
+              icon: Icons.assignment_turned_in_outlined,
+              iconColor: Colors.teal,
+              children: [
+                _buildSummaryField('Anesthesia Type', _selectedAnaesthesiaType),
+                _buildSummaryField('ASA Grade', _selectedAsaGrade),
+                _buildSummaryField('Risk Level', _selectedRiskLevel),
+                const Divider(height: 24),
+                const Text(
+                  'PAC Checklist Status',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                ),
+                const SizedBox(height: 12),
+                _buildChecklistStatusRow('Fasting (NPO) Verified', _pacFastingVerified),
+                _buildChecklistStatusRow('Surgical & Anesthesia Consent Verified', _pacConsentVerified),
+                _buildChecklistStatusRow('Pre-Operative Instructions Reviewed', _pacInstructionsReviewed),
+                _buildChecklistStatusRow('Anesthesia Meds & Equipment Ready', _pacMedsEquipmentReady),
+                const Divider(height: 24),
+                const Text(
+                  'PAC Notes & Warnings',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Text(
+                    _anaesthesiaNotesController.text.isNotEmpty 
+                      ? _anaesthesiaNotesController.text 
+                      : 'No specific notes recorded.',
+                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimaryColor),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnesthesiaDetailsTab(OtCase otCase) {
+    final isClosed = otCase.status == 'OT Case Closed';
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final userRole = user?.role ?? 'Doctor';
+    final canEdit = (userRole == 'Anaesthetist' || userRole == 'Admin' || userRole == 'Super Admin') && !isClosed;
+    final isAnaesthetistOrAdmin = userRole == 'Anaesthetist' || userRole == 'Admin' || userRole == 'Super Admin';
+
+    if (!isAnaesthetistOrAdmin) {
+      return _buildReadOnlyAnesthesiaDetails(otCase);
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.medical_services_outlined, color: AppTheme.primaryColor, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                'Pre-Anesthetic Assessment (PAC) Clearance Form',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: AppTheme.textPrimaryColor,
+                  fontFamily: 'Manrope',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            canEdit
+                ? 'Fill out the clearance details below. Saving will clear the patient for surgery if the checklist is fully verified.'
+                : 'View-only access for this form. Modification requires the Anaesthetist role.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const Divider(height: 24, thickness: 1),
+
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Verification & Preparation Checklist',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                ),
+                const SizedBox(height: 12),
+                _buildChecklistTile(
+                  title: 'Verify Fasting (NPO) Status',
+                  value: _pacFastingVerified,
+                  onChanged: canEdit ? (val) => setState(() => _pacFastingVerified = val ?? false) : null,
+                ),
+                _buildChecklistTile(
+                  title: 'Verify Patient Surgical & Anesthesia Consent',
+                  value: _pacConsentVerified,
+                  onChanged: canEdit ? (val) => setState(() => _pacConsentVerified = val ?? false) : null,
+                ),
+                _buildChecklistTile(
+                  title: 'Review Pre-Operative Instructions',
+                  value: _pacInstructionsReviewed,
+                  onChanged: canEdit ? (val) => setState(() => _pacInstructionsReviewed = val ?? false) : null,
+                ),
+                _buildChecklistTile(
+                  title: 'Confirm Anesthesia Meds & Equipment Ready',
+                  value: _pacMedsEquipmentReady,
+                  onChanged: canEdit ? (val) => setState(() => _pacMedsEquipmentReady = val ?? false) : null,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          widget.isMobile
+              ? Column(
+                  children: [
+                    _buildDisabledDropdownWrapper(
+                      enabled: canEdit,
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedAsaGrade,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'ASA Grade',
+                          prefixIcon: Icons.star_border_outlined,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'ASA I', child: Text('ASA I - Normal healthy')),
+                          DropdownMenuItem(value: 'ASA II', child: Text('ASA II - Mild systemic disease')),
+                          DropdownMenuItem(value: 'ASA III', child: Text('ASA III - Severe systemic disease')),
+                          DropdownMenuItem(value: 'ASA IV', child: Text('ASA IV - Severe systemic life-threat')),
+                          DropdownMenuItem(value: 'ASA V', child: Text('ASA V - Moribund patient')),
+                        ],
+                        onChanged: canEdit ? (val) {
+                          if (val != null) setState(() => _selectedAsaGrade = val);
+                        } : null,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDisabledDropdownWrapper(
+                      enabled: canEdit,
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedRiskLevel,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: 'Anesthesia Risk Level',
+                          prefixIcon: Icons.gpp_maybe_outlined,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'Low', child: Text('Low Risk')),
+                          DropdownMenuItem(value: 'Medium', child: Text('Medium Risk')),
+                          DropdownMenuItem(value: 'High', child: Text('High Risk')),
+                        ],
+                        onChanged: canEdit ? (val) {
+                          if (val != null) setState(() => _selectedRiskLevel = val);
+                        } : null,
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: _buildDisabledDropdownWrapper(
+                        enabled: canEdit,
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedAsaGrade,
+                          decoration: AppTheme.standardInputDecoration(
+                            label: 'ASA Grade',
+                            prefixIcon: Icons.star_border_outlined,
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'ASA I', child: Text('ASA I - Normal healthy')),
+                            DropdownMenuItem(value: 'ASA II', child: Text('ASA II - Mild systemic disease')),
+                            DropdownMenuItem(value: 'ASA III', child: Text('ASA III - Severe systemic disease')),
+                            DropdownMenuItem(value: 'ASA IV', child: Text('ASA IV - Severe systemic life-threat')),
+                            DropdownMenuItem(value: 'ASA V', child: Text('ASA V - Moribund patient')),
+                          ],
+                          onChanged: canEdit ? (val) {
+                            if (val != null) setState(() => _selectedAsaGrade = val);
+                          } : null,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildDisabledDropdownWrapper(
+                        enabled: canEdit,
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedRiskLevel,
+                          decoration: AppTheme.standardInputDecoration(
+                            label: 'Anesthesia Risk Level',
+                            prefixIcon: Icons.gpp_maybe_outlined,
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'Low', child: Text('Low Risk')),
+                            DropdownMenuItem(value: 'Medium', child: Text('Medium Risk')),
+                            DropdownMenuItem(value: 'High', child: Text('High Risk')),
+                          ],
+                          onChanged: canEdit ? (val) {
+                            if (val != null) setState(() => _selectedRiskLevel = val);
+                          } : null,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+          const SizedBox(height: 16),
+
+          _buildDisabledDropdownWrapper(
+            enabled: canEdit,
+            child: DropdownButtonFormField<String>(
+              value: _selectedAnaesthesiaType,
+              decoration: AppTheme.standardInputDecoration(
+                label: 'Confirmed Anesthesia Type',
+                prefixIcon: Icons.vaccines_outlined,
+              ),
+              items: _buildAnesthesiaTypeItems(),
+              onChanged: canEdit ? (val) {
+                if (val != null) setState(() => _selectedAnaesthesiaType = val);
+              } : null,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          TextField(
+            controller: _anaesthesiaNotesController,
+            maxLines: 3,
+            enabled: canEdit,
+            decoration: AppTheme.standardInputDecoration(
+              label: 'PAC Assessment Notes & Warnings',
+              hintText: 'Enter patient history notes, airway concerns, warnings...',
+              prefixIcon: Icons.note_alt_outlined,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          if (canEdit)
+            ElevatedButton.icon(
+              onPressed: () => _saveAnesthesiaFormDetails(otCase),
+              icon: const Icon(Icons.save),
+              label: const Text('Save Anesthesia Details'),
+              style: AppTheme.primaryButton,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChecklistTile({
+    required String title,
+    required bool value,
+    required ValueChanged<bool?>? onChanged,
+  }) {
+    return CheckboxListTile(
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: value ? FontWeight.bold : FontWeight.normal,
+          color: value ? AppTheme.successColor : AppTheme.textPrimaryColor,
+        ),
+      ),
+      value: value,
+      onChanged: onChanged,
+      activeColor: AppTheme.successColor,
+      checkboxShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      controlAffinity: ListTileControlAffinity.trailing,
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+    );
+  }
+
+  List<DropdownMenuItem<String>> _buildAnesthesiaTypeItems() {
+    final predefined = [
+      'General Anaesthesia',
+      'Spinal Anaesthesia',
+      'Epidural Anaesthesia',
+      'Regional Anaesthesia',
+      'Local Anaesthesia',
+      'Regional Block',
+      'MAC (Monitored Care)',
+    ];
+
+    final items = predefined.map((val) {
+      return DropdownMenuItem<String>(
+        value: val,
+        child: Text(val),
+      );
+    }).toList();
+
+    if (!predefined.contains(_selectedAnaesthesiaType)) {
+      items.add(DropdownMenuItem<String>(
+        value: _selectedAnaesthesiaType,
+        child: Text(_selectedAnaesthesiaType),
+      ));
+    }
+
+    return items;
+  }
+
+  Widget _buildDisabledDropdownWrapper({
+    required bool enabled,
+    required Widget child,
+  }) {
+    if (enabled) return child;
+    return IgnorePointer(
+      child: Opacity(
+        opacity: 0.7,
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required List<Widget> children,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: iconColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.textPrimaryColor,
+                  fontFamily: 'Manrope',
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 24, thickness: 1),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryField(String label, String? value, {bool italic = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade500,
+              fontFamily: 'Manrope',
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            (value == null || value.isEmpty) ? 'Not recorded' : value,
+            style: TextStyle(
+              fontSize: 13,
+              fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+              color: (value == null || value.isEmpty) ? Colors.grey.shade400 : AppTheme.textPrimaryColor,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIntraOpLogsView(List<IntraOpLog> logs) {
+    if (logs.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          'No intra-operative vitals logged yet.',
+          style: TextStyle(
+            fontSize: 12.5,
+            color: Colors.grey.shade400,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: logs.map((log) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Row(
+            children: [
+              Text(
+                DateFormat('hh:mm a').format(log.timestamp),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(width: 1, height: 16, color: Colors.grey.shade300),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    _buildVitalMiniBadge('BP', log.bp, AppTheme.primaryColor),
+                    _buildVitalMiniBadge('Pulse', '${log.pulse} bpm', AppTheme.logoRed),
+                    _buildVitalMiniBadge('Temp', '${log.temp}°F', Colors.orangeAccent),
+                    _buildVitalMiniBadge('SpO2', '${log.spo2}%', AppTheme.secondaryColor),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildVitalMiniBadge(String label, String value, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '$label: ',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSurgicalSummaryTab(OtCase otCase) {
+    final pacData = parseAnaesthesiaNotes(otCase.anaesthesiaNotes);
+    final anaNotes = pacData['userNotes'] ?? '';
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header info
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.psychology, color: AppTheme.primaryColor, size: 20),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AI Synthesized Surgical Summary',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'This record is compiled automatically from the AI voice dictation portal during surgery.',
+                        style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Card 1: Procedure Details
+          _buildSummaryCard(
+            title: 'Surgical & Procedure Details',
+            icon: Icons.assignment_outlined,
+            iconColor: AppTheme.primaryColor,
+            children: [
+              _buildSummaryField('PROCEDURE DETAILS', otCase.procedureDetails),
+              _buildSummaryField('SURGICAL FINDINGS', otCase.surgicalFindings),
+              _buildSummaryField('OPERATION SUMMARY', otCase.operationSummary),
+              _buildSummaryField('SURGERY OUTCOME', otCase.outcome),
+            ],
+          ),
+
+          // Card 2: Anesthesia details
+          _buildSummaryCard(
+            title: 'Anesthesia Administration',
+            icon: Icons.medical_services_outlined,
+            iconColor: Colors.teal,
+            children: [
+              _buildSummaryField('ANESTHESIA TYPE', otCase.anaesthesiaType),
+              _buildSummaryField('ANESTHESIA NOTES', anaNotes),
+            ],
+          ),
+
+          // Card 3: Complications & Post-Op Plan
+          _buildSummaryCard(
+            title: 'Complications & Post-Op Plan',
+            icon: Icons.healing_outlined,
+            iconColor: AppTheme.logoRed,
+            children: [
+              _buildSummaryField('COMPLICATIONS ENCOUNTERED', otCase.complications),
+              _buildSummaryField('POST-OPERATIVE INSTRUCTIONS', otCase.postOpInstructions),
+            ],
+          ),
+
+          // Card 4: Intra-Op Vital Logs
+          _buildSummaryCard(
+            title: 'Intra-Operative Vital Logs',
+            icon: Icons.monitor_heart_outlined,
+            iconColor: Colors.redAccent,
+            children: [
+              _buildIntraOpLogsView(otCase.intraOpLogs),
+            ],
           ),
         ],
       ),
@@ -3036,671 +3733,8 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     );
   }
 
-  Widget _buildProcedureNotesTab(OtCase otCase) {
-    final isClosed = otCase.status == 'OT Case Closed';
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Surgical & Procedure Clinical Notes',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            isClosed
-                ? 'Clinical notes are locked and archived.'
-                : 'Form fields below are automatically populated by AI dictation. Review and edit as necessary.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-          ),
-          const Divider(height: 24),
-          
-          _buildFieldLabel('Procedure Performed'),
-          TextFormField(
-            controller: _procPerformedController,
-            enabled: !isClosed,
-            decoration: _noLabelDecoration(hintText: 'Enter procedure performed'),
-          ),
-          const SizedBox(height: 16),
-          
-          _buildFieldLabel('Anesthesia Details'),
-          TextFormField(
-            initialValue: otCase.anaesthesiaType ?? 'General Anesthesia',
-            enabled: false, // Pulled from anesthesia clearance step
-            decoration: _noLabelDecoration(hintText: 'Cleared Anesthesia Type'),
-          ),
-          const SizedBox(height: 16),
-          
-          _buildFieldLabel('Findings'),
-          TextFormField(
-            controller: _findingsController,
-            enabled: !isClosed,
-            maxLines: 3,
-            decoration: _noLabelDecoration(hintText: 'Enter surgical findings'),
-          ),
-          const SizedBox(height: 16),
-          
-          _buildFieldLabel('Surgical Steps / Procedure Details'),
-          TextFormField(
-            controller: _procedureDetailsController,
-            enabled: !isClosed,
-            maxLines: 4,
-            decoration: _noLabelDecoration(hintText: 'Enter details of steps performed'),
-          ),
-          const SizedBox(height: 16),
-          
-          _buildFieldLabel('Complications'),
-          TextFormField(
-            controller: _complicationsController,
-            enabled: !isClosed,
-            decoration: _noLabelDecoration(hintText: 'Enter complications, if any'),
-          ),
-          const SizedBox(height: 16),
-          
-          _buildFieldLabel('Estimated Blood Loss (mL)'),
-          TextFormField(
-            controller: _bloodLossController,
-            enabled: !isClosed,
-            decoration: _noLabelDecoration(hintText: 'e.g. 150 ml, Minimal'),
-          ),
-          const SizedBox(height: 16),
-          
-          _buildFieldLabel('Implants / Consumables Used'),
-          TextFormField(
-            controller: _implantsUsedController,
-            enabled: !isClosed,
-            decoration: _noLabelDecoration(hintText: 'e.g. Prolene Mesh, 4.0 Prolene Sutures'),
-          ),
-          const SizedBox(height: 16),
-          
-          _buildFieldLabel('Post-Operative Instructions'),
-          TextFormField(
-            controller: _postOpInstController,
-            enabled: !isClosed,
-            maxLines: 3,
-            decoration: _noLabelDecoration(hintText: 'Enter post-op care instructions'),
-          ),
-          const SizedBox(height: 16),
-          
-          _buildFieldLabel('Surgeon Notes / Summary'),
-          TextFormField(
-            controller: _opSummaryController,
-            enabled: !isClosed,
-            maxLines: 3,
-            decoration: _noLabelDecoration(hintText: 'Enter general surgeon notes'),
-          ),
-          const SizedBox(height: 24),
-          
-          if (!isClosed)
-            ElevatedButton.icon(
-              onPressed: () {
-                final serializedSummary = _serializeOperationSummary(
-                  summary: _opSummaryController.text,
-                  bloodLoss: _bloodLossController.text,
-                  implants: _implantsUsedController.text,
-                );
-                otCase.operationSummary = serializedSummary;
-                otCase.procedurePerformed = _procPerformedController.text;
-                otCase.surgicalFindings = _findingsController.text;
-                otCase.procedureDetails = _procedureDetailsController.text;
-                otCase.complications = _complicationsController.text;
-                otCase.postOpInstructions = _postOpInstController.text;
-                
-                _logAction(otCase, 'Updated surgical procedure notes.');
-                _updateCaseInDb(otCase, {
-                  'operation_summary': otCase.operationSummary,
-                  'procedure_performed': otCase.procedurePerformed,
-                  'surgical_findings': otCase.surgicalFindings,
-                  'procedure_details': otCase.procedureDetails,
-                  'complications': otCase.complications,
-                  'post_op_instructions': otCase.postOpInstructions,
-                });
-                
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Surgical notes saved successfully!'), backgroundColor: Colors.green),
-                );
-              },
-              icon: const Icon(Icons.save),
-              label: const Text('Save Notes'),
-              style: AppTheme.primaryButton,
-            ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildAiDictationTab(OtCase otCase) {
-    final isClosed = otCase.status == 'OT Case Closed';
-    
-    if (isClosed) {
-      return _buildCompletedDictationView(otCase);
-    }
-    
-    return _buildActiveDictationView(otCase);
-  }
 
-  Widget _buildActiveDictationView(OtCase otCase) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.mic, color: AppTheme.primaryColor, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Voice Dictation Workspace',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor),
-                  ),
-                ],
-              ),
-              if (_isListeningDictation)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'LISTENING',
-                        style: TextStyle(color: Colors.red.shade700, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Speak into your microphone or choose a preset below. The AI will parse your spoken words and fill out the surgical notes automatically.',
-            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
-          ),
-          const Divider(height: 24),
-          
-          // Presets row
-          const Text(
-            'Quick Test Presets (Click to load):',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildPresetChip('1. Pre-Op Vitals', 
-                'Patient identity verified, consent signed, fasting confirmed. Pre-operative vitals are: blood pressure 118 over 76, pulse rate 70 bpm, temperature 98.2, SpO2 99 percent.'),
-              _buildPresetChip('2. Anesthesia PAC', 
-                'Anesthesia assessment details: general anesthesia planned. Patient is ASA class two, moderate systemic risk. Airway is clear, fasting verified.'),
-              _buildPresetChip('3. Surgery Procedure done', 
-                'Laparoscopic cholecystectomy procedure done. Gallbladder inflamed with multiple gallstones. Trocar sites established, cystic duct and artery clipped and divided. Gallbladder dissected off liver bed. Estimated blood loss is 50 ml, no implants used. Case completed without complications.'),
-              _buildPresetChip('4. Post-Op Instructions', 
-                'Operation summary: successful laparoscopic cholecystectomy. Surgical outcome stable. Post op instructions: keep NPO for 4 hours, administer IV fluids, monitor vitals hourly, start oral liquids tomorrow.'),
-            ],
-          ),
-          const SizedBox(height: 20),
-          
-          // Dictation Waveform & Micro
-          Center(
-            child: Column(
-              children: [
-                GestureDetector(
-                  onTap: _toggleListening,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    height: 70,
-                    width: 70,
-                    decoration: BoxDecoration(
-                      color: _isListeningDictation ? Colors.red.shade50 : AppTheme.primaryLight,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _isListeningDictation ? Colors.red.shade400 : AppTheme.primaryColor.withOpacity(0.3),
-                        width: _isListeningDictation ? 3 + (_soundLevel * 2) : 2,
-                      ),
-                      boxShadow: _isListeningDictation
-                          ? [
-                              BoxShadow(
-                                color: Colors.red.withOpacity(0.3),
-                                blurRadius: 12 + (_soundLevel * 10),
-                                spreadRadius: 2,
-                              )
-                            ]
-                          : [],
-                    ),
-                    child: Icon(
-                      _isListeningDictation ? Icons.stop : Icons.mic,
-                      color: _isListeningDictation ? Colors.red : AppTheme.primaryColor,
-                      size: 32,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _isListeningDictation ? 'Listening... Tap to stop' : 'Tap to dictate',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: _isListeningDictation ? Colors.red : AppTheme.textSecondaryColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Textbox
-          Container(
-            height: 150,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: TextField(
-              controller: _dictationTextController,
-              maxLines: null,
-              keyboardType: TextInputType.multiline,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.all(16),
-                hintText: 'Spoken transcript will appear here, or you can type directly...',
-                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-              ),
-              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimaryColor),
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          if (_dictationError != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                _dictationError!,
-                style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-            ),
-            
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _dictationTextController.clear();
-                    _dictationError = null;
-                  });
-                },
-                icon: const Icon(Icons.clear_all, size: 16),
-                label: const Text('Clear Text'),
-                style: AppTheme.cancelButton,
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: _isDictationParsing ? null : () => _parseActiveDictation(otCase),
-                icon: _isDictationParsing
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.psychology),
-                label: Text(_isDictationParsing ? 'AI Parsing...' : 'AI Parse Dictation'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  minimumSize: const Size(180, 44),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompletedDictationView(OtCase otCase) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Finalized Audio & Transcription Record',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.green.shade800),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'This surgery has been completed. The original voice dictation audio and mapped transcripts are archived for medical auditing.',
-            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
-          ),
-          const Divider(height: 24),
-          
-          // Simulated Audio Player
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.play_arrow, color: AppTheme.primaryColor),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Simulated dictation audio playback started.')),
-                    );
-                  },
-                ),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Original Voice Dictation Note.wav', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      SizedBox(height: 4),
-                      Text('Duration: 1m 45s  •  Format: PCM WebM', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.volume_up, color: Colors.grey, size: 20),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          
-          const Text(
-            'Original Dictation Transcript:',
-            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: SingleChildScrollView(
-                child: Text(
-                  otCase.remarks?.isNotEmpty == true && otCase.remarks!.contains('dictated')
-                      ? otCase.remarks!
-                      : 'Clinical Note: Laparoscopic cholecystectomy completed successfully. Gallbladder was severely inflamed. Minimal blood loss of 50 ml. No implants or consumables used. Post-operative recovery plan is active in ward.',
-                  style: const TextStyle(fontSize: 12.5, fontStyle: FontStyle.italic, color: AppTheme.textSecondaryColor, height: 1.4),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _toggleListening() async {
-    if (_isListeningDictation) {
-      await _speech.stop();
-      setState(() {
-        _isListeningDictation = false;
-      });
-    } else {
-      if (!_speechEnabled) {
-        bool enabled = await _speech.initialize(
-          onStatus: (status) {
-            if (status == 'notListening' || status == 'done') {
-              setState(() {
-                _isListeningDictation = false;
-              });
-            }
-          },
-          onError: (val) {
-            setState(() {
-              _isListeningDictation = false;
-              _dictationError = "Speech recognition error: ${val.errorMsg}";
-            });
-          },
-        );
-        setState(() {
-          _speechEnabled = enabled;
-        });
-      }
-      if (_speechEnabled) {
-        setState(() {
-          _isListeningDictation = true;
-          _dictationError = null;
-        });
-        await _speech.listen(
-          onResult: (result) {
-            setState(() {
-              _dictationTextController.text = result.recognizedWords;
-            });
-          },
-          onSoundLevelChange: (level) {
-            setState(() {
-              _soundLevel = level;
-            });
-          },
-        );
-      } else {
-        setState(() {
-          _dictationError = "Microphone or Speech Recognition not available on this device.";
-        });
-      }
-    }
-  }
-
-  Future<void> _parseActiveDictation(OtCase otCase) async {
-    final text = _dictationTextController.text.trim();
-    if (text.isEmpty) {
-      setState(() {
-        _dictationError = "Please dictate or type some notes first.";
-      });
-      return;
-    }
-    
-    setState(() {
-      _isDictationParsing = true;
-      _dictationError = null;
-    });
-    
-    try {
-      final result = await _otController.parseDictation(text);
-      final String section = result['section'] ?? '';
-      final Map<String, dynamic> fields = result['fields'] ?? {};
-      
-      _applyParsedFields(section, fields);
-      
-      // Save transcript in remarks and audit log
-      otCase.remarks = 'AI Dictated Transcript: "$text"';
-      _logAction(otCase, 'AI Dictation parsed: Target section "$section" auto-populated.');
-      
-      await _updateCaseInDb(otCase, {
-        'remarks': otCase.remarks,
-      });
-      
-      setState(() {
-        _isDictationParsing = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isDictationParsing = false;
-        _dictationError = "AI Parsing failed: $e";
-      });
-    }
-  }
-
-  Widget _buildPresetChip(String label, String text) {
-    return ActionChip(
-      label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-      backgroundColor: Colors.white,
-      side: const BorderSide(color: Color(0xFFE2E8F0)),
-      onPressed: () {
-        setState(() {
-          _dictationTextController.text = text;
-        });
-      },
-    );
-  }
-
-  final List<Map<String, String>> _simulatedFiles = [
-    {'name': 'Patient_Consent_Form.pdf', 'size': '1.2 MB', 'date': '22/06/2026', 'type': 'PDF'},
-    {'name': 'Pre_Op_ECG_Report.jpg', 'size': '2.4 MB', 'date': '22/06/2026', 'type': 'Image'},
-    {'name': 'CBC_Blood_Investigation.pdf', 'size': '540 KB', 'date': '22/06/2026', 'type': 'PDF'},
-  ];
-
-  Widget _buildAttachmentsTab(OtCase otCase) {
-    final isClosed = otCase.status == 'OT Case Closed';
-    
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.attach_file, color: AppTheme.primaryColor, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Operation Attachments & Reports',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor),
-                  ),
-                ],
-              ),
-              if (!isClosed)
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _simulatedFiles.add({
-                        'name': 'Post_Op_XRay_Scan.jpg',
-                        'size': '3.1 MB',
-                        'date': DateFormat('dd/MM/yyyy').format(DateTime.now()),
-                        'type': 'Image'
-                      });
-                      _logAction(otCase, 'Uploaded document: Post_Op_XRay_Scan.jpg');
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Simulated file uploaded successfully!')),
-                    );
-                  },
-                  icon: const Icon(Icons.upload, size: 16),
-                  label: const Text('Simulate Upload'),
-                  style: AppTheme.secondaryButton,
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Upload and view consent forms, diagnostic scans, pre-op ECGs, or surgical site photographs.',
-            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
-          ),
-          const Divider(height: 24),
-          
-          Expanded(
-            child: _simulatedFiles.isEmpty
-                ? const Center(child: Text('No attachments uploaded yet.'))
-                : ListView.builder(
-                    itemCount: _simulatedFiles.length,
-                    itemBuilder: (context, idx) {
-                      final file = _simulatedFiles[idx];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppTheme.borderColor),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.01),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: file['type'] == 'PDF' ? Colors.red.shade50 : Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                file['type'] == 'PDF' ? Icons.picture_as_pdf : Icons.image,
-                                color: file['type'] == 'PDF' ? Colors.red : Colors.blue,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    file['name']!,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${file['size']}  •  Uploaded on ${file['date']}',
-                                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.download, color: AppTheme.primaryColor),
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Downloading ${file['name']} (Simulated)')),
-                                );
-                              },
-                            ),
-                            if (!isClosed)
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                onPressed: () {
-                                  setState(() {
-                                    final name = _simulatedFiles[idx]['name']!;
-                                    _simulatedFiles.removeAt(idx);
-                                    _logAction(otCase, 'Deleted document: $name');
-                                  });
-                                },
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildHeaderMetadataChip(IconData icon, String label, {Color? color, Color? bgColor}) {
     return Container(
@@ -4766,12 +4800,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               label: 'Confirmed Anesthesia Type',
               prefixIcon: Icons.vaccines_outlined,
             ),
-            items: const [
-              DropdownMenuItem(value: 'General Anaesthesia', child: Text('General Anaesthesia')),
-              DropdownMenuItem(value: 'Regional Anaesthesia', child: Text('Regional Anaesthesia (Spinal/Epidural)')),
-              DropdownMenuItem(value: 'Local Anaesthesia', child: Text('Local Anaesthesia')),
-              DropdownMenuItem(value: 'MAC (Monitored Care)', child: Text('MAC (Sedation/Analgesia)')),
-            ],
+            items: _buildAnesthesiaTypeItems(),
             onChanged: (val) {
               if (val != null) setState(() => _selectedAnaesthesiaType = val);
             },
@@ -6351,7 +6380,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   initialTime: _slotStartTime,
                   helpText: 'Select Surgery Start Time',
                 );
-                if (picked != null) setState(() => _slotStartTime = picked);
+                if (picked != null) {
+                  setState(() {
+                    _slotStartTime = picked;
+                    _selectedTime = picked;
+                  });
+                }
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -6637,7 +6671,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 context: context,
                 initialTime: _selectedTime,
               );
-              if (picked != null) setState(() => _selectedTime = picked);
+              if (picked != null) {
+                setState(() {
+                  _selectedTime = picked;
+                  _slotStartTime = picked;
+                });
+              }
             },
           ),
         ),
@@ -6682,7 +6721,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       context: context,
                       initialTime: _selectedTime,
                     );
-                    if (picked != null) setState(() => _selectedTime = picked);
+                    if (picked != null) {
+                      setState(() {
+                        _selectedTime = picked;
+                        _slotStartTime = picked;
+                      });
+                    }
                   },
                 ),
               ),

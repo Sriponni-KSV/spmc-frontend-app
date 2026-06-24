@@ -483,6 +483,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           initialTab: _otInitialTab,
         );
       case 5:
+        if (isAnaesthetist) {
+          return _buildAnaesthetistDashboardView(isMobile);
+        }
         return OtDictationDashboardView(isMobile: isMobile);
       default:
         return isAnaesthetist
@@ -3082,11 +3085,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       4,
                       Icons.healing_outlined,
                       'OT Management',
-                    ),
-                    _buildSidebarItem(
-                      5,
-                      Icons.mic_none_outlined,
-                      'AI Dictation',
                     ),
                     _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
                   ] else ...[
