@@ -43,6 +43,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   List<Map<String, dynamic>> _progressNotes = [];
   List<Map<String, dynamic>> _labOrders = [];
   List<String> _medicineCatalog = [];
+  final Set<int> _expandedLabOrderIds = {};
 
 
   // Prescription Form Controllers
@@ -2765,161 +2766,189 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
             else
               ..._labOrders.map((lab) {
                 final status = (lab['status'] ?? 'Pending').toString();
+                final int labId = lab['id'] is int ? lab['id'] : int.parse(lab['id'].toString());
+                final isExpanded = _expandedLabOrderIds.contains(labId);
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 18),
-                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: Colors.grey.shade200),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // TOP ROW
-                      Row(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: status == 'Completed'
+                        ? () {
+                            setState(() {
+                              if (isExpanded) {
+                                _expandedLabOrderIds.remove(labId);
+                              } else {
+                                _expandedLabOrderIds.add(labId);
+                              }
+                            });
+                          }
+                        : null,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          CircleAvatar(
-                            backgroundColor: Colors.green.withOpacity(
-                              0.1,
-                            ),
-                            child: const Icon(
-                              Icons.science,
-                              color: Colors.green,
-                            ),
-                          ),
+                          // TOP ROW
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: Colors.green.withOpacity(
+                                  0.1,
+                                ),
+                                child: const Icon(
+                                  Icons.science,
+                                  color: Colors.green,
+                                ),
+                              ),
 
-                          const SizedBox(width: 12),
+                              const SizedBox(width: 12),
 
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  lab['test_name'] ?? '--',
-                                  style: const TextStyle(
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      lab['test_name'] ?? '--',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Ordered by Dr. ${lab['doctor_name'] ?? '--'}',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade700,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: status == 'Completed'
+                                      ? Colors.green.shade50
+                                      : status == 'In Progress'
+                                      ? Colors.orange.shade50
+                                      : Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  status,
+                                  style: TextStyle(
+                                    color: status == 'Completed'
+                                        ? Colors.green
+                                        : status == 'In Progress'
+                                        ? Colors.orange
+                                        : Colors.blue,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                                    fontSize: 12,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Ordered by Dr. ${lab['doctor_name'] ?? '--'}',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade700,
-                                    fontSize: 13,
-                                  ),
+                              ),
+                              if (status == 'Completed') ...[
+                                const SizedBox(width: 8),
+                                Icon(
+                                  isExpanded ? Icons.expand_less : Icons.expand_more,
+                                  color: Colors.grey.shade600,
+                                  size: 20,
+                                ),
+                              ],
+                            ],
+                          ),
+
+                          if (status != 'Completed' || isExpanded) ...[
+                            const SizedBox(height: 18),
+
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _buildLabChip(
+                                  'Ordered',
+                                  lab['created_at'] != null
+                                      ? DateFormat('dd/MM/yyyy').format(
+                                          DateTime.parse(lab['created_at']).toLocal(),
+                                        )
+                                      : '--',
+                                  Icons.calendar_today_outlined,
+                                ),
+
+                                _buildLabChip(
+                                  'Status',
+                                  status,
+                                  Icons.info_outline,
                                 ),
                               ],
                             ),
-                          ),
 
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: status == 'Completed'
-                                  ? Colors.green.shade50
-                                  : status == 'In Progress'
-                                  ? Colors.orange.shade50
-                                  : Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              status,
-                              style: TextStyle(
-                                color: status == 'Completed'
-                                    ? Colors.green
-                                    : status == 'In Progress'
-                                    ? Colors.orange
-                                    : Colors.blue,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 18),
-
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          _buildLabChip(
-                            'Ordered',
-                            lab['created_at'] != null
-                                ? DateFormat('dd/MM/yyyy').format(
-                                    DateTime.parse(lab['created_at']).toLocal(),
-                                  )
-                                : '--',
-                            Icons.calendar_today_outlined,
-                          ),
-
-                          _buildLabChip(
-                            'Status',
-                            status,
-                            Icons.info_outline,
-                          ),
-                        ],
-                      ),
-
-                      if (status == 'Completed') ...[
-                        const SizedBox(height: 14),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.grey.shade200,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: const [
-                                  Icon(
-                                    Icons.description_outlined,
-                                    size: 16,
-                                    color: AppTheme.primaryColor,
+                            if (status == 'Completed') ...[
+                              const SizedBox(height: 14),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey.shade200,
                                   ),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'Lab Results / Notes',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: const [
+                                        Icon(
+                                          Icons.description_outlined,
+                                          size: 16,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'Lab Results / Notes',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                (lab['result_notes'] ?? '')
-                                        .toString()
-                                        .isNotEmpty
-                                    ? lab['result_notes']
-                                    : 'No result notes entered.',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey.shade800,
-                                  height: 1.4,
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      (lab['result_notes'] ?? '')
+                                              .toString()
+                                              .isNotEmpty
+                                          ? lab['result_notes']
+                                          : 'No result notes entered.',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade800,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                      ],
-                    ],
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 );
               }),

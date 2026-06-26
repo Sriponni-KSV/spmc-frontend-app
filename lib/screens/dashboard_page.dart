@@ -21,6 +21,9 @@ import 'doctor_ipd_management.dart';
 import 'ot_management.dart';
 import 'ot_dictation_dashboard.dart';
 import '../controllers/ot_controller.dart';
+import '../controllers/lab_controller.dart';
+import '../controllers/notification_controller.dart';
+import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -45,6 +48,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _selectedConsultationYearFilter = 'All';
   String _consultationSearchQuery = '';
   late TextEditingController _consultationSearchController;
+  List<Map<String, dynamic>> _labReports = [];
+  bool _isLoadingLabReports = false;
+  String _labSearchQuery = '';
+  String _labStatusFilter = 'All';
+  late TextEditingController _labSearchController;
+  Set<int>? __expandedTestIds;
+  Set<int> get _expandedTestIds => __expandedTestIds ??= {};
+  final Set<String> _expandedLabGroupKeys = {};
   DoctorController get _doctorController => DoctorController();
   final OtController _otController = OtController();
   List<OtCase> _anaesthetistOtCases = [];
@@ -75,12 +86,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late TextEditingController _clinicLocationController;
   late TextEditingController _consultationFeeController;
 
+  List<Map<String, dynamic>> _notifications = [];
+  Timer? _notificationsTimer;
+
+  Future<void> _fetchNotifications() async {
+    try {
+      final list = await NotificationController().fetchNotifications();
+      if (mounted) {
+        setState(() {
+          _notifications = list;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching notifications: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
     _initControllers();
     _fetchDoctorData();
+    _fetchLabReports();
+    _fetchNotifications();
+    _notificationsTimer = Timer.periodic(const Duration(seconds: 6), (timer) {
+      _fetchNotifications();
+    });
   }
 
   @override
@@ -148,10 +180,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       text: user?.consultationFee ?? '',
     );
     _consultationSearchController = TextEditingController();
+    _labSearchController = TextEditingController();
   }
 
   @override
   void dispose() {
+    _notificationsTimer?.cancel();
     _mainFocusNode.dispose();
     _nameController.dispose();
     _specController.dispose();
@@ -171,7 +205,164 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _clinicLocationController.dispose();
     _consultationFeeController.dispose();
     _consultationSearchController.dispose();
+    _labSearchController.dispose();
     super.dispose();
+  }
+
+  String _formatNotificationDate(String? dbDateStr) {
+    if (dbDateStr == null || dbDateStr.isEmpty) return '-';
+    try {
+      final dt = DateTime.parse(dbDateStr).toLocal();
+      return DateFormat('dd-MMM-yyyy hh:mm a').format(dt);
+    } catch (_) {
+      return dbDateStr;
+    }
+  }
+
+  void _showNotificationsOverlay() {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setOverlayState) {
+             final unread = (_notifications ?? []).where((n) => n['is_read'] == false).toList();
+            final read = (_notifications ?? []).where((n) => n['is_read'] == true).toList();
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Notifications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryColor)),
+                  if (unread.isNotEmpty)
+                    TextButton(
+                      onPressed: () async {
+                        for (final n in unread) {
+                          await NotificationController().markAsRead(n['id']);
+                        }
+                        await _fetchNotifications();
+                        setOverlayState(() {});
+                        setState(() {});
+                      },
+                      child: const Text('Mark all as read', style: TextStyle(fontSize: 12, color: AppTheme.logoRed)),
+                    )
+                ],
+              ),
+              content: SizedBox(
+                width: 450,
+                height: 380,
+                child: (_notifications ?? []).isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No notifications yet',
+                          style: TextStyle(color: AppTheme.textSecondaryColor),
+                        ),
+                      )
+                    : ListView(
+                        shrinkWrap: true,
+                        children: [
+                          if (unread.isNotEmpty) ...[
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8.0),
+                              child: Text('New Alerts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.logoRed)),
+                            ),
+                            ...unread.map((n) => _buildNotificationTile(n, setOverlayState)),
+                          ],
+                          if (read.isNotEmpty) ...[
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8.0),
+                              child: Text('Earlier', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textSecondaryColor)),
+                            ),
+                            ...read.map((n) => _buildNotificationTile(n, setOverlayState)),
+                          ],
+                        ],
+                      ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: AppTheme.cancelButton,
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildNotificationTile(Map<String, dynamic> n, StateSetter setOverlayState) {
+    final bool isUnread = n['is_read'] == false;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      color: isUnread ? AppTheme.primaryColor.withOpacity(0.05) : Colors.grey.shade50,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: isUnread ? AppTheme.primaryColor.withOpacity(0.2) : Colors.grey.shade200),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isUnread ? AppTheme.logoRed.withOpacity(0.1) : Colors.grey.shade200,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            isUnread ? Icons.notifications_active : Icons.notifications_none,
+            color: isUnread ? AppTheme.logoRed : AppTheme.textSecondaryColor,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          n['title'] ?? 'Notification',
+          style: TextStyle(
+            fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+            fontSize: 13,
+            color: AppTheme.primaryColor,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              n['message'] ?? '',
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _formatNotificationDate(n['created_at']),
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+        trailing: isUnread
+            ? IconButton(
+                icon: const Icon(Icons.check_circle_outline, size: 18, color: AppTheme.primaryColor),
+                onPressed: () async {
+                  await NotificationController().markAsRead(n['id']);
+                  await _fetchNotifications();
+                  setOverlayState(() {});
+                  setState(() {});
+                },
+              )
+            : null,
+        onTap: () {
+          Navigator.pop(context); // Close dialog
+          if (isUnread) {
+            NotificationController().markAsRead(n['id']).then((_) => _fetchNotifications());
+          }
+          setState(() {
+            _selectedIndex = 6; // Redirect to Lab Reports tab
+          });
+        },
+      ),
+    );
   }
 
   void _showSearchOverlay() {
@@ -393,7 +584,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final Map<String, Map<int, Map<int, List<Map<String, dynamic>>>>> grouped = {};
     for (var c in _consultations) {
       final String patientName = c['patient_name'] ?? 'Unknown Patient';
-      final date = DateFormatter.toDateTime(c['appointment_date']) ?? DateTime.now();
+      final date = _getConsultationDateTime(c);
       final year = date.year;
       final month = date.month;
 
@@ -458,6 +649,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           setState(() => _activeAppointment = null);
           _fetchConsultations(); // Refresh after potentially saving/updating
           _fetchDoctorData(); // Refresh appointment list status
+          _fetchLabReports(); // Refresh lab reports list to show newly ordered tests instantly
         },
       );
     }
@@ -487,6 +679,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return _buildAnaesthetistDashboardView(isMobile);
         }
         return OtDictationDashboardView(isMobile: isMobile);
+      case 6:
+        return _buildLabReportsView(isMobile);
       default:
         return isAnaesthetist
             ? _buildAnaesthetistDashboardView(isMobile)
@@ -517,6 +711,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
       debugPrint('Error fetching consultation: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchLabReports() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingLabReports = true;
+      });
+    }
+    try {
+      final List<Map<String, dynamic>> requests = await LabController().fetchLabRequests();
+      if (mounted) {
+        setState(() {
+          _labReports = requests;
+          _isLoadingLabReports = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading lab reports: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingLabReports = false;
+        });
+      }
     }
   }
 
@@ -599,7 +817,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               final Set<int> uniqueYears = {};
               for (var c in patientConsuls) {
-                final dt = DateFormatter.toDateTime(c['appointment_date']) ?? DateTime.now();
+                final dt = _getConsultationDateTime(c);
                 uniqueYears.add(dt.year);
               }
               final sortedYears = uniqueYears.toList()..sort((a, b) => b.compareTo(a));
@@ -608,7 +826,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               List<Map<String, dynamic>> filtered = [];
               if (_selectedPatientName == patientName) {
                 filtered = patientConsuls.where((c) {
-                  final dt = DateFormatter.toDateTime(c['appointment_date']) ?? DateTime.now();
+                  final dt = _getConsultationDateTime(c);
                   final yr = dt.year;
                   if (_selectedConsultationYearFilter != 'All' &&
                       yr.toString() != _selectedConsultationYearFilter) {
@@ -621,13 +839,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     final diagnosis = (c['diagnosis'] ?? '').toString().toLowerCase();
                     final dept = (c['department'] ?? '').toString().toLowerCase();
                     final doc = (c['doctor_name'] ?? '').toString().toLowerCase();
-                    final date = (c['appointment_date'] ?? '').toString().toLowerCase();
+                    final date = _formatConsultationDateText(c).toLowerCase();
+                    final time = _formatConsultationTimeText(c).toLowerCase();
                     if (!symptoms.contains(q) &&
                         !history.contains(q) &&
                         !diagnosis.contains(q) &&
                         !dept.contains(q) &&
                         !doc.contains(q) &&
-                        !date.contains(q)) {
+                        !date.contains(q) &&
+                        !time.contains(q)) {
                       return false;
                     }
                   }
@@ -735,7 +955,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final Map<int, int> yearCounts = {};
     for (var yr in sortedYears) {
       yearCounts[yr] = patientConsuls.where((c) {
-        final dt = DateFormatter.toDateTime(c['appointment_date']) ?? DateTime.now();
+        final dt = _getConsultationDateTime(c);
         return dt.year == yr;
       }).length;
     }
@@ -920,7 +1140,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     iconColor: AppTheme.primaryColor,
                     collapsedIconColor: AppTheme.primaryColor,
                     title: Text(
-                      '${_formatConsultationDate(c['appointment_date'])} / ${c['appointment_time']}',
+                      '${_formatConsultationDateText(c)} / ${_formatConsultationTimeText(c)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF2D3748),
@@ -1412,6 +1632,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     } catch (_) {}
     return dateStr;
+  }
+
+  DateTime _getConsultationDateTime(Map<String, dynamic> c) {
+    if (c['created_at'] != null && c['created_at'].toString().isNotEmpty) {
+      try {
+        return DateTime.parse(c['created_at'].toString()).toLocal();
+      } catch (_) {}
+    }
+    return DateFormatter.toDateTime(c['appointment_date']) ?? DateTime.now();
+  }
+
+  String _formatConsultationDateText(Map<String, dynamic> c) {
+    if (c['created_at'] != null && c['created_at'].toString().isNotEmpty) {
+      try {
+        final dt = DateTime.parse(c['created_at'].toString()).toLocal();
+        return DateFormat('dd-MMM-yyyy').format(dt);
+      } catch (_) {}
+    }
+    return _formatConsultationDate(c['appointment_date']);
+  }
+
+  String _formatConsultationTimeText(Map<String, dynamic> c) {
+    if (c['created_at'] != null && c['created_at'].toString().isNotEmpty) {
+      try {
+        final dt = DateTime.parse(c['created_at'].toString()).toLocal();
+        return DateFormat('hh:mm a').format(dt);
+      } catch (_) {}
+    }
+    return c['appointment_time'] ?? '—';
   }
 
   void _showConsultationDetail(Map<String, dynamic> consultation) {
@@ -3095,6 +3344,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       'My Consultations',
                     ),
                     _buildSidebarItem(
+                      6,
+                      Icons.science_outlined,
+                      'Lab Reports',
+                    ),
+                    _buildSidebarItem(
                       3,
                       Icons.local_hospital_outlined,
                       'IPD Management',
@@ -3220,6 +3474,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           context.go(AppRoutes.doctorOt);
         } else if (index == 5) {
           context.go(AppRoutes.doctorDictation);
+        } else if (index == 6) {
+          context.go(AppRoutes.doctorLabReports);
         } else {
           context.go(AppRoutes.doctorDashboard);
         }
@@ -3323,9 +3579,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (!isMobile) ...[
             const SizedBox(width: 24),
             const Spacer(),
-            const Icon(
-              Icons.notifications_none_outlined,
-              color: AppTheme.textSecondaryColor,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    (_notifications ?? []).any((n) => n['is_read'] == false)
+                        ? Icons.notifications_active_outlined
+                        : Icons.notifications_none_outlined,
+                    color: (_notifications ?? []).any((n) => n['is_read'] == false)
+                        ? AppTheme.logoRed
+                        : AppTheme.textSecondaryColor,
+                  ),
+                  onPressed: _showNotificationsOverlay,
+                ),
+                if ((_notifications ?? []).any((n) => n['is_read'] == false))
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 10,
+                        minHeight: 10,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 16),
             const Icon(Icons.help_outline, color: AppTheme.textSecondaryColor),
@@ -4306,6 +4590,707 @@ class _DashboardScreenState extends State<DashboardScreen> {
         minimumSize: const Size(0, 32),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      ),
+    );
+  }
+
+  Widget _buildLabReportsView(bool isMobile) {
+    if (_isLoadingLabReports) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    // Grouping logic
+    final Map<String, List<Map<String, dynamic>>> groups = {};
+    for (final req in _labReports) {
+      final String groupKey = req['consultation_id']?.toString() ?? 'single_${req['id']}';
+      if (!groups.containsKey(groupKey)) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey]!.add(req);
+    }
+
+    final filteredGroups = <List<Map<String, dynamic>>>[];
+    for (final entry in groups.entries) {
+      final groupReqs = entry.value;
+      
+      final matchesSearch = groupReqs.any((req) {
+        final patientName = (req['patient_name'] ?? '').toString().toLowerCase();
+        final patientId = (req['patient_display_id'] ?? req['patient_id']?.toString() ?? '').toString().toLowerCase();
+        final testName = (req['test_name'] ?? '').toString().toLowerCase();
+        final query = _labSearchQuery.toLowerCase();
+        return patientName.contains(query) || patientId.contains(query) || testName.contains(query);
+      });
+
+      if (!matchesSearch) continue;
+
+      bool matchesStatus = false;
+      if (_labStatusFilter == 'All') {
+        matchesStatus = true;
+      } else if (_labStatusFilter == 'Pending') {
+        matchesStatus = groupReqs.any((req) {
+          final reqStatus = req['status'] ?? 'Pending';
+          return reqStatus == 'Pending' || reqStatus == 'Sample Collected';
+        });
+      } else {
+        matchesStatus = groupReqs.any((req) {
+          final reqStatus = req['status'] ?? 'Pending';
+          return reqStatus == _labStatusFilter;
+        });
+      }
+
+      if (!matchesStatus) continue;
+
+      filteredGroups.add(groupReqs);
+    }
+
+    filteredGroups.sort((a, b) {
+      final aDateStr = a.first['created_at']?.toString() ?? '';
+      final bDateStr = b.first['created_at']?.toString() ?? '';
+      if (aDateStr.isEmpty || bDateStr.isEmpty) return 0;
+      return bDateStr.compareTo(aDateStr);
+    });
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Patient Lab Reports',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Track sent lab test requests and observed results received from laboratory.',
+                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                onPressed: _fetchLabReports,
+                tooltip: 'Refresh Reports',
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          
+          // Search & Filter Panel
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundColor,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.borderColor),
+                    ),
+                    child: TextField(
+                      controller: _labSearchController,
+                      onChanged: (v) => setState(() => _labSearchQuery = v),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        hintText: 'Search by Patient Name, ID, or Test...',
+                        hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                        prefixIcon: Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                _buildLabFilterTab('All'),
+                const SizedBox(width: 8),
+                _buildLabFilterTab('Pending'),
+                const SizedBox(width: 8),
+                _buildLabFilterTab('Sample Collected'),
+                const SizedBox(width: 8),
+                _buildLabFilterTab('Completed'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Reports List
+          if (filteredGroups.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(40.0),
+                child: Column(
+                  children: [
+                    Icon(Icons.science_outlined, size: 64, color: Colors.grey.withOpacity(0.3)),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No lab reports found matching filters',
+                      style: TextStyle(color: AppTheme.textSecondaryColor),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: filteredGroups.length,
+              itemBuilder: (context, index) {
+                final groupReqs = filteredGroups[index];
+                return _buildLabReportGroupCard(groupReqs, isMobile);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLabFilterTab(String label) {
+    final isActive = _labStatusFilter == label;
+    return InkWell(
+      onTap: () => setState(() => _labStatusFilter = label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? AppTheme.primaryColor : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? AppTheme.primaryColor : AppTheme.borderColor,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? Colors.white : AppTheme.textSecondaryColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabReportGroupCard(List<Map<String, dynamic>> groupReqs, bool isMobile) {
+    final firstReq = groupReqs.first;
+    final patientName = firstReq['patient_name'] ?? 'Unknown';
+    final patientId = firstReq['patient_display_id'] ?? firstReq['patient_id']?.toString() ?? '--';
+    final patientGender = firstReq['patient_gender'] ?? '--';
+    final patientAge = firstReq['patient_age'] ?? '--';
+    final doctor = firstReq['doctor_name'] ?? 'Doctor';
+    final createdStr = firstReq['created_at'] != null
+        ? DateFormat('dd-MMM-yyyy hh:mm a').format(DateTime.parse(firstReq['created_at']).toLocal())
+        : '--';
+
+    final String groupKey = firstReq['consultation_id']?.toString() ?? 'single_${firstReq['id']}';
+    final isExpanded = _expandedLabGroupKeys.contains(groupKey);
+
+    final totalTests = groupReqs.length;
+    final completedTests = groupReqs.where((req) => (req['status'] ?? 'Pending') == 'Completed').length;
+    final hasAnySampleCollected = groupReqs.any((req) => (req['status'] ?? 'Pending') == 'Sample Collected');
+    final hasAnyCompleted = completedTests > 0;
+
+    final isAllCompleted = completedTests == totalTests;
+    final isInProgress = !isAllCompleted && (hasAnyCompleted || hasAnySampleCollected);
+
+    final displayReqs = groupReqs.where((req) {
+      final reqStatus = req['status'] ?? 'Pending';
+      if (_labStatusFilter == 'All') return true;
+      if (_labStatusFilter == 'Pending') {
+        return reqStatus == 'Pending' || reqStatus == 'Sample Collected';
+      }
+      return reqStatus == _labStatusFilter;
+    }).toList();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: () {
+                setState(() {
+                  if (isExpanded) {
+                    _expandedLabGroupKeys.remove(groupKey);
+                  } else {
+                    _expandedLabGroupKeys.add(groupKey);
+                  }
+                });
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              patientName,
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'ID: $patientId • $patientGender • $patientAge yrs',
+                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Ordered by Dr. $doctor • $createdStr',
+                          style: const TextStyle(fontSize: 12, color: AppTheme.logoRed, fontStyle: FontStyle.italic),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!isExpanded) ...[
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'REQUESTED TESTS',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textSecondaryColor,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              groupReqs.map((r) => r['test_name'] ?? '').join(', '),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF4338CA),
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.start,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isAllCompleted ? Colors.green.shade50 : (isInProgress ? Colors.blue.shade50 : Colors.orange.shade50),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isAllCompleted ? Colors.green.shade200 : (isInProgress ? Colors.blue.shade200 : Colors.orange.shade200),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Text(
+                          isAllCompleted ? 'Completed' : (isInProgress ? 'In Progress' : 'Pending'),
+                          style: TextStyle(
+                            color: isAllCompleted ? Colors.green : (isInProgress ? Colors.blue : Colors.orange),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        color: Colors.grey.shade600,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (isExpanded) ...[
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: AppTheme.borderColor),
+              const SizedBox(height: 16),
+              const Text(
+                'REQUESTED TESTS:',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor, letterSpacing: 0.5),
+              ),
+              const SizedBox(height: 8),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: displayReqs.length,
+                separatorBuilder: (context, idx) => const SizedBox(height: 12),
+                itemBuilder: (context, idx) {
+                  final req = displayReqs[idx];
+                  return _buildGroupTestItem(req, isMobile);
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroupTestItem(Map<String, dynamic> req, bool isMobile) {
+    final int testId = req['id'] is int ? req['id'] : int.parse(req['id'].toString());
+    final testName = req['test_name'] ?? 'Lab Test';
+    final status = req['status'] ?? 'Pending';
+    final isCompleted = status == 'Completed';
+    final isSampleCollected = status == 'Sample Collected';
+    final isExpanded = _expandedTestIds.contains(testId);
+
+    final lowerTestName = testName.toString().toLowerCase();
+    final isXrayOrImage = lowerTestName.contains('x-ray') ||
+        lowerTestName.contains('xray') ||
+        lowerTestName.contains('ultrasound') ||
+        lowerTestName.contains('mri') ||
+        lowerTestName.contains('scan') ||
+        lowerTestName.contains('image') ||
+        lowerTestName.contains('usg');
+
+    String imageAsset = 'assets/image/chest_xray.png';
+    if (lowerTestName.contains('ultrasound') || lowerTestName.contains('usg')) {
+      imageAsset = 'assets/image/ultrasound.png';
+    }
+
+    Color statusColor;
+    Color statusBg;
+    IconData statusIcon;
+    if (isCompleted) {
+      statusColor = Colors.green.shade700;
+      statusBg = Colors.green.shade50;
+      statusIcon = Icons.check_circle_outline;
+    } else if (isSampleCollected) {
+      statusColor = Colors.blue.shade700;
+      statusBg = Colors.blue.shade50;
+      statusIcon = Icons.hourglass_top_outlined;
+    } else {
+      statusColor = Colors.orange.shade700;
+      statusBg = Colors.orange.shade50;
+      statusIcon = Icons.pending_actions_outlined;
+    }
+
+    List resultsList = [];
+    if (req['result_details'] != null) {
+      if (req['result_details'] is String) {
+        try {
+          resultsList = jsonDecode(req['result_details']);
+        } catch (_) {}
+      } else if (req['result_details'] is List) {
+        resultsList = req['result_details'];
+      }
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.8)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 5,
+              color: statusColor,
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  InkWell(
+                    onTap: isCompleted
+                        ? () {
+                            setState(() {
+                              if (isExpanded) {
+                                _expandedTestIds.remove(testId);
+                              } else {
+                                _expandedTestIds.add(testId);
+                              }
+                            });
+                          }
+                        : null,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: statusBg,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(statusIcon, color: statusColor, size: 16),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              testName,
+                              style: const TextStyle(
+                                fontSize: 14, 
+                                fontWeight: FontWeight.bold, 
+                                color: AppTheme.textPrimaryColor
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: statusBg,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: statusColor.withOpacity(0.2), width: 0.5),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 10),
+                            ),
+                          ),
+                          if (isCompleted) ...[
+                            const SizedBox(width: 8),
+                            Icon(
+                              isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                              color: AppTheme.textSecondaryColor,
+                              size: 18,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (isCompleted && isExpanded)
+                    Container(
+                      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                      color: Colors.white,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Divider(height: 16, color: AppTheme.borderColor),
+                          if (isXrayOrImage) ...[
+                            const Text(
+                              'DIAGNOSTIC IMAGING VISUALIZATION (PACS):',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                            ),
+                            const SizedBox(height: 10),
+                            Container(
+                              width: double.infinity,
+                              height: 280,
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey.shade900, width: 2),
+                                boxShadow: [
+                                  BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4)),
+                                ],
+                              ),
+                              child: Stack(
+                                children: [
+                                  Center(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Image.asset(
+                                        imageAsset,
+                                        fit: BoxFit.contain,
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 12,
+                                    left: 12,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'PATIENT ID: ${req['patient_display_id'] ?? 'SPMC'}',
+                                          style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+                                        ),
+                                        Text(
+                                          'NAME: ${req['patient_name']?.toString().toUpperCase() ?? ''}',
+                                          style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontFamily: 'monospace'),
+                                        ),
+                                        Text(
+                                          'SEX: ${req['patient_gender'] ?? ''}  AGE: ${req['patient_age'] ?? ''}Y',
+                                          style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontFamily: 'monospace'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 12,
+                                    right: 12,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          testName.toString().toUpperCase(),
+                                          style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+                                        ),
+                                        const Text(
+                                          'GE PACS DICOM v4.2',
+                                          style: TextStyle(color: Colors.greenAccent, fontSize: 10, fontFamily: 'monospace'),
+                                        ),
+                                        const Text(
+                                          'W: 400 L: 40',
+                                          style: TextStyle(color: Colors.greenAccent, fontSize: 10, fontFamily: 'monospace'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Positioned(
+                                    bottom: 12,
+                                    left: 12,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                      decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(4)),
+                                      child: const Text(
+                                        'L',
+                                        style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    bottom: 12,
+                                    right: 12,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryColor.withOpacity(0.8),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: const [
+                                          Icon(Icons.zoom_in, color: Colors.white, size: 12),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'PACS LIVE',
+                                            style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                          const Text(
+                            'OBSERVED VALUES (RECEIVED):',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                          ),
+                          const SizedBox(height: 8),
+                          if (resultsList.isEmpty)
+                            const Text('No parameter details available.', style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12))
+                          else
+                            Table(
+                              columnWidths: const {
+                                0: FlexColumnWidth(2),
+                                1: FlexColumnWidth(1.5),
+                                2: FlexColumnWidth(1),
+                                3: FlexColumnWidth(1.5),
+                              },
+                              children: [
+                                const TableRow(
+                                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.borderColor))),
+                                  children: [
+                                    Padding(padding: EdgeInsets.all(8.0), child: Text('Parameter', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: EdgeInsets.all(8.0), child: Text('Observed Value', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: EdgeInsets.all(8.0), child: Text('Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: EdgeInsets.all(8.0), child: Text('Reference Range', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  ],
+                                ),
+                                ...resultsList.map((res) {
+                                  return TableRow(
+                                    children: [
+                                      Padding(padding: const EdgeInsets.all(8.0), child: Text(res['parameter'] ?? '', style: const TextStyle(fontSize: 12))),
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0), 
+                                        child: Text(
+                                          res['value'] ?? '', 
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)
+                                        )
+                                      ),
+                                      Padding(padding: const EdgeInsets.all(8.0), child: Text(res['unit'] ?? '', style: const TextStyle(fontSize: 12))),
+                                      Padding(padding: const EdgeInsets.all(8.0), child: Text(res['reference_range'] ?? '', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor))),
+                                    ],
+                                  );
+                                }),
+                              ],
+                            ),
+                          if (req['remarks'] != null && req['remarks'].toString().isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            const Text('REMARKS / OBSERVATIONS:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                            const SizedBox(height: 4),
+                            Text(req['remarks'], style: const TextStyle(fontSize: 12)),
+                          ],
+                          if (req['attachment_url'] != null && req['attachment_url'].toString().isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                const Icon(Icons.picture_as_pdf, color: Colors.red, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Report Document: ${req['attachment_url']}',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

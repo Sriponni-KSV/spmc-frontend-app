@@ -3398,7 +3398,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
     for (final c in _consultations) {
       final symptoms = c['symptoms']?.toString().trim();
       if (symptoms != null && symptoms.isNotEmpty) {
-        final date = _formatTimelineDate(c['appointment_date']);
+        final date = _formatConsultationDateText(c);
         final rawDoc = c['doctor_name'] ?? 'Doctor';
         final doctor = rawDoc.toString().toLowerCase().startsWith('dr') ? rawDoc : 'Dr. $rawDoc';
         complaintItems.add(
@@ -3448,7 +3448,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
     // Diagnosis & History from consultations
     for (final c in _consultations) {
-      final date = _formatTimelineDate(c['appointment_date']);
+      final date = _formatConsultationDateText(c);
       final rawDoc = c['doctor_name'] ?? 'Doctor';
       final doctor = rawDoc.toString().toLowerCase().startsWith('dr') ? rawDoc : 'Dr. $rawDoc';
 
@@ -3673,8 +3673,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   final diagnosis = c['diagnosis'] ?? 'None';
 
                   return _buildTimelineItem(
-                    date: c['appointment_date'] ?? 'Consultation',
-                    time: c['appointment_time'] ?? '—',
+                    date: _formatConsultationDateText(c),
+                    time: _formatConsultationTimeText(c),
                     dept: c['department'] ?? 'General',
                     doctor: doctor,
                     complaint: symptoms,
@@ -3934,7 +3934,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                         final displayDoc = docName.toString().toLowerCase().startsWith('dr') ? docName : 'Dr. $docName';
                         final dept = c['department'] ?? 'General Medicine';
                         return Text(
-                          '${_formatTimelineDate(c['appointment_date'])} / ${c['appointment_time'] ?? "—"} - $displayDoc ($dept)',
+                          '${_formatConsultationDateText(c)} / ${_formatConsultationTimeText(c)} - $displayDoc ($dept)',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF2D3748),
@@ -3965,6 +3965,26 @@ class _PatientDetailViewState extends State<PatientDetailView>
       return DateFormat('dd-MMM-yyyy').format(dt);
     }
     return dateStr;
+  }
+
+  String _formatConsultationDateText(Map<String, dynamic> c) {
+    if (c['created_at'] != null && c['created_at'].toString().isNotEmpty) {
+      try {
+        final dt = DateTime.parse(c['created_at'].toString()).toLocal();
+        return DateFormat('dd-MMM-yyyy').format(dt);
+      } catch (_) {}
+    }
+    return _formatTimelineDate(c['appointment_date']);
+  }
+
+  String _formatConsultationTimeText(Map<String, dynamic> c) {
+    if (c['created_at'] != null && c['created_at'].toString().isNotEmpty) {
+      try {
+        final dt = DateTime.parse(c['created_at'].toString()).toLocal();
+        return DateFormat('hh:mm a').format(dt);
+      } catch (_) {}
+    }
+    return c['appointment_time'] ?? '—';
   }
 
   Widget _buildGridRow(

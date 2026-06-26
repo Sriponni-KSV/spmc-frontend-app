@@ -89,7 +89,7 @@ class AppRouter {
           if (!isDoctor) {
             return AppRoutes.dashboard;
           }
-          if (path == AppRoutes.doctorDictation && userRole == 'Anaesthetist') {
+          if ((path == AppRoutes.doctorDictation || path == AppRoutes.doctorLabReports) && userRole == 'Anaesthetist') {
             return AppRoutes.dashboard;
           }
         } else if (path.startsWith('/reception')) {
@@ -356,6 +356,13 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('doctor_dashboard'),
             child: DashboardScreen(initialIndex: 5),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.doctorLabReports,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('doctor_dashboard'),
+            child: DashboardScreen(initialIndex: 6),
           ),
         ),
         GoRoute(

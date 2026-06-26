@@ -1052,16 +1052,38 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
         {'parameter': 'Protein', 'value': '', 'unit': '', 'reference_range': 'Negative'},
         {'parameter': 'Glucose', 'value': '', 'unit': '', 'reference_range': 'Negative'},
       ]);
+    } else if (testName.toString().toLowerCase().contains('x-ray') ||
+        testName.toString().toLowerCase().contains('xray') ||
+        testName.toString().toLowerCase().contains('ultrasound') ||
+        testName.toString().toLowerCase().contains('mri') ||
+        testName.toString().toLowerCase().contains('scan') ||
+        testName.toString().toLowerCase().contains('image') ||
+        testName.toString().toLowerCase().contains('usg')) {
+      initialFields.addAll([
+        {'parameter': 'Radiology Finding', 'value': '', 'unit': '', 'reference_range': 'Normal'},
+        {'parameter': 'Impression', 'value': '', 'unit': '', 'reference_range': 'Normal'},
+      ]);
     } else {
       // Default dynamic single field
       initialFields.add({'parameter': 'Observation', 'value': '', 'unit': '', 'reference_range': 'Normal'});
     }
 
+    final isXrayOrImage = testName.toString().toLowerCase().contains('x-ray') ||
+        testName.toString().toLowerCase().contains('xray') ||
+        testName.toString().toLowerCase().contains('ultrasound') ||
+        testName.toString().toLowerCase().contains('mri') ||
+        testName.toString().toLowerCase().contains('scan') ||
+        testName.toString().toLowerCase().contains('image') ||
+        testName.toString().toLowerCase().contains('usg');
+
     final remarksController = TextEditingController();
     final attachmentController = TextEditingController(
-      text: 'report_${req['patient_display_id'] ?? 'SPMC'}_${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}.pdf'
+      text: 'report_${req['patient_display_id'] ?? 'SPMC'}_${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}.${isXrayOrImage ? 'png' : 'pdf'}'
     );
     final formKey = GlobalKey<FormState>();
+    final machineName = _getMachineName(testName);
+    int machineFetchCount = 0;
+    bool isMachineFetching = false;
 
     showDialog(
       context: context,
@@ -1101,9 +1123,74 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('TEST VALUES', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('TEST VALUES', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                            if (isMachineFetching)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(
+                                    width: 12,
+                                    height: 12,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Connecting to $machineName...',
+                                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontStyle: FontStyle.italic),
+                                  ),
+                                ],
+                              )
+                            else
+                              TextButton.icon(
+                                onPressed: () async {
+                                  final messenger = ScaffoldMessenger.of(context);
+                                  setDialogState(() {
+                                    isMachineFetching = true;
+                                  });
+                                  await Future.delayed(const Duration(seconds: 1));
+                                  _simulateMachineFetch(initialFields);
+                                  if (isXrayOrImage) {
+                                    if (testName.toString().toLowerCase().contains('ultrasound') ||
+                                        testName.toString().toLowerCase().contains('usg')) {
+                                      attachmentController.text = 'ultrasound.png';
+                                    } else {
+                                      attachmentController.text = 'chest_xray.png';
+                                    }
+                                  }
+                                  setDialogState(() {
+                                    machineFetchCount++;
+                                    isMachineFetching = false;
+                                  });
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text('Imported results from $machineName analyzer successfully!'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppTheme.primaryColor,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                icon: const Icon(Icons.settings_input_component, size: 14),
+                                label: const Text(
+                                  'Fetch from Machine',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                          ],
+                        ),
                         const SizedBox(height: 12),
                         ListView.builder(
+                          key: ValueKey('list_$machineFetchCount'),
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: initialFields.length,
@@ -1298,6 +1385,71 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       return DateFormat('dd-MMM-yyyy hh:mm a').format(dt);
     } catch (_) {
       return dbDateStr;
+    }
+  }
+
+  String _getMachineName(String testName) {
+    final lower = testName.toLowerCase();
+    if (lower.contains('complete blood count') || lower.contains('cbc')) {
+      return 'Mindray BC-5000 Hematology';
+    } else if (lower.contains('lipid') || lower.contains('thyroid') || lower.contains('tsh') || lower.contains('metabolic')) {
+      return 'Cobas c311 Biochemistry';
+    } else if (lower.contains('urinalysis') || lower.contains('urine')) {
+      return 'Sysmex UC-3500 Urine';
+    } else if (lower.contains('x-ray') || lower.contains('xray') || lower.contains('ultrasound') || lower.contains('mri') || lower.contains('scan') || lower.contains('image') || lower.contains('usg')) {
+      return 'GE PACS DICOM Imaging';
+    }
+    return 'Lab Analyzer';
+  }
+
+  void _simulateMachineFetch(List<Map<String, String>> fields) {
+    for (final field in fields) {
+      final param = (field['parameter'] ?? '').toLowerCase();
+      if (param.contains('haemoglobin') || param.contains('hemoglobin')) {
+        field['value'] = '14.5';
+      } else if (param.contains('wbc')) {
+        field['value'] = '6800';
+      } else if (param.contains('rbc')) {
+        field['value'] = '4.75';
+      } else if (param.contains('platelets')) {
+        field['value'] = '275000';
+      } else if (param.contains('pcv') || param.contains('hematocrit')) {
+        field['value'] = '41.8';
+      } else if (param.contains('total cholesterol')) {
+        field['value'] = '188';
+      } else if (param.contains('triglycerides')) {
+        field['value'] = '125';
+      } else if (param.contains('hdl')) {
+        field['value'] = '48';
+      } else if (param.contains('ldl')) {
+        field['value'] = '98';
+      } else if (param.contains('tsh')) {
+        field['value'] = '2.34';
+      } else if (param.contains('free t4')) {
+        field['value'] = '1.18';
+      } else if (param.contains('free t3')) {
+        field['value'] = '2.95';
+      } else if (param.contains('color')) {
+        field['value'] = 'Pale Yellow';
+      } else if (param.contains('appearance')) {
+        field['value'] = 'Clear';
+      } else if (param.contains('ph')) {
+        field['value'] = '6.0';
+      } else if (param.contains('specific gravity')) {
+        field['value'] = '1.012';
+      } else if (param.contains('protein')) {
+        field['value'] = 'Negative';
+      } else if (param.contains('glucose')) {
+        field['value'] = 'Negative';
+      } else if (param.contains('finding')) {
+        field['value'] = 'Lungs clear. No focal consolidation, effusion or pneumothorax.';
+      } else if (param.contains('impression')) {
+        field['value'] = 'No active cardiopulmonary disease.';
+      } else if (param.contains('observation')) {
+        field['value'] = 'Normal';
+      } else {
+        field['value'] = 'Normal';
+      }
     }
   }
 }

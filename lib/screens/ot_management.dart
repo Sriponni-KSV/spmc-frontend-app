@@ -2096,13 +2096,35 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       final isSelected = _selectedCase?.id == c.id;
                       final avatarColors = AppTheme.getAvatarColors(c.patientName);
                       final statusColor = _getStatusColor(c.status);
+                      
+                      final now = DateTime.now();
+                      final isToday = c.surgeryDateTime != null &&
+                          c.surgeryDateTime!.year == now.year &&
+                          c.surgeryDateTime!.month == now.month &&
+                          c.surgeryDateTime!.day == now.day;
+                      final isNearTime = c.surgeryDateTime != null &&
+                          c.surgeryDateTime!.difference(now).inMinutes.abs() <= 120;
 
                       return InkWell(
                         onTap: () {
                           _selectOtCase(c);
                         },
                         child: Container(
-                          color: isSelected ? AppTheme.primaryLight.withOpacity(0.4) : Colors.transparent,
+                          decoration: BoxDecoration(
+                            color: isSelected 
+                              ? AppTheme.primaryLight.withOpacity(0.4) 
+                              : (isNearTime 
+                                  ? Colors.red.shade50.withOpacity(0.3) 
+                                  : (isToday ? Colors.amber.shade50.withOpacity(0.2) : Colors.transparent)),
+                            border: Border(
+                              left: BorderSide(
+                                color: isNearTime 
+                                  ? Colors.red 
+                                  : (isToday ? Colors.amber.shade600 : Colors.transparent),
+                                width: (isNearTime || isToday) ? 4.0 : 0.0,
+                              ),
+                            ),
+                          ),
                           padding: const EdgeInsets.all(16),
                           child: Row(
                             children: [
@@ -2143,7 +2165,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 6),
-                                    Row(
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
                                       children: [
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -2156,6 +2181,49 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                             style: TextStyle(color: statusColor, fontSize: 8, fontWeight: FontWeight.bold),
                                           ),
                                         ),
+                                        if (isNearTime) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.shade50,
+                                              borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(color: Colors.red.shade200, width: 0.5),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.alarm_on, color: Colors.red, size: 8),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  'IMMINENT (${DateFormat('hh:mm a').format(c.surgeryDateTime!)})',
+                                                  style: const TextStyle(color: Colors.red, fontSize: 8, fontWeight: FontWeight.bold),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ] else if (isToday) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.amber.shade50,
+                                              borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(color: Colors.amber.shade200, width: 0.5),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.today, color: Colors.amber, size: 8),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  'TODAY (${DateFormat('hh:mm a').format(c.surgeryDateTime!)})',
+                                                  style: TextStyle(color: Colors.amber.shade900, fontSize: 8, fontWeight: FontWeight.bold),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                         if (c.priority == 'Emergency') ...[
                                           const SizedBox(width: 6),
                                           Container(

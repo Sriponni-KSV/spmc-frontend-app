@@ -1010,6 +1010,28 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
   Widget _buildPatientRegistryItem(OtCase c, Color cardBg, Color textPrimary, Color textSecondary, Color borderClr) {
     final isSelected = _selectedCase?.id == c.id;
     final avatarColors = AppTheme.getAvatarColors(c.patientName);
+    
+    final now = DateTime.now();
+    final isToday = c.surgeryDateTime != null &&
+        c.surgeryDateTime!.year == now.year &&
+        c.surgeryDateTime!.month == now.month &&
+        c.surgeryDateTime!.day == now.day;
+    final isNearTime = c.surgeryDateTime != null &&
+        c.surgeryDateTime!.difference(now).inMinutes.abs() <= 120;
+
+    final cardBorderColor = isSelected 
+        ? AppTheme.primaryColor 
+        : (isNearTime 
+            ? Colors.red.shade400 
+            : (isToday ? Colors.amber.shade500 : borderClr));
+            
+    final cardBackground = isSelected 
+        ? cardBg 
+        : (isNearTime 
+            ? Colors.red.shade50.withOpacity(0.3) 
+            : (isToday ? Colors.amber.shade50.withOpacity(0.2) : cardBg));
+            
+    final cardBorderWidth = (isSelected || isNearTime || isToday) ? 1.5 : 1.0;
 
     Color statusBg;
     Color statusText;
@@ -1050,10 +1072,10 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: cardBg,
+          color: cardBackground,
           border: Border.all(
-            color: isSelected ? AppTheme.primaryColor : borderClr,
-            width: isSelected ? 1.5 : 1.0,
+            color: cardBorderColor,
+            width: cardBorderWidth,
           ),
           borderRadius: BorderRadius.circular(12),
         ),
@@ -1099,7 +1121,10 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 6),
-                  Row(
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1116,6 +1141,49 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
                           ),
                         ),
                       ),
+                      if (isNearTime) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.red.shade200, width: 0.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.alarm_on, color: Colors.red, size: 8),
+                              const SizedBox(width: 2),
+                              Text(
+                                'IMMINENT (${DateFormat('hh:mm a').format(c.surgeryDateTime!)})',
+                                style: const TextStyle(color: Colors.red, fontSize: 8, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else if (isToday) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.amber.shade200, width: 0.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.today, color: Colors.amber, size: 8),
+                              const SizedBox(width: 2),
+                              Text(
+                                'TODAY (${DateFormat('hh:mm a').format(c.surgeryDateTime!)})',
+                                style: TextStyle(color: Colors.amber.shade900, fontSize: 8, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (c.priority != null) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -1663,19 +1731,27 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
                 ),
               ),
               const SizedBox(width: 12),
-              OutlinedButton(
+              ElevatedButton(
                 onPressed: (_isCaseCompleted || _isDictationLocked) ? null : () {
                   setState(() {
                     _textController.clear();
                     _transcribedText = "";
                   });
                 },
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: borderClr),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.logoRed,
+                  foregroundColor: Colors.white,
                   minimumSize: const Size(100, 48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
                 ),
-                child: Text('Reset', style: TextStyle(color: textPrimary)),
+                child: const Text(
+                  'Reset',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
