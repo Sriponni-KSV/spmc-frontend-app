@@ -3,9 +3,14 @@ import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../models/appointment_model.dart';
+import '../models/user_model.dart';
 import '../controllers/patient_controller.dart';
 import '../controllers/appointment_controller.dart';
+import '../controllers/ipd_controller.dart';
+import '../controllers/admin_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
+import '../services/api_service.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class NewConsultationView extends StatefulWidget {
   final AppointmentModel appointment;
@@ -30,11 +35,16 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   final TextEditingController _diagnosisController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   final List<Map<String, String>> _medications = [];
-  
+  DateTime? _followUpDate;
+
   final TextEditingController _medNameController = TextEditingController();
   final TextEditingController _dosageController = TextEditingController();
-  final TextEditingController _freqController = TextEditingController(text: '1-0-1');
+  final TextEditingController _freqController = TextEditingController(
+    text: '1-0-1',
+  );
   final TextEditingController _durController = TextEditingController();
+
+  List<String> _medicineCatalog = [];
 
   // Lab test state
   final Map<String, bool> _standardLabs = {
@@ -49,9 +59,42 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   final List<String> _customLabs = [];
   final TextEditingController _customLabController = TextEditingController();
 
+  // New Controllers
+  final TextEditingController _historyController = TextEditingController();
+  final TextEditingController _examinationController = TextEditingController();
+  final TextEditingController _familyHistoryController =
+      TextEditingController();
+  final TextEditingController _socialHistoryController =
+      TextEditingController();
+  final TextEditingController _commentController = TextEditingController();
+  final TextEditingController _procedureController = TextEditingController();
+  final TextEditingController _allergyController = TextEditingController();
+  final TextEditingController _leadingQuestionsController =
+      TextEditingController();
+  final TextEditingController _planController = TextEditingController();
+
+  // Referral Controllers
+  final TextEditingController _referredDoctorController =
+      TextEditingController();
+  final TextEditingController _referredDeptController = TextEditingController();
+  final TextEditingController _referralNotesController =
+      TextEditingController();
+
+  // Document attachments list
+  final List<Map<String, String>> _documents = [];
+  final TextEditingController _docTitleController = TextEditingController();
+  final TextEditingController _docFileNameController = TextEditingController();
+
   final PatientController _patientController = PatientController();
   final AppointmentController _appointmentController = AppointmentController();
-  
+  final IpdController _ipdController = IpdController();
+  final AdminController _adminController = AdminController();
+
+  List<UserModel> _rawDoctors = [];
+  List<String> _doctorsList = [];
+  List<String> _departmentsList = [];
+  bool _isLoadingReferralData = false;
+
   late AppointmentModel _currentAppointment;
   bool _isLoadingVitals = true;
   bool _isLoadingHistory = true;
@@ -66,14 +109,128 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     _fetchLatestVitals();
     _fetchPreviousConsultations();
     _initializeData();
+    _loadMedicineCatalog();
+    _loadReferralDropdowns();
+  }
+
+  Future<void> _loadMedicineCatalog() async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final response = await ApiService.get(
+        '$baseUrl/inventory/medicine-catalog',
+      );
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true && mounted) {
+        final data = body['data'] as List<dynamic>;
+        setState(() {
+          _medicineCatalog = data
+              .map((item) => item['name'].toString())
+              .toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading medicine catalog: $e');
+    }
+  }
+
+  Future<void> _loadReferralDropdowns() async {
+    setState(() {
+      _isLoadingReferralData = true;
+    });
+    try {
+      final doctors = await _adminController.fetchStaff(role: 'Doctor');
+      final specs = await _adminController.fetchSpecializations();
+      if (mounted) {
+        setState(() {
+          _rawDoctors = doctors
+              .where((d) => d.status.toLowerCase() == 'active' && !d.isDeleted)
+              .toList();
+          _doctorsList = _rawDoctors.map((d) => d.fullname).toList();
+          _departmentsList = specs.map((s) => s['name'].toString()).toList();
+          _isLoadingReferralData = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading referral dropdown data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingReferralData = false;
+        });
+      }
+    }
   }
 
   void _initializeData() {
     if (widget.initialConsultation != null) {
       _symptomsController.text = widget.initialConsultation!['symptoms'] ?? '';
-      _diagnosisController.text = widget.initialConsultation!['diagnosis'] ?? '';
+      _diagnosisController.text =
+          widget.initialConsultation!['diagnosis'] ?? '';
       _notesController.text = widget.initialConsultation!['notes'] ?? '';
-      
+
+      _historyController.text = widget.initialConsultation!['history'] ?? '';
+      _examinationController.text =
+          widget.initialConsultation!['examination'] ?? '';
+      _familyHistoryController.text =
+          widget.initialConsultation!['family_history'] ?? '';
+      _socialHistoryController.text =
+          widget.initialConsultation!['social'] ?? '';
+      _commentController.text = widget.initialConsultation!['comment'] ?? '';
+      _procedureController.text =
+          widget.initialConsultation!['procedure'] ?? '';
+      _allergyController.text = widget.initialConsultation!['allergy'] ?? '';
+      _leadingQuestionsController.text =
+          widget.initialConsultation!['leading_questions'] ?? '';
+      _planController.text = widget.initialConsultation!['plan'] ?? '';
+
+      final ref = widget.initialConsultation!['referral'];
+      if (ref is Map) {
+        _referredDoctorController.text =
+            ref['referred_doctor']?.toString() ?? '';
+        _referredDeptController.text =
+            ref['referred_department']?.toString() ?? '';
+        _referralNotesController.text = ref['referral_notes']?.toString() ?? '';
+      } else if (ref is String && ref.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(ref);
+          if (decoded is Map) {
+            _referredDoctorController.text =
+                decoded['referred_doctor']?.toString() ?? '';
+            _referredDeptController.text =
+                decoded['referred_department']?.toString() ?? '';
+            _referralNotesController.text =
+                decoded['referral_notes']?.toString() ?? '';
+          }
+        } catch (_) {}
+      }
+
+      final docs = widget.initialConsultation!['documents'];
+      if (docs is List) {
+        for (var d in docs) {
+          if (d is Map) {
+            _documents.add({
+              'title': d['title']?.toString() ?? '',
+              'file_name': d['file_name']?.toString() ?? '',
+              'date': d['date']?.toString() ?? '',
+            });
+          }
+        }
+      } else if (docs is String && docs.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(docs);
+          if (decoded is List) {
+            for (var d in decoded) {
+              if (d is Map) {
+                _documents.add({
+                  'title': d['title']?.toString() ?? '',
+                  'file_name': d['file_name']?.toString() ?? '',
+                  'date': d['date']?.toString() ?? '',
+                });
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
       final meds = widget.initialConsultation!['medications'];
       if (meds is List) {
         for (var m in meds) {
@@ -116,6 +273,476 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     }
   }
 
+  // ─── Full Admit to IPD card — shown in consultation left panel ──────────
+  Widget _buildAdmitToIPDCard() {
+    // Don't show for completed/cancelled/discharged appointments
+    final status = _currentAppointment.status;
+    if (status == 'Completed' ||
+        status == 'Cancelled' ||
+        status == 'Discharged') {
+      return const SizedBox.shrink();
+    }
+
+    // If already admitted and no bed assigned yet → show orange allocation banner
+    if (status == 'Admitted') {
+      return _buildPendingAllocationBanner();
+    }
+
+    // Otherwise → show the Admit to IPD action card
+    return _buildRecommendAdmitCard();
+  }
+
+  Widget _buildPendingAllocationBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade700, Colors.deepOrange.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.local_hospital, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'IPD Admission Pending',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${_currentAppointment.patientName} has been recommended for IPD by Dr. ${_currentAppointment.doctorName}. Awaiting bed allocation.',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecommendAdmitCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF0D5F96).withOpacity(0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.local_hospital_outlined,
+                    color: AppTheme.primaryColor,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Admit to IPD',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                    Text(
+                      'Choose admission method',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            // Action buttons
+            _buildIPDActionButton(
+              icon: Icons.send_outlined,
+              color: AppTheme.primaryColor,
+              label: 'Request IPD Admission',
+              subtitle: 'Front Desk will verify details and allocate a bed',
+              onTap: _showAdmitDialog,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIPDActionButton({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: color,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: color.withOpacity(0.5), size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Admit Dialog ─────────────────────────────────────────────────────────
+  void _showAdmitDialog() {
+    bool isSubmitting = false;
+    final TextEditingController reasonController = TextEditingController(
+      text: _currentAppointment.reasonForVisit ?? '',
+    );
+    final TextEditingController diagnosisController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setD) {
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.local_hospital_outlined,
+                      color: AppTheme.primaryColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Request IPD Admission',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        Text(
+                          _currentAppointment.patientName,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 460,
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Info banner
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.blue.shade600,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Admission request will be sent to the Front Desk for verification and processing.',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // ── Reason ──
+                        const Text.rich(
+                          TextSpan(
+                            text: 'Reason for Admission',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: ' *',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: reasonController,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            hintText:
+                                'Enter medical reason for IPD admission...',
+                            hintStyle: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 12,
+                            ),
+                            filled: true,
+                            fillColor: AppTheme.backgroundColor,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Please enter reason for admission'
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // ── Diagnosis ──
+                        const Text(
+                          'Diagnosis / Provisional Diagnosis',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: diagnosisController,
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            hintText:
+                                'e.g. Acute Appendicitis, Type 2 Diabetes...',
+                            hintStyle: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 12,
+                            ),
+                            filled: true,
+                            fillColor: AppTheme.backgroundColor,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: AppTheme.cancelButton,
+                  child: const Text('Cancel'),
+                ),
+                StatefulBuilder(
+                  builder: (ctx2, setBtn) => ElevatedButton.icon(
+                    icon: isSubmitting
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.send_outlined,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                    label: Text(
+                      isSubmitting ? 'Submitting...' : 'Send Request',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.dangerColor,
+                      minimumSize: const Size(130, 48),
+                    ),
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            if (!formKey.currentState!.validate()) return;
+                            setBtn(() => isSubmitting = true);
+                            // Capture context-dependent objects before async gap
+                            final nav = Navigator.of(ctx);
+                            final messenger = ScaffoldMessenger.of(context);
+                            try {
+                              await _ipdController.createPendingAdmission({
+                                'patient_id': _currentAppointment.patientId,
+                                'appointment_id': _currentAppointment.id,
+                                'doctor_name': _currentAppointment.doctorName,
+                                'reason_for_admission': reasonController.text
+                                    .trim(),
+                                'diagnosis': diagnosisController.text.trim(),
+                              });
+                              nav.pop();
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Admission request sent to Front Desk',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              if (mounted) {
+                                setState(() {
+                                  _currentAppointment = _currentAppointment
+                                      .copyWith(status: 'Admission Requested');
+                                });
+                              }
+                            } catch (e) {
+                              setBtn(() => isSubmitting = false);
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text('Error: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _fetchLatestVitals() async {
     try {
       final vitals = await _patientController.fetchLatestVitals(
@@ -127,8 +754,12 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           _currentAppointment = _currentAppointment.copyWith(
             bloodPressureSystolic: vitals['blood_pressure_systolic'],
             bloodPressureDiastolic: vitals['blood_pressure_diastolic'],
-            sugarLevel: double.tryParse(vitals['sugar_level']?.toString() ?? ''),
-            temperature: double.tryParse(vitals['temperature']?.toString() ?? ''),
+            sugarLevel: double.tryParse(
+              vitals['sugar_level']?.toString() ?? '',
+            ),
+            temperature: double.tryParse(
+              vitals['temperature']?.toString() ?? '',
+            ),
             reasonForVisit: vitals['reason_for_visit'],
           );
           _isLoadingVitals = false;
@@ -143,11 +774,15 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   Future<void> _fetchPreviousConsultations() async {
     try {
-      final history = await _appointmentController.fetchConsultationsByPatient(widget.appointment.patientId);
+      final history = await _appointmentController.fetchConsultationsByPatient(
+        widget.appointment.patientId,
+      );
       if (mounted) {
         setState(() {
           // exclude current consultation if editing
-          _previousConsultations = history.where((c) => c['appointment_id'] != widget.appointment.id).toList();
+          _previousConsultations = history
+              .where((c) => c['appointment_id'] != widget.appointment.id)
+              .toList();
           _isLoadingHistory = false;
         });
       }
@@ -162,7 +797,9 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         _medications.add({
           'name': _medNameController.text.trim(),
           'dosage': _dosageController.text.trim(),
-          'frequency': _freqController.text.isEmpty ? '1-0-1' : _freqController.text,
+          'frequency': _freqController.text.isEmpty
+              ? '1-0-1'
+              : _freqController.text,
           'duration': _durController.text.trim(),
         });
         _medNameController.clear();
@@ -199,11 +836,19 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.arrow_back, color: AppTheme.primaryColor, size: 16),
+                  Icon(
+                    Icons.arrow_back,
+                    color: AppTheme.primaryColor,
+                    size: 16,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Back to Queue',
-                    style: TextStyle(color: AppTheme.primaryColor, fontSize: 13, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -217,15 +862,22 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.initialConsultation != null 
-                      ? 'Edit Consultation: ${_currentAppointment.patientName}'
-                      : 'Consultation: ${_currentAppointment.patientName}',
-                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black),
+                    widget.initialConsultation != null
+                        ? 'Edit Consultation: ${_currentAppointment.patientName}'
+                        : 'Consultation: ${_currentAppointment.patientName}',
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Appt Date: ${_currentAppointment.appointmentDate} • Status: ${_currentAppointment.status}',
-                    style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                    style: const TextStyle(
+                      color: AppTheme.textSecondaryColor,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -247,6 +899,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               children: [
                 buildHeader(),
                 const SizedBox(height: 24),
+                _buildAdmitToIPDCard(),
                 _buildPatientInfoSummary(),
                 const SizedBox(height: 16),
                 _buildClinicalHistoryCard(),
@@ -275,12 +928,13 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Left Column: Vitals and History
+                    // Left Column: Admit to IPD + Vitals + History
                     SizedBox(
                       width: 320,
                       child: SingleChildScrollView(
                         child: Column(
                           children: [
+                            _buildAdmitToIPDCard(),
                             _buildPatientInfoSummary(),
                             const SizedBox(height: 16),
                             _buildClinicalHistoryCard(),
@@ -320,39 +974,87 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             children: [
               Icon(Icons.monitor_heart, color: AppTheme.primaryColor, size: 20),
               SizedBox(width: 8),
-              Text('Nurse Vitals Intake', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              Text(
+                'Nurse Vitals Intake',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
             ],
           ),
           const SizedBox(height: 16),
           if (_isLoadingVitals)
-            const Center(child: Padding(padding: EdgeInsets.all(8.0), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))))
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(8.0),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
           else ...[
-            _buildVitalRow('Blood Pressure', '${_currentAppointment.bloodPressureSystolic ?? '--'}/${_currentAppointment.bloodPressureDiastolic ?? '--'} mmHg', Icons.speed, Colors.blue.shade700),
+            _buildVitalRow(
+              'Blood Pressure',
+              '${_currentAppointment.bloodPressureSystolic ?? '--'}/${_currentAppointment.bloodPressureDiastolic ?? '--'} mmHg',
+              Icons.speed,
+              Colors.blue.shade700,
+            ),
             const SizedBox(height: 12),
-            _buildVitalRow('Sugar Level', '${_currentAppointment.sugarLevel ?? '--'} mg/dL', Icons.bloodtype_outlined, Colors.red.shade700),
+            _buildVitalRow(
+              'Sugar Level',
+              '${_currentAppointment.sugarLevel ?? '--'} mg/dL',
+              Icons.bloodtype_outlined,
+              Colors.red.shade700,
+            ),
             const SizedBox(height: 12),
-            _buildVitalRow('Temperature', '${_currentAppointment.temperature ?? '--'} °F', Icons.thermostat_outlined, Colors.orange.shade700),
+            _buildVitalRow(
+              'Temperature',
+              '${_currentAppointment.temperature ?? '--'} °F',
+              Icons.thermostat_outlined,
+              Colors.orange.shade700,
+            ),
           ],
           const Divider(height: 24),
-          const Text('Chief Complaint', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const Text(
+            'Chief Complaint',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
           const SizedBox(height: 6),
           Text(
             _currentAppointment.reasonForVisit ?? 'No complaints registered',
-            style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13, fontStyle: FontStyle.italic),
+            style: const TextStyle(
+              color: AppTheme.textSecondaryColor,
+              fontSize: 13,
+              fontStyle: FontStyle.italic,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildVitalRow(String label, String value, IconData icon, Color color) {
+  Widget _buildVitalRow(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Row(
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 10),
-        Text(label, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13)),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppTheme.textSecondaryColor,
+            fontSize: 13,
+          ),
+        ),
         const Spacer(),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
       ],
     );
   }
@@ -372,14 +1074,29 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             children: [
               Icon(Icons.history, color: AppTheme.primaryColor, size: 20),
               SizedBox(width: 8),
-              Text('Clinical History', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              Text(
+                'Clinical History',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           if (_isLoadingHistory)
-            const Center(child: Padding(padding: EdgeInsets.all(8.0), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))))
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(8.0),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
           else if (_previousConsultations.isEmpty)
-            const Text('No previous consultations found.', style: TextStyle(color: Colors.grey, fontSize: 12))
+            const Text(
+              'No previous consultations found.',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            )
           else
             ListView.builder(
               shrinkWrap: true,
@@ -387,27 +1104,123 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               itemCount: _previousConsultations.length,
               itemBuilder: (c, idx) {
                 final hist = _previousConsultations[idx];
-                final dateStr = hist['created_at'] != null 
-                    ? DateFormat('dd/MM/yyyy').format(DateTime.parse(hist['created_at']))
+                final dateStr = hist['created_at'] != null
+                    ? DateFormat(
+                        'dd/MM/yyyy',
+                      ).format(DateTime.parse(hist['created_at']))
                     : 'Past Visit';
                 return Card(
                   elevation: 0,
                   margin: const EdgeInsets.only(bottom: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade200)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
                   child: ExpansionTile(
-                    title: Text(dateStr, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                    subtitle: Text(hist['diagnosis']?.toString() ?? 'No diagnosis recorded', style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
+                    title: Text(
+                      dateStr,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                    subtitle: Text(
+                      hist['diagnosis']?.toString() ?? 'No diagnosis recorded',
+                      style: const TextStyle(fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     childrenPadding: const EdgeInsets.all(10),
                     expandedCrossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (hist['symptoms'] != null && hist['symptoms'].toString().isNotEmpty) ...[
-                        const Text('Symptoms:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                        Text(hist['symptoms'].toString(), style: const TextStyle(fontSize: 12)),
+                      if (hist['doctor_name'] != null &&
+                          hist['doctor_name'].toString().isNotEmpty) ...[
+                        const Text(
+                          'Doctor:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        Text(
+                          hist['doctor_name'].toString(),
+                          style: const TextStyle(fontSize: 12),
+                        ),
                         const SizedBox(height: 6),
                       ],
-                      if (hist['notes'] != null && hist['notes'].toString().isNotEmpty) ...[
-                        const Text('Recommendations:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                        Text(hist['notes'].toString(), style: const TextStyle(fontSize: 12)),
+                      if (hist['symptoms'] != null &&
+                          hist['symptoms'].toString().isNotEmpty) ...[
+                        const Text(
+                          'Symptoms:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        Text(
+                          hist['symptoms'].toString(),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      if (hist['leading_questions'] != null &&
+                          hist['leading_questions'].toString().isNotEmpty) ...[
+                        const Text(
+                          'Leading Questions:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        Text(
+                          hist['leading_questions'].toString(),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      if (hist['diagnosis'] != null &&
+                          hist['diagnosis'].toString().isNotEmpty) ...[
+                        const Text(
+                          'Diagnosis:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        Text(
+                          hist['diagnosis'].toString(),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      if (hist['plan'] != null &&
+                          hist['plan'].toString().isNotEmpty) ...[
+                        const Text(
+                          'Plan:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        Text(
+                          hist['plan'].toString(),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      if (hist['notes'] != null &&
+                          hist['notes'].toString().isNotEmpty) ...[
+                        const Text(
+                          'Recommendations:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        Text(
+                          hist['notes'].toString(),
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ],
                     ],
                   ),
@@ -421,12 +1234,16 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   Future<void> _saveConsultation() async {
     if (!_formKey.currentState!.validate()) {
-      setState(() => _currentStep = 0);
       return;
     }
     setState(() => _isSaving = true);
     try {
       final finalLabs = getFinalOrderedLabs();
+      String finalNotes = _notesController.text.trim();
+      if (_followUpDate != null) {
+        finalNotes +=
+            '\n[FOLLOW-UP] Scheduled Date: ${DateFormat('dd/MM/yyyy').format(_followUpDate!)} (System reminder queued)';
+      }
       final data = {
         'appointment_id': widget.appointment.id,
         'patient_id': widget.appointment.patientId,
@@ -435,7 +1252,22 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         'medications': _medications,
         'lab_tests': finalLabs,
         'pharmacy_status': _medications.isNotEmpty ? 'Notified' : 'Pending',
-        'notes': _notesController.text.trim(),
+        'notes': finalNotes,
+        'history': _historyController.text.trim(),
+        'examination': _examinationController.text.trim(),
+        'family_history': _familyHistoryController.text.trim(),
+        'social': _socialHistoryController.text.trim(),
+        'comment': _commentController.text.trim(),
+        'procedure': _procedureController.text.trim(),
+        'allergy': _allergyController.text.trim(),
+        'leading_questions': _leadingQuestionsController.text.trim(),
+        'plan': _planController.text.trim(),
+        'referral': {
+          'referred_doctor': _referredDoctorController.text.trim(),
+          'referred_department': _referredDeptController.text.trim(),
+          'referral_notes': _referralNotesController.text.trim(),
+        },
+        'documents': _documents,
       };
 
       if (widget.initialConsultation != null) {
@@ -446,16 +1278,21 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       }
 
       if (widget.appointment.id != null) {
-        await _appointmentController.updateStatus(widget.appointment.id!, 'Completed');
+        await _appointmentController.updateStatus(
+          widget.appointment.id!,
+          'Completed',
+        );
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(widget.initialConsultation != null 
-              ? 'Consultation Updated Successfully!' 
-              : 'Consultation Completed & Saved!'), 
-            backgroundColor: Colors.green
+            content: Text(
+              widget.initialConsultation != null
+                  ? 'Consultation Updated Successfully!'
+                  : 'Consultation Completed & Saved!',
+            ),
+            backgroundColor: Colors.green,
           ),
         );
         widget.onBack();
@@ -471,141 +1308,694 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     }
   }
 
-  Widget _buildConsultationForm() {
-    // Clamp the step to prevent bounds errors on hot reload state preservation
-    int safeStep = _currentStep;
-    if (safeStep < 0) safeStep = 0;
-    if (safeStep > 3) safeStep = 3;
-
+  Widget _buildSectionCard(String title, Widget content) {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        boxShadow: AppTheme.cardShadow,
       ),
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.light(primary: AppTheme.primaryColor),
-        ),
-        child: Stepper(
-          physics: const ClampingScrollPhysics(),
-          currentStep: safeStep,
-          onStepTapped: (step) => setState(() => _currentStep = step),
-          onStepContinue: () {
-            if (_currentStep < 3) {
-              setState(() => _currentStep += 1);
-            } else {
-              _saveConsultation();
-            }
-          },
-          onStepCancel: () {
-            if (_currentStep > 0) {
-              setState(() => _currentStep -= 1);
-            }
-          },
-          controlsBuilder: (BuildContext context, ControlsDetails details) {
-            final isLastStep = safeStep == 3;
-            return Container(
-              margin: const EdgeInsets.only(top: 24),
-              child: Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: _isSaving ? null : details.onStepContinue,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: _isSaving && isLastStep
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text(isLastStep ? (widget.initialConsultation != null ? 'Update Consultation' : 'Complete & Submit') : 'Continue', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                  ),
-                  const SizedBox(width: 12),
-                  if (_currentStep > 0)
-                    OutlinedButton(
-                      onPressed: _isSaving ? null : details.onStepCancel,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: const Text('Back', style: TextStyle(color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
-                    ),
-                ],
-              ),
-            );
-          },
-          steps: [
-            Step(
-              title: const Text('Step 1: Clinical Assessment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
-              content: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTextArea('Subjective Symptoms', _symptomsController, 'Describe clinical history, symptoms reported by patient...', required: true),
-                  const SizedBox(height: 16),
-                  _buildTextArea('Diagnosis / Impression', _diagnosisController, 'Enter the diagnostic decision or impression...', required: true),
-                ],
-              ),
-              isActive: _currentStep >= 0,
-              state: _currentStep > 0 ? StepState.complete : StepState.editing,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryColor,
             ),
-            Step(
-              title: const Text('Step 2: Prescription Flow', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
-              subtitle: const Text('Automatically sent to Pharmacy upon submission', style: TextStyle(fontSize: 11, color: Color(0xFF0D9488), fontWeight: FontWeight.bold)),
-              content: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildMedicationInput(),
-                  const SizedBox(height: 12),
-                  _buildMedicationList(),
-                ],
-              ),
-              isActive: _currentStep >= 1,
-              state: _currentStep > 1 ? StepState.complete : StepState.editing,
-            ),
-            Step(
-              title: const Text('Step 3: Lab Orders', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
-              subtitle: const Text('Lab receives order directly upon submission', style: TextStyle(fontSize: 11, color: Color(0xFF0D9488), fontWeight: FontWeight.bold)),
-              content: _buildLabOrdersSection(),
-              isActive: _currentStep >= 2,
-              state: _currentStep > 2 ? StepState.complete : StepState.editing,
-            ),
-            Step(
-              title: const Text('Step 4: Finalize & Submit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
-              content: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTextArea('Additional Clinical Notes / Advice', _notesController, 'Internal advice, follow-up instructions, review notes...'),
-                ],
-              ),
-              isActive: _currentStep >= 3,
-              state: _currentStep == 3 ? StepState.editing : StepState.indexed,
-            ),
-          ],
-        ),
+          ),
+          const Divider(height: 24),
+          content,
+        ],
       ),
     );
   }
 
-  Widget _buildTextArea(String label, TextEditingController controller, String hint, {bool required = false}) {
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller,
+    String hint,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: hint,
+            fillColor: AppTheme.backgroundColor,
+            filled: true,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConsultationForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionCard(
+          '1. Symptoms',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTextArea(
+                'Subjective Symptoms',
+                _symptomsController,
+                'Describe clinical history, symptoms reported by patient...',
+                required: true,
+              ),
+              const SizedBox(height: 16),
+              _buildTextArea(
+                'Leading questions related to symptoms',
+                _leadingQuestionsController,
+                'Enter leading questions related to symptoms...',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '2. Clinical History',
+          _buildTextArea(
+            'Clinical History',
+            _historyController,
+            'Enter clinical history, past medical history, surgery history...',
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '3. Family History',
+          _buildTextArea(
+            'Family History',
+            _familyHistoryController,
+            'Enter family medical history, chronic diseases in relatives...',
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '4. Social History',
+          _buildTextArea(
+            'Social History',
+            _socialHistoryController,
+            'Enter social background, lifestyle, habits, occupation status...',
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '5. Physical Examination',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Recorded Vitals Summary',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: Column(
+                  children: [
+                    _buildVitalRow(
+                      'Blood Pressure',
+                      '${_currentAppointment.bloodPressureSystolic ?? '--'}/${_currentAppointment.bloodPressureDiastolic ?? '--'} mmHg',
+                      Icons.speed,
+                      Colors.blue.shade700,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildVitalRow(
+                      'Sugar Level',
+                      '${_currentAppointment.sugarLevel ?? '--'} mg/dL',
+                      Icons.bloodtype_outlined,
+                      Colors.red.shade700,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildVitalRow(
+                      'Temperature',
+                      '${_currentAppointment.temperature ?? '--'} °F',
+                      Icons.thermostat_outlined,
+                      Colors.orange.shade700,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildTextArea(
+                'Physical / Systemic Examination',
+                _examinationController,
+                'Describe physical examination findings, general condition...',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '6. Allergies',
+          _buildTextArea(
+            'Patient Allergies',
+            _allergyController,
+            'Describe drug allergies, food allergies, environmental/latex allergies...',
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '7. Diagnosis',
+          _buildTextArea(
+            'Diagnosis / Impression',
+            _diagnosisController,
+            'Enter the diagnostic decision or impression...',
+            required: true,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '8. Procedures',
+          _buildTextArea(
+            'Procedure Details',
+            _procedureController,
+            'Describe procedures performed or scheduled (e.g. sutures, dressings)...',
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '9. Plan',
+          _buildTextArea(
+            'Plan',
+            _planController,
+            'Enter plan details (e.g. diagnostic, therapeutic, educational plan)...',
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '10. Prescribed Medications',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Prescription Flow',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const Text(
+                'Automatically sent to Pharmacy upon submission',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF0D9488),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildMedicationInput(),
+              const SizedBox(height: 16),
+              _buildMedicationList(),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '11. Test Request (Lab Orders)',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Lab Orders',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const Text(
+                'Lab receives order directly upon submission',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF0D9488),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildLabOrdersSection(),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '12. Referral Details',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Doctor / Department Referral',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(height: 16),
+              CustomDropdownSearch(
+                label: 'Referred Doctor Name',
+                hint: 'e.g. Dr. Gayathri',
+                value: _referredDoctorController.text.isEmpty
+                    ? null
+                    : _referredDoctorController.text,
+                dropdownItems: _doctorsList,
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _referredDoctorController.text = val;
+                      final matchedDocs = _rawDoctors
+                          .where((d) => d.fullname == val)
+                          .toList();
+                      if (matchedDocs.isNotEmpty) {
+                        final spec = matchedDocs.first.specialization;
+                        if (spec != null && spec.isNotEmpty) {
+                          _referredDeptController.text = spec;
+                        }
+                      }
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              CustomDropdownSearch(
+                label: 'Referred Department',
+                hint: 'e.g. Cardiology, Paediatrics',
+                value: _referredDeptController.text.isEmpty
+                    ? null
+                    : _referredDeptController.text,
+                dropdownItems: _departmentsList,
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _referredDeptController.text = val;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              _buildTextArea(
+                'Referral Reason & Clinical Notes',
+                _referralNotesController,
+                'Provide details for the receiving doctor...',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '13. Document Attachments',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Simulated Document Attachments',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const Text(
+                'Log and link patient diagnostic files, scan reports or external letters.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondaryColor,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppTheme.borderColor.withOpacity(0.5),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildSmallField(
+                            'Document Title',
+                            _docTitleController,
+                            'e.g. Chest X-Ray Report',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildSmallField(
+                            'File Name (Reference)',
+                            _docFileNameController,
+                            'e.g. xray_150626.pdf',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          if (_docTitleController.text.trim().isEmpty) return;
+                          setState(() {
+                            _documents.add({
+                              'title': _docTitleController.text.trim(),
+                              'file_name':
+                                  _docFileNameController.text.trim().isEmpty
+                                  ? 'attached_doc_${DateTime.now().millisecondsSinceEpoch}.pdf'
+                                  : _docFileNameController.text.trim(),
+                              'date': DateFormat(
+                                'dd/MM/yyyy',
+                              ).format(DateTime.now()),
+                            });
+                            _docTitleController.clear();
+                            _docFileNameController.clear();
+                          });
+                        },
+                        icon: const Icon(
+                          Icons.add_to_photos_outlined,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                        label: const Text(
+                          'Add Document Reference',
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.secondaryColor,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (_documents.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text(
+                      'No documents reference attached yet.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _documents.length,
+                  itemBuilder: (context, idx) {
+                    final doc = _documents[idx];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.picture_as_pdf,
+                            color: Colors.red,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  doc['title']!,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  '${doc['file_name']} • Attached on: ${doc['date']}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                              size: 18,
+                            ),
+                            onPressed: () =>
+                                setState(() => _documents.removeAt(idx)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '14. Follow-Up Schedule',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTextArea(
+                'Additional Follow-Up Advice / Instructions',
+                _notesController,
+                'Specific follow-up instruction notes...',
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Schedule Follow-Up Date',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate:
+                        _followUpDate ??
+                        DateTime.now().add(const Duration(days: 7)),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (picked != null) {
+                    setState(() => _followUpDate = picked);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.backgroundColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: AppTheme.primaryColor,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        _followUpDate == null
+                            ? 'Select Date (Optional)'
+                            : DateFormat('dd/MM/yyyy').format(_followUpDate!),
+                        style: TextStyle(
+                          color: _followUpDate == null
+                              ? AppTheme.textSecondaryColor
+                              : Colors.black,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (_followUpDate != null)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.clear,
+                            size: 16,
+                            color: Colors.red,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () {
+                            setState(() => _followUpDate = null);
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '15. Comments & Remarks',
+          _buildTextArea(
+            'Comments / General Remarks',
+            _commentController,
+            'Enter general remarks, advice notes...',
+          ),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            OutlinedButton(
+              onPressed: widget.onBack,
+              style: AppTheme.cancelButton,
+              child: const Text('Cancel '),
+            ),
+            const SizedBox(width: 16),
+            ElevatedButton(
+              onPressed: _isSaving ? null : _saveConsultation,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.logoRed,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(130, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 14,
+                ),
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Text(
+                      widget.initialConsultation != null
+                          ? 'Update & Save'
+                          : 'Complete & Submit',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 80),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextArea(
+    String label,
+    TextEditingController controller,
+    String hint, {
+    bool required = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black)),
-            if (required) const Text(' *', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.black,
+              ),
+            ),
+            if (required)
+              const Text(
+                ' *',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
           ],
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           maxLines: 3,
-          validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'This field is required' : null : null,
+          validator: required
+              ? (v) => (v == null || v.trim().isEmpty)
+                    ? 'This field is required'
+                    : null
+              : null,
           decoration: InputDecoration(
             hintText: hint,
             fillColor: AppTheme.backgroundColor,
             filled: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
           ),
         ),
       ],
@@ -626,18 +2016,55 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             children: [
               Expanded(
                 flex: 2,
-                child: _buildSmallField('Medication Name', _medNameController, 'e.g. Paracetamol'),
+                child: CustomDropdownSearch(
+                  label: 'Medication Name',
+                  value: _medNameController.text.isEmpty
+                      ? null
+                      : _medNameController.text,
+                  dropdownItems: _medicineCatalog,
+                  height: 38,
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _medNameController.text = val;
+                        // Auto-extract and populate dosage if found in the catalog name
+                        final match = RegExp(
+                          r'\d+\s*(?:mg/ml|IU/ml|mg|mcg|g|ml|IU)',
+                          caseSensitive: false,
+                        ).firstMatch(val);
+                        if (match != null) {
+                          _dosageController.text = match.group(0) ?? '';
+                        }
+                      });
+                    }
+                  },
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildSmallField('Dosage', _dosageController, 'e.g. 500mg'),
+                child: _buildSmallField(
+                  'Dosage',
+                  _dosageController,
+                  'e.g. 500mg',
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: CustomDropdownSearch(
                   label: 'Frequency',
-                  value: _freqController.text.isEmpty ? '1-0-1' : _freqController.text,
-                  dropdownItems: const ['1-0-1', '1-0-0', '0-0-1', '1-1-1', 'Once daily', 'Twice daily', 'Thrice daily', 'As needed (PRN)'],
+                  value: _freqController.text.isEmpty
+                      ? '1-0-1'
+                      : _freqController.text,
+                  dropdownItems: const [
+                    '1-0-1',
+                    '1-0-0',
+                    '0-0-1',
+                    '1-1-1',
+                    'Once daily',
+                    'Twice daily',
+                    'Thrice daily',
+                    'As needed (PRN)',
+                  ],
                   height: 38,
                   onChanged: (v) {
                     if (v != null) setState(() => _freqController.text = v);
@@ -646,7 +2073,11 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildSmallField('Duration', _durController, 'e.g. 5 days'),
+                child: _buildSmallField(
+                  'Duration',
+                  _durController,
+                  'e.g. 5 days',
+                ),
               ),
             ],
           ),
@@ -656,11 +2087,19 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             child: ElevatedButton.icon(
               onPressed: _addMedication,
               icon: const Icon(Icons.add, size: 16, color: Colors.white),
-              label: const Text('Add Drug', style: TextStyle(color: Colors.white, fontSize: 12)),
+              label: const Text(
+                'Add Drug',
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.secondaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
             ),
           ),
@@ -669,13 +2108,21 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     );
   }
 
-  Widget _buildSmallField(String label, TextEditingController controller, String hint) {
+  Widget _buildSmallField(
+    String label,
+    TextEditingController controller,
+    String hint,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+            color: Colors.black,
+          ),
         ),
         const SizedBox(height: 6),
         TextField(
@@ -686,8 +2133,14 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             isDense: true,
             fillColor: Colors.white,
             filled: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: AppTheme.borderColor)),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: AppTheme.borderColor),
+            ),
           ),
         ),
       ],
@@ -700,7 +2153,9 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       children: _medications.asMap().entries.map((entry) {
         int idx = entry.key;
         Map<String, String> med = entry.value;
-        final durStr = med['duration'] != null && med['duration']!.isNotEmpty ? ' for ${med['duration']}' : '';
+        final durStr = med['duration'] != null && med['duration']!.isNotEmpty
+            ? ' for ${med['duration']}'
+            : '';
         return Container(
           margin: const EdgeInsets.only(bottom: 6),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -711,16 +2166,27 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           ),
           child: Row(
             children: [
-              const Icon(Icons.medication, color: AppTheme.primaryColor, size: 16),
+              const Icon(
+                Icons.medication,
+                color: AppTheme.primaryColor,
+                size: 16,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   '${med['name']} - ${med['dosage']} (${med['frequency']})$durStr',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.red,
+                  size: 18,
+                ),
                 onPressed: () => setState(() => _medications.removeAt(idx)),
               ),
             ],
@@ -734,7 +2200,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -745,7 +2210,14 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Select Standard Investigations:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black)),
+              const Text(
+                'Select Standard Investigations:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.black,
+                ),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 16,
@@ -770,9 +2242,14 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               ),
               const Divider(height: 20),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: _buildSmallField('Other Custom Lab Test', _customLabController, 'e.g. Liver Function Test (LFT)'),
+                    child: _buildSmallField(
+                      'Other Custom Lab Test',
+                      _customLabController,
+                      'e.g. Liver Function Test (LFT)',
+                    ),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
@@ -784,10 +2261,19 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                       });
                     },
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       backgroundColor: AppTheme.secondaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
                     ),
-                    child: const Text('Add Test', style: TextStyle(color: Colors.white, fontSize: 12)),
+                    child: const Text(
+                      'Add Test',
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
                   ),
                 ],
               ),

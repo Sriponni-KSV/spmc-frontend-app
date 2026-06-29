@@ -73,7 +73,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
 
       if (mounted) {
         setState(() {
-          _appointments = data.where(_isWalkIn).toList();
+          _appointments = data; // include all appointment types (walk-in + pre-booked)
           _consultations = consultationsData;
           _isLoading = false;
         });
@@ -123,8 +123,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     return (b.id ?? 0).compareTo(a.id ?? 0);
   }
 
+  // All today's appointments (both walk-in and pre-booked)
   List<AppointmentModel> get _walkInAppointments =>
-      _appointments.where(_isWalkIn).toList();
+      List<AppointmentModel>.from(_appointments);
 
   List<AppointmentModel> get _filteredAppointments {
     List<AppointmentModel> apps = List<AppointmentModel>.from(
@@ -278,28 +279,26 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+      child: widget.isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.local_hospital_outlined,
                       color: Colors.white,
-                      size: 24,
+                      size: 20,
                     ),
-                    SizedBox(width: 8),
-                    Text(
-                      'OPD Queue Management',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'OPD Queue Management',
+                        style: TextStyle(
+                          fontSize: widget.isMobile ? 18 : 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],
@@ -309,34 +308,91 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   'Today\'s OPD Pipeline: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () => _showWalkInDialog(),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text(
+                    'Walk-in',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.primaryColor,
+                    elevation: 3,
+                    shadowColor: Colors.black26,
+                    minimumSize: const Size(double.infinity, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.local_hospital_outlined,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'OPD Queue Management',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Today\'s OPD Pipeline: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _showWalkInDialog(),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(
+                    widget.isMobile ? 'Walk-in' : 'New Walk-in Entry',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.primaryColor,
+                    elevation: 3,
+                    shadowColor: Colors.black26,
+                    minimumSize: const Size(120, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => _showWalkInDialog(),
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(
-              widget.isMobile ? 'Walk-in' : 'New Walk-in Entry',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: AppTheme.primaryColor,
-              elevation: 3,
-              shadowColor: Colors.black26,
-              minimumSize: const Size(120, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -957,6 +1013,42 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 ),
                               ),
                             ],
+                            // Appointment type badge
+                            const SizedBox(width: 6),
+                            Builder(builder: (_) {
+                              final normalized = app.appointmentType
+                                  .trim()
+                                  .toLowerCase()
+                                  .replaceAll(RegExp(r'[\s-]+'), '');
+                              final isWalkIn = normalized == 'walkin';
+                              final badgeColor = isWalkIn
+                                  ? const Color(0xFF0D9488)
+                                  : const Color(0xFF6366F1);
+                              final label = isWalkIn
+                                  ? 'Walk-in'
+                                  : app.appointmentType;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: badgeColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: badgeColor.withOpacity(0.4),
+                                  ),
+                                ),
+                                child: Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: badgeColor,
+                                  ),
+                                ),
+                              );
+                            }),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -1128,6 +1220,52 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         ),
                       ),
                       if (app.status == 'Confirmed') ...[
+                        if (!_hasVitals(app)) ...[
+                          ElevatedButton.icon(
+                            onPressed: () => _openVitalsDialog(app),
+                            icon: const Icon(Icons.monitor_heart, size: 14, color: Colors.white),
+                            label: const Text(
+                              'Add Vitals',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0F766E),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                        ElevatedButton.icon(
+                          onPressed: () => _handleMarkWaiting(app),
+                          icon: const Icon(Icons.hourglass_empty, size: 14, color: Colors.white),
+                          label: const Text(
+                            'Mark Waiting',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D9488),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
                         ElevatedButton.icon(
                           onPressed: () => _showCancelAppointmentDialog(app),
                           icon: const Icon(Icons.cancel_outlined, size: 14),
@@ -1322,6 +1460,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         );
       },
     );
+  }
+
+  Future<void> _handleMarkWaiting(AppointmentModel app) async {
+    if (!_hasVitals(app)) {
+      await _showVitalsMissingDialog(context, app);
+    } else {
+      await _markWaiting(app);
+    }
   }
 
   Future<void> _markWaiting(AppointmentModel app) async {
@@ -1854,15 +2000,77 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   }
 
   Widget _buildConsultationSummary(Map<String, dynamic> c) {
+    List? docsList;
+    final docs = c['documents'];
+    if (docs is List) {
+      docsList = docs;
+    } else if (docs is String && docs.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(docs);
+        if (decoded is List) docsList = decoded;
+      } catch (_) {}
+    }
+
+    final ref = c['referral'];
+    Map? refMap;
+    if (ref is Map) {
+      refMap = ref;
+    } else if (ref is String && ref.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(ref);
+        if (decoded is Map) refMap = decoded;
+      } catch (_) {}
+    }
+
+    List medsList = [];
+    if (c['medications'] != null) {
+      if (c['medications'] is String) {
+        try {
+          final decoded = jsonDecode(c['medications']);
+          if (decoded is List) medsList = decoded;
+        } catch (_) {}
+      } else if (c['medications'] is List) {
+        medsList = c['medications'];
+      }
+    }
+
+    List labsList = [];
+    if (c['lab_tests'] != null) {
+      if (c['lab_tests'] is String) {
+        try {
+          final decoded = jsonDecode(c['lab_tests']);
+          if (decoded is List) labsList = decoded;
+        } catch (_) {}
+      } else if (c['lab_tests'] is List) {
+        labsList = c['lab_tests'];
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (c['doctor_name'] != null && c['doctor_name'].toString().isNotEmpty) ...[
+          const Text(
+            'Doctor:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['doctor_name'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
         if (c['symptoms'] != null && c['symptoms'].toString().isNotEmpty) ...[
           const Text(
             'Subjective Symptoms:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
           Text(c['symptoms'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (c['leading_questions'] != null && c['leading_questions'].toString().isNotEmpty) ...[
+          const Text(
+            'Leading Questions:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['leading_questions'].toString(), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
         ],
         if (c['diagnosis'] != null && c['diagnosis'].toString().isNotEmpty) ...[
@@ -1873,15 +2081,110 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           Text(c['diagnosis'].toString(), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
         ],
-        if (c['notes'] != null && c['notes'].toString().isNotEmpty) ...[
+        if (c['history'] != null && c['history'].toString().isNotEmpty) ...[
           const Text(
-            'Doctor\'s Notes:',
+            'Clinical History:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
-          Text(c['notes'].toString(), style: const TextStyle(fontSize: 13)),
+          Text(c['history'].toString(), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
         ],
-        if (c['medications'] != null) ...[
+        if (c['examination'] != null && c['examination'].toString().isNotEmpty) ...[
+          const Text(
+            'Physical Examination:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['examination'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (c['family_history'] != null && c['family_history'].toString().isNotEmpty) ...[
+          const Text(
+            'Family History:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['family_history'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (c['social'] != null && c['social'].toString().isNotEmpty) ...[
+          const Text(
+            'Social History:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['social'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (c['allergy'] != null && c['allergy'].toString().isNotEmpty) ...[
+          const Text(
+            'Allergies:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['allergy'].toString(), style: const TextStyle(fontSize: 13, color: Colors.red)),
+          const SizedBox(height: 8),
+        ],
+        if (c['procedure'] != null && c['procedure'].toString().isNotEmpty) ...[
+          const Text(
+            'Procedures:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['procedure'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (c['plan'] != null && c['plan'].toString().isNotEmpty) ...[
+          const Text(
+            'Plan:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['plan'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (refMap != null &&
+            ((refMap['referred_doctor']?.toString().isNotEmpty ?? false) ||
+             (refMap['referred_department']?.toString().isNotEmpty ?? false))) ...[
+          const Text(
+            'Referral Details:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(
+            'To Doctor: ${refMap['referred_doctor'] ?? 'N/A'} • Dept: ${refMap['referred_department'] ?? 'N/A'}\nNotes: ${refMap['referral_notes'] ?? ''}',
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (docsList != null && docsList.isNotEmpty) ...[
+          const Text(
+            'Attached Documents:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          ...docsList.map((d) {
+            if (d is Map) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  border: Border.all(color: Colors.grey.shade200),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.picture_as_pdf, size: 14, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${d['title']} (${d['file_name']})',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          }).toList(),
+          const SizedBox(height: 8),
+        ],
+        if (medsList.isNotEmpty) ...[
           const Text(
             'Prescribed Medications:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
@@ -1889,7 +2192,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           const SizedBox(height: 4),
           _buildMedicationList(c['medications']),
         ],
-        if (c['lab_tests'] != null) ...[
+        if (labsList.isNotEmpty) ...[
           const SizedBox(height: 8),
           const Text(
             'Ordered Lab Tests:',
@@ -1897,6 +2200,22 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           ),
           const SizedBox(height: 4),
           _buildLabTestsList(c['lab_tests']),
+        ],
+        if (c['comment'] != null && c['comment'].toString().isNotEmpty) ...[
+          const Text(
+            'Comments / General Remarks:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['comment'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+        ],
+        if (c['notes'] != null && c['notes'].toString().isNotEmpty) ...[
+          const Text(
+            'Doctor\'s Advice / Follow-up Notes:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          Text(c['notes'].toString(), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
         ],
         if (c['pharmacy_status'] != null) ...[
           const SizedBox(height: 12),
@@ -2823,7 +3142,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             sugarLevel: vitalsData['sugar_level'] as double?,
                             temperature: vitalsData['temperature'] as double,
                             reasonForVisit: complaintCtrl.text.trim(),
-                            status: 'Confirmed',
+                            status: 'Waiting',
                             appointmentType: 'Walk-in',
                           );
                           final created = await _appointmentController
@@ -3819,14 +4138,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             return result;
           }
 
+          final screenWidth = MediaQuery.of(ctx).size.width;
+          final screenHeight = MediaQuery.of(ctx).size.height;
+
           return Dialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
             elevation: 10,
             child: Container(
-              width: 580,
-              height: 580,
+              width: screenWidth < 620 ? screenWidth * 0.95 : 580,
+              height: screenHeight < 620 ? screenHeight * 0.95 : 580,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),

@@ -41,6 +41,46 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <script>
+    window.audioRecorder = {
+      mediaRecorder: null,
+      audioChunks: [],
+      
+      startRecording: async function(callback) {
+        this.audioChunks = [];
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          this.mediaRecorder = new MediaRecorder(stream);
+          this.mediaRecorder.ondataavailable = (event) => {
+            this.audioChunks.push(event.data);
+          };
+          this.mediaRecorder.start();
+          if (callback) callback(true);
+        } catch (e) {
+          console.error("Error starting recording:", e);
+          if (callback) callback(false);
+        }
+      },
+      
+      stopRecording: function(callback) {
+        if (!this.mediaRecorder) {
+          if (callback) callback("");
+          return;
+        }
+        this.mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64data = reader.result.split(',')[1];
+            if (callback) callback(base64data);
+          };
+          reader.readAsDataURL(audioBlob);
+          this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        };
+        this.mediaRecorder.stop();
+      }
+    };
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

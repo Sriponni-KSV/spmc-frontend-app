@@ -16,11 +16,14 @@ import 'doctors_view.dart';
 import 'nurse_profile_view.dart';
 import 'opd_management.dart';
 import 'ipd_management.dart';
+import 'ot_management.dart';
 import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
 import '../utils/logout_helper.dart';
 import '../models/user_model.dart';
+import '../controllers/nurse_shift_controller.dart';
+
 
 class NurseDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -49,9 +52,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   String? _patientError;
   final PatientController _patientController = PatientController();
   final AppointmentController _appointmentController = AppointmentController();
+
   bool _isLoadingPatients = false;
   List<AppointmentModel> _dbAppointments = [];
   bool _isLoadingAppointments = false;
+
+  final NurseShiftController _shiftCtrl = NurseShiftController();
+  Map<String, dynamic>? _activeShiftData;
+  Map<String, dynamic>? _todayShiftData;
+  List<Map<String, dynamic>> _allWardsShiftData = [];
+  bool _isLoadingShiftStatus = false;
+  List<Map<String, dynamic>> _handovers = [];
+
 
   @override
   void initState() {
@@ -77,8 +89,105 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Future<void> _fetchData() async {
-    await Future.wait([_fetchPatients(), _fetchAppointments()]);
+    await Future.wait([
+      _fetchPatients(),
+      _fetchAppointments(),
+      _fetchShiftStatus(),
+      _fetchHandovers(),
+    ]);
   }
+
+  Future<void> _fetchShiftStatus() async {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user == null) return;
+
+    if (mounted) setState(() => _isLoadingShiftStatus = true);
+    try {
+      final res = await _shiftCtrl.fetchActiveShift(nurseId: user.id);
+      if (res['success'] == true) {
+        final todayShift = res['today_shift'];
+        if (res['active'] == true) {
+          final List data = res['data'] ?? [];
+          final list = List<Map<String, dynamic>>.from(data);
+
+          // Find if this nurse is assigned to any ward
+          Map<String, dynamic>? myAlloc;
+          for (final w in list) {
+            if (w['assigned_nurse_id']?.toString() == user.id.toString()) {
+              myAlloc = w;
+              break;
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              _allWardsShiftData = list;
+              _activeShiftData = myAlloc;
+              _todayShiftData = todayShift;
+            });
+          }
+        } else {
+          if (mounted) {
+            setState(() {
+              _allWardsShiftData = [];
+              _activeShiftData = null;
+              _todayShiftData = todayShift;
+            });
+          }
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _allWardsShiftData = [];
+            _activeShiftData = null;
+            _todayShiftData = null;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching active shift status: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingShiftStatus = false);
+    }
+  }
+
+  Future<void> _fetchHandovers() async {
+    try {
+      final list = await _shiftCtrl.fetchHandovers();
+      if (mounted) {
+        setState(() {
+          _handovers = list;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching handovers: $e');
+    }
+  }
+
+  Future<void> _acknowledgeHandover(int handoverId) async {
+    try {
+      await _shiftCtrl.acknowledgeHandover(handoverId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Handover acknowledged successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _fetchData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error acknowledging handover: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
 
   Future<void> _fetchAppointments() async {
     setState(() => _isLoadingAppointments = true);
@@ -149,6 +258,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         break;
       case 6:
         context.go(AppRoutes.nurseIpd);
+        break;
+      case 7:
+        context.go(AppRoutes.nurseOt);
         break;
       default:
         context.go(AppRoutes.nurseDashboard);
@@ -303,6 +415,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return OPDManagementScreen(isMobile: isMobile);
       case 6:
         return IPDManagementScreen(isMobile: isMobile);
+      case 7:
+        return OTManagementScreen(isMobile: isMobile);
       default:
         return _buildDashboardView(isMobile);
     }
@@ -316,7 +430,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         children: [
           _buildGreeting(),
           const SizedBox(height: 24),
+          _buildShiftStatusPanel(isMobile),
+          const SizedBox(height: 24),
+          ..._buildPendingHandoverCards(isMobile),
           _buildStatsRow(isMobile),
+
           const SizedBox(height: 24),
           if (isMobile) ...[
             _buildAlertsSection(),
@@ -429,6 +547,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         6,
                         Icons.bedroom_child_outlined,
                         'IPD Management',
+                      ),
+                      _buildSidebarItem(
+                        7,
+                        Icons.healing_outlined,
+                        'OT Management',
                       ),
                       _buildSidebarItem(4, Icons.person_outline, 'Profile'),
                       // _buildSidebarItem(4, Icons.home_outlined, 'Home Care'),
@@ -1195,4 +1318,424 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       ),
     );
   }
+
+  // --- Helpers ---
+
+  String _formatTo12Hour(String? timeStr) {
+    if (timeStr == null || timeStr.isEmpty) return '--';
+    try {
+      final parts = timeStr.split(':');
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+      final ampm = hour >= 12 ? 'PM' : 'AM';
+      final formattedHour = hour % 12 == 0 ? 12 : hour % 12;
+      final formattedMinute = minute.toString().padLeft(2, '0');
+      return '${formattedHour.toString().padLeft(2, '0')}:$formattedMinute $ampm';
+    } catch (_) {
+      return timeStr;
+    }
+  }
+
+  // --- Shift Status Panel & Handover Cards ---
+
+  Widget _buildShiftStatusPanel(bool isMobile) {
+    if (_activeShiftData == null) {
+      if (_todayShiftData != null) {
+        final shiftName = _todayShiftData!['shift_name']?.toString() ?? 'Assigned';
+        final wardType = _todayShiftData!['ward_type']?.toString() ?? 'General';
+        final startTime = _todayShiftData!['start_time']?.toString();
+        final endTime = _todayShiftData!['end_time']?.toString();
+        final timings = '${_formatTo12Hour(startTime)} - ${_formatTo12Hour(endTime)}';
+
+        IconData shiftIcon = Icons.schedule_outlined;
+        List<Color> gradientColors = [Colors.indigo.shade900, Colors.blue.shade900];
+
+        final lowerName = shiftName.toLowerCase();
+        if (lowerName.contains('night')) {
+          shiftIcon = Icons.nights_stay_outlined;
+          gradientColors = [const Color(0xFF1E1B4B), const Color(0xFF312E81)];
+        } else if (lowerName.contains('evening')) {
+          shiftIcon = Icons.wb_twilight_outlined;
+          gradientColors = [const Color(0xFF7C2D12), const Color(0xFF4C1D95)];
+        } else if (lowerName.contains('morning') || lowerName.contains('day')) {
+          shiftIcon = Icons.wb_sunny_outlined;
+          gradientColors = [const Color(0xFF0F766E), const Color(0xFF115E59)];
+        }
+
+        final displayShiftName = shiftName.toLowerCase().contains('shift')
+            ? shiftName
+            : '$shiftName Shift';
+
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: gradientColors,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: gradientColors[0].withOpacity(0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  ),
+                  child: Icon(shiftIcon, color: Colors.white, size: 28),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$displayShiftName Assigned Today',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '$wardType Ward  ·  $timings',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF60A5FA),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Scheduled',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } else {
+        final message = _allWardsShiftData.isNotEmpty
+            ? 'You do not have an active shift assignment today.'
+            : 'No shifts are currently active or defined by the Admin.';
+
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.grey.shade900, Colors.grey.shade800],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.info_outline, color: Colors.white60, size: 26),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        message,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Please contact administration for shift scheduling.',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    final isAssigned = _activeShiftData!['status'] == 'Assigned';
+    final statusColor = isAssigned ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24);
+    final timings = '${_formatTo12Hour(_activeShiftData!['start_time']?.toString())} - ${_formatTo12Hour(_activeShiftData!['end_time']?.toString())}';
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade900, Colors.blue.shade800],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade900.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.wb_sunny_outlined, color: Colors.white, size: 22),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${_activeShiftData!['current_shift'] ?? 'Active'} Shift  ·  ${_activeShiftData!['ward_type'] ?? 'General'} Ward',
+                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                        ),
+                        child: Text(
+                          timings,
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      const Icon(Icons.wb_sunny_outlined, color: Colors.white, size: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '${_activeShiftData!['current_shift'] ?? 'Active'} Shift  ·  ${_activeShiftData!['ward_type'] ?? 'General'} Ward',
+                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                        ),
+                        child: Text(
+                          timings,
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+            const Divider(height: 32, color: Colors.white24),
+            if (isMobile) ...[
+              _buildShiftInfoRow('Assigned Nurse', _activeShiftData!['assigned_nurse'] ?? 'Not Assigned', Colors.white),
+              const SizedBox(height: 12),
+              _buildShiftInfoRow('Status', _activeShiftData!['status'] ?? 'Not Assigned', statusColor),
+              const SizedBox(height: 12),
+              _buildShiftInfoRow('Prev Nurse', _activeShiftData!['previous_nurse'] ?? 'None', Colors.white70),
+              const SizedBox(height: 12),
+              _buildShiftInfoRow('Next Nurse', _activeShiftData!['next_nurse'] ?? 'None', Colors.white70),
+              const SizedBox(height: 12),
+              _buildShiftInfoRow('Handover Status', _activeShiftData!['handover_status'] ?? 'None', Colors.white70),
+            ] else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: _buildShiftInfoColumn('Assigned Nurse', _activeShiftData!['assigned_nurse'] ?? 'Not Assigned', Colors.white)),
+                  _buildShiftPanelDivider(),
+                  Expanded(child: _buildShiftInfoColumn('Status', _activeShiftData!['status'] ?? 'Not Assigned', statusColor)),
+                  _buildShiftPanelDivider(),
+                  Expanded(child: _buildShiftInfoColumn('Prev Nurse', _activeShiftData!['previous_nurse'] ?? 'None', Colors.white70)),
+                  _buildShiftPanelDivider(),
+                  Expanded(child: _buildShiftInfoColumn('Next Nurse', _activeShiftData!['next_nurse'] ?? 'None', Colors.white70)),
+                  _buildShiftPanelDivider(),
+                  Expanded(child: _buildShiftInfoColumn('Handover', _activeShiftData!['handover_status'] ?? 'None', Colors.white70)),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShiftInfoColumn(String label, String value, Color valueColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: TextStyle(color: valueColor, fontSize: 14, fontWeight: FontWeight.bold),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShiftInfoRow(String label, String value, Color valueColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        Text(
+          value,
+          style: TextStyle(color: valueColor, fontSize: 13, fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShiftPanelDivider() {
+    return Container(
+      width: 1,
+      height: 40,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      color: Colors.white.withOpacity(0.15),
+    );
+  }
+
+  List<Widget> _buildPendingHandoverCards(bool isMobile) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user == null) return [];
+
+    final pending = _handovers.where((h) =>
+      h['incoming_nurse_id']?.toString() == user.id.toString() &&
+      h['status'] == 'Pending'
+    ).toList();
+
+    return pending.map((h) {
+      final outgoing = h['outgoing_nurse_name'] ?? 'Unassigned';
+      final ward = h['ward_type'] ?? '';
+      final shift = h['shift_name'] ?? '';
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 24),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFBEB),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFF59E0B)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.swap_horiz, color: Color(0xFFD97706), size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Pending Shift Handover',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF92400E)),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Incoming from $outgoing for $ward Ward ($shift Shift). Please acknowledge.',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.check, size: 16),
+              label: const Text('Acknowledge'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF59E0B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => _acknowledgeHandover(h['id']),
+            ),
+          ],
+        ),
+      );
+    }).toList();
+  }
 }
+

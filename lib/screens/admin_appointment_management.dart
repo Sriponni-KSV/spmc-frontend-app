@@ -149,9 +149,10 @@ class _AdminAppointmentManagementState
   }
 
   List<AppointmentModel> get _filteredAppointments {
-    if (_searchQuery.trim().isEmpty) return _appointments;
+    final list = _appointments.where((a) => a.status.toLowerCase() != 'admitted').toList();
+    if (_searchQuery.trim().isEmpty) return list;
     final query = _searchQuery.toLowerCase();
-    return _appointments.where((a) {
+    return list.where((a) {
       return a.patientName.toLowerCase().contains(query) ||
           (a.patientDisplayId?.toLowerCase().contains(query) ?? false) ||
           (a.patientPhone?.toLowerCase().contains(query) ?? false) ||

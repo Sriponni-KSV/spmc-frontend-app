@@ -16,6 +16,12 @@ class AppRoutes {
   static const String adminAppointments = '/admin/appointments';
   static const String adminOpd = '/admin/opd';
   static const String adminIpd = '/admin/ipd';
+  static const String adminOt = '/admin/ot';
+  static const String adminShifts = '/admin/shifts';
+  static const String adminIcu = '/admin/icu';
+  static const String adminPharmacy = '/admin/pharmacy';
+  static const String adminInventory = '/admin/inventory';
+
 
   // Nurse Routes
   static const String nurseDashboard = '/nurse/dashboard';
@@ -27,14 +33,32 @@ class AppRoutes {
   static const String nurseProfile = '/nurse/profile';
   static const String nurseOpd = '/nurse/opd';
   static const String nurseIpd = '/nurse/ipd';
+  static const String nurseOt = '/nurse/ot';
 
   // Doctor Routes
   static const String doctorDashboard = '/doctor/dashboard';
   static const String doctorPatients = '/doctor/patients';
   static const String doctorConsultation = '/doctor/consultation';
+  static const String doctorIpd = '/doctor/ipd';
   static const String doctorProfile = '/doctor/profile';
+  static const String doctorOt = '/doctor/ot';
+  static const String doctorDictation = '/doctor/dictation';
+  static const String doctorLabReports = '/doctor/lab-reports';
 
-  // Reception Routes
+  // Reception & Front Desk Routes
   static const String receptionDashboard = '/reception/dashboard';
   static const String receptionAppointments = '/reception/appointments';
+  static const String frontDeskPatients = '/reception/patients';
+  static const String frontDeskNewPatient = '/reception/patients/new-patient';
+  static const String frontDeskBookAppointment = '/reception/appointments/book';
+  static const String frontDeskAppointments = '/reception/appointments-desk';
+  static const String frontDeskDoctors = '/reception/doctors';
+  static const String frontDeskAdmissionCounter = '/reception/admission-counter';
+  static const String frontDeskProfile = '/reception/profile';
+
+  // Lab Routes
+  static const String labDashboard = '/lab/dashboard';
+
+  // Pharmacy Routes
+  static const String pharmacyDashboard = '/pharmacy/dashboard';
 }
