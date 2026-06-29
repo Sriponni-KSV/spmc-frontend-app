@@ -11,6 +11,7 @@ import '../../screens/force_change_password_screen.dart';
 import '../../screens/nurse_dashboard.dart';
 import '../../screens/front_desk_dashboard.dart';
 import '../../screens/lab_dashboard.dart';
+import '../../screens/pharmacy_dashboard.dart';
 import 'route_constants.dart';
 import 'screens/not_found_screen.dart';
 
@@ -63,6 +64,8 @@ class AppRouter {
             return AppRoutes.receptionDashboard;
           } else if (role == 'Lab') {
             return AppRoutes.labDashboard;
+          } else if (role == 'Pharmacy') {
+            return AppRoutes.pharmacyDashboard;
           } else {
             return AppRoutes.doctorDashboard; // Default to Doctor dashboard
           }
@@ -105,6 +108,11 @@ class AppRouter {
         } else if (path.startsWith('/lab')) {
           final isLab = userRole == 'Lab';
           if (!isLab) {
+            return AppRoutes.dashboard;
+          }
+        } else if (path.startsWith('/pharmacy')) {
+          final isPharmacy = userRole == 'Pharmacy';
+          if (!isPharmacy) {
             return AppRoutes.dashboard;
           }
         }
@@ -212,20 +220,7 @@ class AppRouter {
             child: AdminDashboardScreen(initialIndex: 9),
           ),
         ),
-        GoRoute(
-          path: AppRoutes.adminPharmacy,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            key: ValueKey('admin_dashboard'),
-            child: AdminDashboardScreen(initialIndex: 10),
-          ),
-        ),
-        GoRoute(
-          path: AppRoutes.adminInventory,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            key: ValueKey('admin_dashboard'),
-            child: AdminDashboardScreen(initialIndex: 11),
-          ),
-        ),
+
 
 
         // --- Nurse Protected Routes ---
@@ -312,6 +307,15 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('lab_dashboard'),
             child: LabDashboardScreen(initialIndex: 0),
+          ),
+        ),
+
+        // --- Pharmacy Protected Routes ---
+        GoRoute(
+          path: AppRoutes.pharmacyDashboard,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('pharmacy_dashboard'),
+            child: PharmacyDashboardScreen(initialIndex: 0),
           ),
         ),
 

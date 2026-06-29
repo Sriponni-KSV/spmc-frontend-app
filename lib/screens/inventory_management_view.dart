@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
+import '../providers/auth_provider.dart';
 
 class InventoryManagementView extends StatefulWidget {
   final bool isMobile;
@@ -49,11 +51,17 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
       final prBody = ApiService.decodeJsonResponse(responses[2]);
 
       if (mounted) {
+        final isPharmacy = Provider.of<AuthProvider>(context, listen: false).user?.role == 'Pharmacy';
+        final List<dynamic> rawItems = itemsBody['data'] ?? [];
+        final List<dynamic> rawLow = alertsBody['data']?['low_stock'] ?? [];
+        final List<dynamic> rawExp = alertsBody['data']?['expiring'] ?? [];
+        final List<dynamic> rawPR = prBody['data'] ?? [];
+
         setState(() {
-          _items = itemsBody['data'] ?? [];
-          _lowStockItems = alertsBody['data']?['low_stock'] ?? [];
-          _expiringItems = alertsBody['data']?['expiring'] ?? [];
-          _purchaseRequests = prBody['data'] ?? [];
+          _items = isPharmacy ? rawItems.where((i) => i['category'] != 'Food Stock').toList() : rawItems;
+          _lowStockItems = isPharmacy ? rawLow.where((i) => i['category'] != 'Food Stock').toList() : rawLow;
+          _expiringItems = isPharmacy ? rawExp.where((i) => i['category'] != 'Food Stock').toList() : rawExp;
+          _purchaseRequests = isPharmacy ? rawPR.where((i) => i['category'] != 'Food Stock').toList() : rawPR;
           _isLoading = false;
         });
       }
@@ -179,7 +187,9 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                         requiredMark: true,
                         hint: 'Select supply category',
                         value: category,
-                        dropdownItems: const ['Medicine', 'ICU Consumable', 'Surgical Item', 'Food Stock'],
+                        dropdownItems: Provider.of<AuthProvider>(context, listen: false).user?.role == 'Pharmacy'
+                            ? const ['Medicine', 'ICU Consumable', 'Surgical Item']
+                            : const ['Medicine', 'ICU Consumable', 'Surgical Item', 'Food Stock'],
                         onChanged: (val) {
                           if (val != null) {
                             setD(() {
@@ -613,7 +623,10 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: ['All', 'Medicine', 'ICU Consumable', 'Surgical Item', 'Food Stock'].map((cat) {
+            children: (Provider.of<AuthProvider>(context, listen: false).user?.role == 'Pharmacy'
+                    ? const ['All', 'Medicine', 'ICU Consumable', 'Surgical Item']
+                    : const ['All', 'Medicine', 'ICU Consumable', 'Surgical Item', 'Food Stock'])
+                .map((cat) {
               final isSelected = _selectedCategory == cat;
               return Padding(
                 padding: const EdgeInsets.only(right: 8.0),

@@ -268,8 +268,9 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
       }
     } catch (e) {
       if (!mounted) return;
+      final cleanMsg = e.toString().replaceFirst('Exception: ', '');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Dispensation failed: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(cleanMsg), backgroundColor: Colors.red),
       );
     }
   }

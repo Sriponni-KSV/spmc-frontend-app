@@ -1021,51 +1021,74 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
     final testName = req['test_name'] ?? '';
     final List<Map<String, String>> initialFields = [];
 
-    // Pre-populate fields based on test type
-    if (testName.toString().contains('Complete Blood Count') || testName.toString().contains('CBC')) {
-      initialFields.addAll([
-        {'parameter': 'Haemoglobin', 'value': '', 'unit': 'g/dL', 'reference_range': '13.0 - 17.0 (M), 12.0 - 16.0 (F)'},
-        {'parameter': 'WBC Count', 'value': '', 'unit': 'cells/uL', 'reference_range': '4000 - 11000'},
-        {'parameter': 'RBC Count', 'value': '', 'unit': 'million/uL', 'reference_range': '4.0 - 5.5'},
-        {'parameter': 'Platelets', 'value': '', 'unit': 'cells/uL', 'reference_range': '150000 - 450000'},
-        {'parameter': 'PCV / Hematocrit', 'value': '', 'unit': '%', 'reference_range': '36 - 50'},
-      ]);
-    } else if (testName.toString().contains('Lipid')) {
-      initialFields.addAll([
-        {'parameter': 'Total Cholesterol', 'value': '', 'unit': 'mg/dL', 'reference_range': '< 200'},
-        {'parameter': 'Triglycerides', 'value': '', 'unit': 'mg/dL', 'reference_range': '< 150'},
-        {'parameter': 'HDL Cholesterol', 'value': '', 'unit': 'mg/dL', 'reference_range': '> 40'},
-        {'parameter': 'LDL Cholesterol', 'value': '', 'unit': 'mg/dL', 'reference_range': '< 100'},
-      ]);
-    } else if (testName.toString().contains('Thyroid') || testName.toString().contains('TSH')) {
-      initialFields.addAll([
-        {'parameter': 'TSH (Thyroid Stimulating Hormone)', 'value': '', 'unit': 'uIU/mL', 'reference_range': '0.45 - 4.5'},
-        {'parameter': 'Free T4', 'value': '', 'unit': 'ng/dL', 'reference_range': '0.8 - 1.8'},
-        {'parameter': 'Free T3', 'value': '', 'unit': 'pg/mL', 'reference_range': '2.3 - 4.2'},
-      ]);
-    } else if (testName.toString().contains('Urinalysis') || testName.toString().contains('Urine')) {
-      initialFields.addAll([
-        {'parameter': 'Color', 'value': '', 'unit': '', 'reference_range': 'Pale Yellow'},
-        {'parameter': 'Appearance', 'value': '', 'unit': '', 'reference_range': 'Clear'},
-        {'parameter': 'pH', 'value': '', 'unit': '', 'reference_range': '4.5 - 8.0'},
-        {'parameter': 'Specific Gravity', 'value': '', 'unit': '', 'reference_range': '1.005 - 1.030'},
-        {'parameter': 'Protein', 'value': '', 'unit': '', 'reference_range': 'Negative'},
-        {'parameter': 'Glucose', 'value': '', 'unit': '', 'reference_range': 'Negative'},
-      ]);
-    } else if (testName.toString().toLowerCase().contains('x-ray') ||
-        testName.toString().toLowerCase().contains('xray') ||
-        testName.toString().toLowerCase().contains('ultrasound') ||
-        testName.toString().toLowerCase().contains('mri') ||
-        testName.toString().toLowerCase().contains('scan') ||
-        testName.toString().toLowerCase().contains('image') ||
-        testName.toString().toLowerCase().contains('usg')) {
-      initialFields.addAll([
-        {'parameter': 'Radiology Finding', 'value': '', 'unit': '', 'reference_range': 'Normal'},
-        {'parameter': 'Impression', 'value': '', 'unit': '', 'reference_range': 'Normal'},
-      ]);
+    // Check if result_details already exists in database
+    List resultsList = [];
+    if (req['result_details'] != null) {
+      if (req['result_details'] is String) {
+        try {
+          resultsList = jsonDecode(req['result_details']);
+        } catch (_) {}
+      } else if (req['result_details'] is List) {
+        resultsList = req['result_details'];
+      }
+    }
+
+    if (resultsList.isNotEmpty) {
+      for (final item in resultsList) {
+        initialFields.add({
+          'parameter': (item['parameter'] ?? '').toString(),
+          'value': (item['value'] ?? '').toString(),
+          'unit': (item['unit'] ?? '').toString(),
+          'reference_range': (item['reference_range'] ?? '').toString(),
+        });
+      }
     } else {
-      // Default dynamic single field
-      initialFields.add({'parameter': 'Observation', 'value': '', 'unit': '', 'reference_range': 'Normal'});
+      // Pre-populate fields based on test type
+      if (testName.toString().contains('Complete Blood Count') || testName.toString().contains('CBC')) {
+        initialFields.addAll([
+          {'parameter': 'Haemoglobin', 'value': '', 'unit': 'g/dL', 'reference_range': '13.0 - 17.0 (M), 12.0 - 16.0 (F)'},
+          {'parameter': 'WBC Count', 'value': '', 'unit': 'cells/uL', 'reference_range': '4000 - 11000'},
+          {'parameter': 'RBC Count', 'value': '', 'unit': 'million/uL', 'reference_range': '4.0 - 5.5'},
+          {'parameter': 'Platelets', 'value': '', 'unit': 'cells/uL', 'reference_range': '150000 - 450000'},
+          {'parameter': 'PCV / Hematocrit', 'value': '', 'unit': '%', 'reference_range': '36 - 50'},
+        ]);
+      } else if (testName.toString().contains('Lipid')) {
+        initialFields.addAll([
+          {'parameter': 'Total Cholesterol', 'value': '', 'unit': 'mg/dL', 'reference_range': '< 200'},
+          {'parameter': 'Triglycerides', 'value': '', 'unit': 'mg/dL', 'reference_range': '< 150'},
+          {'parameter': 'HDL Cholesterol', 'value': '', 'unit': 'mg/dL', 'reference_range': '> 40'},
+          {'parameter': 'LDL Cholesterol', 'value': '', 'unit': 'mg/dL', 'reference_range': '< 100'},
+        ]);
+      } else if (testName.toString().contains('Thyroid') || testName.toString().contains('TSH')) {
+        initialFields.addAll([
+          {'parameter': 'TSH (Thyroid Stimulating Hormone)', 'value': '', 'unit': 'uIU/mL', 'reference_range': '0.45 - 4.5'},
+          {'parameter': 'Free T4', 'value': '', 'unit': 'ng/dL', 'reference_range': '0.8 - 1.8'},
+          {'parameter': 'Free T3', 'value': '', 'unit': 'pg/mL', 'reference_range': '2.3 - 4.2'},
+        ]);
+      } else if (testName.toString().contains('Urinalysis') || testName.toString().contains('Urine')) {
+        initialFields.addAll([
+          {'parameter': 'Color', 'value': '', 'unit': '', 'reference_range': 'Pale Yellow'},
+          {'parameter': 'Appearance', 'value': '', 'unit': '', 'reference_range': 'Clear'},
+          {'parameter': 'pH', 'value': '', 'unit': '', 'reference_range': '4.5 - 8.0'},
+          {'parameter': 'Specific Gravity', 'value': '', 'unit': '', 'reference_range': '1.005 - 1.030'},
+          {'parameter': 'Protein', 'value': '', 'unit': '', 'reference_range': 'Negative'},
+          {'parameter': 'Glucose', 'value': '', 'unit': '', 'reference_range': 'Negative'},
+        ]);
+      } else if (testName.toString().toLowerCase().contains('x-ray') ||
+          testName.toString().toLowerCase().contains('xray') ||
+          testName.toString().toLowerCase().contains('ultrasound') ||
+          testName.toString().toLowerCase().contains('mri') ||
+          testName.toString().toLowerCase().contains('scan') ||
+          testName.toString().toLowerCase().contains('image') ||
+          testName.toString().toLowerCase().contains('usg')) {
+        initialFields.addAll([
+          {'parameter': 'Radiology Finding', 'value': '', 'unit': '', 'reference_range': 'Normal'},
+          {'parameter': 'Impression', 'value': '', 'unit': '', 'reference_range': 'Normal'},
+        ]);
+      } else {
+        // Default dynamic single field
+        initialFields.add({'parameter': 'Observation', 'value': '', 'unit': '', 'reference_range': 'Normal'});
+      }
     }
 
     final isXrayOrImage = testName.toString().toLowerCase().contains('x-ray') ||
@@ -1076,9 +1099,11 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
         testName.toString().toLowerCase().contains('image') ||
         testName.toString().toLowerCase().contains('usg');
 
-    final remarksController = TextEditingController();
+    final remarksController = TextEditingController(text: req['remarks'] ?? '');
     final attachmentController = TextEditingController(
-      text: 'report_${req['patient_display_id'] ?? 'SPMC'}_${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}.${isXrayOrImage ? 'png' : 'pdf'}'
+      text: (req['attachment_url'] != null && req['attachment_url'].toString().isNotEmpty)
+          ? req['attachment_url']
+          : 'report_${req['patient_display_id'] ?? 'SPMC'}_${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}.${isXrayOrImage ? 'png' : 'pdf'}'
     );
     final formKey = GlobalKey<FormState>();
     final machineName = _getMachineName(testName);
@@ -1209,7 +1234,10 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                     flex: 3,
                                     child: TextFormField(
                                       initialValue: field['parameter'],
-                                      onChanged: (v) => field['parameter'] = v,
+                                      onChanged: (v) {
+                                        field['parameter'] = v;
+                                        setDialogState(() {});
+                                      },
                                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                                       decoration: const InputDecoration(
                                         isDense: true,
@@ -1226,7 +1254,29 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                     child: TextFormField(
                                       initialValue: field['value'],
                                       onChanged: (v) => field['value'] = v,
-                                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                                      maxLength: _getMaxLength(field['parameter'] ?? ''),
+                                      keyboardType: _isNumericField(field['parameter'] ?? '')
+                                          ? const TextInputType.numberWithOptions(decimal: true)
+                                          : TextInputType.text,
+                                      inputFormatters: _isNumericField(field['parameter'] ?? '')
+                                          ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
+                                          : null,
+                                      validator: (v) {
+                                        if (v == null || v.trim().isEmpty) {
+                                          final param = (field['parameter'] ?? '').trim();
+                                          if (param.isEmpty || param.toLowerCase() == 'new parameter') {
+                                            return 'Please enter observed value';
+                                          }
+                                          return 'Please enter $param';
+                                        }
+                                        if (_isNumericField(field['parameter'] ?? '')) {
+                                          final numValue = double.tryParse(v.trim());
+                                          if (numValue == null) {
+                                            return 'Must be numeric';
+                                          }
+                                        }
+                                        return null;
+                                      },
                                       style: const TextStyle(fontSize: 13),
                                       decoration: const InputDecoration(
                                         isDense: true,
@@ -1234,6 +1284,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                         filled: true,
                                         fillColor: Colors.white,
                                         border: OutlineInputBorder(),
+                                        counterText: '',
                                       ),
                                     ),
                                   ),
@@ -1376,6 +1427,45 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
         );
       },
     );
+  }
+
+  bool _isNumericField(String parameterName) {
+    final name = parameterName.toLowerCase().trim();
+    if (name.isEmpty) return false;
+    const textParams = [
+      'color', 
+      'appearance', 
+      'protein', 
+      'glucose', 
+      'finding', 
+      'impression', 
+      'remark', 
+      'result', 
+      'status',
+      'culture',
+      'organism',
+      'growth',
+      'epithelial',
+      'pus cells',
+      'rbcs'
+    ];
+    for (var param in textParams) {
+      if (name.contains(param)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  int _getMaxLength(String parameterName) {
+    final name = parameterName.toLowerCase().trim();
+    if (!_isNumericField(name)) {
+      return 250;
+    }
+    if (name.contains('platelet')) {
+      return 6;
+    }
+    return 5;
   }
 
   String _formatDate(String? dbDateStr) {

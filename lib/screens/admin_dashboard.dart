@@ -28,8 +28,7 @@ import 'ot_management.dart';
 import '../utils/password_policy.dart';
 import '../controllers/nurse_shift_controller.dart';
 import 'icu_management_view.dart';
-import 'pharmacy_management_view.dart';
-import 'inventory_management_view.dart';
+
 
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -932,16 +931,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           return ICUManagementView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
-      case 10:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
-          return PharmacyManagementView(isMobile: isMobile);
-        }
-        return const AccessDeniedWidget();
-      case 11:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
-          return InventoryManagementView(isMobile: isMobile);
-        }
-        return const AccessDeniedWidget();
+
 
       default:
         return _buildControlPanel(isMobile);
@@ -1937,16 +1927,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Icons.emergency_outlined,
                     'ICU & Emergency',
                   ),
-                  _buildSidebarItem(
-                    10,
-                    Icons.local_pharmacy_outlined,
-                    'Pharmacy Management',
-                  ),
-                  _buildSidebarItem(
-                    11,
-                    Icons.inventory_2_outlined,
-                    'Inventory Management',
-                  ),
+
 
                 ],
               ),
@@ -2060,12 +2041,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           case 9:
             context.go(AppRoutes.adminIcu);
             break;
-          case 10:
-            context.go(AppRoutes.adminPharmacy);
-            break;
-          case 11:
-            context.go(AppRoutes.adminInventory);
-            break;
+
           default:
             context.go(AppRoutes.adminDashboard);
         }
