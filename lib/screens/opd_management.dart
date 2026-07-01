@@ -179,6 +179,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             status: 'Completed',
             patientDisplayId: c['patient_display_id'] as String?,
             patientPhone: c['patient_phone'] as String?,
+            changesLog: c['changes_log'],
             createdAt: c['created_at'] as String?,
             updatedAt: c['updated_at'] as String?,
           );
@@ -1903,15 +1904,28 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                       color: Colors.grey.shade200,
                                     ),
                                   ),
-                                  child: app.changesLog != null
-                                      ? _buildTimeline(app.changesLog)
-                                      : const Text(
-                                          'No status changes recorded yet.',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: AppTheme.textSecondaryColor,
-                                          ),
-                                        ),
+                                  child: Builder(
+                                    builder: (_) {
+                                      // Prefer the freshly-fetched consultation's
+                                      // changes_log; fall back to app.changesLog
+                                      final timelineData =
+                                          (consultation != null &&
+                                                  consultation!['changes_log'] !=
+                                                      null)
+                                              ? consultation!['changes_log']
+                                              : app.changesLog;
+                                      return timelineData != null
+                                          ? _buildTimeline(timelineData)
+                                          : const Text(
+                                              'No status changes recorded yet.',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color:
+                                                    AppTheme.textSecondaryColor,
+                                              ),
+                                            );
+                                    },
+                                  ),
                                 ),
                               ],
                             ),
@@ -2439,7 +2453,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           final to = change['status']['to'] == 'Checked-in'
               ? 'Waiting'
               : change['status']['to'];
-          text = 'Status: $from → $to';
+          if (from == null || from == 'null' || from.toString().trim().isEmpty) {
+            text = 'Initial Status: $to';
+          } else {
+            text = 'Status: $from → $to';
+          }
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),

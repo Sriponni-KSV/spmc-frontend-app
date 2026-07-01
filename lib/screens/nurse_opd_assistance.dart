@@ -125,6 +125,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
           status: 'Completed',
           patientDisplayId: c['patient_display_id'] as String?,
           patientPhone: c['patient_phone'] as String?,
+          changesLog: c['changes_log'],
           createdAt: c['created_at'] as String?,
           updatedAt: c['updated_at'] as String?,
         );
