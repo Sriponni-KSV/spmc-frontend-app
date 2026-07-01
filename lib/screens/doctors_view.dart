@@ -701,6 +701,7 @@ class _DoctorsViewState extends State<DoctorsView> {
     final feeController = TextEditingController(text: doctor.consultationFee ?? '');
     final expertiseController = TextEditingController(text: doctor.areasOfExpertise ?? '');
     final startTimeController = TextEditingController(text: doctor.slotStartTime ?? '');
+    final endTimeController = TextEditingController(text: doctor.slotEndTime ?? '');
     
     int? selectedSpecId = doctor.specializationId;
     List<String> selectedDays = List<String>.from(doctor.availableDays ?? []);
@@ -930,10 +931,31 @@ class _DoctorsViewState extends State<DoctorsView> {
                                 Expanded(
                                   child: canEdit
                                     ? _buildModernField('Slot Start Time', startTimeController, hint: 'e.g. 9:30 AM')
-                                    : _buildDetailItem('Consultation Hours', 'Starts at ${startTimeController.text}'),
+                                    : _buildDetailItem(
+                                        'Consultation Hours',
+                                        startTimeController.text.isNotEmpty && endTimeController.text.isNotEmpty
+                                            ? '${startTimeController.text} to ${endTimeController.text}'
+                                            : startTimeController.text.isNotEmpty
+                                                ? 'Starts at ${startTimeController.text}'
+                                                : 'Not Provided',
+                                      ),
                                 ),
                               ],
                             ),
+                            if (canEdit) ...[
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildModernField('Slot End Time', endTimeController, hint: 'e.g. 5:30 PM'),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  const Expanded(
+                                    child: SizedBox.shrink(),
+                                  ),
+                                ],
+                              ),
+                            ],
                             const SizedBox(height: 20),
                             if (!canEdit)
                               _buildDetailItem('Available Days', selectedDays.isNotEmpty ? selectedDays.join(', ') : 'Not Provided')
@@ -1025,6 +1047,7 @@ class _DoctorsViewState extends State<DoctorsView> {
                                 bio: bioController.text,
                                 availableDays: selectedDays,
                                 slotStartTime: startTimeController.text,
+                                slotEndTime: endTimeController.text,
                                 clinicName: clinicNameController.text,
                                 clinicLocation: clinicLocationController.text,
                                 consultationFee: double.tryParse(feeController.text.replaceAll(RegExp(r'[^0-9.]'), '')),

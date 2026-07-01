@@ -161,8 +161,28 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             .toList();
       case 1: // In Consultation
         return baseApps.where((a) => a.status == 'In Consultation').toList();
-      case 2: // Completed
-        return baseApps.where((a) => a.status == 'Completed').toList();
+      case 2: // Completed – driven by consultations (all dates, not date-filtered)
+        return _consultations.map((c) {
+          return AppointmentModel(
+            id: c['appointment_id'] is int
+                ? c['appointment_id']
+                : int.tryParse(c['appointment_id']?.toString() ?? ''),
+            patientId: c['patient_id'] is int
+                ? c['patient_id']
+                : int.tryParse(c['patient_id']?.toString() ?? '') ?? 0,
+            patientName: c['patient_name'] as String? ?? 'Unknown',
+            doctorName: c['doctor_name'] as String? ?? '',
+            appointmentDate: c['appointment_date'] as String? ?? '',
+            appointmentTime: c['appointment_time'] as String? ?? '',
+            department: c['department'] as String? ?? '',
+            appointmentType: c['appointment_type'] as String? ?? 'Walk-in',
+            status: 'Completed',
+            patientDisplayId: c['patient_display_id'] as String?,
+            patientPhone: c['patient_phone'] as String?,
+            createdAt: c['created_at'] as String?,
+            updatedAt: c['updated_at'] as String?,
+          );
+        }).toList();
       case 3: // Cancelled & No-Show
         return baseApps
             .where((a) => a.status == 'Cancelled' || a.status == 'No-Show')
@@ -187,7 +207,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
       case 1:
         return walkins.where((a) => a.status == 'In Consultation').length;
       case 2:
-        return walkins.where((a) => a.status == 'Completed').length;
+        return _consultations.length;
       case 3:
         return walkins
             .where((a) => a.status == 'Cancelled' || a.status == 'No-Show')
@@ -938,13 +958,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.access_time,
+                              app.status == 'Completed'
+                                  ? Icons.calendar_today
+                                  : Icons.access_time,
                               size: 12,
                               color: statusColor,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              app.appointmentTime,
+                              app.status == 'Completed'
+                                  ? '${app.appointmentDate}  ${app.appointmentTime}'
+                                  : app.appointmentTime,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: statusColor,

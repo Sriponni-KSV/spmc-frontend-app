@@ -29,11 +29,13 @@ class NurseDashboardScreen extends StatefulWidget {
   final int initialIndex;
   final bool isRegisteringPatient;
   final bool forceBooking;
+  final PatientModel? existingPatient;
   const NurseDashboardScreen({
     Key? key,
     this.initialIndex = 0,
     this.isRegisteringPatient = false,
     this.forceBooking = false,
+    this.existingPatient,
   }) : super(key: key);
 
   @override
@@ -70,6 +72,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     super.initState();
     _selectedIndex = widget.initialIndex;
     _isRegisteringPatient = widget.isRegisteringPatient;
+    _patientToComplete = widget.existingPatient;
     _forceBookingForm = widget.forceBooking;
     _fetchData();
   }
@@ -79,10 +82,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialIndex != oldWidget.initialIndex ||
         widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
-        widget.forceBooking != oldWidget.forceBooking) {
+        widget.forceBooking != oldWidget.forceBooking ||
+        widget.existingPatient != oldWidget.existingPatient) {
       setState(() {
         _selectedIndex = widget.initialIndex;
         _isRegisteringPatient = widget.isRegisteringPatient;
+        _patientToComplete = widget.existingPatient;
         _forceBookingForm = widget.forceBooking;
       });
     }
@@ -358,6 +363,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               _isRegisteringPatient = false;
               _patientToComplete = null;
             });
+            context.go(AppRoutes.nursePatients);
             _fetchPatients();
           },
         );
@@ -375,8 +381,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             error: _patientError,
             onRegisterPatient: () => _changePage(1, isRegistering: true),
             onCompleteProfile: (patient) {
-              setState(() => _patientToComplete = patient);
-              _changePage(1, isRegistering: true);
+              context.go(AppRoutes.nurseEditPatient, extra: patient);
             },
             onBookAppointment: (patient) {
               setState(() => _selectedPatientForBooking = patient);

@@ -26,11 +26,13 @@ class FrontDeskDashboardScreen extends StatefulWidget {
   final int initialIndex;
   final bool isRegisteringPatient;
   final bool forceBooking;
+  final PatientModel? existingPatient;
   const FrontDeskDashboardScreen({
     Key? key,
     this.initialIndex = 0,
     this.isRegisteringPatient = false,
     this.forceBooking = false,
+    this.existingPatient,
   }) : super(key: key);
 
   @override
@@ -58,6 +60,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     super.initState();
     _selectedIndex = widget.initialIndex;
     _isRegisteringPatient = widget.isRegisteringPatient;
+    _patientToComplete = widget.existingPatient;
     _forceBookingForm = widget.forceBooking;
     _fetchData();
   }
@@ -67,10 +70,12 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialIndex != oldWidget.initialIndex ||
         widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
-        widget.forceBooking != oldWidget.forceBooking) {
+        widget.forceBooking != oldWidget.forceBooking ||
+        widget.existingPatient != oldWidget.existingPatient) {
       setState(() {
         _selectedIndex = widget.initialIndex;
         _isRegisteringPatient = widget.isRegisteringPatient;
+        _patientToComplete = widget.existingPatient;
         _forceBookingForm = widget.forceBooking;
       });
     }
@@ -244,6 +249,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
               _isRegisteringPatient = false;
               _patientToComplete = null;
             });
+            context.go(AppRoutes.frontDeskPatients);
             _fetchPatients();
           },
         );
@@ -261,8 +267,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
             error: _patientError,
             onRegisterPatient: () => _changePage(1, isRegistering: true),
             onCompleteProfile: (patient) {
-              setState(() => _patientToComplete = patient);
-              _changePage(1, isRegistering: true);
+              context.go(AppRoutes.frontDeskEditPatient, extra: patient);
             },
             onBookAppointment: (patient) {
               setState(() => _selectedPatientForBooking = patient);

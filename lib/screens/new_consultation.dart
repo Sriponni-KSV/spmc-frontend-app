@@ -145,8 +145,23 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           _rawDoctors = doctors
               .where((d) => d.status.toLowerCase() == 'active' && !d.isDeleted)
               .toList();
-          _doctorsList = _rawDoctors.map((d) => d.fullname).toList();
+          _doctorsList = _rawDoctors
+              .map((d) =>
+                  '${d.fullname} (${d.staffUniqueId ?? "N/A"}) - ${d.specialization ?? "General"}')
+              .toList();
           _departmentsList = specs.map((s) => s['name'].toString()).toList();
+
+          // Format existing doctor referral value if it exists and is plain text
+          if (_referredDoctorController.text.isNotEmpty) {
+            final docName = _referredDoctorController.text;
+            final matched = _rawDoctors.where((d) => d.fullname == docName).toList();
+            if (matched.isNotEmpty) {
+              final d = matched.first;
+              _referredDoctorController.text =
+                  '${d.fullname} (${d.staffUniqueId ?? "N/A"}) - ${d.specialization ?? "General"}';
+            }
+          }
+
           _isLoadingReferralData = false;
         });
       }
@@ -1596,7 +1611,9 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                     setState(() {
                       _referredDoctorController.text = val;
                       final matchedDocs = _rawDoctors
-                          .where((d) => d.fullname == val)
+                          .where((d) =>
+                              '${d.fullname} (${d.staffUniqueId ?? "N/A"}) - ${d.specialization ?? "General"}' ==
+                              val)
                           .toList();
                       if (matchedDocs.isNotEmpty) {
                         final spec = matchedDocs.first.specialization;

@@ -569,13 +569,53 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     if (!_progFormKey.currentState!.validate()) return;
 
     try {
+      final String notesText = _noteController.text.trim().isNotEmpty
+          ? _noteController.text.trim()
+          : (_obsController.text.trim().isNotEmpty
+              ? _obsController.text.trim()
+              : 'Vitals updated');
+
       await _ipdController.createProgressNote(widget.admission['id'], {
         'patient_id': widget.admission['patient_id'],
         'doctor_name': _staffName,
-        'notes': _noteController.text.trim(),
+        'notes': notesText,
         'treatment_changes': _changesController.text.trim(),
         'observation': _obsController.text.trim(),
       });
+
+      // Also save vitals if any vital field is filled (e.g. from the Nursing Notes tab)
+      final String bpText = _bpSystolicController.text.trim();
+      final String tempText = _tempController.text.trim();
+      final String pulseText = _pulseController.text.trim();
+      final String spo2Text = _spo2Controller.text.trim();
+
+      if (bpText.isNotEmpty || tempText.isNotEmpty || pulseText.isNotEmpty || spo2Text.isNotEmpty) {
+        int? sys;
+        int? dia;
+        if (bpText.isNotEmpty) {
+          if (bpText.contains('/')) {
+            final parts = bpText.split('/');
+            sys = int.tryParse(parts[0].trim());
+            dia = int.tryParse(parts[1].trim());
+          } else {
+            sys = int.tryParse(bpText);
+          }
+        }
+
+        await _ipdController.createVitals(widget.admission['id'], {
+          'patient_id': widget.admission['patient_id'],
+          'blood_pressure_systolic': sys,
+          'blood_pressure_diastolic': dia,
+          'temperature': double.tryParse(tempText),
+          'pulse': int.tryParse(pulseText),
+          'spo2': int.tryParse(spo2Text),
+        });
+
+        _bpSystolicController.clear();
+        _tempController.clear();
+        _pulseController.clear();
+        _spo2Controller.clear();
+      }
 
       _noteController.clear();
       _changesController.clear();
@@ -583,7 +623,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Progress note added!'),
+          content: Text('Note saved successfully!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -5423,9 +5463,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                   ),
                 ),
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter observations';
-                  }
                   return null;
                 },
               ),

@@ -27,6 +27,7 @@ class AppRoutes {
   static const String nurseDashboard = '/nurse/dashboard';
   static const String nursePatients = '/nurse/patients';
   static const String nurseNewPatient = '/nurse/patients/new-patient';
+  static const String nurseEditPatient = '/nurse/patients/edit';
   static const String nurseAppointments = '/nurse/appointments';
   static const String nurseBookAppointment = '/nurse/appointments/book';
   static const String nurseDoctors = '/nurse/doctors';
@@ -50,6 +51,7 @@ class AppRoutes {
   static const String receptionAppointments = '/reception/appointments';
   static const String frontDeskPatients = '/reception/patients';
   static const String frontDeskNewPatient = '/reception/patients/new-patient';
+  static const String frontDeskEditPatient = '/reception/patients/edit';
   static const String frontDeskBookAppointment = '/reception/appointments/book';
   static const String frontDeskAppointments = '/reception/appointments-desk';
   static const String frontDeskDoctors = '/reception/doctors';

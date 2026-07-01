@@ -2841,7 +2841,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${p.age} years • ${p.gender} • Blood Group: ${p.bloodGroup.isNotEmpty ? p.bloodGroup : "N/A"}',
+                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.age} years  •  ${p.gender}  •  Blood Group: ${p.bloodGroup.isNotEmpty ? p.bloodGroup : "N/A"}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: isTablet ? 14 : 15,
@@ -2970,7 +2970,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${p.age} years • ${p.gender}',
+                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.age} years  •  ${p.gender}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.85),
                       fontSize: 13,

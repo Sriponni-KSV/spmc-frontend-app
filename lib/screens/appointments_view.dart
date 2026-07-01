@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../core/routes/route_constants.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -484,10 +486,19 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       children: [
         // Back Link
         InkWell(
-          onTap: () => setState(() {
-            _isBookingAppointment = false;
-            _clearSelections();
-          }),
+          onTap: () {
+            final path = GoRouterState.of(context).matchedLocation;
+            if (path.startsWith('/nurse')) {
+              context.go(AppRoutes.nurseAppointments);
+            } else if (path.startsWith('/reception')) {
+              context.go(AppRoutes.frontDeskAppointments);
+            } else {
+              setState(() {
+                _isBookingAppointment = false;
+                _clearSelections();
+              });
+            }
+          },
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -576,7 +587,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         hint: '',
                         value: _selectedPatient,
                         items: _patients,
-                        itemLabel: (p) => p.name,
+                        itemLabel: (p) => '${p.name} (${p.patientId ?? "N/A"})',
                         onChanged: (val) =>
                             setState(() => _selectedPatient = val),
                       ),
@@ -798,6 +809,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 12,
                                                     color: Color(0xFF2D3748),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  'ID: ${doc.staffUniqueId ?? "N/A"}',
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    color: Color(0xFF718096),
                                                   ),
                                                 ),
                                               ],
@@ -1077,7 +1096,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     appointment,
                                   );
 
-                                  setState(() => _isBookingAppointment = false);
+                                  final path = GoRouterState.of(context).matchedLocation;
+                                  if (path.startsWith('/nurse')) {
+                                    context.go(AppRoutes.nurseAppointments);
+                                  } else if (path.startsWith('/reception')) {
+                                    context.go(AppRoutes.frontDeskAppointments);
+                                  } else {
+                                    setState(() => _isBookingAppointment = false);
+                                  }
 
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -1192,7 +1218,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   hint: '',
                                   value: _selectedPatient,
                                   items: _patients,
-                                  itemLabel: (p) => p.name,
+                                  itemLabel: (p) => '${p.name} (${p.patientId ?? "N/A"})',
                                   onChanged: (val) =>
                                       setState(() => _selectedPatient = val),
                                 ),
@@ -1400,7 +1426,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                     border: Border.all(
                                                       color: isSelected
                                                           ? const Color(
-                                                              0xFF3B82F6,
+                                                            0xFF3B82F6,
                                                             )
                                                           : AppTheme
                                                                 .borderColor,
@@ -1467,8 +1493,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                                   ),
                                                                 ),
                                                           ),
+                                                          const SizedBox(height: 2),
                                                           Text(
-                                                            _selectedDept!,
+                                                            'ID: ${doc.staffUniqueId ?? "N/A"}  •  ${_selectedDept!}',
                                                             style:
                                                                 const TextStyle(
                                                                   fontSize: 11,
@@ -1793,10 +1820,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
                                         await _appointmentController
                                             .bookAppointment(appointment);
-
-                                        setState(
-                                          () => _isBookingAppointment = false,
-                                        );
+                                         final path = GoRouterState.of(context).matchedLocation;
+                                         if (path.startsWith('/nurse')) {
+                                           context.go(AppRoutes.nurseAppointments);
+                                         } else if (path.startsWith('/reception')) {
+                                           context.go(AppRoutes.frontDeskAppointments);
+                                         } else {
+                                           setState(
+                                             () => _isBookingAppointment = false,
+                                           );
+                                         }
 
                                         ScaffoldMessenger.of(
                                           context,
@@ -2130,7 +2163,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: () => setState(() => _isBookingAppointment = true),
+            onPressed: () {
+              final path = GoRouterState.of(context).matchedLocation;
+              if (path.startsWith('/nurse')) {
+                context.go(AppRoutes.nurseBookAppointment);
+              } else if (path.startsWith('/reception')) {
+                context.go(AppRoutes.frontDeskBookAppointment);
+              } else {
+                setState(() => _isBookingAppointment = true);
+              }
+            },
             icon: const Icon(Icons.add, size: 20),
             label: const Text('Books Appointment'),
             style: ElevatedButton.styleFrom(
@@ -2172,7 +2214,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           ],
         ),
         ElevatedButton.icon(
-          onPressed: () => setState(() => _isBookingAppointment = true),
+          onPressed: () {
+            final path = GoRouterState.of(context).matchedLocation;
+            if (path.startsWith('/nurse')) {
+              context.go(AppRoutes.nurseBookAppointment);
+            } else if (path.startsWith('/reception')) {
+              context.go(AppRoutes.frontDeskBookAppointment);
+            } else {
+              setState(() => _isBookingAppointment = true);
+            }
+          },
           icon: const Icon(Icons.add, size: 20),
           label: const Text('Book Appointment'),
           style: ElevatedButton.styleFrom(

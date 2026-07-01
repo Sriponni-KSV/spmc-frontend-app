@@ -28,6 +28,7 @@ import 'ot_management.dart';
 import '../utils/password_policy.dart';
 import '../controllers/nurse_shift_controller.dart';
 import 'icu_management_view.dart';
+import 'inventory_management_view.dart';
 
 
 
@@ -66,7 +67,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Map<String, dynamic>? _selectedAllocShift;
   String? _selectedAllocWard;
   DateTime? _selectedAllocDate;
-  DateTime? _filterAllocLogDate = DateTime.now();
 
   int _shiftManagementSubTab = 0; // 0 = Daily Allocations, 1 = Weekly Rosters
   List<Map<String, dynamic>> _rosters = [];
@@ -929,6 +929,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 9:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return ICUManagementView(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 11:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return InventoryManagementView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
 
@@ -1927,6 +1932,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Icons.emergency_outlined,
                     'ICU & Emergency',
                   ),
+                  _buildSidebarItem(
+                    11,
+                    Icons.inventory_2_outlined,
+                    'Inventory Management',
+                  ),
 
 
                 ],
@@ -2040,6 +2050,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             break;
           case 9:
             context.go(AppRoutes.adminIcu);
+            break;
+          case 11:
+            context.go(AppRoutes.adminInventory);
             break;
 
           default:
@@ -3027,6 +3040,175 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Future<void> _autoAllocateThisWeek() async {
+    final WARD_TYPES = ['General', 'ICU', 'Private', 'Semi-Private'];
+    
+    if (_nurses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No nurses available in the system.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (_shifts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No shifts defined in the system. Please define shifts first.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Confirm dialog
+    final weekStartStr = DateFormat('dd MMM').format(_selectedRosterWeekStart);
+    final weekEndStr = DateFormat('dd MMM yyyy').format(_selectedRosterWeekStart.add(const Duration(days: 6)));
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: AppTheme.primaryColor),
+            const SizedBox(width: 10),
+            const Text('Auto-Allocate This Week', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'This will automatically assign shifts for the selected week ($weekStartStr - $weekEndStr) '
+          'using the available nurses in the system.\n\n'
+          'Existing assignments in this week will be overwritten.\n\n'
+          'Do you want to proceed?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Allocate Automatically'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    // Define all target slots: each ward combined with each shift
+    List<Map<String, dynamic>> slotsToAssign = [];
+    for (final ward in WARD_TYPES) {
+      for (final shift in _shifts) {
+        slotsToAssign.add({
+          'ward': ward,
+          'shift_id': shift['id'],
+        });
+      }
+    }
+
+    // Build the pool of nurse IDs
+    final List<int> nurseIdsPool = _nurses.map((n) => n.id).toList();
+    final List<int> targetNurseIds = [...nurseIdsPool];
+
+    // If we have fewer unique nurses than slots, backfill/repeat the pool
+    while (targetNurseIds.length < slotsToAssign.length) {
+      targetNurseIds.addAll(nurseIdsPool.isNotEmpty ? nurseIdsPool : [1]);
+    }
+
+    final List<int> finalNurseIds = targetNurseIds.sublist(0, slotsToAssign.length);
+
+    // Helper to check for continuous shifts
+    bool areShiftsContinuous(Map<String, dynamic> s1, Map<String, dynamic> s2) {
+      final end1 = s1['end_time']?.toString().trim();
+      final start1 = s1['start_time']?.toString().trim();
+      final end2 = s2['end_time']?.toString().trim();
+      final start2 = s2['start_time']?.toString().trim();
+
+      if (end1 == null || start1 == null || end2 == null || start2 == null) return false;
+      return end1 == start2 || end2 == start1;
+    }
+
+    bool isValidRoster(List<int> list) {
+      final Map<int, List<Map<String, dynamic>>> nurseShifts = {};
+      for (int i = 0; i < list.length; i++) {
+        final nurseId = list[i];
+        final slot = slotsToAssign[i];
+        final shiftId = slot['shift_id'] as int;
+
+        final shiftDetail = _shifts.firstWhere((s) => s['id'] == shiftId, orElse: () => <String, dynamic>{});
+        if (shiftDetail.isEmpty) continue;
+
+        if (!nurseShifts.containsKey(nurseId)) {
+          nurseShifts[nurseId] = [];
+        }
+
+        for (final assignedShift in nurseShifts[nurseId]!) {
+          if (assignedShift['id'] == shiftId) return false;
+          if (areShiftsContinuous(assignedShift, shiftDetail)) return false;
+        }
+
+        nurseShifts[nurseId]!.add(shiftDetail);
+      }
+      return true;
+    }
+
+    bool foundValid = false;
+    for (int iter = 0; iter < 1000; iter++) {
+      finalNurseIds.shuffle();
+      if (isValidRoster(finalNurseIds)) {
+        foundValid = true;
+        break;
+      }
+    }
+
+    final targetWeekStartStr = DateFormat('yyyy-MM-dd').format(_selectedRosterWeekStart);
+    setState(() => _isLoadingShifts = true);
+
+    try {
+      int successCount = 0;
+      for (int i = 0; i < slotsToAssign.length; i++) {
+        final slot = slotsToAssign[i];
+        final nurseId = finalNurseIds[i];
+        await _shiftCtrl.saveRosterEntry(nurseId, slot['shift_id'], slot['ward'], targetWeekStartStr);
+        successCount++;
+      }
+
+      await _loadRosterData();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully allocated $successCount shifts for this week!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to auto-allocate: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingShifts = false);
+      }
+    }
+  }
+
   Future<void> _autoShuffleNextWeek() async {
     final WARD_TYPES = ['General', 'ICU', 'Private', 'Semi-Private'];
     
@@ -3046,14 +3228,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
     }
 
+    bool isEmptyRoster = false;
     if (activeSlots.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please assign at least one nurse to the current week first.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
+      isEmptyRoster = true;
+      if (_nurses.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No nurses available in the system.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      
+      // Auto-populate all slots to allocate automatically
+      for (final ward in WARD_TYPES) {
+        for (final shift in _shifts) {
+          activeSlots.add({
+            'ward': ward,
+            'shift_id': shift['id'],
+            'nurse_id': 0,
+            'nurse_name': 'Unassigned',
+          });
+        }
+      }
     }
 
     // 2. Confirm dialog with the user showing next week's dates
@@ -3071,14 +3269,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             const Icon(Icons.shuffle_rounded, color: AppTheme.primaryColor),
             const SizedBox(width: 10),
-            const Text('Auto-Shuffle Next Week', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(isEmptyRoster ? 'Auto-Allocate Next Week' : 'Auto-Shuffle Next Week', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Text(
-          'This will automatically assign shifts for the next week ($nextWeekStartStr - $nextWeekEndStr) '
-          'by shuffling the ${activeSlots.length} nurse assignments from the current week.\n\n'
-          'Existing assignments in the target week will be overwritten.\n\n'
-          'Do you want to proceed?',
+          isEmptyRoster
+              ? 'This will automatically allocate shifts for the next week ($nextWeekStartStr - $nextWeekEndStr) '
+                'using the available nurses in the system.\n\n'
+                'Existing assignments in the target week will be overwritten.\n\n'
+                'Do you want to proceed?'
+              : 'This will automatically assign shifts for the next week ($nextWeekStartStr - $nextWeekEndStr) '
+                'by shuffling the ${activeSlots.length} nurse assignments from the current week.\n\n'
+                'Existing assignments in the target week will be overwritten.\n\n'
+                'Do you want to proceed?',
         ),
         actions: [
           TextButton(
@@ -3091,7 +3294,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Shuffle & Assign'),
+            child: Text(isEmptyRoster ? 'Allocate Automatically' : 'Shuffle & Assign'),
           ),
         ],
       ),
@@ -3102,6 +3305,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     // 3. Create a pool of unique nurse IDs to assign to the active slots
     // We prioritize the nurse IDs that are already active this week
     final List<int> activeNurseIds = activeSlots.map((s) => s['nurse_id'] as int).toSet().toList();
+    activeNurseIds.remove(0); // Remove placeholder id
     final List<int> targetNurseIds = [...activeNurseIds];
 
     // If we have fewer unique active nurses than active slots, backfill from the general nurses pool
@@ -3116,9 +3320,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
     }
 
-    // If we STILL don't have enough unique nurses (extreme nurse shortage), repeat the pool
+    // If we STILL don't have enough unique nurses, repeat the pool
+    final List<int> fallbackNursePool = _nurses.map((n) => n.id).toList();
     while (targetNurseIds.length < activeSlots.length) {
-      targetNurseIds.addAll(activeNurseIds);
+      targetNurseIds.addAll(fallbackNursePool.isNotEmpty ? fallbackNursePool : [1]);
     }
     
     final List<int> finalNurseIds = targetNurseIds.sublist(0, activeSlots.length);
@@ -3192,7 +3397,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Successfully shuffled and assigned $successCount shifts for the next week!'),
+            content: Text(isEmptyRoster
+                ? 'Successfully allocated $successCount shifts for the next week!'
+                : 'Successfully shuffled and assigned $successCount shifts for the next week!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -3201,7 +3408,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error shuffling roster: $e'),
+            content: Text(isEmptyRoster ? 'Failed to auto-allocate: $e' : 'Error shuffling roster: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -3252,6 +3459,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         alignment: WrapAlignment.spaceBetween,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
+                          OutlinedButton.icon(
+                            onPressed: _autoAllocateThisWeek,
+                            icon: const Icon(Icons.auto_awesome, size: 14),
+                            label: const Text('Auto-Allocate This Week', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(color: AppTheme.borderColor),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
                           OutlinedButton.icon(
                             onPressed: _autoShuffleNextWeek,
                             icon: const Icon(Icons.shuffle_rounded, size: 14),
@@ -3336,6 +3554,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         runSpacing: 8,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
+                          OutlinedButton.icon(
+                            onPressed: _autoAllocateThisWeek,
+                            icon: const Icon(Icons.auto_awesome, size: 14),
+                            label: const Text('Auto-Allocate This Week', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(color: AppTheme.borderColor),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
                           OutlinedButton.icon(
                             onPressed: _autoShuffleNextWeek,
                             icon: const Icon(Icons.shuffle_rounded, size: 14),
@@ -3453,24 +3682,48 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               'Please allocate shifts manually or navigate to the previous week to auto-shuffle slots into this week.',
                               style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
                             ),
+                            const SizedBox(height: 12),
+                            ElevatedButton.icon(
+                              onPressed: _autoAllocateThisWeek,
+                              icon: const Icon(Icons.auto_awesome, size: 14),
+                              label: const Text('Auto-Allocate This Week'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
                           ],
                         )
                       : Row(
                           children: [
                             Icon(Icons.info_outline, color: Colors.blue.shade700),
                             const SizedBox(width: 12),
-                            const Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
+                                  const Text(
                                     'No shifts allocated for this week.',
                                     style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13),
                                   ),
-                                  SizedBox(height: 2),
-                                  Text(
+                                  const SizedBox(height: 2),
+                                  const Text(
                                     'Please allocate shifts manually or navigate to the previous week to auto-shuffle slots into this week.',
                                     style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ElevatedButton.icon(
+                                    onPressed: _autoAllocateThisWeek,
+                                    icon: const Icon(Icons.auto_awesome, size: 14),
+                                    label: const Text('Auto-Allocate This Week'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryColor,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -4001,17 +4254,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildAllocationLogsCard() {
-    final filteredAllocations = _allocations.where((alloc) {
-      if (_filterAllocLogDate == null) return true;
-      if (alloc['allocation_date'] == null) return false;
-      try {
-        final allocDateStr = DateFormat('yyyy-MM-dd').format(DateTime.parse(alloc['allocation_date']));
-        final filterDateStr = DateFormat('yyyy-MM-dd').format(_filterAllocLogDate!);
-        return allocDateStr == filterDateStr;
-      } catch (_) {
-        return false;
-      }
-    }).toList();
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
 
     return Card(
       elevation: 0,
@@ -4025,157 +4268,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            (() {
-              final bool isMobile = MediaQuery.of(context).size.width < 900;
-              return isMobile
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.history, color: AppTheme.primaryColor, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Allocation Logs & Schedule History',
-                                style: TextStyle(
-                                  fontSize: isMobile ? 15 : 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: _filterAllocLogDate ?? DateTime.now(),
-                                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                                  );
-                                  if (picked != null) {
-                                    setState(() => _filterAllocLogDate = picked);
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.grey.shade300),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        _filterAllocLogDate != null
-                                            ? DateFormat('yyyy-MM-dd').format(_filterAllocLogDate!)
-                                            : 'Filter by Date',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade700,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            if (_filterAllocLogDate != null) ...[
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: const Icon(Icons.clear, size: 18, color: Colors.redAccent),
-                                onPressed: () {
-                                  setState(() => _filterAllocLogDate = null);
-                                },
-                                tooltip: 'Clear Filter',
-                                constraints: const BoxConstraints(),
-                                padding: EdgeInsets.zero,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.history, color: AppTheme.primaryColor),
-                            SizedBox(width: 10),
-                            Text(
-                              'Allocation Logs & Schedule History',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            InkWell(
-                              onTap: () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: _filterAllocLogDate ?? DateTime.now(),
-                                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                                  );
-                                if (picked != null) {
-                                  setState(() => _filterAllocLogDate = picked);
-                                }
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.grey.shade300),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _filterAllocLogDate != null
-                                          ? DateFormat('yyyy-MM-dd').format(_filterAllocLogDate!)
-                                          : 'Filter by Date',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade700,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            if (_filterAllocLogDate != null) ...[
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: const Icon(Icons.clear, size: 18, color: Colors.redAccent),
-                                onPressed: () {
-                                  setState(() => _filterAllocLogDate = null);
-                                },
-                                tooltip: 'Clear Filter',
-                                constraints: const BoxConstraints(),
-                                padding: EdgeInsets.zero,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ],
-                    );
-            })(),
+            Row(
+              children: [
+                Icon(Icons.history, color: AppTheme.primaryColor, size: isMobile ? 20 : 24),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Allocation Logs & Schedule History',
+                    style: TextStyle(
+                      fontSize: isMobile ? 15 : 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const Divider(height: 24),
             if (_allocations.isEmpty)
               Padding(
@@ -4184,27 +4291,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   child: Text(
                     'No shift allocations logged.',
                     style: TextStyle(color: Colors.grey.shade500),
-                  ),
-                ),
-              )
-            else if (filteredAllocations.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'No allocations found for ${DateFormat('yyyy-MM-dd').format(_filterAllocLogDate!)}.',
-                        style: TextStyle(color: Colors.grey.shade500),
-                      ),
-                      const SizedBox(height: 12),
-                      TextButton.icon(
-                        icon: const Icon(Icons.refresh, size: 16),
-                        onPressed: () => setState(() => _filterAllocLogDate = null),
-                        label: const Text('Clear Date Filter'),
-                      ),
-                    ],
                   ),
                 ),
               )
@@ -4250,7 +4336,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 DataColumn(label: Text('Status')),
                                 DataColumn(label: Text('Actions')),
                               ],
-                              rows: filteredAllocations.map((alloc) {
+                              rows: _allocations.map((alloc) {
                                 final dateStr = alloc['allocation_date'] != null
                                     ? DateFormat('yyyy-MM-dd').format(DateTime.parse(alloc['allocation_date']))
                                     : '--';

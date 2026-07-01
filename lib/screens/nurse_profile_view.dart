@@ -397,94 +397,17 @@ class _NurseProfileViewState extends State<NurseProfileView> {
             ),
           ),
           sectionSpacing,
-          if (isMobile) ...[
-            _buildInfoCard('Professional Details', [
-              _buildDetailRow('Qualification', user?.qualification ?? '-', Icons.school_outlined),
-              _buildDetailRow('Nursing Registration Number', user?.nursingRegistrationNumber ?? '-', Icons.badge_outlined),
-              _buildDetailRow(
-                'Years of Experience',
-                user?.yearsOfExperience == null || user?.yearsOfExperience == '0'
-                    ? '-'
-                    : '${user!.yearsOfExperience} years',
-                Icons.work_history_outlined,
-              ),
-            ]),
-            sectionSpacing,
-            _buildInfoCard('Availability / Duty', [
-              _buildDetailRow(
-                'Working Days',
-                (user?.workingDays == null || user!.workingDays!.isEmpty)
-                    ? '-'
-                    : user!.workingDays!.join(', '),
-                Icons.calendar_month_outlined,
-              ),
-              _buildDetailRow('Shift Hours', '${user?.shiftStartTime ?? "-"} to ${user?.shiftEndTime ?? "-"}', Icons.access_time_rounded),
-              _buildDetailRow('Shift Type', user?.shiftType ?? '-', Icons.event_available_outlined),
-              _buildDetailRow(
-                'Weekly Off',
-                (user?.weeklyOffDays ?? []).isEmpty
-                    ? '-'
-                    : user!.weeklyOffDays!.join(', '),
-                Icons.event_busy_outlined,
-              ),
-              _buildDetailRow(
-                'Specific Leave Dates',
-                (user?.specificLeaveDates == null || user!.specificLeaveDates!.isEmpty)
-                    ? '-'
-                    : user!.specificLeaveDates!.join(', '),
-                Icons.calendar_today_outlined,
-              ),
-            ]),
-
-          ] else ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildInfoCard('Professional Details', [
-                    _buildDetailRow('Qualification', user?.qualification ?? '-', Icons.school_outlined),
-                    _buildDetailRow('Nursing Registration Number', user?.nursingRegistrationNumber ?? '-', Icons.badge_outlined),
-                    _buildDetailRow(
-                      'Years of Experience',
-                      user?.yearsOfExperience == null || user?.yearsOfExperience == '0'
-                          ? '-'
-                          : '${user!.yearsOfExperience} years',
-                      Icons.work_history_outlined,
-                    ),
-                  ]),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: _buildInfoCard('Availability / Duty', [
-                    _buildDetailRow(
-                      'Working Days',
-                      (user?.workingDays == null || user!.workingDays!.isEmpty)
-                          ? '-'
-                          : user!.workingDays!.join(', '),
-                      Icons.calendar_month_outlined,
-                    ),
-                    _buildDetailRow('Shift Hours', '${user?.shiftStartTime ?? "-"} to ${user?.shiftEndTime ?? "-"}', Icons.access_time_rounded),
-                    _buildDetailRow('Shift Type', user?.shiftType ?? '-', Icons.event_available_outlined),
-                    _buildDetailRow(
-                      'Weekly Off',
-                      (user?.weeklyOffDays ?? []).isEmpty
-                          ? '-'
-                          : user!.weeklyOffDays!.join(', '),
-                      Icons.event_busy_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Specific Leave Dates',
-                      (user?.specificLeaveDates == null || user!.specificLeaveDates!.isEmpty)
-                          ? '-'
-                          : user!.specificLeaveDates!.join(', '),
-                      Icons.calendar_today_outlined,
-                    ),
-                  ]),
-                ),
-              ],
+          _buildInfoCard('Professional Details', [
+            _buildDetailRow('Qualification', user?.qualification ?? '-', Icons.school_outlined),
+            _buildDetailRow('Nursing Registration Number', user?.nursingRegistrationNumber ?? '-', Icons.badge_outlined),
+            _buildDetailRow(
+              'Years of Experience',
+              user?.yearsOfExperience == null || user?.yearsOfExperience == '0'
+                  ? '-'
+                  : '${user!.yearsOfExperience} years',
+              Icons.work_history_outlined,
             ),
-
-          ],
+          ]),
         ],
       ),
     );
@@ -731,142 +654,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 ),
               ],
             ]),
-            sectionSpacing,
-            sectionCard('2', 'Availability / Duty', AppTheme.successColor, [
-               const Text('Weekly Schedule (Tap: Available ↔ Leave)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8, runSpacing: 8,
-                children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
-                  final isAvailable = _availableDays?.contains(day) ?? false;
-                  Color bgColor = isAvailable ? AppTheme.successColor : Colors.red.shade400;
-                  return MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: () => setLocalState(() {
-                        if (isAvailable) {
-                          _availableDays?.remove(day);
-                        } else {
-                          (_availableDays ??= []).add(day);
-                        }
-                        final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                        _weeklyOffDays = allDays.where((d) => !(_availableDays?.contains(d) ?? false)).toList();
-                      }),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: bgColor,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: bgColor),
-                        ),
-                        child: Text(day, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              fieldSpacing,
-              if (isMobile) ...[
-                _buildProfileTextField('Shift Start Time', _slotStartController, Icons.login_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotStartController)),
-                fieldSpacing,
-                _buildProfileTextField('Shift End Time', _slotEndController, Icons.logout_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotEndController)),
-                fieldSpacing,
-                 Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
-                     const SizedBox(height: 8),
-                     CustomDropdownSearch(
-                       label: '',
-                       value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
-                       dropdownItems: const ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'],
-                       onChanged: (v) {
-                         if (v != null) {
-                           _shiftTypeController.text = v;
-                         }
-                       },
-                     ),
-                   ],
-                 ),
-              ] else ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: _buildProfileTextField('Shift Start Time', _slotStartController, Icons.login_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotStartController))),
-                    const SizedBox(width: 16),
-                    Expanded(child: _buildProfileTextField('Shift End Time', _slotEndController, Icons.logout_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotEndController))),
-                    const SizedBox(width: 16),
-                    Expanded(
-                       child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
-                           const SizedBox(height: 8),
-                           CustomDropdownSearch(
-                             label: '',
-                             value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
-                             dropdownItems: const ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'],
-                             onChanged: (v) {
-                               if (v != null) {
-                                 _shiftTypeController.text = v;
-                               }
-                             },
-                           ),
-                         ],
-                       ),
-                    ),
-                  ],
-                ),
-              ],
-              fieldSpacing,
-               const Text('Particular Leave Dates', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8, runSpacing: 8,
-                children: [
-                  ...(_specificLeaveDates ?? []).map((d) => Chip(
-                    label: Text(d, style: const TextStyle(fontSize: 12)),
-                    backgroundColor: Colors.orange.shade50,
-                    side: BorderSide(color: Colors.orange.shade200),
-                    deleteIcon: const Icon(Icons.close, size: 14),
-                    onDeleted: () => setLocalState(() => _specificLeaveDates?.remove(d)),
-                  )),
-                  GestureDetector(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 730)),
-                      );
-                      if (picked != null) {
-                        final f = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
-                        if (!(_specificLeaveDates?.contains(f) ?? false)) {
-                          setLocalState(() => (_specificLeaveDates ??= []).add(f));
-                        }
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.backgroundColor,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.5)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add, size: 15, color: AppTheme.primaryColor),
-                          const SizedBox(width: 4),
-                          Text('Add Date', style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ]),
+
 
             const SizedBox(height: 48),
             Row(
