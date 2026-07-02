@@ -417,7 +417,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 4:
         return const NurseProfileView();
       case 5:
-        return OPDManagementScreen(isMobile: isMobile);
+        return OPDManagementScreen(isMobile: isMobile, title: 'OPD Assistance');
       case 6:
         return IPDManagementScreen(isMobile: isMobile);
       case 7:

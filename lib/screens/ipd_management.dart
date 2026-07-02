@@ -222,11 +222,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   }
 
   Widget _buildHeader(String userRole) {
-    final headerTitle = userRole == 'Nurse'
-        ? 'Nurse IPD Management'
-        : userRole == 'Admin'
-        ? 'Admin IPD Management'
-        : 'Doctor IPD Management';
+    const headerTitle = 'IPD Management';
     final headerSubtitle = userRole == 'Nurse'
         ? 'Record vitals, administer medications, and manage nursing updates'
         : userRole == 'Admin'

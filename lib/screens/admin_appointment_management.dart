@@ -783,7 +783,7 @@ class _AdminAppointmentManagementState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Appointment Management',
+                    'Appointments',
                     style: TextStyle(
                       fontSize: isMobile ? 20 : 26,
                       fontWeight: FontWeight.bold,

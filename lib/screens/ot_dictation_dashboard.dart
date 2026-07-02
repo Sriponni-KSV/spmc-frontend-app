@@ -732,7 +732,7 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'OT Live AI Dictation Portal',
+                    'AI Dictation',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

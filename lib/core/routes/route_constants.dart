@@ -10,17 +10,17 @@ class AppRoutes {
 
   // Admin Routes
   static const String adminDashboard = '/admin/dashboard';
-  static const String adminUsers = '/admin/users';
+  static const String adminUsers = '/admin/staff-management';
   static const String adminPatients = '/admin/patients';
-  static const String adminSettings = '/admin/settings';
+  static const String adminSettings = '/admin/access-control';
   static const String adminAppointments = '/admin/appointments';
-  static const String adminOpd = '/admin/opd';
-  static const String adminIpd = '/admin/ipd';
-  static const String adminOt = '/admin/ot';
-  static const String adminShifts = '/admin/shifts';
-  static const String adminIcu = '/admin/icu';
+  static const String adminOpd = '/admin/opd-management';
+  static const String adminIpd = '/admin/ipd-management';
+  static const String adminOt = '/admin/ot-management';
+  static const String adminShifts = '/admin/shift-allocation';
+  static const String adminIcu = '/admin/icu-emergency';
   static const String adminPharmacy = '/admin/pharmacy';
-  static const String adminInventory = '/admin/inventory';
+  static const String adminInventory = '/admin/inventory-management';
 
 
   // Nurse Routes
@@ -32,18 +32,18 @@ class AppRoutes {
   static const String nurseBookAppointment = '/nurse/appointments/book';
   static const String nurseDoctors = '/nurse/doctors';
   static const String nurseProfile = '/nurse/profile';
-  static const String nurseOpd = '/nurse/opd';
-  static const String nurseIpd = '/nurse/ipd';
-  static const String nurseOt = '/nurse/ot';
+  static const String nurseOpd = '/nurse/opd-assistance';
+  static const String nurseIpd = '/nurse/ipd-management';
+  static const String nurseOt = '/nurse/ot-management';
 
   // Doctor Routes
   static const String doctorDashboard = '/doctor/dashboard';
-  static const String doctorPatients = '/doctor/patients';
-  static const String doctorConsultation = '/doctor/consultation';
-  static const String doctorIpd = '/doctor/ipd';
+  static const String doctorPatients = '/doctor/consultations';
+  static const String doctorConsultation = '/doctor/consultations';
+  static const String doctorIpd = '/doctor/ipd-management';
   static const String doctorProfile = '/doctor/profile';
-  static const String doctorOt = '/doctor/ot';
-  static const String doctorDictation = '/doctor/dictation';
+  static const String doctorOt = '/doctor/ot-management';
+  static const String doctorDictation = '/doctor/ai-dictation';
   static const String doctorLabReports = '/doctor/lab-reports';
 
   // Reception & Front Desk Routes
@@ -53,7 +53,7 @@ class AppRoutes {
   static const String frontDeskNewPatient = '/reception/patients/new-patient';
   static const String frontDeskEditPatient = '/reception/patients/edit';
   static const String frontDeskBookAppointment = '/reception/appointments/book';
-  static const String frontDeskAppointments = '/reception/appointments-desk';
+  static const String frontDeskAppointments = '/reception/appointments';
   static const String frontDeskDoctors = '/reception/doctors';
   static const String frontDeskAdmissionCounter = '/reception/admission-counter';
   static const String frontDeskProfile = '/reception/profile';

@@ -443,13 +443,7 @@ class AppRouter {
             child: FrontDeskDashboardScreen(initialIndex: 2, forceBooking: true),
           ),
         ),
-        GoRoute(
-          path: AppRoutes.frontDeskAppointments,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            key: ValueKey('reception_dashboard'),
-            child: FrontDeskDashboardScreen(initialIndex: 2),
-          ),
-        ),
+
         GoRoute(
           path: AppRoutes.frontDeskDoctors,
           pageBuilder: (context, state) => const NoTransitionPage(

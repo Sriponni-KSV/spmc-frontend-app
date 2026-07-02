@@ -105,8 +105,8 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Column(
                     children: [
-                      _buildSidebarItem(0, Icons.local_pharmacy_outlined, 'Pharmacy Panel'),
-                      _buildSidebarItem(1, Icons.inventory_2_outlined, 'Medication Inventory'),
+                      _buildSidebarItem(0, Icons.local_pharmacy_outlined, 'Pharmacy Management'),
+                      _buildSidebarItem(1, Icons.inventory_2_outlined, 'Inventory Management'),
                       _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
                     ],
                   ),
@@ -252,48 +252,58 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
     final user = Provider.of<AuthProvider>(context).user;
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: AppTheme.cardDecoration,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'My Profile',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: AppTheme.cardDecoration,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                  radius: 40,
-                  child: Text(
-                    user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'P',
-                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text(
-                      user?.fullname ?? 'Pharmacy Staff',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    CircleAvatar(
+                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                      radius: 40,
+                      child: Text(
+                        user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'P',
+                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      user?.role ?? 'Pharmacist',
-                      style: const TextStyle(fontSize: 14, color: AppTheme.logoRed, fontWeight: FontWeight.bold),
+                    const SizedBox(width: 24),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.fullname ?? 'Pharmacist',
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          user?.role ?? 'Pharmacist',
+                          style: const TextStyle(fontSize: 14, color: AppTheme.logoRed, fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
                   ],
                 ),
+                const SizedBox(height: 32),
+                const Divider(),
+                const SizedBox(height: 24),
+                _buildProfileRow('Staff Unique ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
+                _buildProfileRow('Email Address', user?.email ?? '-', Icons.alternate_email),
+                _buildProfileRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
+                _buildProfileRow('Status', user?.status ?? '-', Icons.check_circle_outline),
               ],
             ),
-            const SizedBox(height: 32),
-            const Divider(),
-            const SizedBox(height: 24),
-            _buildProfileRow('Staff Unique ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
-            _buildProfileRow('Email Address', user?.email ?? '-', Icons.alternate_email),
-            _buildProfileRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
-            _buildProfileRow('Status', user?.status ?? '-', Icons.check_circle_outline),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

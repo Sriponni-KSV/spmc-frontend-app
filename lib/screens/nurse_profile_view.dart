@@ -281,7 +281,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Professional Profile',
+                      'Profile',
                       style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 24),
                     ),
                     const SizedBox(height: 4),
@@ -312,7 +312,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Professional Profile',
+                            'Profile',
                             style: Theme.of(context).textTheme.displayLarge,
                           ),
                           const SizedBox(height: 4),

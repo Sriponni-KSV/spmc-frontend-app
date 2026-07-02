@@ -1197,7 +1197,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Profile settings',
+                      'Profile',
                       style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 24),
                     ),
                     const SizedBox(height: 4),
@@ -1227,7 +1227,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Profile settings',
+                          'Profile',
                           style: Theme.of(context).textTheme.displayLarge,
                         ),
                         const SizedBox(height: 4),

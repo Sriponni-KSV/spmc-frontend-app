@@ -14,8 +14,12 @@ import '../utils/date_formatter.dart';
 
 class OPDManagementScreen extends StatefulWidget {
   final bool isMobile;
-  const OPDManagementScreen({Key? key, required this.isMobile})
-    : super(key: key);
+  final String title;
+  const OPDManagementScreen({
+    Key? key,
+    required this.isMobile,
+    this.title = 'OPD Management',
+  }) : super(key: key);
 
   @override
   State<OPDManagementScreen> createState() => _OPDManagementScreenState();
@@ -314,7 +318,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'OPD Queue Management',
+                        widget.title,
                         style: TextStyle(
                           fontSize: widget.isMobile ? 18 : 24,
                           fontWeight: FontWeight.bold,
@@ -363,17 +367,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.local_hospital_outlined,
                             color: Colors.white,
                             size: 24,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
-                            'OPD Queue Management',
-                            style: TextStyle(
+                            widget.title,
+                            style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,

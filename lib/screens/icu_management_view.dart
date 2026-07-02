@@ -286,7 +286,7 @@ class _ICUManagementViewState extends State<ICUManagementView> {
                   children: [
                     const Expanded(
                       child: Text(
-                        'ICU Command Centre',
+                        'ICU & Emergency',
                         style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -313,7 +313,7 @@ class _ICUManagementViewState extends State<ICUManagementView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'ICU & Emergency Command Centre',
+                        'ICU & Emergency',
                         style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),

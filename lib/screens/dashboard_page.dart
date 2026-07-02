@@ -1868,7 +1868,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Professional Profile',
+                      'My Profile',
                       style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 24),
                     ),
                     const SizedBox(height: 4),
@@ -1905,7 +1905,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Professional Profile',
+                          'My Profile',
                           style: Theme.of(context).textTheme.displayLarge,
                         ),
                         const SizedBox(height: 4),
@@ -4698,7 +4698,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
                   Text(
-                    'Patient Lab Reports',
+                    'Lab Reports',
                     style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 4),

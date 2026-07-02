@@ -163,7 +163,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
   }
 
   Widget _buildHeader() {
-    const headerTitle = 'Doctor IPD Management';
+    const headerTitle = 'IPD Management';
     const headerSubtitle = 'Admit patients, review progress, and manage discharge decisions';
 
     return Container(

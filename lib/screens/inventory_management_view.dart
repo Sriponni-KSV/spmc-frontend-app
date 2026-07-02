@@ -1306,7 +1306,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Hospital Inventory Management',
+                      'Inventory Management',
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 6),
@@ -1345,7 +1345,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Hospital Inventory Management',
+                            'Inventory Management',
                             style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 4),

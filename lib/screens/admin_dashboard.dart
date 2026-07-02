@@ -1897,7 +1897,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   _buildSidebarItem(
                     0,
                     Icons.admin_panel_settings_outlined,
-                    'Control Panel',
+                    'Dashboard',
                   ),
                   _buildSidebarItem(
                     1,
@@ -1907,12 +1907,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   _buildSidebarItem(
                     2,
                     Icons.sick_outlined,
-                    'Patient Management',
+                    'Patients',
                   ),
                   _buildSidebarItem(
                     3,
                     Icons.security_outlined,
-                    'Access Control',
+                    'Access Control (RBAC)',
                   ),
                   _buildSidebarItem(
                     4,
@@ -2216,7 +2216,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          user != null ? 'Hello, ${user.fullname}' : 'Admin Dashboard',
+          user != null ? 'Hello, ${user.fullname}' : 'Dashboard',
           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
@@ -2592,7 +2592,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Shift Allocation & Management',
+                      'Shift Allocation',
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
@@ -2635,7 +2635,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Shift Allocation & Management',
+                            'Shift Allocation',
                             style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 4),

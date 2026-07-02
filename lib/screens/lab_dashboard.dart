@@ -640,7 +640,28 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
     return RefreshIndicator(
       onRefresh: _fetchRequests,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Title Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  showPendingOnly ? 'Pending Tests' : 'Completed Tests',
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  showPendingOnly
+                      ? 'Process and manage patient pending laboratory tests'
+                      : 'History of completed laboratory tests and records',
+                  style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
           // Filter Panel
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -951,48 +972,58 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
     final user = Provider.of<AuthProvider>(context).user;
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: AppTheme.cardDecoration,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'My Profile',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: AppTheme.cardDecoration,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                  radius: 40,
-                  child: Text(
-                    user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'L',
-                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text(
-                      user?.fullname ?? 'Lab Technician',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    CircleAvatar(
+                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                      radius: 40,
+                      child: Text(
+                        user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'L',
+                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      user?.role ?? 'Lab Technician',
-                      style: const TextStyle(fontSize: 14, color: AppTheme.logoRed, fontWeight: FontWeight.bold),
+                    const SizedBox(width: 24),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.fullname ?? 'Lab Technician',
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          user?.role ?? 'Lab Technician',
+                          style: const TextStyle(fontSize: 14, color: AppTheme.logoRed, fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
                   ],
                 ),
+                const SizedBox(height: 32),
+                const Divider(),
+                const SizedBox(height: 24),
+                _buildProfileRow('Staff Unique ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
+                _buildProfileRow('Email Address', user?.email ?? '-', Icons.alternate_email),
+                _buildProfileRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
+                _buildProfileRow('Status', user?.status ?? '-', Icons.check_circle_outline),
               ],
             ),
-            const SizedBox(height: 32),
-            const Divider(),
-            const SizedBox(height: 24),
-            _buildProfileRow('Staff Unique ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
-            _buildProfileRow('Email Address', user?.email ?? '-', Icons.alternate_email),
-            _buildProfileRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
-            _buildProfileRow('Status', user?.status ?? '-', Icons.check_circle_outline),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
