@@ -2614,78 +2614,22 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
               const SizedBox(height: 30),
 
-              // TEST NAME FIELD
-              const Text(
-                'Test Name',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              DropdownButtonFormField<String>(
+              CustomDropdownSearch(
+                label: 'Test Name',
                 value: _testNameController.text.isEmpty
                     ? null
                     : _testNameController.text,
-                decoration: InputDecoration(
-                  hintText: 'Select lab test',
-                  prefixIcon: const Icon(
-                    Icons.biotech_outlined,
-                    color: AppTheme.primaryColor,
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppTheme.primaryColor,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'Complete Blood Count (CBC)',
-                    child: Text('Complete Blood Count (CBC)'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Blood Sugar',
-                    child: Text('Blood Sugar'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Liver Function Test (LFT)',
-                    child: Text('Liver Function Test (LFT)'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Renal Function Test (RFT)',
-                    child: Text('Renal Function Test (RFT)'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Urine Routine',
-                    child: Text('Urine Routine'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'X-Ray',
-                    child: Text('X-Ray'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'CT Scan',
-                    child: Text('CT Scan'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'MRI Scan',
-                    child: Text('MRI Scan'),
-                  ),
-                  DropdownMenuItem(value: 'ECG', child: Text('ECG')),
+                hint: 'Select lab test',
+                dropdownItems: const [
+                  'Complete Blood Count (CBC)',
+                  'Blood Sugar',
+                  'Liver Function Test (LFT)',
+                  'Renal Function Test (RFT)',
+                  'Urine Routine',
+                  'X-Ray',
+                  'CT Scan',
+                  'MRI Scan',
+                  'ECG',
                 ],
                 onChanged: (value) {
                   setState(() {

@@ -411,6 +411,9 @@ class _DoctorsViewState extends State<DoctorsView> {
       ..sort((a, b) => weekDaysOrder.indexOf(a).compareTo(weekDaysOrder.indexOf(b)));
     final String availability = availabilityList.isNotEmpty ? availabilityList.join(', ') : '-';
     final String nextAvailable = _getNextAvailable(doctor); 
+    final String shiftTime = (doctor.slotStartTime != null && doctor.slotEndTime != null)
+        ? '${doctor.slotStartTime} - ${doctor.slotEndTime}'
+        : '-';
 
     return Container(
       margin: isMobile ? const EdgeInsets.only(bottom: 24) : EdgeInsets.zero,
@@ -430,6 +433,7 @@ class _DoctorsViewState extends State<DoctorsView> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
+
         children: [
           // Top Row: Avatar, Name, Rating
           Row(
@@ -619,6 +623,38 @@ class _DoctorsViewState extends State<DoctorsView> {
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                     color: Colors.redAccent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Shift Timing
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Shift Timing',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.blueAccent,
+                  ),
+                ),
+                Text(
+                  shiftTime,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.blueAccent,
                   ),
                 ),
               ],

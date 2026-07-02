@@ -2768,7 +2768,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         hint: 'Select doctor...',
                         value: selectedDoctor?.id.toString(),
                         dropdownMap: {
-                          for (var d in _doctors) d.id.toString(): d.fullname,
+                          for (var d in _doctors)
+                            d.id.toString():
+                                '${d.fullname} (${d.staffUniqueId ?? "N/A"})',
                         },
                         onChanged: (val) {
                           if (val != null) {

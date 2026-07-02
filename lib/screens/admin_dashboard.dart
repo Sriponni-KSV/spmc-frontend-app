@@ -4107,109 +4107,96 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       const Divider(height: 16),
                       const SizedBox(height: 16),
 
-                      // Dropdown Nurse
-                      const Text('Nurse', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryColor)),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<UserModel>(
-                        value: _selectedAllocNurse == null || !_nurses.any((n) => n.id == _selectedAllocNurse!.id)
-                            ? null
-                            : _nurses.firstWhere((n) => n.id == _selectedAllocNurse!.id),
-                        hint: const Text('Select Nurse'),
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.person_outline, size: 18),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        items: _nurses.map((n) {
-                          return DropdownMenuItem<UserModel>(
-                            value: n,
-                            child: Text(n.fullname),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          setDialogState(() => _selectedAllocNurse = val);
-                          setState(() => _selectedAllocNurse = val);
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Dropdown Shift
-                      const Text('Shift Schedule', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryColor)),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<Map<String, dynamic>>(
-                        value: _selectedAllocShift == null || !_shifts.any((s) => s['id'] == _selectedAllocShift!['id'])
-                            ? null
-                            : _shifts.firstWhere((s) => s['id'] == _selectedAllocShift!['id']),
-                        hint: const Text('Select Shift'),
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.schedule, size: 18),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        items: _shifts.map((s) {
-                          return DropdownMenuItem<Map<String, dynamic>>(
-                            value: s,
-                            child: Text('${s['name']} (${_formatTo12Hour(s['start_time'])} - ${_formatTo12Hour(s['end_time'])})'),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          setDialogState(() => _selectedAllocShift = val);
-                          setState(() => _selectedAllocShift = val);
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Dropdown Ward
-                      const Text('Ward / Department', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryColor)),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        value: _selectedAllocWard,
-                        hint: const Text('Select Ward'),
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.bed_outlined, size: 18),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        items: WARD_TYPES.map((w) {
-                          return DropdownMenuItem<String>(
-                            value: w,
-                            child: Text('$w Ward'),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          setDialogState(() => _selectedAllocWard = val);
-                          setState(() => _selectedAllocWard = val);
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Date Picker
-                      const Text('Allocation Date', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryColor)),
-                      const SizedBox(height: 6),
-                      InkWell(
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: dialogCtx,
-                            initialDate: _selectedAllocDate ?? DateTime.now(),
-                            firstDate: DateTime.now().subtract(const Duration(days: 30)),
-                            lastDate: DateTime.now().add(const Duration(days: 90)),
-                          );
-                          if (picked != null) {
-                            setDialogState(() => _selectedAllocDate = picked);
-                            setState(() => _selectedAllocDate = picked);
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.grey.shade400),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _selectedAllocDate != null
-                                    ? DateFormat('yyyy-MM-dd').format(_selectedAllocDate!)
-                                    : 'Choose Date',
-                              ),
+                       // Dropdown Nurse
+                       const Text('Nurse', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                       const SizedBox(height: 6),
+                       CustomDropdownSearch(
+                         label: '',
+                         hint: 'Select Nurse',
+                         value: _selectedAllocNurse == null || !_nurses.any((n) => n.id == _selectedAllocNurse!.id)
+                             ? null
+                             : _selectedAllocNurse!.id.toString(),
+                         dropdownMap: {
+                           for (var n in _nurses)
+                             n.id.toString(): n.fullname,
+                         },
+                         onChanged: (val) {
+                           final found = val == null ? null : _nurses.firstWhere((n) => n.id.toString() == val);
+                           setDialogState(() => _selectedAllocNurse = found);
+                           setState(() => _selectedAllocNurse = found);
+                         },
+                       ),
+                       const SizedBox(height: 16),
+ 
+                       // Dropdown Shift
+                       const Text('Shift Schedule', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                       const SizedBox(height: 6),
+                       CustomDropdownSearch(
+                         label: '',
+                         hint: 'Select Shift',
+                         value: _selectedAllocShift == null || !_shifts.any((s) => s['id'] == _selectedAllocShift!['id'])
+                             ? null
+                             : _selectedAllocShift!['id'].toString(),
+                         dropdownMap: {
+                           for (var s in _shifts)
+                             s['id'].toString(): '${s['name']} (${_formatTo12Hour(s['start_time'])} - ${_formatTo12Hour(s['end_time'])})',
+                         },
+                         onChanged: (val) {
+                           final found = val == null ? null : _shifts.firstWhere((s) => s['id'].toString() == val);
+                           setDialogState(() => _selectedAllocShift = found);
+                           setState(() => _selectedAllocShift = found);
+                         },
+                       ),
+                       const SizedBox(height: 16),
+ 
+                       // Dropdown Ward
+                       const Text('Ward / Department', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                       const SizedBox(height: 6),
+                       CustomDropdownSearch(
+                         label: '',
+                         hint: 'Select Ward',
+                         value: _selectedAllocWard,
+                         dropdownMap: {
+                           for (var w in WARD_TYPES)
+                             w: '$w Ward',
+                         },
+                         onChanged: (val) {
+                           setDialogState(() => _selectedAllocWard = val);
+                           setState(() => _selectedAllocWard = val);
+                         },
+                       ),
+                       const SizedBox(height: 16),
+ 
+                       // Date Picker
+                       const Text('Allocation Date', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                       const SizedBox(height: 6),
+                       InkWell(
+                         onTap: () async {
+                           final picked = await showDatePicker(
+                             context: dialogCtx,
+                             initialDate: _selectedAllocDate ?? DateTime.now(),
+                             firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                             lastDate: DateTime.now().add(const Duration(days: 90)),
+                           );
+                           if (picked != null) {
+                             setDialogState(() => _selectedAllocDate = picked);
+                             setState(() => _selectedAllocDate = picked);
+                           }
+                         },
+                         child: Container(
+                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                           decoration: BoxDecoration(
+                             borderRadius: BorderRadius.circular(10),
+                             border: Border.all(color: Colors.grey.shade400),
+                           ),
+                           child: Row(
+                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                             children: [
+                               Text(
+                                 _selectedAllocDate != null
+                                     ? DateFormat('dd-MM-yyyy').format(_selectedAllocDate!)
+                                     : 'Choose Date',
+                               ),
                               const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
                             ],
                           ),
@@ -4220,15 +4207,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ),
               actions: [
-                TextButton(
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF4A5568),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 18,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    minimumSize: const Size(130, 48),
+                  ),
                   onPressed: () => Navigator.pop(dialogCtx),
-                  child: const Text('Cancel'),
+                  child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
+                    backgroundColor: AppTheme.logoRed,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 18,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    minimumSize: const Size(130, 48),
+                    elevation: 0,
                   ),
                   onPressed: () async {
                     if (_selectedAllocNurse == null ||
@@ -4473,11 +4480,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ],
               ),
               actions: [
-                TextButton(
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF4A5568),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 18,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    minimumSize: const Size(130, 48),
+                  ),
                   onPressed: () => Navigator.pop(dialogCtx),
-                  child: const Text('Cancel'),
+                  child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.logoRed,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 18,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    minimumSize: const Size(130, 48),
+                    elevation: 0,
+                  ),
                   onPressed: () async {
                     if (nameCtrl.text.isEmpty || startTime == null || endTime == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -4506,7 +4538,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       );
                     }
                   },
-                  child: const Text('Save'),
+                  child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             );

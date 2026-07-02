@@ -3250,109 +3250,84 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           widget.isMobile
               ? Column(
                   children: [
-                    _buildDisabledDropdownWrapper(
-                      enabled: canEdit,
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedAsaGrade,
-                        decoration: AppTheme.standardInputDecoration(
-                          label: 'ASA Grade',
-                          prefixIcon: Icons.star_border_outlined,
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'ASA I', child: Text('ASA I - Normal healthy')),
-                          DropdownMenuItem(value: 'ASA II', child: Text('ASA II - Mild systemic disease')),
-                          DropdownMenuItem(value: 'ASA III', child: Text('ASA III - Severe systemic disease')),
-                          DropdownMenuItem(value: 'ASA IV', child: Text('ASA IV - Severe systemic life-threat')),
-                          DropdownMenuItem(value: 'ASA V', child: Text('ASA V - Moribund patient')),
-                        ],
-                        onChanged: canEdit ? (val) {
-                          if (val != null) setState(() => _selectedAsaGrade = val);
-                        } : null,
-                      ),
+                    CustomDropdownSearch(
+                      label: 'ASA Grade',
+                      isEnabled: canEdit,
+                      value: _selectedAsaGrade,
+                      dropdownMap: const {
+                        'ASA I': 'ASA I - Normal healthy',
+                        'ASA II': 'ASA II - Mild systemic disease',
+                        'ASA III': 'ASA III - Severe systemic disease',
+                        'ASA IV': 'ASA IV - Severe systemic life-threat',
+                        'ASA V': 'ASA V - Moribund patient',
+                      },
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedAsaGrade = val);
+                      },
                     ),
                     const SizedBox(height: 12),
-                    _buildDisabledDropdownWrapper(
-                      enabled: canEdit,
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedRiskLevel,
-                        decoration: AppTheme.standardInputDecoration(
-                          label: 'Anesthesia Risk Level',
-                          prefixIcon: Icons.gpp_maybe_outlined,
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'Low', child: Text('Low Risk')),
-                          DropdownMenuItem(value: 'Medium', child: Text('Medium Risk')),
-                          DropdownMenuItem(value: 'High', child: Text('High Risk')),
-                        ],
-                        onChanged: canEdit ? (val) {
-                          if (val != null) setState(() => _selectedRiskLevel = val);
-                        } : null,
-                      ),
+                    CustomDropdownSearch(
+                      label: 'Anesthesia Risk Level',
+                      isEnabled: canEdit,
+                      value: _selectedRiskLevel,
+                      dropdownMap: const {
+                        'Low': 'Low Risk',
+                        'Medium': 'Medium Risk',
+                        'High': 'High Risk',
+                      },
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedRiskLevel = val);
+                      },
                     ),
                   ],
                 )
               : Row(
                   children: [
                     Expanded(
-                      child: _buildDisabledDropdownWrapper(
-                        enabled: canEdit,
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedAsaGrade,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'ASA Grade',
-                            prefixIcon: Icons.star_border_outlined,
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 'ASA I', child: Text('ASA I - Normal healthy')),
-                            DropdownMenuItem(value: 'ASA II', child: Text('ASA II - Mild systemic disease')),
-                            DropdownMenuItem(value: 'ASA III', child: Text('ASA III - Severe systemic disease')),
-                            DropdownMenuItem(value: 'ASA IV', child: Text('ASA IV - Severe systemic life-threat')),
-                            DropdownMenuItem(value: 'ASA V', child: Text('ASA V - Moribund patient')),
-                          ],
-                          onChanged: canEdit ? (val) {
-                            if (val != null) setState(() => _selectedAsaGrade = val);
-                          } : null,
-                        ),
+                      child: CustomDropdownSearch(
+                        label: 'ASA Grade',
+                        isEnabled: canEdit,
+                        value: _selectedAsaGrade,
+                        dropdownMap: const {
+                          'ASA I': 'ASA I - Normal healthy',
+                          'ASA II': 'ASA II - Mild systemic disease',
+                          'ASA III': 'ASA III - Severe systemic disease',
+                          'ASA IV': 'ASA IV - Severe systemic life-threat',
+                          'ASA V': 'ASA V - Moribund patient',
+                        },
+                        onChanged: (val) {
+                          if (val != null) setState(() => _selectedAsaGrade = val);
+                        },
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: _buildDisabledDropdownWrapper(
-                        enabled: canEdit,
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedRiskLevel,
-                          decoration: AppTheme.standardInputDecoration(
-                            label: 'Anesthesia Risk Level',
-                            prefixIcon: Icons.gpp_maybe_outlined,
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 'Low', child: Text('Low Risk')),
-                            DropdownMenuItem(value: 'Medium', child: Text('Medium Risk')),
-                            DropdownMenuItem(value: 'High', child: Text('High Risk')),
-                          ],
-                          onChanged: canEdit ? (val) {
-                            if (val != null) setState(() => _selectedRiskLevel = val);
-                          } : null,
-                        ),
+                      child: CustomDropdownSearch(
+                        label: 'Anesthesia Risk Level',
+                        isEnabled: canEdit,
+                        value: _selectedRiskLevel,
+                        dropdownMap: const {
+                          'Low': 'Low Risk',
+                          'Medium': 'Medium Risk',
+                          'High': 'High Risk',
+                        },
+                        onChanged: (val) {
+                          if (val != null) setState(() => _selectedRiskLevel = val);
+                        },
                       ),
                     ),
                   ],
                 ),
           const SizedBox(height: 16),
 
-          _buildDisabledDropdownWrapper(
-            enabled: canEdit,
-            child: DropdownButtonFormField<String>(
-              value: _selectedAnaesthesiaType,
-              decoration: AppTheme.standardInputDecoration(
-                label: 'Confirmed Anesthesia Type',
-                prefixIcon: Icons.vaccines_outlined,
-              ),
-              items: _buildAnesthesiaTypeItems(),
-              onChanged: canEdit ? (val) {
-                if (val != null) setState(() => _selectedAnaesthesiaType = val);
-              } : null,
-            ),
+          CustomDropdownSearch(
+            label: 'Confirmed Anesthesia Type',
+            isEnabled: canEdit,
+            value: _selectedAnaesthesiaType,
+            dropdownItems: _getAnesthesiaTypeItems(),
+            onChanged: (val) {
+              if (val != null) setState(() => _selectedAnaesthesiaType = val);
+            },
           ),
           const SizedBox(height: 16),
 
@@ -3369,11 +3344,16 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           const SizedBox(height: 24),
 
           if (canEdit)
-            ElevatedButton.icon(
-              onPressed: () => _saveAnesthesiaFormDetails(otCase),
-              icon: const Icon(Icons.save),
-              label: const Text('Save Anesthesia Details'),
-              style: AppTheme.primaryButton,
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ElevatedButton.icon(
+                onPressed: () => _saveAnesthesiaFormDetails(otCase),
+                icon: const Icon(Icons.save),
+                label: const Text('Save Anesthesia Details'),
+                style: AppTheme.logoRedButton.copyWith(
+                  minimumSize: MaterialStateProperty.all(const Size(180, 48)),
+                ),
+              ),
             ),
         ],
       ),
@@ -3404,7 +3384,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     );
   }
 
-  List<DropdownMenuItem<String>> _buildAnesthesiaTypeItems() {
+  List<String> _getAnesthesiaTypeItems() {
     final predefined = [
       'General Anaesthesia',
       'Spinal Anaesthesia',
@@ -3414,22 +3394,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       'Regional Block',
       'MAC (Monitored Care)',
     ];
-
-    final items = predefined.map((val) {
-      return DropdownMenuItem<String>(
-        value: val,
-        child: Text(val),
-      );
-    }).toList();
-
-    if (!predefined.contains(_selectedAnaesthesiaType)) {
-      items.add(DropdownMenuItem<String>(
-        value: _selectedAnaesthesiaType,
-        child: Text(_selectedAnaesthesiaType),
-      ));
+    if (_selectedAnaesthesiaType.isNotEmpty && !predefined.contains(_selectedAnaesthesiaType)) {
+      return [...predefined, _selectedAnaesthesiaType];
     }
-
-    return items;
+    return predefined;
   }
 
   Widget _buildDisabledDropdownWrapper({
@@ -4082,55 +4050,23 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         const SizedBox(height: 20),
 
         // ── OT Room Dropdown ──
-        const Text('OT Room', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor)),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: AppTheme.borderColor),
-            borderRadius: BorderRadius.circular(10),
-            color: Colors.white,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              hint: const Text('Select available OT Room'),
-              value: (_selectedOtRoom != null && availableRooms.contains(_selectedOtRoom))
-                  ? _selectedOtRoom
-                  : null,
-              items: availableRooms.isEmpty
-                  ? [const DropdownMenuItem(value: null, child: Text('No rooms available', style: TextStyle(color: Colors.red)))]
-                  : availableRooms
-                      .map((room) => DropdownMenuItem(
-                            value: room,
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(room, style: const TextStyle(fontWeight: FontWeight.w500)),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade50,
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: Colors.green.shade200),
-                                  ),
-                                  child: const Text('Available', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
-                                ),
-                              ],
-                            ),
-                          ))
-                      .toList(),
-              onChanged: availableRooms.isEmpty
-                  ? null
-                  : (val) => setState(() => _selectedOtRoom = val),
-            ),
-          ),
+        CustomDropdownSearch(
+          label: 'OT Room',
+          requiredMark: true,
+          hint: 'Select available OT Room',
+          value: (_selectedOtRoom != null && availableRooms.contains(_selectedOtRoom))
+              ? _selectedOtRoom
+              : null,
+          dropdownMap: availableRooms.isEmpty
+              ? { '': 'No rooms available' }
+              : { for (var room in availableRooms) room: '$room (Available)' },
+          onChanged: availableRooms.isEmpty
+              ? null
+              : (val) {
+                  if (val != null) {
+                    setState(() => _selectedOtRoom = val);
+                  }
+                },
         ),
         if (occupiedRooms.isNotEmpty)
           Padding(
@@ -4784,35 +4720,29 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           widget.isMobile
               ? Column(
                   children: [
-                    DropdownButtonFormField<String>(
+                    CustomDropdownSearch(
+                      label: 'ASA Grade',
                       value: _selectedAsaGrade,
-                      decoration: AppTheme.standardInputDecoration(
-                        label: 'ASA Grade',
-                        prefixIcon: Icons.star_border_outlined,
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'ASA I', child: Text('ASA I - Normal healthy')),
-                        DropdownMenuItem(value: 'ASA II', child: Text('ASA II - Mild systemic disease')),
-                        DropdownMenuItem(value: 'ASA III', child: Text('ASA III - Severe systemic disease')),
-                        DropdownMenuItem(value: 'ASA IV', child: Text('ASA IV - Severe systemic life-threat')),
-                        DropdownMenuItem(value: 'ASA V', child: Text('ASA V - Moribund patient')),
-                      ],
+                      dropdownMap: const {
+                        'ASA I': 'ASA I - Normal healthy',
+                        'ASA II': 'ASA II - Mild systemic disease',
+                        'ASA III': 'ASA III - Severe systemic disease',
+                        'ASA IV': 'ASA IV - Severe systemic life-threat',
+                        'ASA V': 'ASA V - Moribund patient',
+                      },
                       onChanged: (val) {
                         if (val != null) setState(() => _selectedAsaGrade = val);
                       },
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
+                    CustomDropdownSearch(
+                      label: 'Anesthesia Risk Level',
                       value: _selectedRiskLevel,
-                      decoration: AppTheme.standardInputDecoration(
-                        label: 'Anesthesia Risk Level',
-                        prefixIcon: Icons.gpp_maybe_outlined,
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'Low', child: Text('Low Risk')),
-                        DropdownMenuItem(value: 'Medium', child: Text('Medium Risk')),
-                        DropdownMenuItem(value: 'High', child: Text('High Risk')),
-                      ],
+                      dropdownMap: const {
+                        'Low': 'Low Risk',
+                        'Medium': 'Medium Risk',
+                        'High': 'High Risk',
+                      },
                       onChanged: (val) {
                         if (val != null) setState(() => _selectedRiskLevel = val);
                       },
@@ -4822,19 +4752,16 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               : Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: CustomDropdownSearch(
+                        label: 'ASA Grade',
                         value: _selectedAsaGrade,
-                        decoration: AppTheme.standardInputDecoration(
-                          label: 'ASA Grade',
-                          prefixIcon: Icons.star_border_outlined,
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'ASA I', child: Text('ASA I - Normal healthy')),
-                          DropdownMenuItem(value: 'ASA II', child: Text('ASA II - Mild systemic disease')),
-                          DropdownMenuItem(value: 'ASA III', child: Text('ASA III - Severe systemic disease')),
-                          DropdownMenuItem(value: 'ASA IV', child: Text('ASA IV - Severe systemic life-threat')),
-                          DropdownMenuItem(value: 'ASA V', child: Text('ASA V - Moribund patient')),
-                        ],
+                        dropdownMap: const {
+                          'ASA I': 'ASA I - Normal healthy',
+                          'ASA II': 'ASA II - Mild systemic disease',
+                          'ASA III': 'ASA III - Severe systemic disease',
+                          'ASA IV': 'ASA IV - Severe systemic life-threat',
+                          'ASA V': 'ASA V - Moribund patient',
+                        },
                         onChanged: (val) {
                           if (val != null) setState(() => _selectedAsaGrade = val);
                         },
@@ -4842,17 +4769,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: CustomDropdownSearch(
+                        label: 'Anesthesia Risk Level',
                         value: _selectedRiskLevel,
-                        decoration: AppTheme.standardInputDecoration(
-                          label: 'Anesthesia Risk Level',
-                          prefixIcon: Icons.gpp_maybe_outlined,
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'Low', child: Text('Low Risk')),
-                          DropdownMenuItem(value: 'Medium', child: Text('Medium Risk')),
-                          DropdownMenuItem(value: 'High', child: Text('High Risk')),
-                        ],
+                        dropdownMap: const {
+                          'Low': 'Low Risk',
+                          'Medium': 'Medium Risk',
+                          'High': 'High Risk',
+                        },
                         onChanged: (val) {
                           if (val != null) setState(() => _selectedRiskLevel = val);
                         },
@@ -4862,13 +4786,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 ),
           const SizedBox(height: 16),
           
-          DropdownButtonFormField<String>(
+          CustomDropdownSearch(
+            label: 'Confirmed Anesthesia Type',
             value: _selectedAnaesthesiaType,
-            decoration: AppTheme.standardInputDecoration(
-              label: 'Confirmed Anesthesia Type',
-              prefixIcon: Icons.vaccines_outlined,
-            ),
-            items: _buildAnesthesiaTypeItems(),
+            dropdownItems: _getAnesthesiaTypeItems(),
             onChanged: (val) {
               if (val != null) setState(() => _selectedAnaesthesiaType = val);
             },
@@ -6378,7 +6299,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         .map((c) => c.otRoom!)
         .toSet();
 
-    final availableRooms = allRooms.where((r) => !occupiedRooms.contains(r)).toList();
 
     return [
       const SizedBox(height: 24),
@@ -6386,52 +6306,22 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       const SizedBox(height: 16),
       
       // OT Room
-      _buildFieldLabel('OT Room *'),
-      Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.borderColor),
-          borderRadius: BorderRadius.circular(10),
-          color: Colors.white,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            isExpanded: true,
-            hint: const Text('Select OT Room'),
-            value: (_selectedOtRoom != null && availableRooms.contains(_selectedOtRoom))
-                ? _selectedOtRoom
-                : null,
-            items: allRooms
-                .map((room) => DropdownMenuItem(
-                      value: room,
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: occupiedRooms.contains(room) ? Colors.orange : Colors.green,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(room, style: const TextStyle(fontWeight: FontWeight.w500)),
-                          const SizedBox(width: 8),
-                          Text(
-                            occupiedRooms.contains(room) ? '(Occupied)' : '(Available)',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: occupiedRooms.contains(room) ? Colors.orange : Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ))
-                .toList(),
-            onChanged: (val) => setState(() => _selectedOtRoom = val),
-          ),
-        ),
+      CustomDropdownSearch(
+        label: 'OT Room',
+        requiredMark: true,
+        hint: 'Select OT Room',
+        value: (_selectedOtRoom != null && allRooms.contains(_selectedOtRoom))
+            ? _selectedOtRoom
+            : null,
+        dropdownMap: {
+          for (var room in allRooms)
+            room: occupiedRooms.contains(room) ? '$room (Occupied)' : '$room (Available)'
+        },
+        onChanged: (val) {
+          if (val != null) {
+            setState(() => _selectedOtRoom = val);
+          }
+        },
       ),
       const SizedBox(height: 16),
 
@@ -6814,9 +6704,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 requiredMark: true,
                 hint: 'search surgeon',
                 value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
-                dropdownItems: _doctors.isNotEmpty
-                    ? _doctors.map((d) => d.fullname).toList()
-                    : const [],
+                dropdownMap: {
+                  for (var d in _doctors)
+                    d.fullname: '${d.fullname} (${d.staffUniqueId ?? "N/A"})'
+                },
                 onChanged: (val) {
                   if (val != null) {
                     setState(() {
@@ -6837,9 +6728,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 requiredMark: true,
                 hint: 'search anaesthetist',
                 value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
-                dropdownItems: _anaesthetists.isNotEmpty
-                    ? _anaesthetists.map((d) => d.fullname).toList()
-                    : const [],
+                dropdownMap: {
+                  for (var d in _anaesthetists)
+                    d.fullname: '${d.fullname} (${d.staffUniqueId ?? "N/A"})'
+                },
                 onChanged: (val) {
                   if (val != null) {
                     setState(() {
@@ -6863,9 +6755,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       requiredMark: true,
                       hint: 'search surgeon',
                       value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
-                      dropdownItems: _doctors.isNotEmpty
-                          ? _doctors.map((d) => d.fullname).toList()
-                          : const [],
+                      dropdownMap: {
+                        for (var d in _doctors)
+                          d.fullname: '${d.fullname} (${d.staffUniqueId ?? "N/A"})'
+                      },
                       onChanged: (val) {
                         if (val != null) {
                           setState(() {
@@ -6888,9 +6781,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       requiredMark: true,
                       hint: 'search anaesthetist',
                       value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
-                      dropdownItems: _anaesthetists.isNotEmpty
-                          ? _anaesthetists.map((d) => d.fullname).toList()
-                          : const [],
+                      dropdownMap: {
+                        for (var d in _anaesthetists)
+                          d.fullname: '${d.fullname} (${d.staffUniqueId ?? "N/A"})'
+                      },
                       onChanged: (val) {
                         if (val != null) {
                           setState(() {

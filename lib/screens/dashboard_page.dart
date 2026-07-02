@@ -2091,154 +2091,183 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Icons.work_history_outlined,
               ),
             ]),
-            sectionSpacing,
-            _buildInfoCard('Availability', [
-              _buildDetailRow(
-                'Available Days',
-                (user?.availableDays == null || user!.availableDays!.isEmpty)
-                    ? '-'
-                    : user!.availableDays!.join(', '),
-                Icons.calendar_month_outlined,
-              ),
-              _buildDetailRow(
-                'Consultation Hours',
-                '${user?.slotStartTime ?? "-"} to ${user?.slotEndTime ?? "-"}',
-                Icons.access_time_rounded,
-              ),
-              _buildDetailRow(
-                'Slot Duration',
-                user?.slotDuration ?? '-',
-                Icons.timer_outlined,
-              ),
-              _buildDetailRow(
-                'Weekly Off',
-                (user?.weeklyOffDays ?? []).isEmpty
-                    ? '-'
-                    : user!.weeklyOffDays!.join(', '),
-                Icons.event_busy_outlined,
-              ),
-            ]),
-            sectionSpacing,
-            _buildInfoCard('Clinic Details', [
-              _buildDetailRow(
-                'Clinic Name',
-                user?.clinicName ?? '-',
-                Icons.business_outlined,
-              ),
-              _buildDetailRow(
-                'Location',
-                user?.clinicLocation ?? '-',
-                Icons.location_on_outlined,
-              ),
-              _buildDetailRow(
-                'Consultation Fee',
-                user?.consultationFee == null || user?.consultationFee == '0'
-                    ? '-'
-                    : '₹${user!.consultationFee}',
-                Icons.payments_outlined,
-              ),
-            ]),
+            if (user?.role != 'Anaesthetist') ...[
+              sectionSpacing,
+              _buildInfoCard('Availability', [
+                _buildDetailRow(
+                  'Available Days',
+                  (user?.availableDays == null || user!.availableDays!.isEmpty)
+                      ? '-'
+                      : user!.availableDays!.join(', '),
+                  Icons.calendar_month_outlined,
+                ),
+                _buildDetailRow(
+                  'Consultation Hours',
+                  '${user?.slotStartTime ?? "-"} to ${user?.slotEndTime ?? "-"}',
+                  Icons.access_time_rounded,
+                ),
+                _buildDetailRow(
+                  'Slot Duration',
+                  user?.slotDuration ?? '-',
+                  Icons.timer_outlined,
+                ),
+                _buildDetailRow(
+                  'Weekly Off',
+                  (user?.weeklyOffDays ?? []).isEmpty
+                      ? '-'
+                      : user!.weeklyOffDays!.join(', '),
+                  Icons.event_busy_outlined,
+                ),
+              ]),
+              sectionSpacing,
+              _buildInfoCard('Clinic Details', [
+                _buildDetailRow(
+                  'Clinic Name',
+                  user?.clinicName ?? '-',
+                  Icons.business_outlined,
+                ),
+                _buildDetailRow(
+                  'Location',
+                  user?.clinicLocation ?? '-',
+                  Icons.location_on_outlined,
+                ),
+                _buildDetailRow(
+                  'Consultation Fee',
+                  user?.consultationFee == null || user?.consultationFee == '0'
+                      ? '-'
+                      : '₹${user!.consultationFee}',
+                  Icons.payments_outlined,
+                ),
+              ]),
+            ],
           ] else ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildInfoCard('Professional Info', [
-                    _buildDetailRow(
-                      'Specialization',
-                      user?.specialization ?? '-',
-                      Icons.medical_services_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Qualification',
-                      user?.qualification ?? '-',
-                      Icons.school_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Medical License',
-                      user?.medicalLicense ?? '-',
-                      Icons.badge_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Experience',
-                      user?.experience == null || user?.experience == '0'
-                          ? '-'
-                          : '${user!.experience} years',
-                      Icons.work_history_outlined,
-                    ),
-                  ]),
+            if (user?.role == 'Anaesthetist')
+              _buildInfoCard('Professional Info', [
+                _buildDetailRow(
+                  'Specialization',
+                  user?.specialization ?? '-',
+                  Icons.medical_services_outlined,
                 ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: _buildInfoCard('Availability', [
-                    _buildDetailRow(
-                      'Available Days',
-                      (user?.availableDays == null ||
-                              user!.availableDays!.isEmpty)
-                          ? '-'
-                          : user!.availableDays!.join(', '),
-                      Icons.calendar_month_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Consultation Hours',
-                      '${user?.slotStartTime ?? "-"} to ${user?.slotEndTime ?? "-"}',
-                      Icons.access_time_rounded,
-                    ),
-                    _buildDetailRow(
-                      'Slot Duration',
-                      user?.slotDuration ?? '-',
-                      Icons.timer_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Weekly Off',
-                      (user?.weeklyOffDays ?? []).isEmpty
-                          ? '-'
-                          : user!.weeklyOffDays!.join(', '),
-                      Icons.event_busy_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Specific Leave Dates',
-                      (user?.specificLeaveDates == null ||
-                              user!.specificLeaveDates!.isEmpty)
-                          ? '-'
-                          : user!.specificLeaveDates!.join(', '),
-                      Icons.calendar_today_outlined,
-                    ),
-                  ]),
+                _buildDetailRow(
+                  'Qualification',
+                  user?.qualification ?? '-',
+                  Icons.school_outlined,
                 ),
-              ],
-            ),
-            sectionSpacing,
-            _buildInfoCard('Clinic Details', [
+                _buildDetailRow(
+                  'Medical License',
+                  user?.medicalLicense ?? '-',
+                  Icons.badge_outlined,
+                ),
+                _buildDetailRow(
+                  'Experience',
+                  user?.experience == null || user?.experience == '0'
+                      ? '-'
+                      : '${user!.experience} years',
+                  Icons.work_history_outlined,
+                ),
+              ])
+            else ...[
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: _buildDetailRow(
-                      'Clinic Name',
-                      user?.clinicName ?? '-',
-                      Icons.business_outlined,
-                    ),
+                    child: _buildInfoCard('Professional Info', [
+                      _buildDetailRow(
+                        'Specialization',
+                        user?.specialization ?? '-',
+                        Icons.medical_services_outlined,
+                      ),
+                      _buildDetailRow(
+                        'Qualification',
+                        user?.qualification ?? '-',
+                        Icons.school_outlined,
+                      ),
+                      _buildDetailRow(
+                        'Medical License',
+                        user?.medicalLicense ?? '-',
+                        Icons.badge_outlined,
+                      ),
+                      _buildDetailRow(
+                        'Experience',
+                        user?.experience == null || user?.experience == '0'
+                            ? '-'
+                            : '${user!.experience} years',
+                        Icons.work_history_outlined,
+                      ),
+                    ]),
                   ),
+                  const SizedBox(width: 24),
                   Expanded(
-                    child: _buildDetailRow(
-                      'Location',
-                      user?.clinicLocation ?? '-',
-                      Icons.location_on_outlined,
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildDetailRow(
-                      'Consultation Fee',
-                      user?.consultationFee == null ||
-                              user?.consultationFee == '0'
-                          ? '-'
-                          : '₹${user!.consultationFee}',
-                      Icons.payments_outlined,
-                    ),
+                    child: _buildInfoCard('Availability', [
+                      _buildDetailRow(
+                        'Available Days',
+                        (user?.availableDays == null ||
+                                user!.availableDays!.isEmpty)
+                            ? '-'
+                            : user!.availableDays!.join(', '),
+                        Icons.calendar_month_outlined,
+                      ),
+                      _buildDetailRow(
+                        'Consultation Hours',
+                        '${user?.slotStartTime ?? "-"} to ${user?.slotEndTime ?? "-"}',
+                        Icons.access_time_rounded,
+                      ),
+                      _buildDetailRow(
+                        'Slot Duration',
+                        user?.slotDuration ?? '-',
+                        Icons.timer_outlined,
+                      ),
+                      _buildDetailRow(
+                        'Weekly Off',
+                        (user?.weeklyOffDays ?? []).isEmpty
+                            ? '-'
+                            : user!.weeklyOffDays!.join(', '),
+                        Icons.event_busy_outlined,
+                      ),
+                      _buildDetailRow(
+                        'Specific Leave Dates',
+                        (user?.specificLeaveDates == null ||
+                                user!.specificLeaveDates!.isEmpty)
+                            ? '-'
+                            : user!.specificLeaveDates!.join(', '),
+                        Icons.calendar_today_outlined,
+                      ),
+                    ]),
                   ),
                 ],
               ),
-            ]),
+              sectionSpacing,
+              _buildInfoCard('Clinic Details', [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDetailRow(
+                        'Clinic Name',
+                        user?.clinicName ?? '-',
+                        Icons.business_outlined,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildDetailRow(
+                        'Location',
+                        user?.clinicLocation ?? '-',
+                        Icons.location_on_outlined,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildDetailRow(
+                        'Consultation Fee',
+                        user?.consultationFee == null ||
+                                user?.consultationFee == '0'
+                            ? '-'
+                            : '₹${user!.consultationFee}',
+                        Icons.payments_outlined,
+                      ),
+                    ),
+                  ],
+                ),
+              ]),
+            ],
           ],
           const SizedBox(height: 48),
         ],
@@ -2743,254 +2772,256 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               sectionSpacing,
 
-              // ── Section 2: Availability ───────────────────────
-              sectionCard('2', 'Availability', AppTheme.successColor, [
-                // Available / Leave Days chips
-                const Text(
-                  'Weekly Schedule (Tap: Available ↔ Leave)',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+              if (user?.role != 'Anaesthetist') ...[
+                // ── Section 2: Availability ───────────────────────
+                sectionCard('2', 'Availability', AppTheme.successColor, [
+                  // Available / Leave Days chips
+                  const Text(
+                    'Weekly Schedule (Tap: Available ↔ Leave)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-                      .map((day) {
-                        final isAvailable =
-                            _availableDays?.contains(day) ?? false;
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                        .map((day) {
+                          final isAvailable =
+                              _availableDays?.contains(day) ?? false;
 
-                        Color bgColor = isAvailable
-                            ? AppTheme.successColor
-                            : Colors.red.shade400;
-                        Color borderColor = bgColor;
-                        Color textColor = Colors.white;
+                          Color bgColor = isAvailable
+                              ? AppTheme.successColor
+                              : Colors.red.shade400;
+                          Color borderColor = bgColor;
+                          Color textColor = Colors.white;
 
-                        return MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: () => setLocalState(() {
-                              if (isAvailable) {
-                                _availableDays?.remove(day);
-                                (_weeklyOffDays ??= []).add(day);
-                              } else {
-                                _weeklyOffDays?.remove(day);
-                                (_availableDays ??= []).add(day);
-                              }
-                            }),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: bgColor,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: borderColor),
-                              ),
-                              child: Text(
-                                day,
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                          return MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: () => setLocalState(() {
+                                if (isAvailable) {
+                                  _availableDays?.remove(day);
+                                  (_weeklyOffDays ??= []).add(day);
+                                } else {
+                                  _weeklyOffDays?.remove(day);
+                                  (_availableDays ??= []).add(day);
+                                }
+                              }),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: bgColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                child: Text(
+                                  day,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                      })
-                      .toList(),
-                ),
-                fieldSpacing,
-                if (isMobile) ...[
-                  _buildTimePickerField(
-                    'Slot Start Time',
-                    _slotStartController,
-                    Icons.access_time_outlined,
+                          );
+                        })
+                        .toList(),
                   ),
                   fieldSpacing,
-                  _buildTimePickerField(
-                    'Slot End Time',
-                    _slotEndController,
-                    Icons.access_time_filled,
-                  ),
-                  fieldSpacing,
-                  _buildProfileTextField(
-                    'Slot Duration (e.g. 15 min)',
-                    _slotDurationController,
-                    Icons.timelapse_outlined,
-                  ),
-                ] else
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTimePickerField(
-                          'Slot Start Time',
-                          _slotStartController,
-                          Icons.access_time_outlined,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildTimePickerField(
-                          'Slot End Time',
-                          _slotEndController,
-                          Icons.access_time_filled,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildProfileTextField(
-                          'Slot Duration (e.g. 15 min)',
-                          _slotDurationController,
-                          Icons.timelapse_outlined,
-                        ),
-                      ),
-                    ],
-                  ),
-                fieldSpacing,
-
-                // ── Specific Leave Dates ────────────────────────
-                const Text(
-                  'Specific Leave Dates — pick individual dates.',
-                  style: TextStyle(fontSize: 12, color: Colors.black),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ...(_specificLeaveDates ?? []).map(
-                      (d) => Chip(
-                        label: Text(d, style: const TextStyle(fontSize: 12)),
-                        backgroundColor: Colors.orange.shade50,
-                        side: BorderSide(color: Colors.orange.shade200),
-                        deleteIcon: const Icon(Icons.close, size: 14),
-                        onDeleted: () =>
-                            setLocalState(() => _specificLeaveDates?.remove(d)),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 730),
-                          ),
-                        );
-                        if (picked != null) {
-                          final f =
-                              '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
-                          if (_specificLeaveDates?.contains(f) == false) {
-                            setLocalState(
-                              () => (_specificLeaveDates ??= []).add(f),
-                            );
-                          }
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.backgroundColor,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: AppTheme.primaryColor.withOpacity(0.5),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.add,
-                              size: 15,
-                              color: AppTheme.primaryColor,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Add Date',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.primaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ]),
-              sectionSpacing,
-
-              // ── Section 3: Clinic / Hospital Mapping ──────────
-              sectionCard(
-                '3',
-                'Clinic / Hospital Details',
-                const Color(0xFF805AD5),
-                [
                   if (isMobile) ...[
-                    _buildProfileTextField(
-                      'Clinic / Hospital Name',
-                      _clinicNameController,
-                      Icons.local_hospital_outlined,
+                    _buildTimePickerField(
+                      'Slot Start Time',
+                      _slotStartController,
+                      Icons.access_time_outlined,
+                    ),
+                    fieldSpacing,
+                    _buildTimePickerField(
+                      'Slot End Time',
+                      _slotEndController,
+                      Icons.access_time_filled,
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
-                      'Location',
-                      _clinicLocationController,
-                      Icons.location_on_outlined,
+                      'Slot Duration (e.g. 15 min)',
+                      _slotDurationController,
+                      Icons.timelapse_outlined,
                     ),
-                    fieldSpacing,
-                    _buildProfileTextField(
-                      'Consultation Fee (₹)',
-                      _consultationFeeController,
-                      Icons.currency_rupee,
-                      isNumeric: true,
-                      maxLength: 5,
-                    ),
-                  ] else ...[
-                    _buildProfileTextField(
-                      'Clinic / Hospital Name',
-                      _clinicNameController,
-                      Icons.local_hospital_outlined,
-                    ),
-                    fieldSpacing,
+                  ] else
                     Row(
                       children: [
                         Expanded(
-                          child: _buildProfileTextField(
-                            'Location',
-                            _clinicLocationController,
-                            Icons.location_on_outlined,
+                          child: _buildTimePickerField(
+                            'Slot Start Time',
+                            _slotStartController,
+                            Icons.access_time_outlined,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildTimePickerField(
+                            'Slot End Time',
+                            _slotEndController,
+                            Icons.access_time_filled,
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: _buildProfileTextField(
-                            'Consultation Fee (₹)',
-                            _consultationFeeController,
-                            Icons.currency_rupee,
-                            isNumeric: true,
-                            maxLength: 5,
+                            'Slot Duration (e.g. 15 min)',
+                            _slotDurationController,
+                            Icons.timelapse_outlined,
                           ),
                         ),
                       ],
                     ),
+                  fieldSpacing,
+
+                  // ── Specific Leave Dates ────────────────────────
+                  const Text(
+                    'Specific Leave Dates — pick individual dates.',
+                    style: TextStyle(fontSize: 12, color: Colors.black),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ...(_specificLeaveDates ?? []).map(
+                        (d) => Chip(
+                          label: Text(d, style: const TextStyle(fontSize: 12)),
+                          backgroundColor: Colors.orange.shade50,
+                          side: BorderSide(color: Colors.orange.shade200),
+                          deleteIcon: const Icon(Icons.close, size: 14),
+                          onDeleted: () =>
+                              setLocalState(() => _specificLeaveDates?.remove(d)),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 730),
+                            ),
+                          );
+                          if (picked != null) {
+                            final f =
+                                '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                            if (_specificLeaveDates?.contains(f) == false) {
+                              setLocalState(
+                                () => (_specificLeaveDates ??= []).add(f),
+                              );
+                            }
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.backgroundColor,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppTheme.primaryColor.withOpacity(0.5),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.add,
+                                size: 15,
+                                color: AppTheme.primaryColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Add Date',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ]),
+                sectionSpacing,
+
+                // ── Section 3: Clinic / Hospital Mapping ──────────
+                sectionCard(
+                  '3',
+                  'Clinic / Hospital Details',
+                  const Color(0xFF805AD5),
+                  [
+                    if (isMobile) ...[
+                      _buildProfileTextField(
+                        'Clinic / Hospital Name',
+                        _clinicNameController,
+                        Icons.local_hospital_outlined,
+                      ),
+                      fieldSpacing,
+                      _buildProfileTextField(
+                        'Location',
+                        _clinicLocationController,
+                        Icons.location_on_outlined,
+                      ),
+                      fieldSpacing,
+                      _buildProfileTextField(
+                        'Consultation Fee (₹)',
+                        _consultationFeeController,
+                        Icons.currency_rupee,
+                        isNumeric: true,
+                        maxLength: 5,
+                      ),
+                    ] else ...[
+                      _buildProfileTextField(
+                        'Clinic / Hospital Name',
+                        _clinicNameController,
+                        Icons.local_hospital_outlined,
+                      ),
+                      fieldSpacing,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildProfileTextField(
+                              'Location',
+                              _clinicLocationController,
+                              Icons.location_on_outlined,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildProfileTextField(
+                              'Consultation Fee (₹)',
+                              _consultationFeeController,
+                              Icons.currency_rupee,
+                              isNumeric: true,
+                              maxLength: 5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
-              ),
-              sectionSpacing,
+                ),
+                sectionSpacing,
+              ],
 
               sectionSpacing,
 
