@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../controllers/ipd_controller.dart';
+import '../widgets/custom_dropdown_search.dart';
 
 class FrontDeskAdmissionCounterView extends StatefulWidget {
   const FrontDeskAdmissionCounterView({Key? key}) : super(key: key);
@@ -659,24 +660,29 @@ class _FrontDeskAdmissionCounterViewState
 
     // Bed selection fields
     String? selectedWardType = req['bed_type_requirement'];
-    if (selectedWardType != null) {
+    if (selectedWardType != null && selectedWardType.trim().isNotEmpty) {
       const allowedWards = ['General', 'Semi-Private', 'Private', 'ICU'];
-      if (!allowedWards.contains(selectedWardType)) {
+      final trimmed = selectedWardType.trim();
+      if (!allowedWards.contains(trimmed)) {
         final match = allowedWards.firstWhere(
-          (w) => w.toLowerCase() == selectedWardType!.toLowerCase(),
-          orElse: () => 'General',
+          (w) => w.toLowerCase() == trimmed.toLowerCase(),
+          orElse: () => '',
         );
-        selectedWardType = match;
+        selectedWardType = match.isNotEmpty ? match : null;
+      } else {
+        selectedWardType = trimmed;
       }
     } else {
-      selectedWardType = 'General';
+      selectedWardType = null;
     }
 
     String? selectedBedNumber;
-    List<String> availableBeds = _beds
-        .where((b) => b['ward_type'] == selectedWardType && b['status'] == 'Available')
-        .map((b) => b['bed_number'].toString())
-        .toList();
+    List<String> availableBeds = selectedWardType == null
+        ? []
+        : _beds
+            .where((b) => b['ward_type'] == selectedWardType && b['status'] == 'Available')
+            .map((b) => b['bed_number'].toString())
+            .toList();
 
     // Insurance fields
     final TextEditingController insuranceProviderController =
@@ -804,29 +810,36 @@ class _FrontDeskAdmissionCounterViewState
                                     fontSize: 14,
                                     color: AppTheme.textPrimaryColor)),
                             const SizedBox(height: 10),
-                            DropdownButtonFormField<String>(
-                              value: selectedWardType,
-                              items: const [
-                                DropdownMenuItem(value: 'General', child: Text('General Ward')),
-                                DropdownMenuItem(value: 'Semi-Private', child: Text('Semi-Private Ward')),
-                                DropdownMenuItem(value: 'Private', child: Text('Private Ward')),
-                                DropdownMenuItem(value: 'ICU', child: Text('ICU')),
-                              ],
-                              onChanged: updateBedsForWard,
-                              decoration: _fieldDecoration('Ward Type', Icons.meeting_room_outlined),
-                              validator: (val) => val == null || val.isEmpty ? 'Please select a ward type' : null,
-                            ),
-                            const SizedBox(height: 12),
-                            DropdownButtonFormField<String>(
-                              value: selectedBedNumber,
-                              items: availableBeds
-                                  .map((bed) => DropdownMenuItem(value: bed, child: Text('Bed $bed')))
-                                  .toList(),
-                              onChanged: (val) => setD(() => selectedBedNumber = val),
-                              decoration: _fieldDecoration('Available Beds', Icons.bed_outlined),
-                              validator: (val) => val == null || val.isEmpty ? 'Please select a bed' : null,
-                            ),
-                            const SizedBox(height: 20),
+                             CustomDropdownSearch(
+                               label: 'Ward Type',
+                               hint: 'Select Ward Type',
+                               value: selectedWardType,
+                               dropdownMap: const {
+                                 'General': 'General Ward',
+                                 'Semi-Private': 'Semi-Private Ward',
+                                 'Private': 'Private Ward',
+                                 'ICU': 'ICU',
+                               },
+                               onChanged: (val) {
+                                 updateBedsForWard(val);
+                               },
+                               validator: (val) => val == null || val.isEmpty ? 'Please select a ward type' : null,
+                             ),
+                             const SizedBox(height: 16),
+                             CustomDropdownSearch(
+                               label: 'Available Beds',
+                               hint: 'Select Bed',
+                               value: selectedBedNumber,
+                               dropdownMap: {
+                                 for (var bed in availableBeds)
+                                   bed: 'Bed $bed',
+                               },
+                               onChanged: (val) {
+                                 setD(() => selectedBedNumber = val);
+                               },
+                               validator: (val) => val == null || val.isEmpty ? 'Please select a bed' : null,
+                             ),
+                             const SizedBox(height: 20),
 
                             // Documents Checklist
                             const Text('Documents Verification',

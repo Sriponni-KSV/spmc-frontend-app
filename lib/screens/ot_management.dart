@@ -6160,7 +6160,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       else ...[
         CustomDropdownSearch(
           label: 'Select Patient from DB (Auto-populates fields)',
-          hint: 'search by name or patient id',
+          hint: 'Select Patient',
           value: _selectedPatientId,
           dropdownMap: {
             for (var p in _patients)
@@ -6217,7 +6217,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         const SizedBox(height: 16),
         CustomDropdownSearch(
           label: 'Gender',
-          hint: 'select gender',
+          hint: 'Select Gender',
           value: _selectedGender,
           dropdownItems: const ['Male', 'Female', 'Other'],
           onChanged: (val) {
@@ -6227,7 +6227,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         const SizedBox(height: 16),
         CustomDropdownSearch(
           label: 'Blood Group',
-          hint: 'select blood group',
+          hint: 'Select Blood Group',
           value: _selectedBloodGroup,
           dropdownItems: const ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'],
           onChanged: (val) {
@@ -6255,7 +6255,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             Expanded(
               child: CustomDropdownSearch(
                 label: 'Gender',
-                hint: 'select gender',
+                hint: 'Select Gender',
                 value: _selectedGender,
                 dropdownItems: const ['Male', 'Female', 'Other'],
                 onChanged: (val) {
@@ -6267,7 +6267,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             Expanded(
               child: CustomDropdownSearch(
                 label: 'Blood Group',
-                hint: 'select blood group',
+                hint: 'Select Blood Group',
                 value: _selectedBloodGroup,
                 dropdownItems: const ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'],
                 onChanged: (val) {
@@ -6532,7 +6532,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       if (widget.isMobile) ...[
         CustomDropdownSearch(
           label: 'Surgery Type',
-          hint: 'select surgery type',
+          hint: 'Select Surgery Type',
           value: _selectedSurgeryType,
           dropdownItems: const [
             'Laparoscopic Cholecystectomy',
@@ -6549,7 +6549,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         const SizedBox(height: 16),
         CustomDropdownSearch(
           label: 'Priority / Urgency',
-          hint: 'select priority',
+          hint: 'Select Priority / Urgency',
           value: _selectedPriority,
           dropdownItems: const ['Elective', 'Emergency'],
           onChanged: (val) {
@@ -6562,7 +6562,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             Expanded(
               child: CustomDropdownSearch(
                 label: 'Surgery Type',
-                hint: 'select surgery type',
+                hint: 'Select Surgery Type',
                 value: _selectedSurgeryType,
                 dropdownItems: const [
                   'Laparoscopic Cholecystectomy',
@@ -6581,7 +6581,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             Expanded(
               child: CustomDropdownSearch(
                 label: 'Priority / Urgency',
-                hint: 'select priority',
+                hint: 'Select Priority / Urgency',
                 value: _selectedPriority,
                 dropdownItems: const ['Elective', 'Emergency'],
                 onChanged: (val) {
@@ -6702,7 +6702,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             : CustomDropdownSearch(
                 label: 'Primary Surgeon Name',
                 requiredMark: true,
-                hint: 'search surgeon',
+                hint: 'Select Surgeon',
                 value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
                 dropdownMap: {
                   for (var d in _doctors)
@@ -6726,7 +6726,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             : CustomDropdownSearch(
                 label: 'Suggested Anaesthetist',
                 requiredMark: true,
-                hint: 'search anaesthetist',
+                hint: 'Select Anaesthetist',
                 value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
                 dropdownMap: {
                   for (var d in _anaesthetists)
@@ -6753,7 +6753,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   : CustomDropdownSearch(
                       label: 'Primary Surgeon Name',
                       requiredMark: true,
-                      hint: 'search surgeon',
+                      hint: 'Select Surgeon',
                       value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
                       dropdownMap: {
                         for (var d in _doctors)
@@ -6779,7 +6779,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   : CustomDropdownSearch(
                       label: 'Suggested Anaesthetist',
                       requiredMark: true,
-                      hint: 'search anaesthetist',
+                      hint: 'Select Anaesthetist',
                       value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
                       dropdownMap: {
                         for (var d in _anaesthetists)
