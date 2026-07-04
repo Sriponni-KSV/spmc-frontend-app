@@ -799,7 +799,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           children: [
             Expanded(
               child: Text(
-                user != null ? 'Hello, ${user.fullname}' : 'Dashboard',
+                user != null ? 'Hello, ${user.rawFullname ?? ''}' : 'Dashboard',
                 style: Theme.of(context).textTheme.displayLarge,
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,

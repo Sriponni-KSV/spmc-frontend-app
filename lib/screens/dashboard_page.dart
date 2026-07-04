@@ -127,7 +127,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _initControllers() {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    _nameController = TextEditingController(text: user?.fullname ?? '');
+    _nameController = TextEditingController(text: user?.rawFullname ?? '');
     _specController = TextEditingController(text: user?.specialization ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
     _mobileController = TextEditingController(text: user?.mobile ?? '');
@@ -479,7 +479,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         setState(() {
           _doctorAppointments = allAppointments.where((appt) {
-            return _isDoctorMatch(appt.doctorName, user?.fullname ?? '');
+            return _isDoctorMatch(appt.doctorName, user?.rawFullname ?? '');
           }).toList();
           _isLoading = false;
         });
@@ -623,7 +623,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: Column(
                 children: [
-                  _buildHeader(isMobile, user?.fullname ?? 'Doctor'),
+                  _buildHeader(isMobile, user?.rawFullname ?? 'Doctor'),
                   Expanded(child: _buildMainContent(isMobile)),
                 ],
               ),
@@ -1968,8 +1968,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       child: Center(
                         child: Text(
-                          user?.fullname.isNotEmpty == true
-                              ? user!.fullname[0].toUpperCase()
+                          user?.rawFullname?.isNotEmpty == true
+                              ? user!.rawFullname![0].toUpperCase()
                               : 'D',
                           style: const TextStyle(
                             fontSize: 48,
@@ -1985,7 +1985,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user?.fullname ?? 'Doctor',
+                            user?.rawFullname ?? 'Doctor',
                             style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
@@ -2023,8 +2023,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 20),
                   _buildDetailRow(
                     'Full Name',
-                    user?.fullname ?? '-',
+                    user?.rawFullname ?? '-',
                     Icons.person_outline,
+                  ),
+                  _buildDetailRow(
+                    'Staff ID',
+                    user?.staffUniqueId ?? '-',
+                    Icons.badge_outlined,
                   ),
                   _buildDetailRow(
                     'Email Address',
@@ -2047,8 +2052,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 20),
                   _buildDetailRow(
                     'Full Name',
-                    user?.fullname ?? '-',
+                    user?.rawFullname ?? '-',
                     Icons.person_outline,
+                  ),
+                  _buildDetailRow(
+                    'Staff ID',
+                    user?.staffUniqueId ?? '-',
+                    Icons.badge_outlined,
                   ),
                   _buildDetailRow(
                     'Email Address',
@@ -2447,8 +2457,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           child: Center(
                             child: Text(
-                              user?.fullname.isNotEmpty == true
-                                  ? user!.fullname[0].toUpperCase()
+                              user?.rawFullname?.isNotEmpty == true
+                                  ? user!.rawFullname![0].toUpperCase()
                                   : 'D',
                               style: const TextStyle(
                                 fontSize: 36,
@@ -2463,7 +2473,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              user?.fullname ?? 'Doctor',
+                              user?.rawFullname ?? 'Doctor',
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -3441,16 +3451,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           child: CircleAvatar(
                             backgroundColor: AppTheme.getAvatarColors(
-                              user.fullname,
+                              user.rawFullname ?? '',
                             )['bg'],
                             radius: 18,
                             child: Text(
-                              user.fullname.isNotEmpty
-                                  ? user.fullname[0].toUpperCase()
+                              user.rawFullname?.isNotEmpty == true
+                                  ? user.rawFullname![0].toUpperCase()
                                   : '?',
                               style: TextStyle(
                                 color: AppTheme.getAvatarColors(
-                                  user.fullname,
+                                  user.rawFullname ?? '',
                                 )['text'],
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
@@ -3464,7 +3474,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                user.fullname,
+                                user.rawFullname ?? '',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
@@ -3692,7 +3702,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '$greeting, ${user?.fullname ?? 'Doctor'}',
+          '$greeting, ${user?.rawFullname ?? 'Doctor'}',
           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
@@ -4329,7 +4339,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '$greeting, Dr. ${user?.fullname ?? 'Anaesthetist'}',
+          '$greeting, Dr. ${user?.rawFullname ?? 'Anaesthetist'}',
           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),

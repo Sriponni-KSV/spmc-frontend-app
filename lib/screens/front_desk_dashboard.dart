@@ -436,8 +436,8 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                     CircleAvatar(
                       backgroundColor: AppTheme.logoRed.withOpacity(0.1),
                       child: Text(
-                        user != null && user.fullname.isNotEmpty
-                            ? user.fullname.substring(0, 1).toUpperCase()
+                        user != null && (user.rawFullname ?? '').isNotEmpty
+                            ? user.rawFullname!.substring(0, 1).toUpperCase()
                             : 'F',
                         style: const TextStyle(
                           color: AppTheme.logoRed,
@@ -451,7 +451,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user?.fullname ?? 'Front Desk',
+                            user?.rawFullname ?? 'Front Desk',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
@@ -598,7 +598,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           children: [
             Expanded(
               child: Text(
-                user != null ? 'Hello, ${user.fullname}' : 'Dashboard',
+                user != null ? 'Hello, ${user.rawFullname ?? ''}' : 'Dashboard',
                 style: Theme.of(context).textTheme.displayLarge,
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
@@ -1094,7 +1094,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
 
   void _initControllers() {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    _nameController.text = user?.fullname ?? '';
+    _nameController.text = user?.rawFullname ?? '';
     _emailController.text = user?.email ?? '';
     _bioController.text = user?.bio ?? '';
     _mobileController.text = user?.mobile ?? '';
@@ -1268,7 +1268,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                       ),
                       child: Center(
                         child: Text(
-                          user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'F',
+                          user?.rawFullname?.isNotEmpty == true ? user!.rawFullname![0].toUpperCase() : 'F',
                           style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                       ),
@@ -1278,7 +1278,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(user?.fullname ?? 'Front Desk', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
+                          Text(user?.rawFullname ?? 'Front Desk', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
                           const SizedBox(height: 8),
                           Text(
                             user?.role ?? 'Front Desk',
@@ -1296,7 +1296,8 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                 const SizedBox(height: 24),
                 const Divider(height: 1, color: Color(0xFFE2E8F0)),
                 const SizedBox(height: 20),
-                _buildDetailRow('Full Name', user?.fullname ?? '-', Icons.person_outline),
+                _buildDetailRow('Full Name', user?.rawFullname ?? '-', Icons.person_outline),
+                _buildDetailRow('Staff ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
                 _buildDetailRow('Email Address', user?.email ?? '-', Icons.alternate_email),
                 _buildDetailRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
                 _buildDetailRow('Bio Summary', user?.bio ?? '-', Icons.description_outlined),
@@ -1441,8 +1442,8 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                         ),
                         child: Center(
                           child: Text(
-                            user?.fullname.isNotEmpty == true
-                                ? user!.fullname[0].toUpperCase()
+                            user?.rawFullname?.isNotEmpty == true
+                                ? user!.rawFullname![0].toUpperCase()
                                 : 'F',
                             style: const TextStyle(
                               fontSize: 36,
@@ -1457,7 +1458,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user?.fullname ?? 'Front Desk',
+                            user?.rawFullname ?? 'Front Desk',
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,

@@ -725,7 +725,7 @@ class _DoctorsViewState extends State<DoctorsView> {
 
     final List<Map<String, dynamic>> specializations = await _adminController.fetchSpecializations();
     
-    final fullnameController = TextEditingController(text: doctor.fullname);
+    final fullnameController = TextEditingController(text: doctor.rawFullname);
     final emailController = TextEditingController(text: doctor.email);
     final mobileController = TextEditingController(text: doctor.mobile ?? '');
     final experienceController = TextEditingController(text: doctor.experience ?? '');

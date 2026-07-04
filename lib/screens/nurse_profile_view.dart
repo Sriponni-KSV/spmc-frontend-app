@@ -65,7 +65,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
 
   void _initControllers() {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    _nameController.text = user?.fullname ?? '';
+    _nameController.text = user?.rawFullname ?? '';
     _emailController.text = user?.email ?? '';
     _bioController.text = user?.bio ?? '';
     _mobileController.text = user?.mobile ?? '';
@@ -360,7 +360,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                         shape: BoxShape.circle,
                       ),
                       child: Center(
-                        child: Text(user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'N', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)),
+                        child: Text(user?.rawFullname?.isNotEmpty == true ? user!.rawFullname![0].toUpperCase() : 'N', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)),
                       ),
                     ),
                     const SizedBox(width: 32),
@@ -368,7 +368,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(user?.fullname ?? 'Nurse', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
+                          Text(user?.rawFullname ?? 'Nurse', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
                           const SizedBox(height: 8),
                           Text(
                             user?.role ?? 'Nurse',
@@ -383,11 +383,12 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     ),
                   ],
                 ),
-                if (user?.bio != null && user!.bio!.isNotEmpty) ...[
+                 if (user?.bio != null && user!.bio!.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   const Divider(height: 1, color: Color(0xFFE2E8F0)),
                   const SizedBox(height: 20),
-                  _buildDetailRow('Full Name', user?.fullname ?? '-', Icons.person_outline),
+                  _buildDetailRow('Full Name', user?.rawFullname ?? '-', Icons.person_outline),
+                  _buildDetailRow('Staff ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
                   _buildDetailRow('Email Address', user?.email ?? '-', Icons.alternate_email),
                   _buildDetailRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
                   _buildDetailRow('Bio Summary', user?.bio ?? '-', Icons.description_outlined),
@@ -395,7 +396,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   const SizedBox(height: 24),
                   const Divider(height: 1, color: Color(0xFFE2E8F0)),
                   const SizedBox(height: 20),
-                  _buildDetailRow('Full Name', user?.fullname ?? '-', Icons.person_outline),
+                  _buildDetailRow('Full Name', user?.rawFullname ?? '-', Icons.person_outline),
+                  _buildDetailRow('Staff ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
                   _buildDetailRow('Email Address', user?.email ?? '-', Icons.alternate_email),
                   _buildDetailRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
                 ],
@@ -519,8 +521,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                         ),
                         child: Center(
                           child: Text(
-                            user?.fullname.isNotEmpty == true
-                                ? user!.fullname[0].toUpperCase()
+                            user?.rawFullname?.isNotEmpty == true
+                                ? user!.rawFullname![0].toUpperCase()
                                 : 'N',
                             style: const TextStyle(
                               fontSize: 36,
@@ -535,7 +537,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user?.fullname ?? 'Nurse',
+                            user?.rawFullname ?? 'Nurse',
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,

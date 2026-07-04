@@ -811,14 +811,6 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                     color: Color(0xFF2D3748),
                                                   ),
                                                 ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  'ID: ${doc.staffUniqueId ?? "N/A"}',
-                                                  style: const TextStyle(
-                                                    fontSize: 10,
-                                                    color: Color(0xFF718096),
-                                                  ),
-                                                ),
                                               ],
                                             ),
                                           ],
@@ -1490,17 +1482,6 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                                   fontSize: 13,
                                                                   color: Color(
                                                                     0xFF2D3748,
-                                                                  ),
-                                                                ),
-                                                          ),
-                                                          const SizedBox(height: 2),
-                                                          Text(
-                                                            'ID: ${doc.staffUniqueId ?? "N/A"}  •  ${_selectedDept!}',
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 11,
-                                                                  color: Color(
-                                                                    0xFF64748B,
                                                                   ),
                                                                 ),
                                                           ),

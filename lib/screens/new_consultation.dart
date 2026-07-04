@@ -146,8 +146,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               .where((d) => d.status.toLowerCase() == 'active' && !d.isDeleted)
               .toList();
           _doctorsList = _rawDoctors
-              .map((d) =>
-                  '${d.fullname} (${d.staffUniqueId ?? "N/A"}) - ${d.specialization ?? "General"}')
+              .map((d) => d.fullname)
               .toList();
           _departmentsList = specs.map((s) => s['name'].toString()).toList();
 
@@ -157,8 +156,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             final matched = _rawDoctors.where((d) => d.fullname == docName).toList();
             if (matched.isNotEmpty) {
               final d = matched.first;
-              _referredDoctorController.text =
-                  '${d.fullname} (${d.staffUniqueId ?? "N/A"}) - ${d.specialization ?? "General"}';
+              _referredDoctorController.text = d.fullname;
             }
           }
 
@@ -1611,9 +1609,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                     setState(() {
                       _referredDoctorController.text = val;
                       final matchedDocs = _rawDoctors
-                          .where((d) =>
-                              '${d.fullname} (${d.staffUniqueId ?? "N/A"}) - ${d.specialization ?? "General"}' ==
-                              val)
+                          .where((d) => d.fullname == val)
                           .toList();
                       if (matchedDocs.isNotEmpty) {
                         final spec = matchedDocs.first.specialization;

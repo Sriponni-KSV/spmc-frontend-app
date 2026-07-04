@@ -289,7 +289,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showEditDialog(BuildContext context, UserModel user) {
-    final nameCtrl = TextEditingController(text: user.fullname);
+    final nameCtrl = TextEditingController(text: user.rawFullname);
     final emailCtrl = TextEditingController(text: user.email);
     final mobileCtrl = TextEditingController(text: user.mobile);
     final editFormKey = GlobalKey<FormState>();
@@ -2220,7 +2220,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          user != null ? 'Hello, ${user.fullname}' : 'Dashboard',
+          user != null ? 'Hello, ${user.rawFullname ?? ''}' : 'Dashboard',
           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),

@@ -1350,8 +1350,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           value: selectedDoctor?.id.toString(),
                           dropdownMap: {
                             for (var d in allDoctors)
-                              d.id.toString():
-                                  '${d.fullname} (${d.staffUniqueId ?? "N/A"})',
+                              d.id.toString(): d.fullname,
                           },
                           onChanged: (val) {
                             if (val != null) {

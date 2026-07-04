@@ -6737,7 +6737,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
                 dropdownMap: {
                   for (var d in _doctors)
-                    d.fullname: '${d.fullname} (${d.staffUniqueId ?? "N/A"})'
+                    d.fullname: d.fullname
                 },
                 onChanged: (val) {
                   if (val != null) {
@@ -6761,7 +6761,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
                 dropdownMap: {
                   for (var d in _anaesthetists)
-                    d.fullname: '${d.fullname} (${d.staffUniqueId ?? "N/A"})'
+                    d.fullname: d.fullname
                 },
                 onChanged: (val) {
                   if (val != null) {
@@ -6788,7 +6788,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
                       dropdownMap: {
                         for (var d in _doctors)
-                          d.fullname: '${d.fullname} (${d.staffUniqueId ?? "N/A"})'
+                          d.fullname: d.fullname
                       },
                       onChanged: (val) {
                         if (val != null) {
@@ -6814,7 +6814,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
                       dropdownMap: {
                         for (var d in _anaesthetists)
-                          d.fullname: '${d.fullname} (${d.staffUniqueId ?? "N/A"})'
+                          d.fullname: d.fullname
                       },
                       onChanged: (val) {
                         if (val != null) {

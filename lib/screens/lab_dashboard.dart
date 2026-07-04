@@ -230,12 +230,12 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                         : Row(
                             children: [
                               CircleAvatar(
-                                backgroundColor: AppTheme.getAvatarColors(user.fullname)['bg'],
+                                backgroundColor: AppTheme.getAvatarColors(user.rawFullname ?? '')['bg'],
                                 radius: 18,
                                 child: Text(
-                                  user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                                  (user.rawFullname ?? '').isNotEmpty ? user.rawFullname![0].toUpperCase() : '?',
                                   style: TextStyle(
-                                    color: AppTheme.getAvatarColors(user.fullname)['text'],
+                                    color: AppTheme.getAvatarColors(user.rawFullname ?? '')['text'],
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),
@@ -247,7 +247,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      user.fullname,
+                                      user.rawFullname ?? '',
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                       overflow: TextOverflow.ellipsis,
                                     ),
