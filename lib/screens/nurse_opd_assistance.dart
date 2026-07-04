@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../models/appointment_model.dart';
@@ -932,10 +933,13 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           child: TextFormField(
                             controller: sysCtrl,
                             keyboardType: TextInputType.number,
+                            maxLength: 3,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                             decoration: const InputDecoration(
                               labelText: 'Systolic',
                               hintText: '120',
                               isDense: true,
+                              counterText: '',
                             ),
                             autovalidateMode: AutovalidateMode.onUserInteraction,
                             validator: (val) {
@@ -962,10 +966,13 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           child: TextFormField(
                             controller: diaCtrl,
                             keyboardType: TextInputType.number,
+                            maxLength: 3,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                             decoration: const InputDecoration(
                               labelText: 'Diastolic',
                               hintText: '80',
                               isDense: true,
+                              counterText: '',
                             ),
                             autovalidateMode: AutovalidateMode.onUserInteraction,
                             validator: (val) {
@@ -1003,9 +1010,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
                                     ),
+                                maxLength: 6,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                ],
                                 decoration: const InputDecoration(
                                   hintText: '95.5',
                                   isDense: true,
+                                  counterText: '',
                                 ),
                                 autovalidateMode: AutovalidateMode.onUserInteraction,
                                 validator: (val) {
@@ -1039,9 +1051,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
                                     ),
+                                maxLength: 5,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                ],
                                 decoration: const InputDecoration(
                                   hintText: '98.6',
                                   isDense: true,
+                                  counterText: '',
                                 ),
                                 autovalidateMode: AutovalidateMode.onUserInteraction,
                                 validator: (val) {
@@ -1063,6 +1080,10 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                     TextFormField(
                       controller: cmpCtrl,
                       maxLines: 3,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                        LengthLimitingTextInputFormatter(100),
+                      ],
                       decoration: const InputDecoration(
                         labelText: 'Chief Complaint',
                         hintText: 'Describe symptoms or reason for visit...',
@@ -1525,9 +1546,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                   TextFormField(
                                     controller: bpSysCtrl,
                                     keyboardType: TextInputType.number,
+                                    maxLength: 3,
+                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                     decoration: const InputDecoration(
                                       hintText: '120',
                                       isDense: true,
+                                      counterText: '',
                                     ),
                                     autovalidateMode:
                                         AutovalidateMode.onUserInteraction,
@@ -1568,9 +1592,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                   TextFormField(
                                     controller: bpDiaCtrl,
                                     keyboardType: TextInputType.number,
+                                    maxLength: 3,
+                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                     decoration: const InputDecoration(
                                       hintText: '80',
                                       isDense: true,
+                                      counterText: '',
                                     ),
                                     autovalidateMode:
                                         AutovalidateMode.onUserInteraction,
@@ -1618,9 +1645,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                         const TextInputType.numberWithOptions(
                                           decimal: true,
                                         ),
+                                    maxLength: 6,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                    ],
                                     decoration: const InputDecoration(
                                       hintText: '95.5 mg/dL',
                                       isDense: true,
+                                      counterText: '',
                                     ),
                                     autovalidateMode:
                                         AutovalidateMode.onUserInteraction,
@@ -1664,9 +1696,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                         const TextInputType.numberWithOptions(
                                           decimal: true,
                                         ),
+                                    maxLength: 5,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                    ],
                                     decoration: const InputDecoration(
                                       hintText: '98.6 °F',
                                       isDense: true,
+                                      counterText: '',
                                     ),
                                     autovalidateMode:
                                         AutovalidateMode.onUserInteraction,
@@ -1697,6 +1734,10 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         TextFormField(
                           controller: complaintCtrl,
                           maxLines: 3,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                            LengthLimitingTextInputFormatter(100),
+                          ],
                           decoration: const InputDecoration(
                             hintText:
                                 'Describe symptoms or reason for visit...',

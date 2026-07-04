@@ -188,11 +188,14 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
               size: 22,
             ),
             const SizedBox(width: 16),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],

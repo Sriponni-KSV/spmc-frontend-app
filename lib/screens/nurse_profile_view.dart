@@ -211,7 +211,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     );
   }
 
-  Widget _buildProfileTextField(String label, TextEditingController controller, IconData icon, {bool isReadOnly = false, bool isNumeric = false, int? maxLength, VoidCallback? onTap}) {
+  Widget _buildProfileTextField(String label, TextEditingController controller, IconData icon, {bool isReadOnly = false, bool isNumeric = false, bool isAlphanumeric = false, int? maxLength, VoidCallback? onTap}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -227,7 +227,13 @@ class _NurseProfileViewState extends State<NurseProfileView> {
           maxLength: maxLength,
           inputFormatters: isNumeric
               ? [FilteringTextInputFormatter.digitsOnly]
-              : (isReadOnly ? null : [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s./,()\-]'))]),
+              : (isReadOnly ? null : [
+                  FilteringTextInputFormatter.allow(
+                    isAlphanumeric 
+                        ? RegExp(r'[a-zA-Z0-9\s./,()\-]') 
+                        : RegExp(r'[a-zA-Z\s./,()\-]'),
+                  ),
+                ]),
           mouseCursor: onTap != null 
               ? SystemMouseCursors.click 
               : (isReadOnly ? SystemMouseCursors.forbidden : null),
@@ -588,6 +594,10 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                       TextFormField(
                         controller: _bioController,
                         maxLines: 3,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                          LengthLimitingTextInputFormatter(300),
+                        ],
                         style: const TextStyle(
                           color: AppTheme.textPrimaryColor,
                           fontWeight: FontWeight.normal,
@@ -627,7 +637,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
               if (isMobile) ...[
                 _buildProfileTextField('Qualification', _qualController, Icons.school_outlined),
                 fieldSpacing,
-                _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined),
+                 _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true),
                 fieldSpacing,
                 _buildProfileTextField('Years of Experience', _yearsExpController, Icons.work_outline, isNumeric: true, maxLength: 2),
               ] else ...[
@@ -637,9 +647,9 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                       child: _buildProfileTextField('Qualification', _qualController, Icons.school_outlined),
                     ),
                     const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined),
-                    ),
+                     Expanded(
+                       child: _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true),
+                     ),
                   ],
                 ),
                 fieldSpacing,

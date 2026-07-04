@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -6202,8 +6203,16 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       _buildFieldLabel('Patient Full Name *'),
       TextFormField(
         controller: _patientNameController,
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]')),
+          LengthLimitingTextInputFormatter(30),
+        ],
         decoration: _noLabelDecoration(hintText: 'enter patient name'),
-        validator: (val) => val == null || val.trim().isEmpty ? 'please enter patient name' : null,
+        validator: (val) {
+          if (val == null || val.trim().isEmpty) return 'please enter patient name';
+          if (val.trim().length < 3) return 'Name must be at least 3 characters';
+          return null;
+        },
       ),
       const SizedBox(height: 16),
       if (widget.isMobile) ...[
@@ -6211,8 +6220,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         TextFormField(
           controller: _ageController,
           keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(3),
+          ],
           decoration: _noLabelDecoration(hintText: 'enter age'),
-          validator: (val) => val == null || val.trim().isEmpty ? 'please enter age' : null,
+          validator: (val) {
+            if (val == null || val.trim().isEmpty) return 'please enter age';
+            final age = int.tryParse(val.trim());
+            if (age == null || age <= 0) return 'please enter a valid age';
+            return null;
+          },
         ),
         const SizedBox(height: 16),
         CustomDropdownSearch(
@@ -6245,8 +6263,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   TextFormField(
                     controller: _ageController,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(3),
+                    ],
                     decoration: _noLabelDecoration(hintText: 'enter age'),
-                    validator: (val) => val == null || val.trim().isEmpty ? 'please enter age' : null,
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) return 'please enter age';
+                      final age = int.tryParse(val.trim());
+                      if (age == null || age <= 0) return 'please enter a valid age';
+                      return null;
+                    },
                   ),
                 ],
               ),
@@ -6282,6 +6309,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       _buildFieldLabel('Diagnosis Details *'),
       TextFormField(
         controller: _diagnosisController,
+        inputFormatters: [
+          FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+          LengthLimitingTextInputFormatter(250),
+        ],
         decoration: _noLabelDecoration(hintText: 'enter diagnosis'),
         validator: (val) => val == null || val.trim().isEmpty ? 'please enter diagnosis' : null,
       ),
@@ -6803,6 +6834,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       TextFormField(
         controller: _remarksController,
         maxLines: 2,
+        inputFormatters: [
+          FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+          LengthLimitingTextInputFormatter(250),
+        ],
         decoration: _noLabelDecoration(hintText: 'enter remarks'),
       ),
       const SizedBox(height: 24),

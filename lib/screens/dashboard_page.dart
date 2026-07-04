@@ -647,6 +647,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         initialConsultation: existingConsul.isNotEmpty ? existingConsul : null,
         onBack: () {
           setState(() => _activeAppointment = null);
+          context.go(AppRoutes.doctorPatients);
           _fetchConsultations(); // Refresh after potentially saving/updating
           _fetchDoctorData(); // Refresh appointment list status
           _fetchLabReports(); // Refresh lab reports list to show newly ordered tests instantly
@@ -2666,6 +2667,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       'Qualification (MBBS, MD, etc.)',
                       _qualController,
                       Icons.school_outlined,
+                      maxLength: 100,
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .,()]'))],
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
@@ -2679,6 +2682,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       'Medical Registration Number',
                       _licenseController,
                       Icons.badge_outlined,
+                      maxLength: 20,
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9/\-]'))],
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
@@ -2693,6 +2698,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       'Areas of Expertise (comma-separated)',
                       _areasOfExpertiseController,
                       Icons.star_outline,
+                      maxLength: 100,
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,]'))],
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
@@ -2710,6 +2717,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             'Qualification (MBBS, MD, etc.)',
                             _qualController,
                             Icons.school_outlined,
+                            maxLength: 100,
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .,()]'))],
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -2731,6 +2740,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             'Medical Registration Number',
                             _licenseController,
                             Icons.badge_outlined,
+                            maxLength: 20,
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9/\-]'))],
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -2753,6 +2764,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             'Areas of Expertise (comma-separated)',
                             _areasOfExpertiseController,
                             Icons.star_outline,
+                            maxLength: 100,
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,]'))],
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -3141,7 +3154,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     bool isNumeric = false,
     bool isReadOnly = false,
     int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
   }) {
+    // Determine effective formatters: caller-supplied > isNumeric default > none
+    final effectiveFormatters = inputFormatters ??
+        (isNumeric ? [FilteringTextInputFormatter.digitsOnly] : null);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3159,9 +3177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
           readOnly: isReadOnly,
           maxLength: maxLength,
-          inputFormatters: isNumeric
-              ? [FilteringTextInputFormatter.digitsOnly]
-              : null,
+          inputFormatters: effectiveFormatters,
           mouseCursor: isReadOnly ? SystemMouseCursors.forbidden : null,
           style: TextStyle(
             color: isReadOnly

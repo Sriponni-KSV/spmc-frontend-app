@@ -1303,32 +1303,6 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
               ],
             ),
           ),
-          sectionSpacing,
-          _buildInfoCard('Availability / Duty', [
-            _buildDetailRow(
-              'Working Days',
-              (user?.workingDays == null || user!.workingDays!.isEmpty)
-                  ? '-'
-                  : user!.workingDays!.join(', '),
-              Icons.calendar_month_outlined,
-            ),
-            _buildDetailRow('Shift Hours', '${user?.shiftStartTime ?? "-"} to ${user?.shiftEndTime ?? "-"}', Icons.access_time_rounded),
-            _buildDetailRow('Shift Type', user?.shiftType ?? '-', Icons.event_available_outlined),
-            _buildDetailRow(
-              'Weekly Off',
-              (user?.weeklyOffDays ?? []).isEmpty
-                  ? '-'
-                  : user!.weeklyOffDays!.join(', '),
-              Icons.event_busy_outlined,
-            ),
-            _buildDetailRow(
-              'Specific Leave Dates',
-              (user?.specificLeaveDates == null || user!.specificLeaveDates!.isEmpty)
-                  ? '-'
-                  : user!.specificLeaveDates!.join(', '),
-              Icons.calendar_today_outlined,
-            ),
-          ]),
         ],
       ),
     );
@@ -1576,102 +1550,6 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                 ],
               ),
             ),
-            sectionSpacing,
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppTheme.successColor.withOpacity(0.1))),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Weekly Schedule (Tap: Available ↔ Leave)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8, runSpacing: 8,
-                    children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
-                      final isAvailable = _availableDays?.contains(day) ?? false;
-                      Color bgColor = isAvailable ? AppTheme.successColor : Colors.red.shade400;
-                      return MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          onTap: () => setLocalState(() {
-                            if (isAvailable) {
-                              _availableDays?.remove(day);
-                            } else {
-                              (_availableDays ??= []).add(day);
-                            }
-                            final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                            _weeklyOffDays = allDays.where((d) => !(_availableDays?.contains(d) ?? false)).toList();
-                          }),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: bgColor,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: bgColor),
-                            ),
-                            child: Text(day, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  fieldSpacing,
-                  if (isMobile) ...[
-                    _buildProfileTextField('Shift Start Time', _slotStartController, Icons.login_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotStartController)),
-                    fieldSpacing,
-                    _buildProfileTextField('Shift End Time', _slotEndController, Icons.logout_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotEndController)),
-                    fieldSpacing,
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
-                        const SizedBox(height: 8),
-                        CustomDropdownSearch(
-                          label: '',
-                          value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
-                          dropdownItems: const ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'],
-                          onChanged: (v) {
-                            if (v != null) {
-                              _shiftTypeController.text = v;
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _buildProfileTextField('Shift Start Time', _slotStartController, Icons.login_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotStartController))),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildProfileTextField('Shift End Time', _slotEndController, Icons.logout_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotEndController))),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
-                              const SizedBox(height: 8),
-                              CustomDropdownSearch(
-                                label: '',
-                                value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
-                                dropdownItems: const ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'],
-                                onChanged: (v) {
-                                  if (v != null) {
-                                    _shiftTypeController.text = v;
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
             const SizedBox(height: 32),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -1686,10 +1564,17 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                   onPressed: _isLoading ? null : _saveProfile,
                   style: AppTheme.primaryButton.copyWith(
                     backgroundColor: MaterialStateProperty.all(AppTheme.successColor),
+                    padding: MaterialStateProperty.all(const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
+                    minimumSize: MaterialStateProperty.all(const Size(130, 48)),
+                    shape: MaterialStateProperty.all(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                   child: _isLoading 
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Save Changes', style: TextStyle(color: Colors.white)),
+                    : const Text('Save Changes', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
                 ),
               ],
             ),

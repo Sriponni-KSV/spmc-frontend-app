@@ -500,6 +500,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           prefixIcon: Icon(Icons.email_outlined),
                         ),
                         keyboardType: TextInputType.emailAddress,
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(100),
+                        ],
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
                             return 'Please enter Email Address';
@@ -872,6 +875,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             _isRegisteringPatient = false;
             _patientToComplete = null;
           });
+          context.go(AppRoutes.adminPatients);
           _fetchPatients();
         },
       );
@@ -4940,6 +4944,9 @@ class _AddUserDialogState extends State<AddUserDialog> {
                                 setState(() => _errorMessage = null);
                             },
                             keyboardType: TextInputType.emailAddress,
+                            inputFormatters: [
+                              LengthLimitingTextInputFormatter(100),
+                            ],
                             decoration: InputDecoration(
                               hintText: 'Enter email address',
                               hintStyle: const TextStyle(
@@ -5286,6 +5293,9 @@ class _AddUserDialogState extends State<AddUserDialog> {
                             TextFormField(
                               controller: _licenseController,
                               inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[a-zA-Z0-9\-]'),
+                                ),
                                 LengthLimitingTextInputFormatter(30),
                               ],
                               decoration: InputDecoration(

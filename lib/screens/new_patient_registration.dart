@@ -456,9 +456,11 @@ class _NewPatientRegistrationViewState
                           ),
                           LengthLimitingTextInputFormatter(30),
                         ],
-                        validator: (val) => val == null || val.isEmpty
-                            ? 'Please enter Full Name'
-                            : null,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'Please enter Full Name';
+                          if (val.trim().length < 3) return 'Name must be at least 3 characters';
+                          return null;
+                        },
                       ),
                     ],
                   ),
@@ -579,9 +581,11 @@ class _NewPatientRegistrationViewState
                           ),
                           LengthLimitingTextInputFormatter(30),
                         ],
-                        validator: (val) => val == null || val.isEmpty
-                            ? 'Please enter Emergency Contact Name'
-                            : null,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'Please enter Emergency Contact Name';
+                          if (val.trim().length < 3) return 'Name must be at least 3 characters';
+                          return null;
+                        },
                       ),
                     ],
                   ),
@@ -603,6 +607,7 @@ class _NewPatientRegistrationViewState
                           FilteringTextInputFormatter.allow(
                             RegExp(r'[a-zA-Z\s]'),
                           ),
+                          LengthLimitingTextInputFormatter(20),
                         ],
                         validator: (val) => val == null || val.isEmpty
                             ? 'Please enter Relation'
@@ -1251,15 +1256,22 @@ class _NewPatientRegistrationViewState
               controller: _complaintsController,
               hint: 'Describe current health complaints...',
               maxLines: 4,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,.\-/()]')),
+                LengthLimitingTextInputFormatter(500),
+              ],
             ),
             const SizedBox(height: 24),
 
             // Past Medical History
-            _buildLabelAccent('Past Medical History'),
+            _buildLabel('Past Medical History'),
             _buildTextField(
               controller: _historyController,
               hint: 'Previous conditions, surgeries, medications...',
               maxLines: 4,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(500),
+              ],
             ),
             const SizedBox(height: 48),
 
@@ -1518,6 +1530,10 @@ class _NewPatientRegistrationViewState
               controller: _foodHabitsController,
               hint: 'Dietary preferences and eating patterns...',
               maxLines: 4,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,.\-/()]')),
+                LengthLimitingTextInputFormatter(300),
+              ],
             ),
             const SizedBox(height: 24),
 
@@ -1582,6 +1598,10 @@ class _NewPatientRegistrationViewState
               controller: _physicalActivityController,
               hint: 'Describe daily physical activities...',
               maxLines: 1,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,.\-/()]')),
+                LengthLimitingTextInputFormatter(200),
+              ],
             ),
             const SizedBox(height: 48),
 

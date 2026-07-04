@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // ── Colors ────────────────────────────────────────────────────────────────
@@ -275,7 +276,7 @@ class AppTheme {
       primaryColor: primaryColor,
       scaffoldBackgroundColor: backgroundColor,
       fontFamily: fontFamily,
-      textTheme: textTheme,
+      textTheme: GoogleFonts.interTextTheme(textTheme),
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
         primary: primaryColor,

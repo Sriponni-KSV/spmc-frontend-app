@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../widgets/appointment_details_dialog.dart';
 import 'dart:convert';
@@ -2961,9 +2962,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 TextFormField(
                                   controller: bpSysCtrl,
                                   keyboardType: TextInputType.number,
+                                  maxLength: 3,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                   decoration: const InputDecoration(
                                     hintText: '120',
                                     isDense: true,
+                                    counterText: '',
                                   ),
                                   autovalidateMode:
                                       AutovalidateMode.onUserInteraction,
@@ -3004,9 +3008,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 TextFormField(
                                   controller: bpDiaCtrl,
                                   keyboardType: TextInputType.number,
+                                  maxLength: 3,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                   decoration: const InputDecoration(
                                     hintText: '80',
                                     isDense: true,
+                                    counterText: '',
                                   ),
                                   autovalidateMode:
                                       AutovalidateMode.onUserInteraction,
@@ -3054,9 +3061,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                       const TextInputType.numberWithOptions(
                                         decimal: true,
                                       ),
+                                  maxLength: 6,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                  ],
                                   decoration: const InputDecoration(
                                     hintText: '95.5 mg/dL',
                                     isDense: true,
+                                    counterText: '',
                                   ),
                                   autovalidateMode:
                                       AutovalidateMode.onUserInteraction,
@@ -3096,13 +3108,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 const SizedBox(height: 4),
                                 TextFormField(
                                   controller: tempCtrl,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
+                                  keyboardType: const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  maxLength: 5,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                  ],
                                   decoration: const InputDecoration(
                                     hintText: '98.6 °F',
                                     isDense: true,
+                                    counterText: '',
                                   ),
                                   autovalidateMode:
                                       AutovalidateMode.onUserInteraction,
@@ -3133,6 +3149,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       TextFormField(
                         controller: complaintCtrl,
                         maxLines: 3,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                          LengthLimitingTextInputFormatter(100),
+                        ],
                         decoration: const InputDecoration(
                           hintText: 'Describe symptoms or reason for visit...',
                         ),

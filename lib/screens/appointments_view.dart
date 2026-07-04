@@ -1981,7 +1981,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
       inputFormatters: isNumeric
           ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
-          : null,
+          : [
+              FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+              LengthLimitingTextInputFormatter(100),
+            ],
     );
   }
 

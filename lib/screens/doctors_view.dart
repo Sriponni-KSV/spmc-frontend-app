@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -844,13 +845,19 @@ class _DoctorsViewState extends State<DoctorsView> {
                               children: [
                                 Expanded(
                                   child: canEdit 
-                                    ? _buildModernField('Full Name', fullnameController)
+                                    ? _buildModernField('Full Name', fullnameController,
+                                        maxLength: 50,
+                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))],
+                                      )
                                     : _buildDetailItem('Full Name', fullnameController.text),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: canEdit
-                                    ? _buildModernField('Email', emailController)
+                                    ? _buildModernField('Email', emailController,
+                                        maxLength: 50,
+                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9@._\-]'))],
+                                      )
                                     : _buildDetailItem('Email', emailController.text),
                                 ),
                               ],
@@ -860,13 +867,20 @@ class _DoctorsViewState extends State<DoctorsView> {
                               children: [
                                 Expanded(
                                   child: canEdit
-                                    ? _buildModernField('Mobile Number', mobileController)
+                                    ? _buildModernField('Mobile Number', mobileController,
+                                        isNumeric: true,
+                                        maxLength: 10,
+                                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                      )
                                     : _buildDetailItem('Mobile Number', mobileController.text),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: canEdit
-                                    ? _buildModernField('Medical License', licenseController)
+                                    ? _buildModernField('Medical License', licenseController,
+                                        maxLength: 20,
+                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9/\-]'))],
+                                      )
                                     : _buildDetailItem('Medical License', licenseController.text),
                                 ),
                               ],
@@ -907,28 +921,43 @@ class _DoctorsViewState extends State<DoctorsView> {
                               children: [
                                 Expanded(
                                   child: canEdit
-                                    ? _buildModernField('Experience (years)', experienceController)
+                                    ? _buildModernField('Experience (years)', experienceController,
+                                        isNumeric: true,
+                                        maxLength: 2,
+                                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                      )
                                     : _buildDetailItem('Experience', '${experienceController.text} years'),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: canEdit
-                                    ? _buildModernField('Patients Attended', patientsController, isNumeric: true)
+                                    ? _buildModernField('Patients Attended', patientsController,
+                                        isNumeric: true,
+                                        maxLength: 6,
+                                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                      )
                                     : _buildDetailItem('Patients Attended', patientsController.text),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 16),
                             canEdit
-                              ? _buildModernField('Qualification', qualificationController)
+                              ? _buildModernField('Qualification', qualificationController,
+                                  maxLength: 100,
+                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .,()]'))],
+                                )
                               : _buildDetailItem('Qualification', qualificationController.text),
                             const SizedBox(height: 16),
                             canEdit
-                              ? _buildModernField('Areas of Expertise', expertiseController, hint: 'Comma separated')
+                              ? _buildModernField('Areas of Expertise', expertiseController,
+                                  hint: 'Comma separated',
+                                  maxLength: 100,
+                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,]'))],
+                                )
                               : _buildDetailItem('Areas of Expertise', expertiseController.text),
                             const SizedBox(height: 16),
                             canEdit
-                              ? _buildModernField('Bio', bioController, maxLines: 3)
+                              ? _buildModernField('Bio', bioController, maxLines: 3, maxLength: 500)
                               : _buildDetailItem('Bio', bioController.text),
                           ],
                         ),
@@ -944,13 +973,19 @@ class _DoctorsViewState extends State<DoctorsView> {
                               children: [
                                 Expanded(
                                   child: canEdit
-                                    ? _buildModernField('Clinic Name', clinicNameController)
+                                    ? _buildModernField('Clinic Name', clinicNameController,
+                                        maxLength: 60,
+                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .]'))],
+                                      )
                                     : _buildDetailItem('Clinic Name', clinicNameController.text),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: canEdit
-                                    ? _buildModernField('Clinic Location', clinicLocationController)
+                                    ? _buildModernField('Clinic Location', clinicLocationController,
+                                        maxLength: 80,
+                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9 ,.-]'))],
+                                      )
                                     : _buildDetailItem('Clinic Location', clinicLocationController.text),
                                 ),
                               ],
@@ -960,13 +995,21 @@ class _DoctorsViewState extends State<DoctorsView> {
                               children: [
                                 Expanded(
                                   child: canEdit
-                                    ? _buildModernField('Consultation Fee', feeController)
+                                    ? _buildModernField('Consultation Fee', feeController,
+                                        isNumeric: true,
+                                        maxLength: 8,
+                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                                      )
                                     : _buildDetailItem('Consultation Fee', feeController.text),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: canEdit
-                                    ? _buildModernField('Slot Start Time', startTimeController, hint: 'e.g. 9:30 AM')
+                                    ? _buildModernField('Slot Start Time', startTimeController,
+                                        hint: 'e.g. 9:30 AM',
+                                        maxLength: 10,
+                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
+                                      )
                                     : _buildDetailItem(
                                         'Consultation Hours',
                                         startTimeController.text.isNotEmpty && endTimeController.text.isNotEmpty
@@ -983,7 +1026,11 @@ class _DoctorsViewState extends State<DoctorsView> {
                               Row(
                                 children: [
                                   Expanded(
-                                    child: _buildModernField('Slot End Time', endTimeController, hint: 'e.g. 5:30 PM'),
+                                    child: _buildModernField('Slot End Time', endTimeController,
+                                      hint: 'e.g. 5:30 PM',
+                                      maxLength: 10,
+                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
+                                    ),
                                   ),
                                   const SizedBox(width: 16),
                                   const Expanded(
@@ -1203,7 +1250,7 @@ class _DoctorsViewState extends State<DoctorsView> {
     );
   }
 
-  Widget _buildModernField(String label, TextEditingController controller, {bool isNumeric = false, int maxLines = 1, String? hint, bool enabled = true}) {
+  Widget _buildModernField(String label, TextEditingController controller, {bool isNumeric = false, int maxLines = 1, String? hint, bool enabled = true, List<TextInputFormatter>? inputFormatters, int? maxLength}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Column(
@@ -1223,10 +1270,13 @@ class _DoctorsViewState extends State<DoctorsView> {
             readOnly: !enabled,
             keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
             maxLines: maxLines,
+            maxLength: maxLength,
+            inputFormatters: inputFormatters,
             style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14),
             decoration: InputDecoration(
               hintText: hint,
               isDense: true,
+              counterText: maxLength != null ? '' : null,
               contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -1349,7 +1399,7 @@ class _DoctorsViewState extends State<DoctorsView> {
     return DateTime(date.year, date.month, date.day, hour, minute);
   }
 
-  Widget _buildDialogField(String label, TextEditingController controller, {bool isNumeric = false, int maxLines = 1, String? hint, bool enabled = true}) {
+  Widget _buildDialogField(String label, TextEditingController controller, {bool isNumeric = false, int maxLines = 1, String? hint, bool enabled = true, List<TextInputFormatter>? inputFormatters, int? maxLength}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Column(
@@ -1361,10 +1411,13 @@ class _DoctorsViewState extends State<DoctorsView> {
             readOnly: !enabled,
             keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
             maxLines: maxLines,
+            maxLength: maxLength,
+            inputFormatters: inputFormatters,
             style: const TextStyle(color: Colors.black87, fontSize: 14),
             decoration: InputDecoration(
               hintText: hint,
               isDense: true,
+              counterText: maxLength != null ? '' : null,
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
               border: enabled ? null : InputBorder.none,
               filled: enabled,
