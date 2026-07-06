@@ -133,11 +133,16 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return true; 
       }
+    } on NetworkException catch (e) {
+      _errorMessage = e.message;
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       _isLoading = false;
       notifyListeners();
-      throw e;
+      rethrow;
     }
   }
 

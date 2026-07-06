@@ -1,12 +1,13 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/connectivity_service.dart';
 
 /// Wraps the entire app with a bottom-sliding connectivity status banner.
 ///
-/// - Offline  → red banner slides up, stays until reconnected
-/// - Back online → switches to green banner for 3 seconds, then slides back down
+/// - No internet  → red banner (wifi_off icon)
+/// - Server down  → orange banner (cloud_off icon)
+/// - Back online  → green banner for 3 seconds, then slides back down
 class OfflineAwareWrapper extends StatefulWidget {
   final Widget child;
   const OfflineAwareWrapper({super.key, required this.child});
@@ -19,6 +20,7 @@ class _OfflineAwareWrapperState extends State<OfflineAwareWrapper> {
   ConnectivityService? _service;
   bool _showBanner = false;
   bool _isBackOnline = false;
+  OfflineReason _currentReason = OfflineReason.none;
   Timer? _onlineTimer;
 
   @override
@@ -33,27 +35,40 @@ class _OfflineAwareWrapperState extends State<OfflineAwareWrapper> {
       if (service.isOffline) {
         _showBanner = true;
         _isBackOnline = false;
+        _currentReason = service.offlineReason;
       }
     }
   }
 
   void _onChanged() {
     if (!mounted) return;
-    final isOffline = _service?.isOffline ?? false;
+    final service = _service;
+    if (service == null) return;
+
+    final isOffline = service.isOffline;
 
     if (isOffline) {
-      // Went offline → red banner, cancel any pending "back online" dismiss
+      // Went offline → show banner, cancel any pending "back online" dismiss
       _onlineTimer?.cancel();
       setState(() {
         _showBanner = true;
         _isBackOnline = false;
+        _currentReason = service.offlineReason;
       });
     } else if (_showBanner) {
       // Came back online after being offline → green for 3 s then hide
       _onlineTimer?.cancel();
-      setState(() => _isBackOnline = true);
+      setState(() {
+        _isBackOnline = true;
+        _currentReason = OfflineReason.none;
+      });
       _onlineTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted) setState(() { _showBanner = false; _isBackOnline = false; });
+        if (mounted) {
+          setState(() {
+            _showBanner = false;
+            _isBackOnline = false;
+          });
+        }
       });
     }
   }
@@ -77,7 +92,10 @@ class _OfflineAwareWrapperState extends State<OfflineAwareWrapper> {
           bottom: _showBanner ? 0 : -120,
           left: 0,
           right: 0,
-          child: _OfflineBanner(isBackOnline: _isBackOnline),
+          child: _OfflineBanner(
+            isBackOnline: _isBackOnline,
+            reason: _currentReason,
+          ),
         ),
       ],
     );
@@ -88,7 +106,9 @@ class _OfflineAwareWrapperState extends State<OfflineAwareWrapper> {
 
 class _OfflineBanner extends StatefulWidget {
   final bool isBackOnline;
-  const _OfflineBanner({required this.isBackOnline});
+  final OfflineReason reason;
+
+  const _OfflineBanner({required this.isBackOnline, required this.reason});
 
   @override
   State<_OfflineBanner> createState() => _OfflineBannerState();
@@ -119,22 +139,32 @@ class _OfflineBannerState extends State<_OfflineBanner>
 
   @override
   Widget build(BuildContext context) {
+    // Pick banner colour based on state
+    final Color bannerColor;
+    if (widget.isBackOnline) {
+      bannerColor = const Color(0xFF2E7D32); // green
+    } else if (widget.reason == OfflineReason.serverDown) {
+      bannerColor = const Color(0xFFE65100); // deep orange – server issue
+    } else {
+      bannerColor = const Color(0xFFD32F2F); // red – no internet
+    }
+
     return SafeArea(
       top: false,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         width: double.infinity,
-        // Red when offline, green when back online
-        color: widget.isBackOnline
-            ? const Color(0xFF2E7D32) // green
-            : const Color(0xFFD32F2F), // red
+        color: bannerColor,
         child: Material(
           color: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
             child: widget.isBackOnline
-                ? _OnlineContent()
-                : _OfflineContent(pulseAnim: _pulseAnim),
+                ? const _OnlineContent()
+                : _OfflineContent(
+                    pulseAnim: _pulseAnim,
+                    reason: widget.reason,
+                  ),
           ),
         ),
       ),
@@ -146,10 +176,24 @@ class _OfflineBannerState extends State<_OfflineBanner>
 
 class _OfflineContent extends StatelessWidget {
   final Animation<double> pulseAnim;
-  const _OfflineContent({required this.pulseAnim});
+  final OfflineReason reason;
+
+  const _OfflineContent({required this.pulseAnim, required this.reason});
 
   @override
   Widget build(BuildContext context) {
+    final bool isServerDown = reason == OfflineReason.serverDown;
+
+    final IconData icon =
+        isServerDown ? Icons.cloud_off_rounded : Icons.wifi_off_rounded;
+
+    final String title =
+        isServerDown ? 'Server Unavailable' : 'No Internet Connection';
+
+    final String subtitle = isServerDown
+        ? 'Cannot reach the server. Please try again later.'
+        : 'Waiting to reconnect\u2026';
+
     return Row(
       children: [
         // Pulsing dot
@@ -158,7 +202,8 @@ class _OfflineContent extends StatelessWidget {
           builder: (context, _) => Opacity(
             opacity: pulseAnim.value,
             child: Container(
-              width: 8, height: 8,
+              width: 8,
+              height: 8,
               decoration: const BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
@@ -167,25 +212,26 @@ class _OfflineContent extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 19),
+        Icon(icon, color: Colors.white, size: 19),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'No Internet Connection',
-                style: TextStyle(
+                title,
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
               ),
-              SizedBox(height: 1),
+              const SizedBox(height: 1),
               Text(
-                'Something went wrong. Waiting to reconnect\u2026',
-                style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                subtitle,
+                style:
+                    const TextStyle(color: Colors.white70, fontSize: 11.5),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -193,7 +239,8 @@ class _OfflineContent extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         SizedBox(
-          width: 15, height: 15,
+          width: 15,
+          height: 15,
           child: CircularProgressIndicator(
             strokeWidth: 1.8,
             valueColor: AlwaysStoppedAnimation<Color>(
@@ -209,10 +256,12 @@ class _OfflineContent extends StatelessWidget {
 // ── Back-online row ───────────────────────────────────────────────────────────
 
 class _OnlineContent extends StatelessWidget {
+  const _OnlineContent();
+
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: const [
+    return const Row(
+      children: [
         Icon(Icons.wifi_rounded, color: Colors.white, size: 19),
         SizedBox(width: 12),
         Expanded(
