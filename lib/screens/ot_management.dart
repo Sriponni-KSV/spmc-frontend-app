@@ -166,6 +166,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   final _intraOpVitalsFormKey = GlobalKey<FormState>();
   final _surgeryProcedureFormKey = GlobalKey<FormState>();
   String _searchQuery = '';
+  final TextEditingController _searchCtrl = TextEditingController();
 
   final PatientController _patientController = PatientController();
   final AdminController _adminController = AdminController();
@@ -342,6 +343,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   void initState() {
     super.initState();
     _loadPatientsAndDoctors();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -2057,6 +2064,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  controller: _searchCtrl,
                   onChanged: (val) {
                     setState(() {
                       _searchQuery = val;
@@ -2065,6 +2073,26 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   decoration: InputDecoration(
                     hintText: 'Search registry...',
                     prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: () {
+                                _searchCtrl.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                              child: const Icon(
+                                Icons.close,
+                                size: 16,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          )
+                        : null,
+                    suffixIconConstraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     filled: true,
@@ -2358,6 +2386,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  controller: _searchCtrl,
                   onChanged: (val) {
                     setState(() {
                       _searchQuery = val;
@@ -2366,6 +2395,26 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   decoration: InputDecoration(
                     hintText: 'Search registry...',
                     prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: () {
+                                _searchCtrl.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                              child: const Icon(
+                                Icons.close,
+                                size: 16,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          )
+                        : null,
+                    suffixIconConstraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     filled: true,

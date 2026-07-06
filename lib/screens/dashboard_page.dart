@@ -4778,12 +4778,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: TextField(
                       controller: _labSearchController,
                       onChanged: (v) => setState(() => _labSearchQuery = v),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         hintText: 'Search by Patient Name, ID, or Test...',
-                        hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                        prefixIcon: Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                        prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                        suffixIcon: _labSearchQuery.isNotEmpty
+                            ? MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _labSearchController.clear();
+                                    setState(() => _labSearchQuery = '');
+                                  },
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                ),
+                              )
+                            : null,
                         border: InputBorder.none,
                       ),
                     ),

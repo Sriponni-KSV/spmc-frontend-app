@@ -36,6 +36,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
   bool _isLoading = true;
   String? _error;
   String _search = '';
+  final TextEditingController _searchCtrl = TextEditingController();
 
   // Tab labels + status filters
   static const _tabs = [
@@ -49,12 +50,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
+    _searchCtrl.addListener(() => setState(() {}));
     _load();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -254,6 +257,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
+                        controller: _searchCtrl,
                         onChanged: (v) => setState(() => _search = v),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
@@ -266,6 +270,24 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         ),
                       ),
                     ),
+                    if (_search.isNotEmpty)
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () {
+                            _searchCtrl.clear();
+                            setState(() => _search = '');
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.only(left: 4),
+                            child: Icon(
+                              Icons.close,
+                              size: 16,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

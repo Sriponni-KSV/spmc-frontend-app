@@ -696,12 +696,28 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     child: TextField(
                       controller: _searchController,
                       onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         hintText: 'Search by Patient Name, ID, or Test...',
-                        hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                        prefixIcon: Icon(Icons.search, size: 16, color: AppTheme.textSecondaryColor),
+                        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                        prefixIcon: const Icon(Icons.search, size: 16, color: AppTheme.textSecondaryColor),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                ),
+                              )
+                            : null,
                         border: InputBorder.none,
                       ),
                     ),
