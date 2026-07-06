@@ -717,7 +717,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         _buildFieldLabel('Select Doctor *'),
                         const SizedBox(height: 4),
                         SizedBox(
-                          height: 70,
+                          height: 76,
                           child:
                               _doctors
                                   .where(
@@ -811,6 +811,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                     color: Color(0xFF2D3748),
                                                   ),
                                                 ),
+                                                if (doc.staffUniqueId != null && doc.staffUniqueId!.isNotEmpty) ...[
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    doc.staffUniqueId!,
+                                                    style: const TextStyle(
+                                                      color: AppTheme.textSecondaryColor,
+                                                      fontSize: 9,
+                                                    ),
+                                                  ),
+                                                ],
                                               ],
                                             ),
                                           ],
@@ -1351,7 +1361,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   _buildFieldLabel('Select Doctor *'),
                                   const SizedBox(height: 4),
                                   SizedBox(
-                                    height: 60,
+                                    height: 76,
                                     child:
                                         _doctors
                                             .where(
@@ -1485,6 +1495,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                                   ),
                                                                 ),
                                                           ),
+                                                          if (doc.staffUniqueId != null && doc.staffUniqueId!.isNotEmpty) ...[
+                                                            const SizedBox(height: 2),
+                                                            Text(
+                                                              doc.staffUniqueId!,
+                                                              style: const TextStyle(
+                                                                color: AppTheme.textSecondaryColor,
+                                                                fontSize: 10,
+                                                              ),
+                                                            ),
+                                                          ],
                                                         ],
                                                       ),
                                                     ],
@@ -2725,11 +2745,23 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 color: Color(0xFF94A3B8),
               ),
               const SizedBox(width: 8),
-              Text(
-                appt.doctorDisplayId != null && appt.doctorDisplayId!.isNotEmpty
-                    ? '${appt.doctorName} (${appt.doctorDisplayId})'
-                    : appt.doctorName,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+              Text.rich(
+                TextSpan(
+                  text: appt.doctorName,
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                  children: [
+                    if (appt.doctorDisplayId != null &&
+                        appt.doctorDisplayId!.isNotEmpty)
+                      TextSpan(
+                        text: ' (${appt.doctorDisplayId})',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.normal,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -3134,13 +3166,25 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 12.0),
-                    child: Text(
-                      doctorDisplayId != null && doctorDisplayId.isNotEmpty
-                          ? '$doctorName ($doctorDisplayId)'
-                          : doctorName,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF475569),
+                    child: Text.rich(
+                      TextSpan(
+                        text: doctorName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF475569),
+                        ),
+                        children: [
+                          if (doctorDisplayId != null &&
+                              doctorDisplayId.isNotEmpty)
+                            TextSpan(
+                              text: ' ($doctorDisplayId)',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),

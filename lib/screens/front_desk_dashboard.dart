@@ -458,6 +458,19 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
+                          if (user?.staffUniqueId != null &&
+                              user!.staffUniqueId!.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              user.staffUniqueId!,
+                              style: const TextStyle(
+                                  fontSize: 9,
+                                  color: AppTheme.textSecondaryColor),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                          const SizedBox(height: 2),
                           Text(
                             user?.role ?? 'Front Desk',
                             style: const TextStyle(

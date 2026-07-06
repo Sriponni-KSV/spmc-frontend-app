@@ -912,9 +912,19 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                                     ],
                                   ],
                                 ),
-                                Text(
-                                  'ID: ${pres['patient_display_id'] ?? '--'} • Dr. ${pres['doctor_name'] ?? '--'}',
-                                  style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      pres['patient_display_id'] ?? '--',
+                                      style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Dr. ${pres['doctor_name'] ?? '--'}',
+                                      style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11, fontWeight: FontWeight.w500),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -1084,10 +1094,20 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 2),
-            Text(
-              'ID: ${pres['patient_display_id'] ?? '--'} • Dr. ${pres['doctor_name'] ?? '--'} • ${isOpd ? 'OPD' : 'IPD'}',
-              style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
-            ),
+             Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Text(
+                   '${pres['patient_display_id'] ?? '--'} • ${isOpd ? 'OPD' : 'IPD'}',
+                   style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                 ),
+                 const SizedBox(height: 2),
+                 Text(
+                   'Dr. ${pres['doctor_name'] ?? '--'}',
+                   style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11, fontWeight: FontWeight.w500),
+                 ),
+               ],
+             ),
             const SizedBox(height: 6),
             Text(
               timeStr,
@@ -1167,13 +1187,13 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                   border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.3)),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor, size: 18),
-                    SizedBox(width: 8),
+                    const Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor, size: 18),
+                    const SizedBox(width: 8),
                     Text(
                       'NEW MEDICATION PRESCRIBED TODAY',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppTheme.dangerColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
@@ -1197,9 +1217,19 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        'ID: ${pres['patient_display_id'] ?? '--'} • Dr. ${pres['doctor_name'] ?? '--'} • ${isOpd ? 'Outpatient' : 'Inpatient'}',
-                        style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${pres['patient_display_id'] ?? '--'} • ${isOpd ? 'Outpatient' : 'Inpatient'}',
+                            style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Prescribed by Dr. ${pres['doctor_name'] ?? '--'}',
+                            style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
+                        ],
                       ),
                     ],
                   ),

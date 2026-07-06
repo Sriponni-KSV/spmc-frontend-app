@@ -1987,6 +1987,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
+                              if (user.staffUniqueId != null &&
+                                  user.staffUniqueId!.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  user.staffUniqueId!,
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              const SizedBox(height: 2),
                               Text(
                                 user.role,
                                 style: const TextStyle(
@@ -3006,13 +3020,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
-                                        child: Text(
-                                          nurse.fullname,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                            color: AppTheme.textPrimaryColor,
-                                          ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              nurse.fullname,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                                color:
+                                                    AppTheme.textPrimaryColor,
+                                              ),
+                                            ),
+                                            if (nurse.staffUniqueId != null &&
+                                                nurse.staffUniqueId!.isNotEmpty) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                nurse.staffUniqueId!,
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppTheme
+                                                      .textSecondaryColor,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
                                         ),
                                       ),
                                       const Icon(
@@ -4122,7 +4156,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                              : _selectedAllocNurse!.id.toString(),
                          dropdownMap: {
                            for (var n in _nurses)
-                             n.id.toString(): n.fullname,
+                             n.id.toString(): n.staffUniqueId != null &&
+                                     n.staffUniqueId!.isNotEmpty
+                                 ? '${n.fullname} (${n.staffUniqueId})'
+                                 : n.fullname,
                          },
                          onChanged: (val) {
                            final found = val == null ? null : _nurses.firstWhere((n) => n.id.toString() == val);
@@ -4349,7 +4386,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               ],
                               rows: _allocations.map((alloc) {
                                 final dateStr = alloc['allocation_date'] != null
-                                    ? DateFormat('yyyy-MM-dd').format(DateTime.parse(alloc['allocation_date']))
+                                    ? DateFormat('dd-MM-yyyy').format(DateTime.parse(alloc['allocation_date']))
                                     : '--';
                                 final timings = '${_formatTo12Hour(alloc['start_time'])} - ${_formatTo12Hour(alloc['end_time'])}';
                                 final status = alloc['status'] ?? 'Active';

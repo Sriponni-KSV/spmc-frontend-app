@@ -4351,6 +4351,18 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                   color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
                                 ),
                               ),
+                              if (nurse.staffUniqueId != null &&
+                                  nurse.staffUniqueId!.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  nurse.staffUniqueId!,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 2),
                               Text(
                                 nurse.role,
                                 style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
@@ -6541,6 +6553,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                     color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
                                   ),
                                 ),
+                                if (nurse.staffUniqueId != null &&
+                                    nurse.staffUniqueId!.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    nurse.staffUniqueId!,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -6737,7 +6760,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
                 dropdownMap: {
                   for (var d in _doctors)
-                    d.fullname: d.fullname
+                    d.fullname: d.staffUniqueId != null && d.staffUniqueId!.isNotEmpty
+                        ? '${d.fullname} (${d.staffUniqueId})'
+                        : d.fullname
                 },
                 onChanged: (val) {
                   if (val != null) {
@@ -6761,7 +6786,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
                 dropdownMap: {
                   for (var d in _anaesthetists)
-                    d.fullname: d.fullname
+                    d.fullname: d.staffUniqueId != null && d.staffUniqueId!.isNotEmpty
+                        ? '${d.fullname} (${d.staffUniqueId})'
+                        : d.fullname
                 },
                 onChanged: (val) {
                   if (val != null) {
@@ -6788,7 +6815,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       value: _surgeonController.text.isNotEmpty ? _surgeonController.text : null,
                       dropdownMap: {
                         for (var d in _doctors)
-                          d.fullname: d.fullname
+                          d.fullname: d.staffUniqueId != null && d.staffUniqueId!.isNotEmpty
+                              ? '${d.fullname} (${d.staffUniqueId})'
+                              : d.fullname
                       },
                       onChanged: (val) {
                         if (val != null) {
@@ -6814,7 +6843,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       value: _anaesthetistController.text.isNotEmpty ? _anaesthetistController.text : null,
                       dropdownMap: {
                         for (var d in _anaesthetists)
-                          d.fullname: d.fullname
+                          d.fullname: d.staffUniqueId != null && d.staffUniqueId!.isNotEmpty
+                              ? '${d.fullname} (${d.staffUniqueId})'
+                              : d.fullname
                       },
                       onChanged: (val) {
                         if (val != null) {

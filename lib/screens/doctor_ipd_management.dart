@@ -526,7 +526,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Treating Doctor: ${adm['doctor_name']}',
+                        'Treating Doctor: ${adm['doctor_name']}${adm['doctor_display_id'] != null && adm['doctor_display_id'].toString().isNotEmpty ? ' (${adm['doctor_display_id']})' : ''}',
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -600,7 +600,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Treating Doctor: ${adm['doctor_name']}',
+                              'Treating Doctor: ${adm['doctor_name']}${adm['doctor_display_id'] != null && adm['doctor_display_id'].toString().isNotEmpty ? ' (${adm['doctor_display_id']})' : ''}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -756,7 +756,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Doctor: ${pending['doctor_name'] ?? '--'} • Requested: $admittedAt',
+                        'Doctor: ${pending['doctor_name'] ?? '--'}${pending['doctor_display_id'] != null && pending['doctor_display_id'].toString().isNotEmpty ? ' (${pending['doctor_display_id']})' : ''} • Requested: $admittedAt',
                         style: const TextStyle(
                           color: AppTheme.textSecondaryColor,
                           fontSize: 12,
@@ -990,7 +990,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              'Bed: ${adm['bed_number']} • Discharged: $dischargeDateStr\nDoctor: ${adm['doctor_name']}',
+              'Bed: ${adm['bed_number']} • Discharged: $dischargeDateStr\nDoctor: ${adm['doctor_name']}${adm['doctor_display_id'] != null && adm['doctor_display_id'].toString().isNotEmpty ? ' (${adm['doctor_display_id']})' : ''}',
               style: const TextStyle(height: 1.5, fontSize: 12),
             ),
             trailing: TextButton.icon(
@@ -1064,7 +1064,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                             ),
                           ),
                           Text(
-                            'Bed: ${adm['bed_number']} • Dr. ${adm['doctor_name']}',
+                            'Bed: ${adm['bed_number']} • Dr. ${adm['doctor_name']}${adm['doctor_display_id'] != null && adm['doctor_display_id'].toString().isNotEmpty ? ' (${adm['doctor_display_id']})' : ''}',
                             style: const TextStyle(
                               fontSize: 12,
                               color: AppTheme.textSecondaryColor,
@@ -1425,7 +1425,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                             const SizedBox(height: 8),
                             _infoRow('Ward / Bed',
                                 '${admission['ward_type']} / ${admission['bed_number']}'),
-                            _infoRow('Doctor', admission['doctor_name'] ?? '--'),
+                            _infoRow('Doctor', '${admission['doctor_name'] ?? '--'}${admission['doctor_display_id'] != null && admission['doctor_display_id'].toString().isNotEmpty ? ' (${admission['doctor_display_id']})' : ''}'),
                             const SizedBox(height: 20),
                             _sectionLabel('Add Progress Note'),
                             const SizedBox(height: 10),

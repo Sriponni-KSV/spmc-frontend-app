@@ -465,13 +465,19 @@ class _DoctorsViewState extends State<DoctorsView> {
                         color: AppTheme.textPrimaryColor,
                       ),
                     ),
-                    Text(
-                      doctor.specialization ?? '-',
-                      style: const TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 13,
+                    if (doctor.staffUniqueId != null &&
+                        doctor.staffUniqueId!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        doctor.staffUniqueId!,
+                        style: const TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

@@ -1616,6 +1616,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                     'Treating Doctor',
                     adm['doctor_name'] ?? '--',
                     Icons.person_outline,
+                    subtitle: adm['doctor_display_id'],
                   ),
 
                   _buildOverviewTile(
@@ -1678,7 +1679,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     );
   }
 
-  Widget _buildOverviewTile(String title, String value, IconData icon) {
+  Widget _buildOverviewTile(String title, String value, IconData icon, {String? subtitle}) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1719,6 +1720,19 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
+
+                if (subtitle != null && subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondaryColor,
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
           ),

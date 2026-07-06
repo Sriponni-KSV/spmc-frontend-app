@@ -3481,6 +3481,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
+                              if (user.staffUniqueId != null &&
+                                  user.staffUniqueId!.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  user.staffUniqueId!,
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              const SizedBox(height: 2),
                               Text(
                                 user.role,
                                 style: const TextStyle(
@@ -4920,7 +4934,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'ID: $patientId • $patientGender • $patientAge yrs',
+                          '$patientId • $patientGender • $patientAge yrs',
                           style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
                         ),
                         const SizedBox(height: 4),

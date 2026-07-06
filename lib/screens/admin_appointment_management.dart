@@ -1324,7 +1324,7 @@ class _AdminAppointmentManagementState
                                   ),
                                 ),
                                 Text(
-                                  'ID: ${appt.patientDisplayId ?? appt.patientId}',
+                                  '${appt.patientDisplayId ?? appt.patientId}',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     color: AppTheme.textSecondaryColor,
@@ -1348,7 +1348,7 @@ class _AdminAppointmentManagementState
                                 if (appt.doctorDisplayId != null &&
                                     appt.doctorDisplayId!.isNotEmpty)
                                   Text(
-                                    'ID: ${appt.doctorDisplayId}',
+                                    appt.doctorDisplayId!,
                                     style: const TextStyle(
                                       fontSize: 11,
                                       color: AppTheme.textSecondaryColor,
