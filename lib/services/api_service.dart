@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io' show SocketException;
 import 'package:http/http.dart' as http;
+import '../exceptions/network_exception.dart';
 import 'token_service.dart';
 
 class ApiService {
@@ -37,76 +39,120 @@ class ApiService {
     // to support granular error messages from the backend (e.g. inactive, suspended)
   }
 
-  static Future<http.Response> get(String url) async {
-    String? token = await TokenService.getToken();
+  /// Converts low-level network errors into a user-friendly [NetworkException].
+  static Never _handleNetworkError(dynamic e) {
+    final msg = e.toString().toLowerCase();
+    if (e is SocketException ||
+        msg.contains('failed to fetch') ||
+        msg.contains('connection refused') ||
+        msg.contains('network is unreachable') ||
+        msg.contains('failed host lookup') ||
+        msg.contains('clientexception')) {
+      throw const NetworkException();
+    }
+    throw e;
+  }
 
-    final response = await http.get(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
-    _checkAccess(response);
-    return response;
+  static Future<http.Response> get(String url) async {
+    try {
+      String? token = await TokenService.getToken();
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      _checkAccess(response);
+      return response;
+    } on NetworkException {
+      rethrow;
+    } catch (e) {
+      _handleNetworkError(e);
+    }
   }
 
   static Future<http.Response> post(String url, Map body) async {
-    String? token = await TokenService.getToken();
+    try {
+      String? token = await TokenService.getToken();
 
-    final response = await http.post(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(body),
-    );
-    _checkAccess(response);
-    return response;
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+      _checkAccess(response);
+      return response;
+    } on NetworkException {
+      rethrow;
+    } catch (e) {
+      _handleNetworkError(e);
+    }
   }
 
   static Future<http.Response> put(String url, Map body) async {
-    String? token = await TokenService.getToken();
+    try {
+      String? token = await TokenService.getToken();
 
-    final response = await http.put(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(body),
-    );
-    _checkAccess(response);
-    return response;
+      final response = await http.put(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+      _checkAccess(response);
+      return response;
+    } on NetworkException {
+      rethrow;
+    } catch (e) {
+      _handleNetworkError(e);
+    }
   }
 
   static Future<http.Response> delete(String url) async {
-    String? token = await TokenService.getToken();
+    try {
+      String? token = await TokenService.getToken();
 
-    final response = await http.delete(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
-    _checkAccess(response);
-    return response;
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      _checkAccess(response);
+      return response;
+    } on NetworkException {
+      rethrow;
+    } catch (e) {
+      _handleNetworkError(e);
+    }
   }
 
   static Future<http.Response> patch(String url, Map body) async {
-    String? token = await TokenService.getToken();
+    try {
+      String? token = await TokenService.getToken();
 
-    final response = await http.patch(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(body),
-    );
-    _checkAccess(response);
-    return response;
+      final response = await http.patch(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+      _checkAccess(response);
+      return response;
+    } on NetworkException {
+      rethrow;
+    } catch (e) {
+      _handleNetworkError(e);
+    }
   }
 }

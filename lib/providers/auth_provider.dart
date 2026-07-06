@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../controllers/auth_controller.dart';
+import '../exceptions/network_exception.dart';
 import '../models/user_model.dart';
 import '../services/token_service.dart';
 
@@ -71,10 +72,15 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return false;
       }
-    } on RequiresPasswordChangeException catch (e) {
+    } on RequiresPasswordChangeException {
       _isLoading = false;
       notifyListeners();
       rethrow;
+    } on NetworkException catch (e) {
+      _errorMessage = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false;
     } catch (e) {
       final err = e.toString().replaceFirst('Exception: ', '');
       _errorCode = err;
