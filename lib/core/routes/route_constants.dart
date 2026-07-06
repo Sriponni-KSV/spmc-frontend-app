@@ -60,7 +60,9 @@ class AppRoutes {
 
   // Lab Routes
   static const String labDashboard = '/lab/dashboard';
+  static const String labProfile = '/lab/profile';
 
   // Pharmacy Routes
   static const String pharmacyDashboard = '/pharmacy/dashboard';
+  static const String pharmacyProfile = '/pharmacy/profile';
 }

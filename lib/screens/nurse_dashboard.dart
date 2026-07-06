@@ -23,6 +23,7 @@ import '../models/appointment_model.dart';
 import '../utils/logout_helper.dart';
 import '../models/user_model.dart';
 import '../controllers/nurse_shift_controller.dart';
+import '../widgets/user_profile_dialog.dart';
 
 
 class NurseDashboardScreen extends StatefulWidget {
@@ -588,53 +589,66 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         ? const SizedBox.shrink()
                         : Row(
                             children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppTheme.borderColor,
-                                  ),
-                                ),
-                                child: CircleAvatar(
-                                  backgroundColor: AppTheme.getAvatarColors(
-                                    user.fullname,
-                                  )['bg'],
-                                  radius: 18,
-                                  child: Text(
-                                    user.fullname.isNotEmpty
-                                        ? user.fullname[0].toUpperCase()
-                                        : '?',
-                                    style: TextStyle(
-                                      color: AppTheme.getAvatarColors(
-                                        user.fullname,
-                                      )['text'],
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      user.fullname,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                                child: InkWell(
+                                  onTap: () => UserProfileDialog.show(context, user),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: AppTheme.borderColor,
+                                            ),
+                                          ),
+                                          child: CircleAvatar(
+                                            backgroundColor: AppTheme.getAvatarColors(
+                                              user.fullname,
+                                            )['bg'],
+                                            radius: 18,
+                                            child: Text(
+                                              user.fullname.isNotEmpty
+                                                  ? user.fullname[0].toUpperCase()
+                                                  : '?',
+                                              style: TextStyle(
+                                                color: AppTheme.getAvatarColors(
+                                                  user.fullname,
+                                                )['text'],
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                user.fullname,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                user.role,
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppTheme.textSecondaryColor,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    Text(
-                                      user.role,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.textSecondaryColor,
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
                               IconButton(

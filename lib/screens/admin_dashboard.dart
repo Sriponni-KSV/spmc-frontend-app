@@ -23,6 +23,7 @@ import '../utils/logout_helper.dart';
 import 'admin_appointment_management.dart';
 import 'opd_management.dart';
 import 'admin_staff_profile_view.dart';
+import '../widgets/user_profile_dialog.dart';
 import 'ipd_management.dart';
 import 'ot_management.dart';
 import '../utils/password_policy.dart';
@@ -1965,36 +1966,49 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     if (user == null) return const SizedBox.shrink();
                     return Row(
                       children: [
-                        const CircleAvatar(
-                          backgroundColor: AppTheme.primaryColor,
-                          radius: 18,
-                          child: Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user.fullname,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                          child: InkWell(
+                            onTap: () => UserProfileDialog.show(context, user),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                              child: Row(
+                                children: [
+                                  const CircleAvatar(
+                                    backgroundColor: AppTheme.primaryColor,
+                                    radius: 18,
+                                    child: Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          user.fullname,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          user.role,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textSecondaryColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                user.role,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.textSecondaryColor,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                         IconButton(

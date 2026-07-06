@@ -21,6 +21,7 @@ import '../models/user_model.dart';
 import '../controllers/nurse/nurse_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'front_desk_admission_counter.dart';
+import '../widgets/user_profile_dialog.dart';
 
 class FrontDeskDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -433,39 +434,56 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      backgroundColor: AppTheme.logoRed.withOpacity(0.1),
-                      child: Text(
-                        user != null && (user.rawFullname ?? '').isNotEmpty
-                            ? user.rawFullname!.substring(0, 1).toUpperCase()
-                            : 'F',
-                        style: const TextStyle(
-                          color: AppTheme.logoRed,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user?.rawFullname ?? 'Front Desk',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                      child: InkWell(
+                        onTap: () {
+                          if (user != null) {
+                            UserProfileDialog.show(context, user);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: AppTheme.logoRed.withOpacity(0.1),
+                                child: Text(
+                                  user != null && (user.rawFullname ?? '').isNotEmpty
+                                      ? user.rawFullname!.substring(0, 1).toUpperCase()
+                                      : 'F',
+                                  style: const TextStyle(
+                                    color: AppTheme.logoRed,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      user?.rawFullname ?? 'Front Desk',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      user?.role ?? 'Front Desk',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondaryColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            user?.role ?? 'Front Desk',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textSecondaryColor,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                     IconButton(
