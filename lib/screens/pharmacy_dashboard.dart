@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../core/routes/route_constants.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart' show LiveClock;
@@ -10,7 +11,7 @@ import 'inventory_management_view.dart';
 
 class PharmacyDashboardScreen extends StatefulWidget {
   final int initialIndex;
-  const PharmacyDashboardScreen({Key? key, this.initialIndex = 0}) : super(key: key);
+  const PharmacyDashboardScreen({super.key, this.initialIndex = 0});
 
   @override
   State<PharmacyDashboardScreen> createState() => _PharmacyDashboardScreenState();
@@ -36,10 +37,19 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
   }
 
   void _changePage(int index) {
-    if (mounted) {
-      setState(() {
-        _selectedIndex = index;
-      });
+    if (!mounted) return;
+    switch (index) {
+      case 0:
+        context.go(AppRoutes.pharmacyDashboard);
+        break;
+      case 1:
+        context.go(AppRoutes.pharmacyInventory);
+        break;
+      case 2:
+        context.go(AppRoutes.pharmacyProfile);
+        break;
+      default:
+        context.go(AppRoutes.pharmacyDashboard);
     }
   }
 

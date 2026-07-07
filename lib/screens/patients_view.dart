@@ -847,6 +847,7 @@ class _PatientsViewState extends State<PatientsView> {
               ),
               child: Row(
                 children: [
+                  Expanded(child: _buildTableHeaderText('S.No')),
                   Expanded(flex: 2, child: _buildTableHeaderText('Patient ID')),
                   Expanded(flex: 3, child: _buildTableHeaderText('Name')),
                   Expanded(child: _buildTableHeaderText('Age')),
@@ -872,7 +873,9 @@ class _PatientsViewState extends State<PatientsView> {
                 child: Center(child: Text('No patients found')),
               )
             else
-              ...patients.map((patient) {
+              ...patients.asMap().entries.map((entry) {
+                final index = entry.key;
+                final patient = entry.value;
                 final String name = patient.name;
                 final parts = name
                     .trim()
@@ -897,6 +900,7 @@ class _PatientsViewState extends State<PatientsView> {
                       initials,
                       patient.isQuickRegister ? ['Quick'] : [],
                       isMobile,
+                      '${(index + 1) + (_currentPage * _itemsPerPage)}',
                     ),
                     const Divider(height: 1),
                   ],
@@ -1186,6 +1190,7 @@ class _PatientsViewState extends State<PatientsView> {
     String initials,
     List<String> tags,
     bool isMobile,
+    String serialNumber,
   ) {
     bool isQuick = patient.isQuickRegister;
     return Container(
@@ -1195,6 +1200,16 @@ class _PatientsViewState extends State<PatientsView> {
       ),
       child: Row(
         children: [
+          Expanded(
+            child: Text(
+              serialNumber,
+              style: TextStyle(
+                fontSize: 13,
+                color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF4A5568),
+                fontWeight: isQuick ? FontWeight.w500 : FontWeight.normal,
+              ),
+            ),
+          ),
           Expanded(
             flex: 2,
             child: Text(

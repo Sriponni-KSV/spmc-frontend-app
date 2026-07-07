@@ -121,6 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (widget.initialIndex != oldWidget.initialIndex) {
       setState(() {
         _selectedIndex = widget.initialIndex;
+        _activeAppointment = null;
       });
     }
   }

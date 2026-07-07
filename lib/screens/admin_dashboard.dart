@@ -56,6 +56,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   bool _isRegisteringPatient = false;
   PatientModel? _patientToComplete;
   UserModel? _viewingStaffProfile;
+  String _staffSearchQuery = '';
+  int _staffCurrentPage = 0;
+  final int _itemsPerPage = 10;
+  final TextEditingController _staffSearchController = TextEditingController();
 
   final NurseShiftController _shiftCtrl = NurseShiftController();
   List<Map<String, dynamic>> _shifts = [];
@@ -163,6 +167,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _horizontalScrollController.dispose();
     _shiftAllocHorizontalScrollController.dispose();
     _mainFocusNode.dispose();
+    _staffSearchController.dispose();
     super.dispose();
   }
 
@@ -184,6 +189,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (widget.initialIndex != oldWidget.initialIndex) {
       setState(() {
         _selectedIndex = widget.initialIndex;
+        _isRegisteringPatient = false;
+        _viewingStaffProfile = null;
       });
       if (_selectedIndex == 8) {
         _loadShiftData();
@@ -1002,9 +1009,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       future: _staffFuture,
       builder: (context, snapshot) {
         List<UserModel> allStaff = snapshot.data ?? [];
+        
+        List<UserModel> searchedStaff = allStaff;
+        if (_staffSearchQuery.trim().isNotEmpty) {
+          final query = _staffSearchQuery.toLowerCase();
+          searchedStaff = allStaff.where((u) {
+            return u.fullname.toLowerCase().contains(query) ||
+                u.email.toLowerCase().contains(query) ||
+                u.role.toLowerCase().contains(query) ||
+                (u.specialization?.toLowerCase().contains(query) ?? false) ||
+                (u.staffUniqueId?.toLowerCase().contains(query) ?? false);
+          }).toList();
+        }
+
         List<UserModel> filtered = _selectedRoleFilter == 'All'
-            ? allStaff
-            : allStaff.where((u) => u.role == _selectedRoleFilter).toList();
+            ? searchedStaff
+            : searchedStaff.where((u) => u.role == _selectedRoleFilter).toList();
 
         return Column(
           children: [
@@ -1129,6 +1149,55 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
             const SizedBox(height: 20),
 
+            // ── Search Bar ──
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+              margin: const EdgeInsets.only(bottom: 12),
+              height: 48,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search, size: 20, color: AppTheme.textSecondaryColor),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _staffSearchController,
+                        onChanged: (v) => setState(() {
+                          _staffSearchQuery = v;
+                          _staffCurrentPage = 0;
+                        }),
+                        decoration: const InputDecoration(
+                          hintText: 'Search staff by name, email, specialization or role...',
+                          hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    if (_staffSearchQuery.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 20, color: AppTheme.textSecondaryColor),
+                        onPressed: () {
+                          _staffSearchController.clear();
+                          setState(() {
+                            _staffSearchQuery = '';
+                            _staffCurrentPage = 0;
+                          });
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
             // ── Role Filter Tabs ──
             Container(
               padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
@@ -1199,7 +1268,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             child: InkWell(
                               borderRadius: BorderRadius.circular(20),
                               onTap: () =>
-                                  setState(() => _selectedRoleFilter = role),
+                                  setState(() {
+                                    _selectedRoleFilter = role;
+                                    _staffCurrentPage = 0;
+                                  }),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 padding: EdgeInsets.symmetric(
@@ -1352,6 +1424,111 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
 
+    final totalStaff = staff.length;
+    final totalPages = (totalStaff / _itemsPerPage).ceil();
+
+    if (_staffCurrentPage >= totalPages && totalPages > 0) {
+      _staffCurrentPage = totalPages - 1;
+    }
+    if (_staffCurrentPage < 0) _staffCurrentPage = 0;
+
+    final paginatedStaff = staff
+        .skip(_staffCurrentPage * _itemsPerPage)
+        .take(_itemsPerPage)
+        .toList();
+
+    if (isMobile) {
+      return Column(
+        children: [
+          Expanded(child: SingleChildScrollView(child: _buildStaffCards(paginatedStaff))),
+          if (totalPages > 1) ...[
+            const Divider(height: 1),
+            _buildStaffPaginationControls(totalPages, true),
+          ],
+        ],
+      );
+    }
+    return Column(
+      children: [
+        Expanded(child: _buildStaffTable(paginatedStaff, isMobile)),
+        if (totalPages > 1) ...[
+          const Divider(height: 1),
+          _buildStaffPaginationControls(totalPages, false),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildStaffContentOriginal(
+    AsyncSnapshot<List<UserModel>> snapshot,
+    List<UserModel> staff,
+    bool isMobile,
+  ) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (snapshot.hasError) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+            const SizedBox(height: 12),
+            const Text(
+              'Failed to load staff data',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${snapshot.error}',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _loadStaff,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (staff.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.people_outline,
+              color: AppTheme.textSecondaryColor.withOpacity(0.4),
+              size: 64,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'No staff found',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _selectedRoleFilter == 'All'
+                  ? 'Register your first staff member.'
+                  : 'No $_selectedRoleFilter found.',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (isMobile) {
       return _buildStaffCards(staff);
     }
@@ -1392,6 +1569,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         fontSize: 13,
                       ),
                       columns: [
+                        const DataColumn(label: Text('S.No')),
                         const DataColumn(label: Text('Staff ID')),
                         const DataColumn(label: Text('Name')),
                         const DataColumn(label: Text('Role')),
@@ -1400,7 +1578,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         const DataColumn(label: Text('Status')),
                         const DataColumn(label: Text('Actions')),
                       ],
-                      rows: staff.map((user) {
+                      rows: staff.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final user = entry.value;
                         Color roleColor;
                         switch (user.role) {
                           case 'Doctor':
@@ -1427,6 +1607,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         }
                         return DataRow(
                           cells: [
+                            DataCell(Text('${(index + 1) + (_staffCurrentPage * _itemsPerPage)}')),
                             DataCell(
                               Container(
                                 padding: const EdgeInsets.symmetric(
@@ -1619,6 +1800,77 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildStaffPaginationControls(int totalPages, bool isMobile) {
+    if (totalPages <= 1) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            'Page ${_staffCurrentPage + 1} of $totalPages',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSecondaryColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 16),
+          OutlinedButton(
+            onPressed: _staffCurrentPage > 0
+                ? () => setState(() => _staffCurrentPage--)
+                : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(80, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              side: BorderSide(
+                color: _staffCurrentPage > 0
+                    ? AppTheme.primaryColor
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.chevron_left, size: 18),
+                Text('Prev'),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: _staffCurrentPage < totalPages - 1
+                ? () => setState(() => _staffCurrentPage++)
+                : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(80, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              side: BorderSide(
+                color: _staffCurrentPage < totalPages - 1
+                    ? AppTheme.primaryColor
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text('Next'),
+                Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

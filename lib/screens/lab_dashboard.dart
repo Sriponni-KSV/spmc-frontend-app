@@ -140,10 +140,22 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
   }
 
   void _changePage(int index) {
-    if (mounted) {
-      setState(() {
-        _selectedIndex = index;
-      });
+    if (!mounted) return;
+    switch (index) {
+      case 0:
+        context.go(AppRoutes.labDashboard);
+        break;
+      case 1:
+        context.go(AppRoutes.labPending);
+        break;
+      case 2:
+        context.go(AppRoutes.labCompleted);
+        break;
+      case 3:
+        context.go(AppRoutes.labProfile);
+        break;
+      default:
+        context.go(AppRoutes.labDashboard);
     }
   }
 
