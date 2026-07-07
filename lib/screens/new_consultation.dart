@@ -12,8 +12,8 @@ import '../widgets/custom_dropdown_search.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/media_service.dart';
+import '../widgets/document_view_dialog.dart';
 import 'dart:io' as io;
 
 class NewConsultationView extends StatefulWidget {
@@ -91,12 +91,23 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   bool _isUploadingFile = false;
   String? _selectedFileName;
   List<int>? _selectedFileBytes;
+  String? _selectedFileSizeStr;
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) {
+      return '$bytes B';
+    } else if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+  }
   
   Future<void> _pickFile() async {
     try {
       final FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
       );
 
       if (result != null && result.files.isNotEmpty) {
@@ -109,9 +120,23 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         }
 
         if (fileBytes != null) {
+          final bytesCount = fileBytes.length;
+          if (bytesCount > 5 * 1024 * 1024) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('File exceeds 5MB limit. Please choose a smaller file.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return;
+          }
+
           setState(() {
             _selectedFileName = file.name;
             _selectedFileBytes = fileBytes;
+            _selectedFileSizeStr = _formatFileSize(bytesCount);
           });
         }
       }
@@ -152,11 +177,13 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             'title': title,
             'file_name': _selectedFileName!,
             'file_url': secureUrl,
+            'file_size': _selectedFileSizeStr ?? '',
             'date': DateFormat('dd/MM/yyyy').format(DateTime.now()),
           });
           _docTitleController.clear();
           _selectedFileName = null;
           _selectedFileBytes = null;
+          _selectedFileSizeStr = null;
         });
         messenger.showSnackBar(
           const SnackBar(
@@ -1840,6 +1867,17 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                                   ),
                                 ),
                               ),
+                              if (_selectedFileName != null && _selectedFileSizeStr != null) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Selected file size: $_selectedFileSizeStr',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -1951,7 +1989,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                                   ),
                                 ),
                                 Text(
-                                  '${doc['file_name']} • Attached on: ${doc['date']}',
+                                  '${doc['file_name']}${doc['file_size'] != null && doc['file_size']!.isNotEmpty ? ' (${doc['file_size']})' : ''} • Attached on: ${doc['date']}',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     color: AppTheme.textSecondaryColor,
@@ -1963,25 +2001,13 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                           if (hasUrl)
                             IconButton(
                               icon: const Icon(
-                                Icons.open_in_new_rounded,
+                                Icons.remove_red_eye_outlined,
                                 color: Colors.blue,
                                 size: 18,
                               ),
-                              tooltip: 'Open document link',
-                              onPressed: () async {
-                                final messenger = ScaffoldMessenger.of(context);
-                                final uri = Uri.parse(fileUrl);
-                                try {
-                                  if (await canLaunchUrl(uri)) {
-                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                  } else {
-                                    throw 'Could not launch $fileUrl';
-                                  }
-                                } catch (e) {
-                                  messenger.showSnackBar(
-                                    SnackBar(content: Text('Cannot open link: $e')),
-                                  );
-                                }
+                              tooltip: 'View Document',
+                              onPressed: () {
+                                showDocumentViewer(context, fileUrl, doc['title'] ?? 'Document');
                               },
                             ),
                           IconButton(

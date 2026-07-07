@@ -73,4 +73,26 @@ class DoctorModel {
       areasOfExpertise: json['areas_of_expertise'] ?? json['areasOfExpertise'],
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'medical_license': medicalLicense,
+      'specialization_id': specializationId,
+      'specialization': specialization,
+      'experience': experience,
+      'patients_attended': numberPatientsAttended,
+      'qualification': qualification,
+      'bio': bio,
+      'available_days': availableDays,
+      'slot_start_time': slotStartTime,
+      'slot_end_time': slotEndTime,
+      'slot_duration': slotDuration,
+      'weekly_off_days': weeklyOffDays,
+      'specific_leave_dates': specificLeaveDates,
+      'clinic_name': clinicName,
+      'clinic_location': clinicLocation,
+      'consultation_fee': consultationFee,
+      'areas_of_expertise': areasOfExpertise,
+    };
+  }
 }

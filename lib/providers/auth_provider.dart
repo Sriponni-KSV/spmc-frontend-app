@@ -14,11 +14,19 @@ class AuthProvider extends ChangeNotifier {
       final token = await TokenService.getToken();
       final userJson = await TokenService.getUser();
       if (token != null && userJson != null) {
+        // Load from local storage first for fast startup
         final Map<String, dynamic> userMap = jsonDecode(userJson);
         _user = UserModel.fromJson(userMap);
         notifyListeners();
-        // Asynchronously refresh live permissions from backend
-        refreshPermissions();
+
+        // Then refresh with live data from backend (picks up profile changes & new fields)
+        final freshUser = await _authController.fetchMe();
+        if (freshUser != null) {
+          // Preserve the local token if backend doesn't return one
+          _user = freshUser.copyWith(token: freshUser.token ?? _user?.token);
+          await TokenService.saveUser(jsonEncode(_user!.toJson()));
+          notifyListeners();
+        }
       }
     } catch (e) {
       print('Failed to initialize session: $e');
@@ -155,6 +163,7 @@ class AuthProvider extends ChangeNotifier {
 
   void updateUser(UserModel newUser) {
     _user = newUser;
+    TokenService.saveUser(jsonEncode(newUser.toJson()));
     notifyListeners();
   }
 }
