@@ -44,6 +44,7 @@ class _PatientsViewState extends State<PatientsView> {
   String _searchQuery = '';
   PatientModel? _selectedPatient;
   bool _isFilterVisible = false;
+  final TextEditingController _searchCtrl = TextEditingController();
 
   // Filter values
   String _selectedAgeRange = 'All Ages';
@@ -56,6 +57,13 @@ class _PatientsViewState extends State<PatientsView> {
   @override
   void initState() {
     super.initState();
+    _searchCtrl.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   List<PatientModel> get _filteredPatients {
@@ -330,6 +338,7 @@ class _PatientsViewState extends State<PatientsView> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
+                    controller: _searchCtrl,
                     onChanged: (val) => setState(() {
                       _searchQuery = val;
                       _currentPage = 0;
@@ -352,6 +361,24 @@ class _PatientsViewState extends State<PatientsView> {
                     ),
                   ),
                 ),
+                if (_searchCtrl.text.isNotEmpty)
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () {
+                        _searchCtrl.clear();
+                        setState(() {
+                          _searchQuery = '';
+                          _currentPage = 0;
+                        });
+                      },
+                      child: const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -446,6 +473,7 @@ class _PatientsViewState extends State<PatientsView> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: TextField(
+                          controller: _searchCtrl,
                           onChanged: (val) =>
                               setState(() {
                                 _searchQuery = val;
@@ -466,6 +494,27 @@ class _PatientsViewState extends State<PatientsView> {
                           ),
                         ),
                       ),
+                      if (_searchCtrl.text.isNotEmpty)
+                        MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () {
+                              _searchCtrl.clear();
+                              setState(() {
+                                _searchQuery = '';
+                                _currentPage = 0;
+                              });
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.only(left: 6),
+                              child: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -540,6 +589,7 @@ class _PatientsViewState extends State<PatientsView> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
+                    controller: _searchCtrl,
                     onChanged: (val) => setState(() {
                       _searchQuery = val;
                       _currentPage = 0;
@@ -558,6 +608,27 @@ class _PatientsViewState extends State<PatientsView> {
                     ),
                   ),
                 ),
+                if (_searchCtrl.text.isNotEmpty)
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () {
+                        _searchCtrl.clear();
+                        setState(() {
+                          _searchQuery = '';
+                          _currentPage = 0;
+                        });
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: 8),
+                        child: Icon(
+                          Icons.close,
+                          size: 18,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -776,6 +847,7 @@ class _PatientsViewState extends State<PatientsView> {
               ),
               child: Row(
                 children: [
+                  Expanded(child: _buildTableHeaderText('S.No')),
                   Expanded(flex: 2, child: _buildTableHeaderText('Patient ID')),
                   Expanded(flex: 3, child: _buildTableHeaderText('Name')),
                   Expanded(child: _buildTableHeaderText('Age')),
@@ -801,7 +873,9 @@ class _PatientsViewState extends State<PatientsView> {
                 child: Center(child: Text('No patients found')),
               )
             else
-              ...patients.map((patient) {
+              ...patients.asMap().entries.map((entry) {
+                final index = entry.key;
+                final patient = entry.value;
                 final String name = patient.name;
                 final parts = name
                     .trim()
@@ -826,6 +900,7 @@ class _PatientsViewState extends State<PatientsView> {
                       initials,
                       patient.isQuickRegister ? ['Quick'] : [],
                       isMobile,
+                      '${(index + 1) + (_currentPage * _itemsPerPage)}',
                     ),
                     const Divider(height: 1),
                   ],
@@ -1115,6 +1190,7 @@ class _PatientsViewState extends State<PatientsView> {
     String initials,
     List<String> tags,
     bool isMobile,
+    String serialNumber,
   ) {
     bool isQuick = patient.isQuickRegister;
     return Container(
@@ -1124,6 +1200,16 @@ class _PatientsViewState extends State<PatientsView> {
       ),
       child: Row(
         children: [
+          Expanded(
+            child: Text(
+              serialNumber,
+              style: TextStyle(
+                fontSize: 13,
+                color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF4A5568),
+                fontWeight: isQuick ? FontWeight.w500 : FontWeight.normal,
+              ),
+            ),
+          ),
           Expanded(
             flex: 2,
             child: Text(

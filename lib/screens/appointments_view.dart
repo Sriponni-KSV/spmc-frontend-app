@@ -30,6 +30,10 @@ class AppointmentsView extends StatefulWidget {
 
 class _AppointmentsViewState extends State<AppointmentsView> {
   String _selectedStatus = 'All Status';
+  int _currentPage = 0;
+  final int _itemsPerPage = 10;
+  String _searchQuery = '';
+  final TextEditingController _apptSearchController = TextEditingController();
   DateTime? _filterDate = DateTime.now();
   String _selectedApptType = 'Routine';
   final List<String> _apptTypes = [
@@ -84,6 +88,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   @override
   void dispose() {
     _reasonController.dispose();
+    _apptSearchController.dispose();
     super.dispose();
   }
 
@@ -717,7 +722,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         _buildFieldLabel('Select Doctor *'),
                         const SizedBox(height: 4),
                         SizedBox(
-                          height: 70,
+                          height: 76,
                           child:
                               _doctors
                                   .where(
@@ -811,6 +816,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                     color: Color(0xFF2D3748),
                                                   ),
                                                 ),
+                                                if (doc.staffUniqueId != null && doc.staffUniqueId!.isNotEmpty) ...[
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    doc.staffUniqueId!,
+                                                    style: const TextStyle(
+                                                      color: AppTheme.textSecondaryColor,
+                                                      fontSize: 9,
+                                                    ),
+                                                  ),
+                                                ],
                                               ],
                                             ),
                                           ],
@@ -1351,7 +1366,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   _buildFieldLabel('Select Doctor *'),
                                   const SizedBox(height: 4),
                                   SizedBox(
-                                    height: 60,
+                                    height: 76,
                                     child:
                                         _doctors
                                             .where(
@@ -1485,6 +1500,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                                   ),
                                                                 ),
                                                           ),
+                                                          if (doc.staffUniqueId != null && doc.staffUniqueId!.isNotEmpty) ...[
+                                                            const SizedBox(height: 2),
+                                                            Text(
+                                                              doc.staffUniqueId!,
+                                                              style: const TextStyle(
+                                                                color: AppTheme.textSecondaryColor,
+                                                                fontSize: 10,
+                                                              ),
+                                                            ),
+                                                          ],
                                                         ],
                                                       ),
                                                     ],
@@ -2374,16 +2399,74 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   Widget _buildFilters(bool isMobile) {
+    final searchBar = Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.search,
+            size: 20,
+            color: AppTheme.textSecondaryColor,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _apptSearchController,
+              onChanged: (v) => setState(() {
+                _searchQuery = v;
+                _currentPage = 0;
+              }),
+              decoration: const InputDecoration(
+                hintText: 'Search appointments by patient, doctor, or department...',
+                hintStyle: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondaryColor,
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                isDense: true,
+              ),
+            ),
+          ),
+          if (_searchQuery.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear, size: 20, color: AppTheme.textSecondaryColor),
+              onPressed: () {
+                _apptSearchController.clear();
+                setState(() {
+                  _searchQuery = '';
+                  _currentPage = 0;
+                });
+              },
+            ),
+        ],
+      ),
+    );
+
     if (isMobile) {
       return Column(
         children: [
+          searchBar,
           CustomDropdownSearch(
             label: '',
             value: _selectedStatus,
             dropdownItems: const ['All Status', 'Confirmed', 'Cancelled'],
             height: 48,
             onChanged: (val) {
-              if (val != null) setState(() => _selectedStatus = val);
+              if (val != null) {
+                setState(() {
+                  _selectedStatus = val;
+                  _currentPage = 0;
+                });
+              }
             },
           ),
           const SizedBox(height: 12),
@@ -2413,7 +2496,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         lastDate: DateTime(2101),
                       );
                       if (picked != null) {
-                        setState(() => _filterDate = picked);
+                        setState(() {
+                          _filterDate = picked;
+                          _currentPage = 0;
+                        });
                       }
                     },
                     child: Padding(
@@ -2430,7 +2516,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 if (_filterDate != null)
                   IconButton(
                     icon: const Icon(Icons.close, size: 16),
-                    onPressed: () => setState(() => _filterDate = null),
+                    onPressed: () => setState(() {
+                      _filterDate = null;
+                      _currentPage = 0;
+                    }),
                   ),
               ],
             ),
@@ -2439,66 +2528,83 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       );
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          width: 180,
-          child: CustomDropdownSearch(
-            label: '',
-            value: _selectedStatus,
-            dropdownItems: const ['All Status', 'Confirmed', 'Cancelled'],
-            height: 48,
-            onChanged: (val) {
-              if (val != null) setState(() => _selectedStatus = val);
-            },
-          ),
-        ),
-        const SizedBox(width: 16),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.borderColor),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.calendar_today,
-                size: 16,
-                color: Color(0xFF64748B),
-              ),
-              const SizedBox(width: 12),
-              InkWell(
-                onTap: () async {
-                  DateTime? picked = await showDatePicker(
-                    context: context,
-                    initialDate: _filterDate ?? DateTime.now(),
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2101),
-                  );
-                  if (picked != null) {
-                    setState(() => _filterDate = picked);
+        searchBar,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 180,
+              child: CustomDropdownSearch(
+                label: '',
+                value: _selectedStatus,
+                dropdownItems: const ['All Status', 'Confirmed', 'Cancelled'],
+                height: 48,
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _selectedStatus = val;
+                      _currentPage = 0;
+                    });
                   }
                 },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    _filterDate == null
-                        ? 'Select Date'
-                        : DateFormat('dd/MM/yyyy').format(_filterDate!),
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
               ),
-              if (_filterDate != null)
-                IconButton(
-                  icon: const Icon(Icons.close, size: 16),
-                  onPressed: () => setState(() => _filterDate = null),
-                ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.borderColor),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 12),
+                  InkWell(
+                    onTap: () async {
+                      DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: _filterDate ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2101),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _filterDate = picked;
+                          _currentPage = 0;
+                        });
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        _filterDate == null
+                            ? 'Select Date'
+                            : DateFormat('dd/MM/yyyy').format(_filterDate!),
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  ),
+                  if (_filterDate != null)
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () => setState(() {
+                        _filterDate = null;
+                        _currentPage = 0;
+                      }),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -2523,8 +2629,30 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           return false;
         }
       }
+      if (_searchQuery.trim().isNotEmpty) {
+        final query = _searchQuery.toLowerCase();
+        final matchesQuery = a.patientName.toLowerCase().contains(query) ||
+            (a.patientDisplayId?.toLowerCase().contains(query) ?? false) ||
+            (a.patientPhone?.toLowerCase().contains(query) ?? false) ||
+            a.doctorName.toLowerCase().contains(query) ||
+            a.department.toLowerCase().contains(query);
+        if (!matchesQuery) return false;
+      }
       return true;
     }).toList();
+
+    final totalAppointments = filteredAppts.length;
+    final totalPages = (totalAppointments / _itemsPerPage).ceil();
+
+    if (_currentPage >= totalPages && totalPages > 0) {
+      _currentPage = totalPages - 1;
+    }
+    if (_currentPage < 0) _currentPage = 0;
+
+    final apps = filteredAppts
+        .skip(_currentPage * _itemsPerPage)
+        .take(_itemsPerPage)
+        .toList();
 
     if (filteredAppts.isEmpty) {
       bool isToday = false;
@@ -2564,15 +2692,23 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     }
 
     if (isMobile) {
-      return ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: filteredAppts.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final appt = filteredAppts[index];
-          return _buildAppointmentCardMobile(appt);
-        },
+      return Column(
+        children: [
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: apps.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final appt = apps[index];
+              return _buildAppointmentCardMobile(appt);
+            },
+          ),
+          if (totalPages > 1) ...[
+            const SizedBox(height: 16),
+            _buildPaginationControls(totalPages, true),
+          ],
+        ],
       );
     }
 
@@ -2595,6 +2731,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
             child: Row(
               children: [
+                _buildTableHeader('S.No', flex: 1),
                 _buildTableHeader('Time', flex: 2),
                 _buildTableHeader('Date', flex: 2),
                 _buildTableHeader('Patient', flex: 3),
@@ -2612,17 +2749,21 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: filteredAppts.length,
+            itemCount: apps.length,
             itemBuilder: (context, index) {
-              final appt = filteredAppts[index];
+              final appt = apps[index];
+              final serialNo = (index + 1) + (_currentPage * _itemsPerPage);
               return Column(
                 children: [
-                  _buildAppointmentRow(appt),
+                  _buildAppointmentRow(appt, serialNo),
                   const Divider(height: 1),
                 ],
               );
             },
           ),
+          if (totalPages > 1) ...[
+            _buildPaginationControls(totalPages, false),
+          ],
         ],
       ),
     );
@@ -2725,11 +2866,23 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 color: Color(0xFF94A3B8),
               ),
               const SizedBox(width: 8),
-              Text(
-                appt.doctorDisplayId != null && appt.doctorDisplayId!.isNotEmpty
-                    ? '${appt.doctorName} (${appt.doctorDisplayId})'
-                    : appt.doctorName,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+              Text.rich(
+                TextSpan(
+                  text: appt.doctorName,
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                  children: [
+                    if (appt.doctorDisplayId != null &&
+                        appt.doctorDisplayId!.isNotEmpty)
+                      TextSpan(
+                        text: ' (${appt.doctorDisplayId})',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.normal,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -2954,7 +3107,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     );
   }
 
-  Widget _buildAppointmentRow(AppointmentModel appt) {
+  Widget _buildAppointmentRow(AppointmentModel appt, int serialNo) {
     final id = appt.id!;
     final time = appt.appointmentTime;
     final date = appt.appointmentDate;
@@ -2979,6 +3132,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       child: Row(
         children: [
           Expanded(
+            flex: 1,
+            child: Text(
+              '$serialNo',
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF4A5568),
+              ),
+            ),
+          ),
+          Expanded(
             flex: 2,
             child: Row(
               children: [
@@ -2988,23 +3151,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   color: Color(0xFF94A3B8),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  time.contains(' ') ? time.split(' ')[0] : time,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-                if (time.contains(' ')) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    time.split(' ')[1],
+                Expanded(
+                  child: Text(
+                    time,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
                   ),
-                ],
+                ),
               ],
             ),
           ),
@@ -3018,15 +3175,19 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   color: Color(0xFF94A3B8),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  _formatDate(date),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF475569),
+                Expanded(
+                  child: Text(
+                    _formatDate(date),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF475569),
+                    ),
                   ),
                 ),
                 if (isRescheduled) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(
@@ -3034,10 +3195,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Text(
-                      'Rescheduled',
+                      'Resched',
                       style: TextStyle(
                         color: Color(0xFF9333EA),
-                        fontSize: 9,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -3069,11 +3230,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  patientName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                Expanded(
+                  child: Text(
+                    patientName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ],
@@ -3134,13 +3299,25 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 12.0),
-                    child: Text(
-                      doctorDisplayId != null && doctorDisplayId.isNotEmpty
-                          ? '$doctorName ($doctorDisplayId)'
-                          : doctorName,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF475569),
+                    child: Text.rich(
+                      TextSpan(
+                        text: doctorName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF475569),
+                        ),
+                        children: [
+                          if (doctorDisplayId != null &&
+                              doctorDisplayId.isNotEmpty)
+                            TextSpan(
+                              text: ' ($doctorDisplayId)',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -3273,6 +3450,77 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     const Text('-', style: TextStyle(color: Colors.grey, fontSize: 16)),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaginationControls(int totalPages, bool isMobile) {
+    if (totalPages <= 1) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            'Page ${_currentPage + 1} of $totalPages',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSecondaryColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 16),
+          OutlinedButton(
+            onPressed: _currentPage > 0
+                ? () => setState(() => _currentPage--)
+                : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(80, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              side: BorderSide(
+                color: _currentPage > 0
+                    ? AppTheme.primaryColor
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.chevron_left, size: 18),
+                Text('Prev'),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: _currentPage < totalPages - 1
+                ? () => setState(() => _currentPage++)
+                : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(80, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              side: BorderSide(
+                color: _currentPage < totalPages - 1
+                    ? AppTheme.primaryColor
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text('Next'),
+                Icon(Icons.chevron_right, size: 18),
+              ],
             ),
           ),
         ],

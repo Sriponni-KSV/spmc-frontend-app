@@ -60,9 +60,13 @@ class AppRoutes {
 
   // Lab Routes
   static const String labDashboard = '/lab/dashboard';
+  static const String labPending = '/lab/pending-tests';
+  static const String labCompleted = '/lab/completed-tests';
   static const String labProfile = '/lab/profile';
+  static const String labResources = '/lab/resources';
 
   // Pharmacy Routes
   static const String pharmacyDashboard = '/pharmacy/dashboard';
+  static const String pharmacyInventory = '/pharmacy/inventory';
   static const String pharmacyProfile = '/pharmacy/profile';
 }

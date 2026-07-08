@@ -329,10 +329,31 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.labPending,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('lab_dashboard'),
+            child: LabDashboardScreen(initialIndex: 1),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.labCompleted,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('lab_dashboard'),
+            child: LabDashboardScreen(initialIndex: 2),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.labProfile,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('lab_dashboard'),
             child: LabDashboardScreen(initialIndex: 3),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.labResources,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('lab_dashboard'),
+            child: LabDashboardScreen(initialIndex: 4),
           ),
         ),
 
@@ -342,6 +363,13 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('pharmacy_dashboard'),
             child: PharmacyDashboardScreen(initialIndex: 0),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.pharmacyInventory,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('pharmacy_dashboard'),
+            child: PharmacyDashboardScreen(initialIndex: 1),
           ),
         ),
         GoRoute(

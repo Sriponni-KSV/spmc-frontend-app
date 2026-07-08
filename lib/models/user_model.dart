@@ -21,22 +21,7 @@ class UserModel {
 
   // Custom formatted name getter
   String get fullname {
-    final String name = rawFullname ?? '';
-    final String? idStr = (staffUniqueId != null && staffUniqueId!.isNotEmpty) ? staffUniqueId : null;
-    if (role == 'Doctor') {
-      final spec = specialization ?? '';
-      if (spec.isNotEmpty) {
-        if (idStr != null) {
-          return '$name ($idStr) [$spec]';
-        } else {
-          return '$name [$spec]';
-        }
-      }
-    }
-    if (idStr != null) {
-      return '$name ($idStr)';
-    }
-    return name;
+    return rawFullname ?? '';
   }
 
   // Backward compatibility getters for UI screens

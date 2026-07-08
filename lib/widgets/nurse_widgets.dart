@@ -556,7 +556,13 @@ class _SearchOverlayState extends State<SearchOverlay> {
                           Icons.close,
                           color: AppTheme.iconColor,
                         ),
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () {
+                          if (_searchController.text.isNotEmpty) {
+                            _searchController.clear();
+                          } else {
+                            Navigator.of(context).pop();
+                          }
+                        },
                       ),
                     ],
                   ),

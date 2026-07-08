@@ -53,6 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoadingLabReports = false;
   String _labSearchQuery = '';
   String _labStatusFilter = 'All';
+  bool _showOverduePanel = false;
   late TextEditingController _labSearchController;
   Set<int>? __expandedTestIds;
   Set<int> get _expandedTestIds => __expandedTestIds ??= {};
@@ -122,6 +123,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (widget.initialIndex != oldWidget.initialIndex) {
       setState(() {
         _selectedIndex = widget.initialIndex;
+        _activeAppointment = null;
       });
     }
   }
@@ -3446,61 +3448,92 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     return Row(
                       children: [
                         Expanded(
-                          child: InkWell(
-                            onTap: () => UserProfileDialog.show(context, user),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: AppTheme.borderColor),
-                                    ),
-                                    child: CircleAvatar(
-                                      backgroundColor: AppTheme.getAvatarColors(
-                                        user.rawFullname ?? '',
-                                      )['bg'],
-                                      radius: 18,
-                                      child: Text(
-                                        user.rawFullname?.isNotEmpty == true
-                                            ? user.rawFullname![0].toUpperCase()
-                                            : '?',
-                                        style: TextStyle(
-                                          color: AppTheme.getAvatarColors(
-                                            user.rawFullname ?? '',
-                                          )['text'],
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
+//                           child: InkWell(
+//                             onTap: () => UserProfileDialog.show(context, user),
+//                             borderRadius: BorderRadius.circular(8),
+//                             child: Padding(
+//                               padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+//                               child: Row(
+//                                 children: [
+//                                   Container(
+//                                     decoration: BoxDecoration(
+//                                       shape: BoxShape.circle,
+//                                       border: Border.all(color: AppTheme.borderColor),
+//                                     ),
+//                                     child: CircleAvatar(
+//                                       backgroundColor: AppTheme.getAvatarColors(
+//                                         user.rawFullname ?? '',
+//                                       )['bg'],
+//                                       radius: 18,
+//                                       child: Text(
+//                                         user.rawFullname?.isNotEmpty == true
+//                                             ? user.rawFullname![0].toUpperCase()
+//                                             : '?',
+//                                         style: TextStyle(
+//                                           color: AppTheme.getAvatarColors(
+//                                             user.rawFullname ?? '',
+//                                           )['text'],
+//                                           fontWeight: FontWeight.bold,
+//                                           fontSize: 12,
+//                                         ),
+//                                       ),
+//                                     ),
+//                                   ),
+//                                   const SizedBox(width: 12),
+//                                   Expanded(
+//                                     child: Column(
+//                                       crossAxisAlignment: CrossAxisAlignment.start,
+//                                       children: [
+//                                         Text(
+//                                           user.rawFullname ?? '',
+//                                           style: const TextStyle(
+//                                             fontWeight: FontWeight.bold,
+//                                             fontSize: 13,
+//                                           ),
+//                                           overflow: TextOverflow.ellipsis,
+//                                         ),
+//                                         Text(
+//                                           user.role,
+//                                           style: const TextStyle(
+//                                             fontSize: 11,
+//                                             color: AppTheme.textSecondaryColor,
+//                                           ),
+//                                         ),
+//                                       ],
+//                                     ),
+//                                   ),
+//                                 ],
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user.rawFullname ?? '',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (user.staffUniqueId != null &&
+                                  user.staffUniqueId!.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  user.staffUniqueId!,
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    color: AppTheme.textSecondaryColor,
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          user.rawFullname ?? '',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        Text(
-                                          user.role,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppTheme.textSecondaryColor,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              const SizedBox(height: 2),
+                              Text(
+                                user.role,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
                               ),
                             ),
                           ),
@@ -4756,7 +4789,204 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          
+
+          // ─── Lab Summary Stats Row ──────────────────────────────────────
+          Builder(builder: (context) {
+            final now = DateTime.now();
+            final int total = _labReports.length;
+            final int pending = _labReports.where((r) {
+              final s = r['status'] ?? '';
+              return s == 'Pending' || s == 'Sample Collected';
+            }).length;
+            final int completed = _labReports.where((r) => r['status'] == 'Completed').length;
+
+            // Overdue = Pending/In-progress past estimated_completion_at
+            final List<Map<String, dynamic>> overdueList = _labReports.where((r) {
+              final s = r['status'] ?? '';
+              if (s == 'Completed') return false;
+              final estStr = r['estimated_completion_at'];
+              if (estStr == null) return false;
+              final est = DateTime.tryParse(estStr.toString());
+              if (est == null) return false;
+              return now.isAfter(est.toLocal());
+            }).toList();
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Stats Row
+                Row(
+                  children: [
+                    _buildLabSummaryCard(
+                      label: 'Total Sent',
+                      count: total,
+                      icon: Icons.biotech_outlined,
+                      color: AppTheme.primaryColor,
+                      bgColor: AppTheme.primaryColor.withOpacity(0.08),
+                    ),
+                    const SizedBox(width: 16),
+                    _buildLabSummaryCard(
+                      label: 'Pending',
+                      count: pending,
+                      icon: Icons.hourglass_empty_outlined,
+                      color: const Color(0xFFE65100),
+                      bgColor: Colors.orange.shade50,
+                    ),
+                    const SizedBox(width: 16),
+                    _buildLabSummaryCard(
+                      label: 'Completed',
+                      count: completed,
+                      icon: Icons.check_circle_outline,
+                      color: Colors.green.shade700,
+                      bgColor: Colors.green.shade50,
+                    ),
+                    const SizedBox(width: 16),
+                    _buildLabSummaryCard(
+                      label: 'Overdue',
+                      count: overdueList.length,
+                      icon: Icons.warning_amber_outlined,
+                      color: Colors.red.shade700,
+                      bgColor: Colors.red.shade50,
+                      highlight: overdueList.isNotEmpty,
+                      onTap: overdueList.isNotEmpty
+                          ? () => setState(() => _showOverduePanel = !_showOverduePanel)
+                          : null,
+                      isActive: _showOverduePanel,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Overdue Alert Panel — shown only when toggled
+                if (_showOverduePanel && overdueList.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.shade200, width: 1.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.access_time_filled, color: Colors.red.shade700, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Overdue Lab Results — ${overdueList.length} test${overdueList.length > 1 ? 's' : ''} past estimated completion',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ...overdueList.map((req) {
+                          final est = req['estimated_completion_at'] != null
+                              ? DateTime.tryParse(req['estimated_completion_at'].toString())?.toLocal()
+                              : null;
+                          final overdueDuration = est != null ? now.difference(est) : null;
+                          final overdueText = overdueDuration != null
+                              ? (overdueDuration.inHours > 0
+                                  ? '${overdueDuration.inHours}h ${overdueDuration.inMinutes.remainder(60)}m overdue'
+                                  : '${overdueDuration.inMinutes}m overdue')
+                              : 'Overdue';
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade100),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade400,
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${req['patient_name'] ?? 'Unknown'} (${req['patient_display_id'] ?? req['patient_id'] ?? ''})',
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.science, size: 12, color: Colors.grey.shade600),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            req['test_name'] ?? '',
+                                            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                                          ),
+                                          if (req['priority'] != null && req['priority'] != 'Normal') ...[
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: req['priority'] == 'Emergency' ? Colors.red.shade100 : Colors.orange.shade100,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                req['priority'],
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: req['priority'] == 'Emergency' ? Colors.red.shade800 : Colors.orange.shade800,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      if (est != null)
+                                        Text(
+                                          'Was due: ${DateFormat('dd-MMM-yyyy hh:mm a').format(est)}',
+                                          style: TextStyle(fontSize: 11, color: Colors.red.shade600),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade100,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    overdueText,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red.shade800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ),
+
+                if (_showOverduePanel && overdueList.isNotEmpty) const SizedBox(height: 20),
+              ],
+            );
+          }),
+
           // Search & Filter Panel
           Container(
             padding: const EdgeInsets.all(16),
@@ -4778,12 +5008,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: TextField(
                       controller: _labSearchController,
                       onChanged: (v) => setState(() => _labSearchQuery = v),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         hintText: 'Search by Patient Name, ID, or Test...',
-                        hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                        prefixIcon: Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                        prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                        suffixIcon: _labSearchQuery.isNotEmpty
+                            ? MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _labSearchController.clear();
+                                    setState(() => _labSearchQuery = '');
+                                  },
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                ),
+                              )
+                            : null,
                         border: InputBorder.none,
                       ),
                     ),
@@ -4830,6 +5076,91 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLabSummaryCard({
+    required String label,
+    required int count,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+    bool highlight = false,
+    VoidCallback? onTap,
+    bool isActive = false,
+  }) {
+    return Expanded(
+      child: MouseRegion(
+        cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            decoration: BoxDecoration(
+              color: isActive ? color.withOpacity(0.15) : bgColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isActive ? color : (highlight ? color.withOpacity(0.6) : color.withOpacity(0.2)),
+                width: isActive || highlight ? 1.5 : 1,
+              ),
+              boxShadow: isActive || highlight
+                  ? [BoxShadow(color: color.withOpacity(0.18), blurRadius: 8, offset: const Offset(0, 3))]
+                  : [],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        count.toString(),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: color.withOpacity(0.8),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (onTap != null) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              isActive ? Icons.expand_less : Icons.expand_more,
+                              size: 14,
+                              color: color.withOpacity(0.7),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -4934,7 +5265,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'ID: $patientId • $patientGender • $patientAge yrs',
+                          '$patientId • $patientGender • $patientAge yrs',
                           style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
                         ),
                         const SizedBox(height: 4),
@@ -5139,13 +5470,127 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              testName,
-                              style: const TextStyle(
-                                fontSize: 14, 
-                                fontWeight: FontWeight.bold, 
-                                color: AppTheme.textPrimaryColor
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  testName,
+                                  style: const TextStyle(
+                                    fontSize: 14, 
+                                    fontWeight: FontWeight.bold, 
+                                    color: AppTheme.textPrimaryColor
+                                  ),
+                                ),
+                                 if (req['target_tat_minutes'] != null) ...[
+                                   const SizedBox(height: 2),
+                                   Text(
+                                     'Duration: ${_formatDuration(req['target_tat_minutes'] is int ? req['target_tat_minutes'] as int : int.tryParse(req['target_tat_minutes']?.toString() ?? '') ?? 0)}',
+                                     style: const TextStyle(
+                                       fontSize: 11,
+                                       color: AppTheme.textSecondaryColor,
+                                       fontWeight: FontWeight.w500,
+                                     ),
+                                   ),
+                                 ],
+                                 if (status != 'Completed') ...[
+                                   if (req['queue_position'] != null) ...[
+                                     const SizedBox(height: 2),
+                                     Text(
+                                       'Queue Position: #${req['queue_position']}',
+                                       style: const TextStyle(
+                                         fontSize: 11,
+                                         color: AppTheme.primaryColor,
+                                         fontWeight: FontWeight.bold,
+                                       ),
+                                     ),
+                                   ],
+                                   if (req['estimated_completion_at'] != null) ...[
+                                     const SizedBox(height: 2),
+                                     Text(
+                                       'Est Completion: ${DateFormat('dd-MMM-yyyy hh:mm a').format(DateTime.parse(req['estimated_completion_at']).toLocal())}',
+                                       style: const TextStyle(
+                                         fontSize: 11,
+                                         color: AppTheme.secondaryColor,
+                                         fontWeight: FontWeight.bold,
+                                       ),
+                                     ),
+                                   ],
+                                   if (req['scheduled_start_override'] != null) ...[
+                                     const SizedBox(height: 2),
+                                     Text(
+                                       'Rescheduled: ${DateFormat('dd-MMM-yyyy').format(DateTime.parse(req['scheduled_start_override']).toLocal())}',
+                                       style: const TextStyle(
+                                         fontSize: 11,
+                                         color: Colors.blue,
+                                         fontWeight: FontWeight.bold,
+                                       ),
+                                     ),
+                                   ],
+                                   if (req['technician_name'] != null || req['machine_name'] != null) ...[
+                                     const SizedBox(height: 2),
+                                     Text(
+                                       'Resources: ${req['technician_name'] ?? 'Unassigned'} • ${req['machine_name'] ?? 'Unassigned'}',
+                                       style: const TextStyle(
+                                         fontSize: 11,
+                                         color: AppTheme.textPrimaryColor,
+                                         fontWeight: FontWeight.w600,
+                                       ),
+                                     ),
+                                   ],
+                                   if (req['schedule_status'] != null && req['schedule_status'] != 'Scheduled') ...[
+                                     const SizedBox(height: 2),
+                                     Container(
+                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                       decoration: BoxDecoration(
+                                         color: req['schedule_status'] == 'Waiting for Technician' ? Colors.purple.shade50 : Colors.teal.shade50,
+                                         borderRadius: BorderRadius.circular(4),
+                                       ),
+                                       child: Text(
+                                         req['schedule_status'],
+                                         style: TextStyle(
+                                           fontSize: 9,
+                                           color: req['schedule_status'] == 'Waiting for Technician' ? Colors.purple.shade800 : Colors.teal.shade800,
+                                           fontWeight: FontWeight.bold,
+                                         ),
+                                       ),
+                                     ),
+                                   ],
+                                   if (req['priority'] != null && req['priority'] != 'Normal') ...[
+                                     const SizedBox(height: 2),
+                                     Text(
+                                       'Priority: ${req['priority']}',
+                                       style: TextStyle(
+                                         fontSize: 11,
+                                         color: req['priority'] == 'Emergency' ? Colors.red.shade700 : Colors.orange.shade700,
+                                         fontWeight: FontWeight.bold,
+                                       ),
+                                     ),
+                                   ],
+                                   if (req['delay_reason'] != null && req['delay_reason'].toString().isNotEmpty) ...[
+                                     const SizedBox(height: 4),
+                                     Container(
+                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                       decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(4)),
+                                       child: Text(
+                                         'Delay Issue: ${req['delay_reason']}',
+                                         style: const TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
+                                       ),
+                                     ),
+                                   ],
+                                 ] else ...[
+                                   if (req['actual_tat_minutes'] != null) ...[
+                                     const SizedBox(height: 2),
+                                     Text(
+                                       'Actual TAT: ${req['actual_tat_minutes']} mins (${req['completion_status'] ?? 'On Time'})',
+                                       style: const TextStyle(
+                                         fontSize: 11,
+                                         color: Colors.green,
+                                         fontWeight: FontWeight.bold,
+                                       ),
+                                     ),
+                                   ],
+                                 ],
+                              ],
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -5364,5 +5809,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
+  }
+
+  String _formatDuration(int minutes) {
+    if (minutes <= 0) return '';
+    if (minutes < 60) {
+      return '$minutes mins';
+    }
+    final double hours = minutes / 60.0;
+    if (hours < 24) {
+      if (minutes % 60 == 0) {
+        final int h = minutes ~/ 60;
+        return '$h ${h == 1 ? 'hr' : 'hrs'}';
+      }
+      return '${hours.toStringAsFixed(1)} hrs';
+    }
+    final double days = hours / 24.0;
+    if (minutes % 1440 == 0) {
+      final int wholeDays = minutes ~/ 1440;
+      return '$wholeDays ${wholeDays == 1 ? 'day' : 'days'}';
+    }
+    return '${days.toStringAsFixed(1)} days';
   }
 }

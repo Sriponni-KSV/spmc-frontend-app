@@ -3,6 +3,7 @@ import '../utils/app_theme.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
+import '../widgets/custom_dropdown_search.dart';
 
 class PharmacyManagementView extends StatefulWidget {
   final bool isMobile;
@@ -29,6 +30,11 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   bool _isLoading = true;
   String? _error;
   String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  String _ctrlSearchQuery = '';
+  String _selectedCtrlCategory = 'All';
+  int _ctrlPage = 0;
+  final int _itemsPerPage = 10;
 
   // Per-item quantity overrides for dispense
   final Map<int, TextEditingController> _qtyControllers = {};
@@ -45,6 +51,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   @override
   void dispose() {
     _tabController?.dispose();
+    _searchController.dispose();
     for (var c in _qtyControllers.values) {
       c.dispose();
     }
@@ -814,9 +821,26 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
     return Column(
       children: [
         TextField(
+          controller: _searchController,
           decoration: InputDecoration(
             hintText: 'Search patient name or ID…',
             prefixIcon: const Icon(Icons.search, size: 18),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                      child: const Icon(
+                        Icons.close,
+                        size: 16,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                  )
+                : null,
             fillColor: Colors.white,
             filled: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -912,9 +936,19 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                                     ],
                                   ],
                                 ),
-                                Text(
-                                  'ID: ${pres['patient_display_id'] ?? '--'} • Dr. ${pres['doctor_name'] ?? '--'}',
-                                  style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      pres['patient_display_id'] ?? '--',
+                                      style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Dr. ${pres['doctor_name'] ?? '--'}',
+                                      style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11, fontWeight: FontWeight.w500),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -1084,10 +1118,20 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 2),
-            Text(
-              'ID: ${pres['patient_display_id'] ?? '--'} • Dr. ${pres['doctor_name'] ?? '--'} • ${isOpd ? 'OPD' : 'IPD'}',
-              style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
-            ),
+             Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Text(
+                   '${pres['patient_display_id'] ?? '--'} • ${isOpd ? 'OPD' : 'IPD'}',
+                   style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                 ),
+                 const SizedBox(height: 2),
+                 Text(
+                   'Dr. ${pres['doctor_name'] ?? '--'}',
+                   style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11, fontWeight: FontWeight.w500),
+                 ),
+               ],
+             ),
             const SizedBox(height: 6),
             Text(
               timeStr,
@@ -1167,13 +1211,13 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                   border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.3)),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor, size: 18),
-                    SizedBox(width: 8),
+                    const Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor, size: 18),
+                    const SizedBox(width: 8),
                     Text(
                       'NEW MEDICATION PRESCRIBED TODAY',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppTheme.dangerColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
@@ -1197,9 +1241,19 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        'ID: ${pres['patient_display_id'] ?? '--'} • Dr. ${pres['doctor_name'] ?? '--'} • ${isOpd ? 'Outpatient' : 'Inpatient'}',
-                        style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${pres['patient_display_id'] ?? '--'} • ${isOpd ? 'Outpatient' : 'Inpatient'}',
+                            style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Prescribed by Dr. ${pres['doctor_name'] ?? '--'}',
+                            style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -1460,6 +1514,35 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildControlledDrugsTab() {
+    final categories = ['All', ..._controlledDrugs.map((c) => c['category']?.toString() ?? 'N/A').toSet().where((c) => c.isNotEmpty && c.toLowerCase() != 'food' && c.toLowerCase() != 'food item' && c.toLowerCase() != 'food items' && c.toLowerCase() != 'food stock')];
+
+    final filtered = _controlledDrugs.where((item) {
+      if (_selectedCtrlCategory != 'All' &&
+          (item['category']?.toString() != _selectedCtrlCategory)) {
+        return false;
+      }
+      if (_ctrlSearchQuery.trim().isNotEmpty) {
+        final query = _ctrlSearchQuery.toLowerCase();
+        final matches = (item['name']?.toString().toLowerCase().contains(query) ?? false) ||
+            (item['category']?.toString().toLowerCase().contains(query) ?? false);
+        if (!matches) return false;
+      }
+      return true;
+    }).toList();
+
+    final totalItems = filtered.length;
+    final totalPages = (totalItems / _itemsPerPage).ceil();
+
+    if (_ctrlPage >= totalPages && totalPages > 0) {
+      _ctrlPage = totalPages - 1;
+    }
+    if (_ctrlPage < 0) _ctrlPage = 0;
+
+    final paginated = filtered
+        .skip(_ctrlPage * _itemsPerPage)
+        .take(_itemsPerPage)
+        .toList();
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1475,15 +1558,77 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              '${_controlledDrugs.length} items',
+              '${filtered.length} items',
               style: const TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 11),
             ),
           ),
         ]),
         const SizedBox(height: 16),
-        if (_controlledDrugs.isEmpty)
-          const Center(child: Padding(padding: EdgeInsets.all(48), child: Text('No controlled drugs in inventory', style: TextStyle(color: Colors.grey))))
-        else
+        
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        onChanged: (v) => setState(() {
+                          _ctrlSearchQuery = v;
+                          _ctrlPage = 0;
+                        }),
+                        decoration: const InputDecoration(
+                          hintText: 'Search controlled drugs...',
+                          hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 180,
+              child: CustomDropdownSearch(
+                label: '',
+                value: _selectedCtrlCategory,
+                dropdownItems: categories,
+                height: 44,
+                borderColor: AppTheme.borderColor,
+                borderWidth: 1.0,
+                focusedBorderColor: AppTheme.primaryColor,
+                focusedBorderWidth: 1.0,
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _selectedCtrlCategory = val;
+                      _ctrlPage = 0;
+                    });
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        if (filtered.isEmpty)
+          const Center(child: Padding(padding: EdgeInsets.all(48), child: Text('No controlled drugs matching criteria', style: TextStyle(color: Colors.grey))))
+        else ...[
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1501,6 +1646,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                   dataRowMinHeight: 52,
                   dataRowMaxHeight: 52,
                   columns: const [
+                    DataColumn(label: Text('S.No')),
                     DataColumn(label: Text('Item Name')),
                     DataColumn(label: Text('Category')),
                     DataColumn(label: Text('Stock')),
@@ -1508,7 +1654,9 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                     DataColumn(label: Text('Expiry Date')),
                     DataColumn(label: Text('Status')),
                   ],
-                  rows: _controlledDrugs.map((item) {
+                  rows: paginated.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
                     final qty = (item['quantity'] ?? 0) as int;
                     final threshold = (item['threshold'] ?? 10) as int;
                     final isLow = qty <= threshold;
@@ -1524,6 +1672,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                         return null;
                       }),
                       cells: [
+                        DataCell(Text('${(index + 1) + (_ctrlPage * _itemsPerPage)}', style: const TextStyle(fontSize: 12))),
                         DataCell(Text(item['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                         DataCell(Text(item['category'] ?? '', style: const TextStyle(fontSize: 12))),
                         DataCell(Text('$qty', style: TextStyle(
@@ -1563,6 +1712,11 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
               ),
             ),
           ),
+          if (totalPages > 1) ...[
+            const SizedBox(height: 12),
+            _buildCtrlPaginationControls(totalPages),
+          ],
+        ],
       ]),
     );
   }
@@ -1738,6 +1892,77 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
           Text(
             label,
             style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCtrlPaginationControls(int totalPages) {
+    if (totalPages <= 1) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            'Page ${_ctrlPage + 1} of $totalPages',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSecondaryColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 16),
+          OutlinedButton(
+            onPressed: _ctrlPage > 0
+                ? () => setState(() => _ctrlPage--)
+                : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(80, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              side: BorderSide(
+                color: _ctrlPage > 0
+                    ? AppTheme.primaryColor
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.chevron_left, size: 18),
+                Text('Prev'),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: _ctrlPage < totalPages - 1
+                ? () => setState(() => _ctrlPage++)
+                : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(80, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              side: BorderSide(
+                color: _ctrlPage < totalPages - 1
+                    ? AppTheme.primaryColor
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text('Next'),
+                Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
           ),
         ],
       ),

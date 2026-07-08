@@ -476,6 +476,9 @@ class _NewPatientRegistrationViewState
                         controller: _emailController,
                         hint: 'Enter Email Address',
                         keyboardType: TextInputType.emailAddress,
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(254),
+                        ],
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
                             return 'Please enter Email Address';
@@ -656,6 +659,9 @@ class _NewPatientRegistrationViewState
                       _buildTextField(
                         controller: _addressController,
                         hint: 'Enter Address Line 1',
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(255),
+                        ],
                         validator: (val) => val == null || val.isEmpty
                             ? 'Please enter Address Line 1'
                             : null,

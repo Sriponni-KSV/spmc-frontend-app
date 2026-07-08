@@ -43,6 +43,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   String _selectedDoctor = 'All';
   String _searchQuery = '';
   bool _isFilterVisible = false;
+  final TextEditingController _searchCtrl = TextEditingController();
 
   List<UserModel> _doctors = [];
 
@@ -57,6 +58,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -596,6 +598,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
+              controller: _searchCtrl,
               onChanged: (v) => setState(() => _searchQuery = v),
               decoration: const InputDecoration(
                 hintText: 'Search patient name, ID, or phone...',
@@ -610,6 +613,24 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               ),
             ),
           ),
+          if (_searchQuery.isNotEmpty)
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  _searchCtrl.clear();
+                  setState(() => _searchQuery = '');
+                },
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(
+                    Icons.close,
+                    size: 16,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -2774,7 +2795,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         value: selectedDoctor?.id.toString(),
                         dropdownMap: {
                           for (var d in _doctors)
-                            d.id.toString(): d.fullname,
+                            d.id.toString(): d.staffUniqueId != null && d.staffUniqueId!.isNotEmpty
+                                ? '${d.fullname} (${d.staffUniqueId})'
+                                : d.fullname,
                         },
                         onChanged: (val) {
                           if (val != null) {

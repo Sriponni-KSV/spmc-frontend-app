@@ -25,6 +25,7 @@ class _DoctorsViewState extends State<DoctorsView> {
   List<AppointmentModel> _appointments = [];
   String _searchQuery = '';
   String _selectedDepartment = 'All';
+  final TextEditingController _searchCtrl = TextEditingController();
 
   final ScrollController _deptScrollController = ScrollController();
   bool _showRightArrow = false;
@@ -35,6 +36,7 @@ class _DoctorsViewState extends State<DoctorsView> {
     super.initState();
     _loadDoctors();
     _deptScrollController.addListener(_scrollListener);
+    _searchCtrl.addListener(() => setState(() {}));
     // Delay check to see if content is scrollable initially
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollListener());
   }
@@ -43,6 +45,7 @@ class _DoctorsViewState extends State<DoctorsView> {
   void dispose() {
     _deptScrollController.removeListener(_scrollListener);
     _deptScrollController.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -132,12 +135,29 @@ class _DoctorsViewState extends State<DoctorsView> {
               ],
             ),
             child: TextField(
+              controller: _searchCtrl,
               onChanged: (val) => setState(() => _searchQuery = val),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Search doctors by name or specialization...',
-                prefixIcon: Icon(Icons.search, size: 20),
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchCtrl.text.isNotEmpty
+                    ? MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                          child: const Icon(
+                            Icons.close,
+                            size: 18,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                        ),
+                      )
+                    : null,
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 14),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
           ),
@@ -465,13 +485,19 @@ class _DoctorsViewState extends State<DoctorsView> {
                         color: AppTheme.textPrimaryColor,
                       ),
                     ),
-                    Text(
-                      doctor.specialization ?? '-',
-                      style: const TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 13,
+                    if (doctor.staffUniqueId != null &&
+                        doctor.staffUniqueId!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        doctor.staffUniqueId!,
+                        style: const TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

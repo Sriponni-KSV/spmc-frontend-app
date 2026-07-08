@@ -974,6 +974,26 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
                 hintText: 'Search registry...',
                 hintStyle: TextStyle(color: textSecondary, fontSize: 13),
                 prefixIcon: Icon(Icons.search, color: textSecondary, size: 18),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                          child: Icon(
+                            Icons.close,
+                            size: 16,
+                            color: textSecondary,
+                          ),
+                        ),
+                      )
+                    : null,
+                suffixIconConstraints: const BoxConstraints(
+                  minWidth: 32,
+                  minHeight: 32,
+                ),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
