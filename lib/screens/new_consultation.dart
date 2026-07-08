@@ -55,6 +55,9 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     'Urinalysis': false,
     'Chest X-Ray': false,
     'ECG/EKG': false,
+    'Urine Culture & Sensitivity': false,
+    'Blood Culture & Sensitivity': false,
+    'Biopsy / Histopathology': false,
   };
   final List<String> _customLabs = [];
   final TextEditingController _customLabController = TextEditingController();

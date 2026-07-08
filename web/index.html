@@ -81,6 +81,47 @@
       }
     };
   </script>
+  <script>
+    // ─── WebGL Context Loss Auto-Recovery ────────────────────────────────
+    // Flutter 3.22+ CanvasKit throws LateInitializationError when the browser
+    // loses the WebGL context (happens on hot restart in dev mode).
+    // This intercepts the event and auto-reloads the page to recover cleanly.
+    (function () {
+      var _patched = false;
+      function patchCanvas(canvas) {
+        if (!canvas || canvas.__ctxLossPatch) return;
+        canvas.__ctxLossPatch = true;
+        canvas.addEventListener('webglcontextlost', function (e) {
+          e.preventDefault();
+          console.warn('[Flutter] WebGL context lost — reloading page to recover…');
+          setTimeout(function () { window.location.reload(); }, 300);
+        }, false);
+      }
+
+      // Patch any canvas created after this script runs
+      var _origGetContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, opts) {
+        var ctx = _origGetContext.apply(this, arguments);
+        if (type && type.startsWith('webgl')) patchCanvas(this);
+        return ctx;
+      };
+
+      // Also watch for dynamically added canvases (CanvasKit creates them late)
+      if (window.MutationObserver) {
+        var observer = new MutationObserver(function (mutations) {
+          mutations.forEach(function (m) {
+            m.addedNodes.forEach(function (node) {
+              if (node.tagName === 'CANVAS') patchCanvas(node);
+              if (node.querySelectorAll) {
+                node.querySelectorAll('canvas').forEach(patchCanvas);
+              }
+            });
+          });
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+      }
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

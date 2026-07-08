@@ -349,6 +349,13 @@ class AppRouter {
             child: LabDashboardScreen(initialIndex: 3),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.labResources,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('lab_dashboard'),
+            child: LabDashboardScreen(initialIndex: 4),
+          ),
+        ),
 
         // --- Pharmacy Protected Routes ---
         GoRoute(

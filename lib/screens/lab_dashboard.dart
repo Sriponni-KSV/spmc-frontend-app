@@ -34,6 +34,10 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
   bool _isLoadingStats = false;
   String? _requestsError;
 
+  List<Map<String, dynamic>> _technicians = [];
+  List<Map<String, dynamic>> _machines = [];
+  bool _isLoadingResources = false;
+
   // Search & Filters
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -66,7 +70,30 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
     await Future.wait([
       _fetchRequests(),
       _fetchStats(),
+      _fetchResources(),
     ]);
+  }
+
+  Future<void> _fetchResources() async {
+    if (mounted) {
+      setState(() => _isLoadingResources = true);
+    }
+    try {
+      final techs = await _labController.fetchTechnicians();
+      final machs = await _labController.fetchMachines();
+      if (mounted) {
+        setState(() {
+          _technicians = techs;
+          _machines = machs;
+          _isLoadingResources = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching resources: $e');
+      if (mounted) {
+        setState(() => _isLoadingResources = false);
+      }
+    }
   }
 
   Future<void> _fetchRequests() async {
@@ -154,6 +181,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       case 3:
         context.go(AppRoutes.labProfile);
         break;
+      case 4:
+        context.go(AppRoutes.labResources);
+        break;
       default:
         context.go(AppRoutes.labDashboard);
     }
@@ -224,6 +254,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                       _buildSidebarItem(0, Icons.dashboard_outlined, 'Dashboard'),
                       _buildSidebarItem(1, Icons.biotech_outlined, 'Pending Tests'),
                       _buildSidebarItem(2, Icons.fact_check_outlined, 'Completed Tests'),
+                      _buildSidebarItem(4, Icons.settings_suggest_outlined, 'Resources'),
                       _buildSidebarItem(3, Icons.person_outline, 'My Profile'),
                     ],
                   ),
@@ -376,6 +407,8 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
         return _buildRequestsView(isMobile, showPendingOnly: false);
       case 3:
         return _buildProfileView(isMobile);
+      case 4:
+        return _buildResourcesView(isMobile);
       default:
         return _buildDashboardView(isMobile);
     }
@@ -383,9 +416,13 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
 
   Widget _buildDashboardView(bool isMobile) {
     final pendingCount = _stats['pending_count'] ?? 0;
-    final collectedCount = _stats['collected_count'] ?? 0;
-    final completedCount = _stats['completed_today_count'] ?? 0;
+    final remainingMins = _stats['remaining_working_minutes'] ?? 0;
+    final canCompleteToday = _stats['completed_today_count'] ?? 0;
+    final movedTomorrow = _stats['moved_tomorrow_count'] ?? 0;
+    final waitingTechnician = _stats['waiting_technician_count'] ?? 0;
+    final waitingMachine = _stats['waiting_machine_count'] ?? 0;
 
+    final remainingTimeText = remainingMins > 0 ? _formatDuration(remainingMins as int) : 'Closed';
     final recentRequests = _labRequests.take(6).toList();
 
     return RefreshIndicator(
@@ -407,12 +444,12 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Stats Cards
+            // Stats Cards Row 1
             Row(
               children: [
                 Expanded(
                   child: _buildStatCard(
-                    title: 'Pending Orders',
+                    title: 'Pending Tests',
                     value: '$pendingCount',
                     icon: Icons.hourglass_empty_outlined,
                     color: Colors.orange,
@@ -422,9 +459,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildStatCard(
-                    title: 'Samples Collected',
-                    value: '$collectedCount',
-                    icon: Icons.biotech_outlined,
+                    title: 'Remaining Work Time',
+                    value: remainingTimeText,
+                    icon: Icons.timer_outlined,
                     color: Colors.blue,
                     bgColor: Colors.blue.shade50,
                   ),
@@ -432,11 +469,46 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildStatCard(
-                    title: 'Completed Today',
-                    value: '$completedCount',
+                    title: 'Complete Today',
+                    value: '$canCompleteToday',
                     icon: Icons.check_circle_outline,
                     color: Colors.green,
                     bgColor: Colors.green.shade50,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Stats Cards Row 2
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    title: 'Moved to Tomorrow',
+                    value: '$movedTomorrow',
+                    icon: Icons.next_plan_outlined,
+                    color: Colors.red,
+                    bgColor: Colors.red.shade50,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    title: 'Waiting for Technician',
+                    value: '$waitingTechnician',
+                    icon: Icons.person_off_outlined,
+                    color: Colors.purple,
+                    bgColor: Colors.purple.shade50,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    title: 'Waiting for Machine',
+                    value: '$waitingMachine',
+                    icon: Icons.settings_suggest_outlined,
+                    color: Colors.teal,
+                    bgColor: Colors.teal.shade50,
                   ),
                 ),
               ],
@@ -487,6 +559,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 12.0),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 flex: 2,
@@ -498,9 +571,56 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                     ),
                                     const SizedBox(height: 2),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          'Estimated Duration: ${req['target_tat_minutes'] != null ? _formatDuration(req['target_tat_minutes'] is int ? req['target_tat_minutes'] as int : int.tryParse(req['target_tat_minutes']?.toString() ?? '') ?? 0) : 'Not Set'}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.logoRed,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        InkWell(
+                                          onTap: () => _showEditDurationDialog(req),
+                                          child: const Icon(
+                                            Icons.edit,
+                                            size: 12,
+                                            color: AppTheme.logoRed,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
                                     Text(
                                       'Ordered by Dr. ${req['doctor_name']}',
                                       style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        _buildPriorityBadge(req['priority']),
+                                        if (req['queue_position'] != null && req['status'] != 'Completed') ...[
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.05), borderRadius: BorderRadius.circular(4)),
+                                            child: Text('Pos #${req['queue_position']}', style: const TextStyle(fontSize: 10, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                                          ),
+                                        ],
+                                        if (req['scheduled_start_override'] != null && req['status'] != 'Completed') ...[
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                                            child: Text(
+                                              'Rescheduled: ${DateFormat('dd-MMM-yyyy').format(DateTime.parse(req['scheduled_start_override']).toLocal())}', 
+                                              style: TextStyle(fontSize: 10, color: Colors.blue.shade700, fontWeight: FontWeight.bold)
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -523,35 +643,61 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                 ),
                               ),
                               Expanded(
-                                child: Text(
-                                  formattedDate,
-                                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Ordered:',
+                                      style: TextStyle(fontSize: 9, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600),
+                                    ),
+                                    Text(
+                                      formattedDate,
+                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                    ),
+                                    if (req['status'] != 'Completed' && req['estimated_completion_at'] != null) ...[
+                                      const SizedBox(height: 4),
+                                      const Text(
+                                        'Est Completion:',
+                                        style: TextStyle(fontSize: 9, color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                                      ),
+                                      Text(
+                                        _formatDate(req['estimated_completion_at']),
+                                        style: const TextStyle(fontSize: 11, color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
-                              _buildStatusBadge(req['status']),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2.0),
+                                child: _buildStatusBadge(req['status']),
+                              ),
                               const SizedBox(width: 12),
-                              OutlinedButton(
-                                onPressed: () {
-                                  if (req['status'] == 'Pending') {
-                                    _updateStatus(req['id'], 'Sample Collected');
-                                  } else if (req['status'] == 'Sample Collected') {
-                                    _showResultsEntryDialog(req);
-                                  } else {
-                                    _selectedIndex = 2; // Move to Completed
-                                    setState(() {});
-                                  }
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
-                                ),
-                                child: Text(
-                                  req['status'] == 'Pending'
-                                      ? 'Collect Sample'
-                                      : req['status'] == 'Sample Collected'
-                                          ? 'Enter Results'
-                                          : 'View',
-                                  style: const TextStyle(fontSize: 11),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2.0),
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    if (req['status'] == 'Pending') {
+                                      _updateStatus(req['id'], 'Sample Collected');
+                                    } else if (req['status'] == 'Sample Collected') {
+                                      _showResultsEntryDialog(req);
+                                    } else {
+                                      _selectedIndex = 2; // Move to Completed
+                                      setState(() {});
+                                    }
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
+                                  ),
+                                  child: Text(
+                                    req['status'] == 'Pending'
+                                        ? 'Collect Sample'
+                                        : req['status'] == 'Sample Collected'
+                                            ? 'Enter Results'
+                                            : 'View',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
                                 ),
                               ),
                             ],
@@ -799,6 +945,27 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
     );
   }
 
+  String _formatDuration(int minutes) {
+    if (minutes <= 0) return '';
+    if (minutes < 60) {
+      return '$minutes mins';
+    }
+    final double hours = minutes / 60.0;
+    if (hours < 24) {
+      if (minutes % 60 == 0) {
+        final int h = minutes ~/ 60;
+        return '$h ${h == 1 ? 'hr' : 'hrs'}';
+      }
+      return '${hours.toStringAsFixed(1)} hrs';
+    }
+    final double days = hours / 24.0;
+    if (minutes % 1440 == 0) {
+      final int wholeDays = minutes ~/ 1440;
+      return '$wholeDays ${wholeDays == 1 ? 'day' : 'days'}';
+    }
+    return '${days.toStringAsFixed(1)} days';
+  }
+
   Widget _buildPendingRequestCard(Map<String, dynamic> req, bool isMobile) {
     final orderedDate = _formatDate(req['created_at']);
     final isSampleCollected = req['status'] == 'Sample Collected';
@@ -818,17 +985,127 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                req['test_name'] ?? 'Lab Test',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      req['test_name'] ?? 'Lab Test',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          'Estimated Result Duration: ${req['target_tat_minutes'] != null ? _formatDuration(req['target_tat_minutes'] is int ? req['target_tat_minutes'] as int : int.tryParse(req['target_tat_minutes']?.toString() ?? '') ?? 0) : 'Not Set'}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.logoRed,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: () => _showEditDurationDialog(req),
+                          child: const Icon(
+                            Icons.edit,
+                            size: 14,
+                            color: AppTheme.logoRed,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               _buildStatusBadge(req['status']),
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            'Order Placement: $orderedDate • Requested by Dr. ${req['doctor_name']}',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              Text(
+                'Order Placement: $orderedDate',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+              ),
+              if (req['queue_position'] != null)
+                Text(
+                  '• Queue Position: #${req['queue_position']}',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                ),
+              if (req['estimated_completion_at'] != null)
+                Text(
+                  '• Est Completion: ${_formatDate(req['estimated_completion_at'])}',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                ),
+              if (req['scheduled_start_override'] != null)
+                Text(
+                  '• Rescheduled: ${DateFormat('dd-MMM-yyyy').format(DateTime.parse(req['scheduled_start_override']).toLocal())}',
+                  style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              if (req['technician_name'] != null)
+                Text(
+                  'Staff: ${req['technician_name']}',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor, fontWeight: FontWeight.w600),
+                ),
+              if (req['machine_name'] != null)
+                Text(
+                  '• Machine: ${req['machine_name']}',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor, fontWeight: FontWeight.w600),
+                ),
+              if (req['schedule_status'] != null && req['schedule_status'] != 'Scheduled')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: req['schedule_status'] == 'Waiting for Technician' ? Colors.purple.shade50 : Colors.teal.shade50,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    req['schedule_status'],
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: req['schedule_status'] == 'Waiting for Technician' ? Colors.purple.shade800 : Colors.teal.shade800,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                'Requested by Dr. ${req['doctor_name']}',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+              ),
+              const SizedBox(width: 8),
+              _buildPriorityBadge(req['priority']),
+              if (req['delay_reason'] != null && req['delay_reason'].toString().isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(4)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.warning, size: 10, color: Colors.red),
+                      const SizedBox(width: 4),
+                      Text('Delayed: ${req['delay_reason']}', style: const TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
           const Divider(height: 24),
           Row(
@@ -872,8 +1149,55 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           ),
           const SizedBox(height: 20),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              Row(
+                children: [
+                  const Text('Priority: ', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 4),
+                  DropdownButton<String>(
+                    value: req['priority'] ?? 'Normal',
+                    underline: const SizedBox(),
+                    items: ['Normal', 'Urgent', 'Emergency'].map((String val) {
+                      return DropdownMenuItem<String>(
+                        value: val,
+                        child: Text(val, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                      );
+                    }).toList(),
+                    onChanged: (newPriority) async {
+                      if (newPriority != null) {
+                        try {
+                          await _labController.updateLabRequest(
+                            id: req['id'],
+                            status: req['status'],
+                            priority: newPriority,
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Priority updated to $newPriority'), backgroundColor: Colors.green),
+                          );
+                          _fetchData();
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  TextButton.icon(
+                    onPressed: () => _showDelayDialog(req),
+                    icon: const Icon(Icons.pause_circle_outline, size: 16, color: AppTheme.logoRed),
+                    label: const Text('Delay / Log Issue', style: TextStyle(color: AppTheme.logoRed, fontSize: 12)),
+                  ),
+                  const SizedBox(width: 16),
+                  TextButton.icon(
+                    onPressed: () => _showRescheduleDialog(req),
+                    icon: const Icon(Icons.calendar_today, size: 14, color: AppTheme.primaryColor),
+                    label: const Text('Reschedule', style: TextStyle(color: AppTheme.primaryColor, fontSize: 12)),
+                  ),
+                ],
+              ),
               if (!isSampleCollected)
                 ElevatedButton.icon(
                   onPressed: () => _updateStatus(req['id'], 'Sample Collected'),
@@ -929,13 +1253,43 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          title: Text(
-            req['test_name'] ?? 'Lab Test',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                req['test_name'] ?? 'Lab Test',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+              ),
+              if (req['target_tat_minutes'] != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'Estimated Result Duration: ${_formatDuration(req['target_tat_minutes'] is int ? req['target_tat_minutes'] as int : int.tryParse(req['target_tat_minutes']?.toString() ?? '') ?? 0)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.logoRed,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ],
           ),
-          subtitle: Text(
-            'Patient: ${req['patient_name']} (${req['patient_display_id']}) • Completed: $processedDate',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+          subtitle: Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Patient: ${req['patient_name']} (${req['patient_display_id']}) • Completed: $processedDate',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+              ),
+              if (req['actual_tat_minutes'] != null)
+                Text(
+                  '• Actual TAT: ${req['actual_tat_minutes']} mins',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                ),
+              if (req['completion_status'] != null)
+                _buildCompletionStatusBadge(req['completion_status']),
+            ],
           ),
           childrenPadding: const EdgeInsets.all(20),
           expandedCrossAxisAlignment: CrossAxisAlignment.start,
@@ -1086,6 +1440,415 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  void _showEditDurationDialog(Map<String, dynamic> req) {
+    final currentMinutes = req['target_tat_minutes'] is int 
+        ? req['target_tat_minutes'] as int 
+        : int.tryParse(req['target_tat_minutes']?.toString() ?? '') ?? 0;
+        
+    final controller = TextEditingController(text: currentMinutes > 0 ? currentMinutes.toString() : '');
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: AppTheme.logoRed.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.timer_outlined, color: AppTheme.logoRed, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Edit Test Processing Duration', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(req['test_name'] ?? '', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Set the processing time (in minutes) for this test. The estimated completion time will be automatically recalculated based on working hours, lab queue, and resource availability.',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Please enter duration in minutes';
+                    }
+                    final minutes = int.tryParse(v.trim());
+                    if (minutes == null || minutes <= 0) {
+                      return 'Must be a valid positive number';
+                    }
+                    return null;
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Duration (Minutes)',
+                    hintText: 'e.g., 30, 60, 120',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('QUICK PRESETS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _presetChip(ctx, controller, '15 mins', 15),
+                    _presetChip(ctx, controller, '30 mins', 30),
+                    _presetChip(ctx, controller, '45 mins', 45),
+                    _presetChip(ctx, controller, '1 hr', 60),
+                    _presetChip(ctx, controller, '2 hrs', 120),
+                    _presetChip(ctx, controller, '4 hrs', 240),
+                    _presetChip(ctx, controller, '24 hrs', 1440),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                final newMinutes = int.parse(controller.text.trim());
+                Navigator.pop(ctx);
+                
+                try {
+                  await _labController.updateLabRequest(
+                    id: req['id'],
+                    status: req['status'],
+                    targetTatMinutes: newMinutes,
+                    processingDurationMinutes: newMinutes,
+                  );
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Estimated duration updated successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    _fetchData();
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error updating duration: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.logoRed),
+              child: const Text('Save Changes', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _presetChip(BuildContext ctx, TextEditingController controller, String label, int value) {
+    return InkWell(
+      onTap: () {
+        controller.text = value.toString();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor),
+        ),
+      ),
+    );
+  }
+
+  void _showRescheduleDialog(Map<String, dynamic> req) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          title: const Text('Manage Test Schedule', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                req['scheduled_start_override'] != null 
+                  ? 'Currently overridden to start on: ${DateFormat('dd-MMM-yyyy').format(DateTime.parse(req['scheduled_start_override']).toLocal())}'
+                  : 'Currently scheduled dynamically based on queue position.',
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+              ),
+              const SizedBox(height: 16),
+              const Text('Do you want to override the start date for this test? Subsequent tests will slide accordingly.', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+          actions: [
+            if (req['scheduled_start_override'] != null)
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    await _labController.updateLabRequest(
+                      id: req['id'],
+                      status: req['status'],
+                      scheduledStartOverride: 'clear', // Clear override command
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Schedule override cleared!'), backgroundColor: Colors.green),
+                    );
+                    _fetchData();
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error clearing override: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Clear Override', style: TextStyle(color: Colors.red)),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final DateTime? pickedDate = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: AppTheme.primaryColor,
+                          onPrimary: Colors.white,
+                          onSurface: AppTheme.textPrimaryColor,
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (pickedDate != null && mounted) {
+                  try {
+                    final String formattedDate = pickedDate.toUtc().toIso8601String();
+                    await _labController.updateLabRequest(
+                      id: req['id'],
+                      status: req['status'],
+                      scheduledStartOverride: formattedDate,
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Test rescheduled to ${DateFormat('dd-MMM-yyyy').format(pickedDate)}'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    _fetchData();
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error rescheduling test: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+              child: const Text('Choose Date', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDelayDialog(Map<String, dynamic> req) {
+    final controller = TextEditingController(text: req['delay_reason'] ?? '');
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: AppTheme.logoRed, size: 28),
+              SizedBox(width: 8),
+              Text('Log Delay / Pause Reason', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Record the reason why this test is paused or delayed (e.g. machine breakdown, queue overload). This will notify the prescribing doctor and adjust calculations.',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: controller,
+                  maxLines: 3,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Please enter a delay reason';
+                    }
+                    return null;
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Delay Reason',
+                    hintText: 'Describe the issue...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                final reason = controller.text.trim();
+                Navigator.pop(ctx);
+
+                try {
+                  await _labController.updateLabRequest(
+                    id: req['id'],
+                    status: req['status'],
+                    delayReason: reason,
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Delay reason updated successfully!'), backgroundColor: Colors.green),
+                  );
+                  _fetchData();
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error logging delay: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.logoRed),
+              child: const Text('Save Delay', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPriorityBadge(String? priority) {
+    final cleanPriority = priority ?? 'Normal';
+    Color color;
+    Color bgColor;
+
+    switch (cleanPriority) {
+      case 'Emergency':
+        color = Colors.red.shade900;
+        bgColor = Colors.red.shade50;
+        break;
+      case 'Urgent':
+        color = Colors.orange.shade900;
+        bgColor = Colors.orange.shade50;
+        break;
+      default:
+        color = Colors.green.shade900;
+        bgColor = Colors.green.shade50;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        cleanPriority,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+      ),
+    );
+  }
+
+  Widget _buildCompletionStatusBadge(String? status) {
+    final cleanStatus = status ?? 'On Time';
+    Color color;
+    Color bgColor;
+
+    switch (cleanStatus) {
+      case 'Delayed':
+        color = Colors.red.shade900;
+        bgColor = Colors.red.shade50;
+        break;
+      case 'Early':
+        color = Colors.blue.shade900;
+        bgColor = Colors.blue.shade50;
+        break;
+      default:
+        color = Colors.green.shade900;
+        bgColor = Colors.green.shade50;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        cleanStatus,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }
@@ -1613,6 +2376,296 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       } else {
         field['value'] = 'Normal';
       }
+    }
+  }
+
+  Widget _buildResourcesView(bool isMobile) {
+    if (_isLoadingResources) {
+      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+    }
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Lab Resources Management', style: Theme.of(context).textTheme.displayLarge),
+          const SizedBox(height: 4),
+          const Text('Manage shifts, test assignments, technician leaves, and machine operating status.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13)),
+          const SizedBox(height: 24),
+          
+          if (!isMobile)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildTechniciansListCard()),
+                const SizedBox(width: 24),
+                Expanded(child: _buildMachinesListCard()),
+              ],
+            )
+          else ...[
+            _buildTechniciansListCard(),
+            const SizedBox(height: 24),
+            _buildMachinesListCard(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTechniciansListCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.people_outline, color: AppTheme.primaryColor, size: 20),
+              SizedBox(width: 8),
+              Text('Technicians Shift Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ],
+          ),
+          const Divider(height: 24, color: AppTheme.borderColor),
+          if (_technicians.isEmpty)
+            const Center(child: Text('No technician data loaded.'))
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _technicians.length,
+              separatorBuilder: (ctx, idx) => const Divider(height: 20, color: AppTheme.borderColor),
+              itemBuilder: (ctx, idx) {
+                final tech = _technicians[idx];
+                final List testTypes = tech['assigned_test_types'] is String 
+                    ? json.decode(tech['assigned_test_types']) 
+                    : (tech['assigned_test_types'] ?? []);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(tech['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                              Text('ID: ${tech['employee_id']} • Shift: ${tech['shift_start']}-${tech['shift_end']}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                            ],
+                          ),
+                        ),
+                        DropdownButtonHideUnderline(
+                          child: Container(
+                            height: 32,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: _getTechStatusColor(tech['status']).withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: _getTechStatusColor(tech['status']).withOpacity(0.3), width: 0.5),
+                            ),
+                            child: DropdownButton<String>(
+                              value: tech['status'] ?? 'Available',
+                              icon: Icon(Icons.arrow_drop_down, size: 16, color: _getTechStatusColor(tech['status'])),
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _getTechStatusColor(tech['status'])),
+                              onChanged: (newStatus) async {
+                                if (newStatus != null) {
+                                  try {
+                                    await _labController.updateTechnicianStatus(id: tech['id'], status: newStatus);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('${tech['name']} status updated to $newStatus'), backgroundColor: Colors.green),
+                                    );
+                                    _fetchData();
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                }
+                              },
+                              items: ['Available', 'Busy', 'On Leave', 'Sick Leave', 'Training'].map((st) {
+                                return DropdownMenuItem<String>(
+                                  value: st,
+                                  child: Text(st),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: testTypes.map<Widget>((tt) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Text(tt.toString(), style: const TextStyle(fontSize: 10, color: AppTheme.textPrimaryColor)),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Color _getTechStatusColor(String? status) {
+    switch (status) {
+      case 'Available':
+        return Colors.green;
+      case 'Busy':
+        return Colors.orange;
+      case 'On Leave':
+      case 'Sick Leave':
+        return Colors.red;
+      case 'Training':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Widget _buildMachinesListCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.settings_outlined, color: AppTheme.primaryColor, size: 20),
+              SizedBox(width: 8),
+              Text('Analyzer Equipment Operating Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ],
+          ),
+          const Divider(height: 24, color: AppTheme.borderColor),
+          if (_machines.isEmpty)
+            const Center(child: Text('No machine data loaded.'))
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _machines.length,
+              separatorBuilder: (ctx, idx) => const Divider(height: 20, color: AppTheme.borderColor),
+              itemBuilder: (ctx, idx) {
+                final mach = _machines[idx];
+                final List supported = mach['supported_test_types'] is String 
+                    ? json.decode(mach['supported_test_types']) 
+                    : (mach['supported_test_types'] ?? []);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(mach['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                              Text('Type: ${mach['machine_type']} • Capacity: ${mach['daily_capacity'] ?? 'Unlimited'}/day', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                            ],
+                          ),
+                        ),
+                        DropdownButtonHideUnderline(
+                          child: Container(
+                            height: 32,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: _getMachineStatusColor(mach['status']).withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: _getMachineStatusColor(mach['status']).withOpacity(0.3), width: 0.5),
+                            ),
+                            child: DropdownButton<String>(
+                              value: mach['status'] ?? 'Active',
+                              icon: Icon(Icons.arrow_drop_down, size: 16, color: _getMachineStatusColor(mach['status'])),
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _getMachineStatusColor(mach['status'])),
+                              onChanged: (newStatus) async {
+                                if (newStatus != null) {
+                                  try {
+                                    await _labController.updateMachineStatus(id: mach['id'], status: newStatus);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('${mach['name']} status updated to $newStatus'), backgroundColor: Colors.green),
+                                    );
+                                    _fetchData();
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                }
+                              },
+                              items: ['Active', 'Busy', 'Maintenance', 'Breakdown', 'Calibration'].map((st) {
+                                return DropdownMenuItem<String>(
+                                  value: st,
+                                  child: Text(st),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: supported.map<Widget>((tt) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Text(tt.toString(), style: const TextStyle(fontSize: 10, color: AppTheme.textPrimaryColor)),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Color _getMachineStatusColor(String? status) {
+    switch (status) {
+      case 'Active':
+        return Colors.green;
+      case 'Busy':
+        return Colors.orange;
+      case 'Maintenance':
+        return Colors.blue;
+      case 'Breakdown':
+        return Colors.red;
+      case 'Calibration':
+        return Colors.purple;
+      default:
+        return Colors.grey;
     }
   }
 }
