@@ -2219,77 +2219,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     return Row(
                       children: [
                         Expanded(
-//                           child: InkWell(
-//                             onTap: () => UserProfileDialog.show(context, user),
-//                             borderRadius: BorderRadius.circular(8),
-//                             child: Padding(
-//                               padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-//                               child: Row(
-//                                 children: [
-//                                   const CircleAvatar(
-//                                     backgroundColor: AppTheme.primaryColor,
-//                                     radius: 18,
-//                                     child: Icon(
-//                                       Icons.person,
-//                                       color: Colors.white,
-//                                       size: 20,
-//                                     ),
-//                                   ),
-//                                   const SizedBox(width: 12),
-//                                   Expanded(
-//                                     child: Column(
-//                                       crossAxisAlignment: CrossAxisAlignment.start,
-//                                       children: [
-//                                         Text(
-//                                           user.fullname,
-//                                           style: const TextStyle(
-//                                             fontWeight: FontWeight.bold,
-//                                             fontSize: 13,
-//                                           ),
-//                                           overflow: TextOverflow.ellipsis,
-//                                         ),
-//                                         Text(
-//                                           user.role,
-//                                           style: const TextStyle(
-//                                             fontSize: 11,
-//                                             color: AppTheme.textSecondaryColor,
-//                                           ),
-//                                         ),
-//                                       ],
-//                                     ),
-//                                   ),
-//                                 ],
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user.fullname,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (user.staffUniqueId != null &&
-                                  user.staffUniqueId!.isNotEmpty) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  user.staffUniqueId!,
-                                  style: const TextStyle(
-                                    fontSize: 9,
-                                    color: AppTheme.textSecondaryColor,
+                          child: InkWell(
+                            onTap: () => UserProfileDialog.show(context, user),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    user.fullname,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                              const SizedBox(height: 2),
-                              Text(
-                                user.role,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.textSecondaryColor,
-                                ),
+                                  if (user.staffUniqueId != null &&
+                                      user.staffUniqueId!.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      user.staffUniqueId!,
+                                      style: const TextStyle(
+                                        fontSize: 9,
+                                        color: AppTheme.textSecondaryColor,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    user.role,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

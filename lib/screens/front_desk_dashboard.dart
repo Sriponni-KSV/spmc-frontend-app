@@ -435,83 +435,47 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                 child: Row(
                   children: [
                     Expanded(
-//                       child: InkWell(
-//                         onTap: () {
-//                           if (user != null) {
-//                             UserProfileDialog.show(context, user);
-//                           }
-//                         },
-//                         borderRadius: BorderRadius.circular(8),
-//                         child: Padding(
-//                           padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-//                           child: Row(
-//                             children: [
-//                               CircleAvatar(
-//                                 backgroundColor: AppTheme.logoRed.withOpacity(0.1),
-//                                 child: Text(
-//                                   user != null && (user.rawFullname ?? '').isNotEmpty
-//                                       ? user.rawFullname!.substring(0, 1).toUpperCase()
-//                                       : 'F',
-//                                   style: const TextStyle(
-//                                     color: AppTheme.logoRed,
-//                                     fontWeight: FontWeight.bold,
-//                                   ),
-//                                 ),
-//                               ),
-//                               const SizedBox(width: 12),
-//                               Expanded(
-//                                 child: Column(
-//                                   crossAxisAlignment: CrossAxisAlignment.start,
-//                                   children: [
-//                                     Text(
-//                                       user?.rawFullname ?? 'Front Desk',
-//                                       style: const TextStyle(
-//                                         fontWeight: FontWeight.bold,
-//                                         fontSize: 13,
-//                                       ),
-//                                       overflow: TextOverflow.ellipsis,
-//                                     ),
-//                                     Text(
-//                                       user?.role ?? 'Front Desk',
-//                                       style: const TextStyle(
-//                                         fontSize: 11,
-//                                         color: AppTheme.textSecondaryColor,
-//                                       ),
-//                                     ),
-//                                   ],
-//                                 ),
-//                               ),
-//                             ],
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user?.rawFullname ?? 'Front Desk',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (user?.staffUniqueId != null &&
-                              user!.staffUniqueId!.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              user.staffUniqueId!,
-                              style: const TextStyle(
-                                  fontSize: 9,
-                                  color: AppTheme.textSecondaryColor),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                          const SizedBox(height: 2),
-                          Text(
-                            user?.role ?? 'Front Desk',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textSecondaryColor,
-                            ),
+                      child: InkWell(
+                        onTap: () {
+                          if (user != null) {
+                            UserProfileDialog.show(context, user);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user?.rawFullname ?? 'Front Desk',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (user?.staffUniqueId != null &&
+                                  user!.staffUniqueId!.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  user.staffUniqueId!,
+                                  style: const TextStyle(
+                                      fontSize: 9,
+                                      color: AppTheme.textSecondaryColor),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              const SizedBox(height: 2),
+                              Text(
+                                user?.role ?? 'Front Desk',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),

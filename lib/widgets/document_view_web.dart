@@ -1,10 +1,12 @@
-import 'dart:html' as html;
-import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+/// Web implementation: opens images inline; opens PDFs/docs in a new browser tab.
+/// Uses url_launcher instead of dart:html to avoid DDC compilation crashes
+/// on Flutter SDK 3.11+ where dart:html is deprecated.
 void showDocumentViewer(BuildContext context, String url, String title) {
   final isImage = _isImageUrl(url);
-  
+
   showDialog(
     context: context,
     builder: (context) {
@@ -24,7 +26,11 @@ void showDocumentViewer(BuildContext context, String url, String title) {
                     Expanded(
                       child: Text(
                         title,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F5A8E)),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F5A8E),
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -45,11 +51,13 @@ void showDocumentViewer(BuildContext context, String url, String title) {
                           fit: BoxFit.contain,
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) return child;
-                            return const Center(child: CircularProgressIndicator());
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
                           },
                         ),
                       )
-                    : _WebIframeView(url: url),
+                    : _WebDocumentActions(url: url, title: title),
               ),
             ],
           ),
@@ -68,36 +76,55 @@ bool _isImageUrl(String url) {
       cleanUrl.endsWith('.webp');
 }
 
-class _WebIframeView extends StatefulWidget {
+/// Displays action buttons to open/download a non-image document on web.
+/// Opens in a new browser tab via url_launcher (no dart:html required).
+class _WebDocumentActions extends StatelessWidget {
   final String url;
-  const _WebIframeView({Key? key, required this.url}) : super(key: key);
+  final String title;
 
-  @override
-  State<_WebIframeView> createState() => _WebIframeViewState();
-}
-
-class _WebIframeViewState extends State<_WebIframeView> {
-  late final String _viewId;
-
-  @override
-  void initState() {
-    super.initState();
-    // Generate a unique view ID based on the url hash
-    _viewId = 'iframe-${widget.url.hashCode}';
-    
-    // Register the iframe view factory
-    ui_web.platformViewRegistry.registerViewFactory(
-      _viewId,
-      (int viewId) => html.IFrameElement()
-        ..src = widget.url
-        ..style.border = 'none'
-        ..style.width = '100%'
-        ..style.height = '100%',
-    );
-  }
+  const _WebDocumentActions({required this.url, required this.title});
 
   @override
   Widget build(BuildContext context) {
-    return HtmlElementView(viewType: _viewId);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.picture_as_pdf_outlined,
+            size: 64,
+            color: Colors.red,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Click below to open in a new tab',
+            style: TextStyle(color: Colors.grey, fontSize: 13),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final uri = Uri.parse(url);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.platformDefault);
+              }
+            },
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('Open Document'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
