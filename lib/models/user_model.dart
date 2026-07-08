@@ -177,7 +177,7 @@ class UserModel {
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final map = {
       'id': id,
       'fullname': rawFullname,
       'email': email,
@@ -189,5 +189,12 @@ class UserModel {
       'token': token,
       'permissions': permissions,
     };
+    if (doctorProfile != null) {
+      map.addAll(doctorProfile!.toJson());
+    }
+    if (nurseProfile != null) {
+      map.addAll(nurseProfile!.toJson());
+    }
+    return map;
   }
 }

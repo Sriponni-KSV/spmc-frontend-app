@@ -17,6 +17,7 @@ import '../models/appointment_model.dart';
 import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
 import '../utils/logout_helper.dart';
+import '../widgets/user_profile_dialog.dart';
 import 'doctor_ipd_management.dart';
 import 'ot_management.dart';
 import 'ot_dictation_dashboard.dart';
@@ -3446,32 +3447,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (user == null) return const SizedBox.shrink();
                     return Row(
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.borderColor),
-                          ),
-                          child: CircleAvatar(
-                            backgroundColor: AppTheme.getAvatarColors(
-                              user.rawFullname ?? '',
-                            )['bg'],
-                            radius: 18,
-                            child: Text(
-                              user.rawFullname?.isNotEmpty == true
-                                  ? user.rawFullname![0].toUpperCase()
-                                  : '?',
-                              style: TextStyle(
-                                color: AppTheme.getAvatarColors(
-                                  user.rawFullname ?? '',
-                                )['text'],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
                         Expanded(
+//                           child: InkWell(
+//                             onTap: () => UserProfileDialog.show(context, user),
+//                             borderRadius: BorderRadius.circular(8),
+//                             child: Padding(
+//                               padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+//                               child: Row(
+//                                 children: [
+//                                   Container(
+//                                     decoration: BoxDecoration(
+//                                       shape: BoxShape.circle,
+//                                       border: Border.all(color: AppTheme.borderColor),
+//                                     ),
+//                                     child: CircleAvatar(
+//                                       backgroundColor: AppTheme.getAvatarColors(
+//                                         user.rawFullname ?? '',
+//                                       )['bg'],
+//                                       radius: 18,
+//                                       child: Text(
+//                                         user.rawFullname?.isNotEmpty == true
+//                                             ? user.rawFullname![0].toUpperCase()
+//                                             : '?',
+//                                         style: TextStyle(
+//                                           color: AppTheme.getAvatarColors(
+//                                             user.rawFullname ?? '',
+//                                           )['text'],
+//                                           fontWeight: FontWeight.bold,
+//                                           fontSize: 12,
+//                                         ),
+//                                       ),
+//                                     ),
+//                                   ),
+//                                   const SizedBox(width: 12),
+//                                   Expanded(
+//                                     child: Column(
+//                                       crossAxisAlignment: CrossAxisAlignment.start,
+//                                       children: [
+//                                         Text(
+//                                           user.rawFullname ?? '',
+//                                           style: const TextStyle(
+//                                             fontWeight: FontWeight.bold,
+//                                             fontSize: 13,
+//                                           ),
+//                                           overflow: TextOverflow.ellipsis,
+//                                         ),
+//                                         Text(
+//                                           user.role,
+//                                           style: const TextStyle(
+//                                             fontSize: 11,
+//                                             color: AppTheme.textSecondaryColor,
+//                                           ),
+//                                         ),
+//                                       ],
+//                                     ),
+//                                   ),
+//                                 ],
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -3504,7 +3535,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   color: AppTheme.textSecondaryColor,
                                 ),
                               ),
-                            ],
+                            ),
                           ),
                         ),
                         IconButton(

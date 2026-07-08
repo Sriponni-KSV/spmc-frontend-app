@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../controllers/nurse/nurse_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
+import '../services/media_service.dart';
+import '../widgets/document_view_dialog.dart';
+import 'dart:io' as io;
 
 class NurseProfileView extends StatefulWidget {
   const NurseProfileView({Key? key}) : super(key: key);
@@ -16,7 +20,63 @@ class NurseProfileView extends StatefulWidget {
 class _NurseProfileViewState extends State<NurseProfileView> {
   bool _isEditingProfile = false;
   bool _isLoading = false;
+  String? _uploadedFileSizeStr;
+  List<int>? _certFileBytes;
+  String? _certFileName;
+  String? _certFileSizeStr;
   NurseController get _nurseController => NurseController();
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) {
+      return '$bytes B';
+    } else if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+  }
+
+  Future<void> _pickCertificate() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        List<int>? fileBytes = file.bytes;
+
+        // Fallback for mobile devices where file.bytes can be null
+        if (fileBytes == null && file.path != null) {
+          fileBytes = io.File(file.path!).readAsBytesSync();
+        }
+
+        if (fileBytes != null) {
+          final bytesCount = fileBytes.length;
+          if (bytesCount > 5 * 1024 * 1024) {
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text('File exceeds 5MB limit. Please choose a smaller file.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+
+          setState(() {
+            _certFileBytes = fileBytes;
+            _certFileName = file.name;
+            _certFileSizeStr = _formatFileSize(bytesCount);
+            _regCertController.text = file.name; // Display local name until saved
+          });
+        }
+      }
+    } catch (e) {
+      print('Error picking certificate file: $e');
+    }
+  }
 
   // Basic Controllers
   TextEditingController? __nameController;
@@ -105,6 +165,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
   }
 
   Future<void> _saveProfile() async {
+    final messenger = ScaffoldMessenger.of(context);
     // Auto-calculate weekly off days: any day not selected as a working day is automatically a weekly off day
     final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     _weeklyOffDays = allDays
@@ -113,6 +174,21 @@ class _NurseProfileViewState extends State<NurseProfileView> {
 
     setState(() => _isLoading = true);
     try {
+      // Upload picked file to Cloudinary if needed during form submit
+      if (_certFileBytes != null && _certFileName != null) {
+        final secureUrl = await MediaService.uploadToCloudinary(
+          fileBytes: _certFileBytes!,
+          fileName: _certFileName!,
+          folder: 'nurses',
+        );
+        if (secureUrl != null) {
+          _regCertController.text = secureUrl;
+          _uploadedFileSizeStr = _certFileSizeStr;
+        } else {
+          throw Exception('Failed to upload registration certificate to Cloudinary.');
+        }
+      }
+
       final updatedUser = await _nurseController.updateProfile(
         fullname: _nameController.text,
         mobile: _mobileController.text,
@@ -131,8 +207,13 @@ class _NurseProfileViewState extends State<NurseProfileView> {
 
       if (mounted) {
         Provider.of<AuthProvider>(context, listen: false).updateUser(updatedUser);
-        setState(() => _isEditingProfile = false);
-        ScaffoldMessenger.of(context).showSnackBar(
+        setState(() {
+          _isEditingProfile = false;
+          _certFileBytes = null;
+          _certFileName = null;
+          _certFileSizeStr = null;
+        });
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Profile updated successfully!', style: TextStyle(color: Colors.white)),
             backgroundColor: Colors.green,
@@ -141,8 +222,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        messenger.showSnackBar(
+          SnackBar(content: Text('Error saving profile: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -184,6 +265,158 @@ class _NurseProfileViewState extends State<NurseProfileView> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCertificateDisplayRow(String? certUrl) {
+    final hasCert = certUrl != null && certUrl.isNotEmpty;
+    final isUrl = hasCert && certUrl.startsWith('http');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F7FF),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isUrl ? Icons.verified_user_outlined : Icons.picture_as_pdf_outlined,
+              size: 20,
+              color: const Color(0xFF0F5A8E),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Registration Certificate',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF718096)),
+                ),
+                const SizedBox(height: 6),
+                if (isUrl)
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      showDocumentViewer(context, certUrl, 'Registration Certificate');
+                    },
+                    icon: const Icon(Icons.remove_red_eye_outlined, size: 14, color: Color(0xFF0F5A8E)),
+                    label: const Text(
+                      'view certificate',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F5A8E)),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      side: const BorderSide(color: Color(0xFF0F5A8E)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      backgroundColor: Colors.white,
+                    ),
+                  )
+                else
+                  Text(
+                    hasCert ? certUrl : 'No certificate uploaded',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2D3748)),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCertificateUploadField() {
+    final certUrl = _regCertController.text;
+    final hasCert = certUrl.isNotEmpty;
+    final isUrl = hasCert && certUrl.startsWith('http');
+    final isLocal = _certFileBytes != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Registration Certificate Document',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.borderColor),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isUrl
+                      ? Uri.decodeFull(certUrl.split('/').last)
+                      : (isLocal ? _certFileName! : 'No certificate uploaded yet'),
+                  style: TextStyle(
+                    color: (isUrl || isLocal) ? Colors.green.shade800 : AppTheme.textSecondaryColor,
+                    fontWeight: (isUrl || isLocal) ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (isUrl) ...[
+                IconButton(
+                  icon: const Icon(Icons.remove_red_eye_outlined, color: Colors.blue, size: 20),
+                  onPressed: () {
+                    showDocumentViewer(context, certUrl, 'Uploaded Certificate');
+                  },
+                ),
+              ],
+              if (isUrl || isLocal) ...[
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                  onPressed: () {
+                    setState(() {
+                      _regCertController.clear();
+                      _certFileBytes = null;
+                      _certFileName = null;
+                      _certFileSizeStr = null;
+                      _uploadedFileSizeStr = null;
+                    });
+                  },
+                ),
+                const SizedBox(width: 8),
+              ],
+              ElevatedButton.icon(
+                onPressed: _pickCertificate,
+                icon: const Icon(Icons.file_present_outlined, size: 16, color: Colors.white),
+                label: const Text('Choose File', style: TextStyle(color: Colors.white, fontSize: 13)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.logoRed,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if ((isUrl && _uploadedFileSizeStr != null) || (isLocal && _certFileSizeStr != null)) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 4.0),
+            child: Text(
+              isLocal
+                  ? 'Selected file size: $_certFileSizeStr (Will upload on save)'
+                  : 'Uploaded file size: $_uploadedFileSizeStr',
+              style: const TextStyle(
+                fontSize: 11,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -415,6 +648,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   : '${user!.yearsOfExperience} years',
               Icons.work_history_outlined,
             ),
+            _buildCertificateDisplayRow(user?.registrationCertificate),
           ]),
         ],
       ),
@@ -642,6 +876,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                  _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true),
                 fieldSpacing,
                 _buildProfileTextField('Years of Experience', _yearsExpController, Icons.work_outline, isNumeric: true, maxLength: 2),
+                fieldSpacing,
+                _buildCertificateUploadField(),
               ] else ...[
                 Row(
                   children: [
@@ -664,6 +900,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     const Expanded(child: SizedBox()), // Placeholder for balance
                   ],
                 ),
+                fieldSpacing,
+                _buildCertificateUploadField(),
               ],
             ]),
 

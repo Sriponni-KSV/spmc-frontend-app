@@ -11,6 +11,10 @@ import '../controllers/admin_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:file_picker/file_picker.dart';
+import '../services/media_service.dart';
+import '../widgets/document_view_dialog.dart';
+import 'dart:io' as io;
 
 class NewConsultationView extends StatefulWidget {
   final AppointmentModel appointment;
@@ -86,7 +90,124 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   // Document attachments list
   final List<Map<String, String>> _documents = [];
   final TextEditingController _docTitleController = TextEditingController();
-  final TextEditingController _docFileNameController = TextEditingController();
+
+  bool _isUploadingFile = false;
+  String? _selectedFileName;
+  List<int>? _selectedFileBytes;
+  String? _selectedFileSizeStr;
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) {
+      return '$bytes B';
+    } else if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+  }
+  
+  Future<void> _pickFile() async {
+    try {
+      final FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        List<int>? fileBytes = file.bytes;
+        
+        // Fallback for mobile devices where file.bytes can be null
+        if (fileBytes == null && file.path != null) {
+          fileBytes = io.File(file.path!).readAsBytesSync();
+        }
+
+        if (fileBytes != null) {
+          final bytesCount = fileBytes.length;
+          if (bytesCount > 5 * 1024 * 1024) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('File exceeds 5MB limit. Please choose a smaller file.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return;
+          }
+
+          setState(() {
+            _selectedFileName = file.name;
+            _selectedFileBytes = fileBytes;
+            _selectedFileSizeStr = _formatFileSize(bytesCount);
+          });
+        }
+      }
+    } catch (e) {
+      print('Error picking file: $e');
+    }
+  }
+
+  Future<void> _uploadAndAddDocument() async {
+    final title = _docTitleController.text.trim();
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a document title.')),
+      );
+      return;
+    }
+
+    if (_selectedFileBytes == null || _selectedFileName == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a file to upload.')),
+      );
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isUploadingFile = true);
+
+    try {
+      final secureUrl = await MediaService.uploadToCloudinary(
+        fileBytes: _selectedFileBytes!,
+        fileName: _selectedFileName!,
+        folder: 'consultations',
+      );
+
+      if (secureUrl != null) {
+        setState(() {
+          _documents.add({
+            'title': title,
+            'file_name': _selectedFileName!,
+            'file_url': secureUrl,
+            'file_size': _selectedFileSizeStr ?? '',
+            'date': DateFormat('dd/MM/yyyy').format(DateTime.now()),
+          });
+          _docTitleController.clear();
+          _selectedFileName = null;
+          _selectedFileBytes = null;
+          _selectedFileSizeStr = null;
+        });
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('File uploaded and added successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Upload failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingFile = false);
+      }
+    }
+  }
 
   final PatientController _patientController = PatientController();
   final AppointmentController _appointmentController = AppointmentController();
@@ -1656,7 +1777,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Simulated Document Attachments',
+                'Cloudinary Document Attachments',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -1664,7 +1785,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                 ),
               ),
               const Text(
-                'Log and link patient diagnostic files, scan reports or external letters.',
+                'Select and upload actual patient diagnostic files, scan reports or external letters to Cloudinary.',
                 style: TextStyle(
                   fontSize: 11,
                   color: AppTheme.textSecondaryColor,
@@ -1683,8 +1804,10 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                 child: Column(
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Expanded(
+                          flex: 2,
                           child: _buildSmallField(
                             'Document Title',
                             _docTitleController,
@@ -1693,55 +1816,127 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _buildSmallField(
-                            'File Name (Reference)',
-                            _docFileNameController,
-                            'e.g. xray_150626.pdf',
+                          flex: 3,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Select File',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              OutlinedButton.icon(
+                                onPressed: _isUploadingFile ? null : _pickFile,
+                                icon: Icon(
+                                  _selectedFileName != null
+                                      ? Icons.check_circle_outline
+                                      : Icons.file_present_outlined,
+                                  size: 16,
+                                  color: _selectedFileName != null
+                                      ? Colors.green
+                                      : AppTheme.primaryColor,
+                                ),
+                                label: Text(
+                                  _selectedFileName != null
+                                      ? _selectedFileName!
+                                      : 'Choose File (PDF/Image)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: _selectedFileName != null
+                                        ? Colors.green.shade800
+                                        : AppTheme.textPrimaryColor,
+                                    fontWeight: _selectedFileName != null
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                    color: _selectedFileName != null
+                                        ? Colors.green.shade300
+                                        : AppTheme.borderColor,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ),
+                              ),
+                              if (_selectedFileName != null && _selectedFileSizeStr != null) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Selected file size: $_selectedFileSizeStr',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     Align(
                       alignment: Alignment.bottomRight,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          if (_docTitleController.text.trim().isEmpty) return;
-                          setState(() {
-                            _documents.add({
-                              'title': _docTitleController.text.trim(),
-                              'file_name':
-                                  _docFileNameController.text.trim().isEmpty
-                                  ? 'attached_doc_${DateTime.now().millisecondsSinceEpoch}.pdf'
-                                  : _docFileNameController.text.trim(),
-                              'date': DateFormat(
-                                'dd/MM/yyyy',
-                              ).format(DateTime.now()),
-                            });
-                            _docTitleController.clear();
-                            _docFileNameController.clear();
-                          });
-                        },
-                        icon: const Icon(
-                          Icons.add_to_photos_outlined,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                        label: const Text(
-                          'Add Document Reference',
-                          style: TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.secondaryColor,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                        ),
-                      ),
+                      child: _isUploadingFile
+                          ? const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.secondaryColor,
+                                  ),
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Uploading to Cloudinary...',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.secondaryColor,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ElevatedButton.icon(
+                              onPressed: _uploadAndAddDocument,
+                              icon: const Icon(
+                                Icons.cloud_upload_outlined,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                              label: const Text(
+                                'Upload & Add Document',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.secondaryColor,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -1764,6 +1959,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                   itemCount: _documents.length,
                   itemBuilder: (context, idx) {
                     final doc = _documents[idx];
+                    final fileUrl = doc['file_url'];
+                    final hasUrl = fileUrl != null && fileUrl.isNotEmpty;
                     return Container(
                       margin: const EdgeInsets.only(bottom: 6),
                       padding: const EdgeInsets.symmetric(
@@ -1777,9 +1974,9 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(
-                            Icons.picture_as_pdf,
-                            color: Colors.red,
+                          Icon(
+                            Icons.insert_drive_file_outlined,
+                            color: hasUrl ? AppTheme.primaryColor : Colors.grey,
                             size: 18,
                           ),
                           const SizedBox(width: 10),
@@ -1795,7 +1992,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                                   ),
                                 ),
                                 Text(
-                                  '${doc['file_name']} • Attached on: ${doc['date']}',
+                                  '${doc['file_name']}${doc['file_size'] != null && doc['file_size']!.isNotEmpty ? ' (${doc['file_size']})' : ''} • Attached on: ${doc['date']}',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     color: AppTheme.textSecondaryColor,
@@ -1804,6 +2001,18 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                               ],
                             ),
                           ),
+                          if (hasUrl)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.remove_red_eye_outlined,
+                                color: Colors.blue,
+                                size: 18,
+                              ),
+                              tooltip: 'View Document',
+                              onPressed: () {
+                                showDocumentViewer(context, fileUrl, doc['title'] ?? 'Document');
+                              },
+                            ),
                           IconButton(
                             icon: const Icon(
                               Icons.delete_outline,
