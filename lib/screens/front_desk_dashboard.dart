@@ -21,16 +21,19 @@ import '../models/user_model.dart';
 import '../controllers/nurse/nurse_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'front_desk_admission_counter.dart';
+import '../widgets/user_profile_dialog.dart';
 
 class FrontDeskDashboardScreen extends StatefulWidget {
   final int initialIndex;
   final bool isRegisteringPatient;
   final bool forceBooking;
+  final PatientModel? existingPatient;
   const FrontDeskDashboardScreen({
     Key? key,
     this.initialIndex = 0,
     this.isRegisteringPatient = false,
     this.forceBooking = false,
+    this.existingPatient,
   }) : super(key: key);
 
   @override
@@ -58,6 +61,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     super.initState();
     _selectedIndex = widget.initialIndex;
     _isRegisteringPatient = widget.isRegisteringPatient;
+    _patientToComplete = widget.existingPatient;
     _forceBookingForm = widget.forceBooking;
     _fetchData();
   }
@@ -67,10 +71,12 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialIndex != oldWidget.initialIndex ||
         widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
-        widget.forceBooking != oldWidget.forceBooking) {
+        widget.forceBooking != oldWidget.forceBooking ||
+        widget.existingPatient != oldWidget.existingPatient) {
       setState(() {
         _selectedIndex = widget.initialIndex;
         _isRegisteringPatient = widget.isRegisteringPatient;
+        _patientToComplete = widget.existingPatient;
         _forceBookingForm = widget.forceBooking;
       });
     }
@@ -244,6 +250,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
               _isRegisteringPatient = false;
               _patientToComplete = null;
             });
+            context.go(AppRoutes.frontDeskPatients);
             _fetchPatients();
           },
         );
@@ -261,8 +268,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
             error: _patientError,
             onRegisterPatient: () => _changePage(1, isRegistering: true),
             onCompleteProfile: (patient) {
-              setState(() => _patientToComplete = patient);
-              _changePage(1, isRegistering: true);
+              context.go(AppRoutes.frontDeskEditPatient, extra: patient);
             },
             onBookAppointment: (patient) {
               setState(() => _selectedPatientForBooking = patient);
@@ -428,31 +434,78 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      backgroundColor: AppTheme.logoRed.withOpacity(0.1),
-                      child: Text(
-                        user != null && user.fullname.isNotEmpty
-                            ? user.fullname.substring(0, 1).toUpperCase()
-                            : 'F',
-                        style: const TextStyle(
-                          color: AppTheme.logoRed,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
                     Expanded(
+//                       child: InkWell(
+//                         onTap: () {
+//                           if (user != null) {
+//                             UserProfileDialog.show(context, user);
+//                           }
+//                         },
+//                         borderRadius: BorderRadius.circular(8),
+//                         child: Padding(
+//                           padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+//                           child: Row(
+//                             children: [
+//                               CircleAvatar(
+//                                 backgroundColor: AppTheme.logoRed.withOpacity(0.1),
+//                                 child: Text(
+//                                   user != null && (user.rawFullname ?? '').isNotEmpty
+//                                       ? user.rawFullname!.substring(0, 1).toUpperCase()
+//                                       : 'F',
+//                                   style: const TextStyle(
+//                                     color: AppTheme.logoRed,
+//                                     fontWeight: FontWeight.bold,
+//                                   ),
+//                                 ),
+//                               ),
+//                               const SizedBox(width: 12),
+//                               Expanded(
+//                                 child: Column(
+//                                   crossAxisAlignment: CrossAxisAlignment.start,
+//                                   children: [
+//                                     Text(
+//                                       user?.rawFullname ?? 'Front Desk',
+//                                       style: const TextStyle(
+//                                         fontWeight: FontWeight.bold,
+//                                         fontSize: 13,
+//                                       ),
+//                                       overflow: TextOverflow.ellipsis,
+//                                     ),
+//                                     Text(
+//                                       user?.role ?? 'Front Desk',
+//                                       style: const TextStyle(
+//                                         fontSize: 11,
+//                                         color: AppTheme.textSecondaryColor,
+//                                       ),
+//                                     ),
+//                                   ],
+//                                 ),
+//                               ),
+//                             ],
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user?.fullname ?? 'Front Desk',
+                            user?.rawFullname ?? 'Front Desk',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
+                          if (user?.staffUniqueId != null &&
+                              user!.staffUniqueId!.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              user.staffUniqueId!,
+                              style: const TextStyle(
+                                  fontSize: 9,
+                                  color: AppTheme.textSecondaryColor),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                          const SizedBox(height: 2),
                           Text(
                             user?.role ?? 'Front Desk',
                             style: const TextStyle(
@@ -460,7 +513,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                               color: AppTheme.textSecondaryColor,
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                     IconButton(
@@ -593,7 +646,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           children: [
             Expanded(
               child: Text(
-                user != null ? 'Hello, ${user.fullname}' : 'Dashboard',
+                user != null ? 'Hello, ${user.rawFullname ?? ''}' : 'Dashboard',
                 style: Theme.of(context).textTheme.displayLarge,
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
@@ -1089,7 +1142,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
 
   void _initControllers() {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    _nameController.text = user?.fullname ?? '';
+    _nameController.text = user?.rawFullname ?? '';
     _emailController.text = user?.email ?? '';
     _bioController.text = user?.bio ?? '';
     _mobileController.text = user?.mobile ?? '';
@@ -1192,7 +1245,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Profile settings',
+                      'Profile',
                       style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 24),
                     ),
                     const SizedBox(height: 4),
@@ -1222,7 +1275,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Profile settings',
+                          'Profile',
                           style: Theme.of(context).textTheme.displayLarge,
                         ),
                         const SizedBox(height: 4),
@@ -1263,7 +1316,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                       ),
                       child: Center(
                         child: Text(
-                          user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'F',
+                          user?.rawFullname?.isNotEmpty == true ? user!.rawFullname![0].toUpperCase() : 'F',
                           style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                       ),
@@ -1273,7 +1326,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(user?.fullname ?? 'Front Desk', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
+                          Text(user?.rawFullname ?? 'Front Desk', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
                           const SizedBox(height: 8),
                           Text(
                             user?.role ?? 'Front Desk',
@@ -1291,39 +1344,14 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                 const SizedBox(height: 24),
                 const Divider(height: 1, color: Color(0xFFE2E8F0)),
                 const SizedBox(height: 20),
-                _buildDetailRow('Full Name', user?.fullname ?? '-', Icons.person_outline),
+                _buildDetailRow('Full Name', user?.rawFullname ?? '-', Icons.person_outline),
+                _buildDetailRow('Staff ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
                 _buildDetailRow('Email Address', user?.email ?? '-', Icons.alternate_email),
                 _buildDetailRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
                 _buildDetailRow('Bio Summary', user?.bio ?? '-', Icons.description_outlined),
               ],
             ),
           ),
-          sectionSpacing,
-          _buildInfoCard('Availability / Duty', [
-            _buildDetailRow(
-              'Working Days',
-              (user?.workingDays == null || user!.workingDays!.isEmpty)
-                  ? '-'
-                  : user!.workingDays!.join(', '),
-              Icons.calendar_month_outlined,
-            ),
-            _buildDetailRow('Shift Hours', '${user?.shiftStartTime ?? "-"} to ${user?.shiftEndTime ?? "-"}', Icons.access_time_rounded),
-            _buildDetailRow('Shift Type', user?.shiftType ?? '-', Icons.event_available_outlined),
-            _buildDetailRow(
-              'Weekly Off',
-              (user?.weeklyOffDays ?? []).isEmpty
-                  ? '-'
-                  : user!.weeklyOffDays!.join(', '),
-              Icons.event_busy_outlined,
-            ),
-            _buildDetailRow(
-              'Specific Leave Dates',
-              (user?.specificLeaveDates == null || user!.specificLeaveDates!.isEmpty)
-                  ? '-'
-                  : user!.specificLeaveDates!.join(', '),
-              Icons.calendar_today_outlined,
-            ),
-          ]),
         ],
       ),
     );
@@ -1462,8 +1490,8 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                         ),
                         child: Center(
                           child: Text(
-                            user?.fullname.isNotEmpty == true
-                                ? user!.fullname[0].toUpperCase()
+                            user?.rawFullname?.isNotEmpty == true
+                                ? user!.rawFullname![0].toUpperCase()
                                 : 'F',
                             style: const TextStyle(
                               fontSize: 36,
@@ -1478,7 +1506,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user?.fullname ?? 'Front Desk',
+                            user?.rawFullname ?? 'Front Desk',
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -1571,102 +1599,6 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                 ],
               ),
             ),
-            sectionSpacing,
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppTheme.successColor.withOpacity(0.1))),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Weekly Schedule (Tap: Available ↔ Leave)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8, runSpacing: 8,
-                    children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
-                      final isAvailable = _availableDays?.contains(day) ?? false;
-                      Color bgColor = isAvailable ? AppTheme.successColor : Colors.red.shade400;
-                      return MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          onTap: () => setLocalState(() {
-                            if (isAvailable) {
-                              _availableDays?.remove(day);
-                            } else {
-                              (_availableDays ??= []).add(day);
-                            }
-                            final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                            _weeklyOffDays = allDays.where((d) => !(_availableDays?.contains(d) ?? false)).toList();
-                          }),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: bgColor,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: bgColor),
-                            ),
-                            child: Text(day, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  fieldSpacing,
-                  if (isMobile) ...[
-                    _buildProfileTextField('Shift Start Time', _slotStartController, Icons.login_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotStartController)),
-                    fieldSpacing,
-                    _buildProfileTextField('Shift End Time', _slotEndController, Icons.logout_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotEndController)),
-                    fieldSpacing,
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
-                        const SizedBox(height: 8),
-                        CustomDropdownSearch(
-                          label: '',
-                          value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
-                          dropdownItems: const ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'],
-                          onChanged: (v) {
-                            if (v != null) {
-                              _shiftTypeController.text = v;
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _buildProfileTextField('Shift Start Time', _slotStartController, Icons.login_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotStartController))),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildProfileTextField('Shift End Time', _slotEndController, Icons.logout_outlined, isReadOnly: true, onTap: () => _selectTime(context, _slotEndController))),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Shift Type', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
-                              const SizedBox(height: 8),
-                              CustomDropdownSearch(
-                                label: '',
-                                value: _shiftTypeController.text.isNotEmpty && ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'].contains(_shiftTypeController.text) ? _shiftTypeController.text : 'Day Shift',
-                                dropdownItems: const ['Day Shift', 'Night Shift', 'Rotational', 'Evening Shift'],
-                                onChanged: (v) {
-                                  if (v != null) {
-                                    _shiftTypeController.text = v;
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
             const SizedBox(height: 32),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -1681,10 +1613,17 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                   onPressed: _isLoading ? null : _saveProfile,
                   style: AppTheme.primaryButton.copyWith(
                     backgroundColor: MaterialStateProperty.all(AppTheme.successColor),
+                    padding: MaterialStateProperty.all(const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
+                    minimumSize: MaterialStateProperty.all(const Size(130, 48)),
+                    shape: MaterialStateProperty.all(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                   child: _isLoading 
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Save Changes', style: TextStyle(color: Colors.white)),
+                    : const Text('Save Changes', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
                 ),
               ],
             ),

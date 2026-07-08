@@ -23,17 +23,20 @@ import '../models/appointment_model.dart';
 import '../utils/logout_helper.dart';
 import '../models/user_model.dart';
 import '../controllers/nurse_shift_controller.dart';
+import '../widgets/user_profile_dialog.dart';
 
 
 class NurseDashboardScreen extends StatefulWidget {
   final int initialIndex;
   final bool isRegisteringPatient;
   final bool forceBooking;
+  final PatientModel? existingPatient;
   const NurseDashboardScreen({
     Key? key,
     this.initialIndex = 0,
     this.isRegisteringPatient = false,
     this.forceBooking = false,
+    this.existingPatient,
   }) : super(key: key);
 
   @override
@@ -70,6 +73,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     super.initState();
     _selectedIndex = widget.initialIndex;
     _isRegisteringPatient = widget.isRegisteringPatient;
+    _patientToComplete = widget.existingPatient;
     _forceBookingForm = widget.forceBooking;
     _fetchData();
   }
@@ -79,10 +83,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialIndex != oldWidget.initialIndex ||
         widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
-        widget.forceBooking != oldWidget.forceBooking) {
+        widget.forceBooking != oldWidget.forceBooking ||
+        widget.existingPatient != oldWidget.existingPatient) {
       setState(() {
         _selectedIndex = widget.initialIndex;
         _isRegisteringPatient = widget.isRegisteringPatient;
+        _patientToComplete = widget.existingPatient;
         _forceBookingForm = widget.forceBooking;
       });
     }
@@ -358,6 +364,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               _isRegisteringPatient = false;
               _patientToComplete = null;
             });
+            context.go(AppRoutes.nursePatients);
             _fetchPatients();
           },
         );
@@ -375,8 +382,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             error: _patientError,
             onRegisterPatient: () => _changePage(1, isRegistering: true),
             onCompleteProfile: (patient) {
-              setState(() => _patientToComplete = patient);
-              _changePage(1, isRegistering: true);
+              context.go(AppRoutes.nurseEditPatient, extra: patient);
             },
             onBookAppointment: (patient) {
               setState(() => _selectedPatientForBooking = patient);
@@ -412,7 +418,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 4:
         return const NurseProfileView();
       case 5:
-        return OPDManagementScreen(isMobile: isMobile);
+        return OPDManagementScreen(isMobile: isMobile, title: 'OPD Assistance');
       case 6:
         return IPDManagementScreen(isMobile: isMobile);
       case 7:
@@ -583,45 +589,80 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         ? const SizedBox.shrink()
                         : Row(
                             children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppTheme.borderColor,
-                                  ),
-                                ),
-                                child: CircleAvatar(
-                                  backgroundColor: AppTheme.getAvatarColors(
-                                    user.fullname,
-                                  )['bg'],
-                                  radius: 18,
-                                  child: Text(
-                                    user.fullname.isNotEmpty
-                                        ? user.fullname[0].toUpperCase()
-                                        : '?',
-                                    style: TextStyle(
-                                      color: AppTheme.getAvatarColors(
-                                        user.fullname,
-                                      )['text'],
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      user.fullname,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                                child: InkWell(
+                                  onTap: () => UserProfileDialog.show(context, user),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: AppTheme.borderColor,
+                                            ),
+                                          ),
+                                          child: CircleAvatar(
+                                            backgroundColor: AppTheme.getAvatarColors(
+                                              user.fullname,
+                                            )['bg'],
+                                            radius: 18,
+                                            child: Text(
+                                              user.fullname.isNotEmpty
+                                                  ? user.fullname[0].toUpperCase()
+                                                  : '?',
+                                              style: TextStyle(
+                                                color: AppTheme.getAvatarColors(
+                                                  user.fullname,
+                                                )['text'],
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                user.fullname,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                user.role,
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppTheme.textSecondaryColor,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
+//                                   ),
+                                    if (user.staffUniqueId != null &&
+                                        user.staffUniqueId!.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        user.staffUniqueId!,
+                                        style: const TextStyle(
+                                          fontSize: 9,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 2),
                                     Text(
                                       user.role,
                                       style: const TextStyle(
@@ -794,7 +835,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           children: [
             Expanded(
               child: Text(
-                user != null ? 'Hello, ${user.fullname}' : 'Dashboard',
+                user != null ? 'Hello, ${user.rawFullname ?? ''}' : 'Dashboard',
                 style: Theme.of(context).textTheme.displayLarge,
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,

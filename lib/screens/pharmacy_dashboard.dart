@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../core/routes/route_constants.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart' show LiveClock;
 import '../utils/logout_helper.dart';
+import '../widgets/user_profile_dialog.dart';
 import 'pharmacy_management_view.dart';
 import 'inventory_management_view.dart';
 
 class PharmacyDashboardScreen extends StatefulWidget {
   final int initialIndex;
-  const PharmacyDashboardScreen({Key? key, this.initialIndex = 0}) : super(key: key);
+  const PharmacyDashboardScreen({super.key, this.initialIndex = 0});
 
   @override
   State<PharmacyDashboardScreen> createState() => _PharmacyDashboardScreenState();
@@ -36,10 +38,19 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
   }
 
   void _changePage(int index) {
-    if (mounted) {
-      setState(() {
-        _selectedIndex = index;
-      });
+    if (!mounted) return;
+    switch (index) {
+      case 0:
+        context.go(AppRoutes.pharmacyDashboard);
+        break;
+      case 1:
+        context.go(AppRoutes.pharmacyInventory);
+        break;
+      case 2:
+        context.go(AppRoutes.pharmacyProfile);
+        break;
+      default:
+        context.go(AppRoutes.pharmacyDashboard);
     }
   }
 
@@ -105,8 +116,8 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Column(
                     children: [
-                      _buildSidebarItem(0, Icons.local_pharmacy_outlined, 'Pharmacy Panel'),
-                      _buildSidebarItem(1, Icons.inventory_2_outlined, 'Medication Inventory'),
+                      _buildSidebarItem(0, Icons.local_pharmacy_outlined, 'Pharmacy Management'),
+                      _buildSidebarItem(1, Icons.inventory_2_outlined, 'Inventory Management'),
                       _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
                     ],
                   ),
@@ -124,28 +135,60 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
                         ? const SizedBox.shrink()
                         : Row(
                             children: [
-                              CircleAvatar(
-                                backgroundColor: AppTheme.getAvatarColors(user.fullname)['bg'],
-                                radius: 18,
-                                child: Text(
-                                  user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
-                                  style: TextStyle(
-                                    color: AppTheme.getAvatarColors(user.fullname)['text'],
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      user.fullname,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                      overflow: TextOverflow.ellipsis,
+                                child: InkWell(
+                                  onTap: () => UserProfileDialog.show(context, user),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          backgroundColor: AppTheme.getAvatarColors(user.rawFullname ?? '')['bg'],
+                                          radius: 18,
+                                          child: Text(
+                                            (user.rawFullname ?? '').isNotEmpty ? user.rawFullname![0].toUpperCase() : '?',
+                                            style: TextStyle(
+                                              color: AppTheme.getAvatarColors(user.rawFullname ?? '')['text'],
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                user.rawFullname ?? '',
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                user.role,
+                                                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
+//                                   ),
+                                    if (user.staffUniqueId != null &&
+                                        user.staffUniqueId!.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        user.staffUniqueId!,
+                                        style: const TextStyle(
+                                          fontSize: 9,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 2),
                                     Text(
                                       user.role,
                                       style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
@@ -188,11 +231,14 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
               size: 22,
             ),
             const SizedBox(width: 16),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -252,48 +298,58 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
     final user = Provider.of<AuthProvider>(context).user;
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: AppTheme.cardDecoration,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'My Profile',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: AppTheme.cardDecoration,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                  radius: 40,
-                  child: Text(
-                    user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'P',
-                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text(
-                      user?.fullname ?? 'Pharmacy Staff',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    CircleAvatar(
+                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                      radius: 40,
+                      child: Text(
+                        user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'P',
+                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      user?.role ?? 'Pharmacist',
-                      style: const TextStyle(fontSize: 14, color: AppTheme.logoRed, fontWeight: FontWeight.bold),
+                    const SizedBox(width: 24),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.fullname ?? 'Pharmacist',
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          user?.role ?? 'Pharmacist',
+                          style: const TextStyle(fontSize: 14, color: AppTheme.logoRed, fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
                   ],
                 ),
+                const SizedBox(height: 32),
+                const Divider(),
+                const SizedBox(height: 24),
+                _buildProfileRow('Staff Unique ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
+                _buildProfileRow('Email Address', user?.email ?? '-', Icons.alternate_email),
+                _buildProfileRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
+                _buildProfileRow('Status', user?.status ?? '-', Icons.check_circle_outline),
               ],
             ),
-            const SizedBox(height: 32),
-            const Divider(),
-            const SizedBox(height: 24),
-            _buildProfileRow('Staff Unique ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
-            _buildProfileRow('Email Address', user?.email ?? '-', Icons.alternate_email),
-            _buildProfileRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
-            _buildProfileRow('Status', user?.status ?? '-', Icons.check_circle_outline),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -452,6 +452,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
   }
 
   Widget _buildDoctorDetailsCard(bool isMobile) {
+    final docId = widget.appointment.doctorDisplayId;
     return _buildCard(
       child: Row(
         children: [
@@ -460,6 +461,31 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
               'Doctor Name',
               widget.appointment.doctorName,
               icon: Icons.person_outline,
+              customValueWidget: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.appointment.doctorName,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimaryColor,
+                    ),
+                  ),
+                  if (docId != null && docId.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      docId,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
           Expanded(
@@ -995,7 +1021,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
     );
   }
 
-  Widget _buildInfoItem(String label, String value, {IconData? icon, Color? textColor, bool isCompact = false}) {
+  Widget _buildInfoItem(String label, String value, {IconData? icon, Color? textColor, bool isCompact = false, Widget? customValueWidget}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1015,14 +1041,15 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
               const SizedBox(width: 6),
             ],
             Expanded(
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontSize: isCompact ? 12 : 13,
-                  fontWeight: FontWeight.bold,
-                  color: textColor ?? AppTheme.textPrimaryColor,
-                ),
-              ),
+              child: customValueWidget ??
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: isCompact ? 12 : 13,
+                      fontWeight: FontWeight.bold,
+                      color: textColor ?? AppTheme.textPrimaryColor,
+                    ),
+                  ),
             ),
           ],
         ),

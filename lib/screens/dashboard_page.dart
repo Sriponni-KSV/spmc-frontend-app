@@ -17,6 +17,7 @@ import '../models/appointment_model.dart';
 import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
 import '../utils/logout_helper.dart';
+import '../widgets/user_profile_dialog.dart';
 import 'doctor_ipd_management.dart';
 import 'ot_management.dart';
 import 'ot_dictation_dashboard.dart';
@@ -52,6 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoadingLabReports = false;
   String _labSearchQuery = '';
   String _labStatusFilter = 'All';
+  bool _showOverduePanel = false;
   late TextEditingController _labSearchController;
   Set<int>? __expandedTestIds;
   Set<int> get _expandedTestIds => __expandedTestIds ??= {};
@@ -121,13 +123,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (widget.initialIndex != oldWidget.initialIndex) {
       setState(() {
         _selectedIndex = widget.initialIndex;
+        _activeAppointment = null;
       });
     }
   }
 
   void _initControllers() {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    _nameController = TextEditingController(text: user?.fullname ?? '');
+    _nameController = TextEditingController(text: user?.rawFullname ?? '');
     _specController = TextEditingController(text: user?.specialization ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
     _mobileController = TextEditingController(text: user?.mobile ?? '');
@@ -479,7 +482,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         setState(() {
           _doctorAppointments = allAppointments.where((appt) {
-            return _isDoctorMatch(appt.doctorName, user?.fullname ?? '');
+            return _isDoctorMatch(appt.doctorName, user?.rawFullname ?? '');
           }).toList();
           _isLoading = false;
         });
@@ -623,7 +626,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: Column(
                 children: [
-                  _buildHeader(isMobile, user?.fullname ?? 'Doctor'),
+                  _buildHeader(isMobile, user?.rawFullname ?? 'Doctor'),
                   Expanded(child: _buildMainContent(isMobile)),
                 ],
               ),
@@ -647,6 +650,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         initialConsultation: existingConsul.isNotEmpty ? existingConsul : null,
         onBack: () {
           setState(() => _activeAppointment = null);
+          context.go(AppRoutes.doctorPatients);
           _fetchConsultations(); // Refresh after potentially saving/updating
           _fetchDoctorData(); // Refresh appointment list status
           _fetchLabReports(); // Refresh lab reports list to show newly ordered tests instantly
@@ -1868,7 +1872,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Professional Profile',
+                      'My Profile',
                       style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 24),
                     ),
                     const SizedBox(height: 4),
@@ -1905,7 +1909,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Professional Profile',
+                          'My Profile',
                           style: Theme.of(context).textTheme.displayLarge,
                         ),
                         const SizedBox(height: 4),
@@ -1967,8 +1971,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       child: Center(
                         child: Text(
-                          user?.fullname.isNotEmpty == true
-                              ? user!.fullname[0].toUpperCase()
+                          user?.rawFullname?.isNotEmpty == true
+                              ? user!.rawFullname![0].toUpperCase()
                               : 'D',
                           style: const TextStyle(
                             fontSize: 48,
@@ -1984,7 +1988,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user?.fullname ?? 'Doctor',
+                            user?.rawFullname ?? 'Doctor',
                             style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
@@ -2022,8 +2026,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 20),
                   _buildDetailRow(
                     'Full Name',
-                    user?.fullname ?? '-',
+                    user?.rawFullname ?? '-',
                     Icons.person_outline,
+                  ),
+                  _buildDetailRow(
+                    'Staff ID',
+                    user?.staffUniqueId ?? '-',
+                    Icons.badge_outlined,
                   ),
                   _buildDetailRow(
                     'Email Address',
@@ -2046,8 +2055,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 20),
                   _buildDetailRow(
                     'Full Name',
-                    user?.fullname ?? '-',
+                    user?.rawFullname ?? '-',
                     Icons.person_outline,
+                  ),
+                  _buildDetailRow(
+                    'Staff ID',
+                    user?.staffUniqueId ?? '-',
+                    Icons.badge_outlined,
                   ),
                   _buildDetailRow(
                     'Email Address',
@@ -2091,154 +2105,183 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Icons.work_history_outlined,
               ),
             ]),
-            sectionSpacing,
-            _buildInfoCard('Availability', [
-              _buildDetailRow(
-                'Available Days',
-                (user?.availableDays == null || user!.availableDays!.isEmpty)
-                    ? '-'
-                    : user!.availableDays!.join(', '),
-                Icons.calendar_month_outlined,
-              ),
-              _buildDetailRow(
-                'Consultation Hours',
-                '${user?.slotStartTime ?? "-"} to ${user?.slotEndTime ?? "-"}',
-                Icons.access_time_rounded,
-              ),
-              _buildDetailRow(
-                'Slot Duration',
-                user?.slotDuration ?? '-',
-                Icons.timer_outlined,
-              ),
-              _buildDetailRow(
-                'Weekly Off',
-                (user?.weeklyOffDays ?? []).isEmpty
-                    ? '-'
-                    : user!.weeklyOffDays!.join(', '),
-                Icons.event_busy_outlined,
-              ),
-            ]),
-            sectionSpacing,
-            _buildInfoCard('Clinic Details', [
-              _buildDetailRow(
-                'Clinic Name',
-                user?.clinicName ?? '-',
-                Icons.business_outlined,
-              ),
-              _buildDetailRow(
-                'Location',
-                user?.clinicLocation ?? '-',
-                Icons.location_on_outlined,
-              ),
-              _buildDetailRow(
-                'Consultation Fee',
-                user?.consultationFee == null || user?.consultationFee == '0'
-                    ? '-'
-                    : '₹${user!.consultationFee}',
-                Icons.payments_outlined,
-              ),
-            ]),
+            if (user?.role != 'Anaesthetist') ...[
+              sectionSpacing,
+              _buildInfoCard('Availability', [
+                _buildDetailRow(
+                  'Available Days',
+                  (user?.availableDays == null || user!.availableDays!.isEmpty)
+                      ? '-'
+                      : user!.availableDays!.join(', '),
+                  Icons.calendar_month_outlined,
+                ),
+                _buildDetailRow(
+                  'Consultation Hours',
+                  '${user?.slotStartTime ?? "-"} to ${user?.slotEndTime ?? "-"}',
+                  Icons.access_time_rounded,
+                ),
+                _buildDetailRow(
+                  'Slot Duration',
+                  user?.slotDuration ?? '-',
+                  Icons.timer_outlined,
+                ),
+                _buildDetailRow(
+                  'Weekly Off',
+                  (user?.weeklyOffDays ?? []).isEmpty
+                      ? '-'
+                      : user!.weeklyOffDays!.join(', '),
+                  Icons.event_busy_outlined,
+                ),
+              ]),
+              sectionSpacing,
+              _buildInfoCard('Clinic Details', [
+                _buildDetailRow(
+                  'Clinic Name',
+                  user?.clinicName ?? '-',
+                  Icons.business_outlined,
+                ),
+                _buildDetailRow(
+                  'Location',
+                  user?.clinicLocation ?? '-',
+                  Icons.location_on_outlined,
+                ),
+                _buildDetailRow(
+                  'Consultation Fee',
+                  user?.consultationFee == null || user?.consultationFee == '0'
+                      ? '-'
+                      : '₹${user!.consultationFee}',
+                  Icons.payments_outlined,
+                ),
+              ]),
+            ],
           ] else ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildInfoCard('Professional Info', [
-                    _buildDetailRow(
-                      'Specialization',
-                      user?.specialization ?? '-',
-                      Icons.medical_services_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Qualification',
-                      user?.qualification ?? '-',
-                      Icons.school_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Medical License',
-                      user?.medicalLicense ?? '-',
-                      Icons.badge_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Experience',
-                      user?.experience == null || user?.experience == '0'
-                          ? '-'
-                          : '${user!.experience} years',
-                      Icons.work_history_outlined,
-                    ),
-                  ]),
+            if (user?.role == 'Anaesthetist')
+              _buildInfoCard('Professional Info', [
+                _buildDetailRow(
+                  'Specialization',
+                  user?.specialization ?? '-',
+                  Icons.medical_services_outlined,
                 ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: _buildInfoCard('Availability', [
-                    _buildDetailRow(
-                      'Available Days',
-                      (user?.availableDays == null ||
-                              user!.availableDays!.isEmpty)
-                          ? '-'
-                          : user!.availableDays!.join(', '),
-                      Icons.calendar_month_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Consultation Hours',
-                      '${user?.slotStartTime ?? "-"} to ${user?.slotEndTime ?? "-"}',
-                      Icons.access_time_rounded,
-                    ),
-                    _buildDetailRow(
-                      'Slot Duration',
-                      user?.slotDuration ?? '-',
-                      Icons.timer_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Weekly Off',
-                      (user?.weeklyOffDays ?? []).isEmpty
-                          ? '-'
-                          : user!.weeklyOffDays!.join(', '),
-                      Icons.event_busy_outlined,
-                    ),
-                    _buildDetailRow(
-                      'Specific Leave Dates',
-                      (user?.specificLeaveDates == null ||
-                              user!.specificLeaveDates!.isEmpty)
-                          ? '-'
-                          : user!.specificLeaveDates!.join(', '),
-                      Icons.calendar_today_outlined,
-                    ),
-                  ]),
+                _buildDetailRow(
+                  'Qualification',
+                  user?.qualification ?? '-',
+                  Icons.school_outlined,
                 ),
-              ],
-            ),
-            sectionSpacing,
-            _buildInfoCard('Clinic Details', [
+                _buildDetailRow(
+                  'Medical License',
+                  user?.medicalLicense ?? '-',
+                  Icons.badge_outlined,
+                ),
+                _buildDetailRow(
+                  'Experience',
+                  user?.experience == null || user?.experience == '0'
+                      ? '-'
+                      : '${user!.experience} years',
+                  Icons.work_history_outlined,
+                ),
+              ])
+            else ...[
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: _buildDetailRow(
-                      'Clinic Name',
-                      user?.clinicName ?? '-',
-                      Icons.business_outlined,
-                    ),
+                    child: _buildInfoCard('Professional Info', [
+                      _buildDetailRow(
+                        'Specialization',
+                        user?.specialization ?? '-',
+                        Icons.medical_services_outlined,
+                      ),
+                      _buildDetailRow(
+                        'Qualification',
+                        user?.qualification ?? '-',
+                        Icons.school_outlined,
+                      ),
+                      _buildDetailRow(
+                        'Medical License',
+                        user?.medicalLicense ?? '-',
+                        Icons.badge_outlined,
+                      ),
+                      _buildDetailRow(
+                        'Experience',
+                        user?.experience == null || user?.experience == '0'
+                            ? '-'
+                            : '${user!.experience} years',
+                        Icons.work_history_outlined,
+                      ),
+                    ]),
                   ),
+                  const SizedBox(width: 24),
                   Expanded(
-                    child: _buildDetailRow(
-                      'Location',
-                      user?.clinicLocation ?? '-',
-                      Icons.location_on_outlined,
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildDetailRow(
-                      'Consultation Fee',
-                      user?.consultationFee == null ||
-                              user?.consultationFee == '0'
-                          ? '-'
-                          : '₹${user!.consultationFee}',
-                      Icons.payments_outlined,
-                    ),
+                    child: _buildInfoCard('Availability', [
+                      _buildDetailRow(
+                        'Available Days',
+                        (user?.availableDays == null ||
+                                user!.availableDays!.isEmpty)
+                            ? '-'
+                            : user!.availableDays!.join(', '),
+                        Icons.calendar_month_outlined,
+                      ),
+                      _buildDetailRow(
+                        'Consultation Hours',
+                        '${user?.slotStartTime ?? "-"} to ${user?.slotEndTime ?? "-"}',
+                        Icons.access_time_rounded,
+                      ),
+                      _buildDetailRow(
+                        'Slot Duration',
+                        user?.slotDuration ?? '-',
+                        Icons.timer_outlined,
+                      ),
+                      _buildDetailRow(
+                        'Weekly Off',
+                        (user?.weeklyOffDays ?? []).isEmpty
+                            ? '-'
+                            : user!.weeklyOffDays!.join(', '),
+                        Icons.event_busy_outlined,
+                      ),
+                      _buildDetailRow(
+                        'Specific Leave Dates',
+                        (user?.specificLeaveDates == null ||
+                                user!.specificLeaveDates!.isEmpty)
+                            ? '-'
+                            : user!.specificLeaveDates!.join(', '),
+                        Icons.calendar_today_outlined,
+                      ),
+                    ]),
                   ),
                 ],
               ),
-            ]),
+              sectionSpacing,
+              _buildInfoCard('Clinic Details', [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDetailRow(
+                        'Clinic Name',
+                        user?.clinicName ?? '-',
+                        Icons.business_outlined,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildDetailRow(
+                        'Location',
+                        user?.clinicLocation ?? '-',
+                        Icons.location_on_outlined,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildDetailRow(
+                        'Consultation Fee',
+                        user?.consultationFee == null ||
+                                user?.consultationFee == '0'
+                            ? '-'
+                            : '₹${user!.consultationFee}',
+                        Icons.payments_outlined,
+                      ),
+                    ),
+                  ],
+                ),
+              ]),
+            ],
           ],
           const SizedBox(height: 48),
         ],
@@ -2417,8 +2460,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           child: Center(
                             child: Text(
-                              user?.fullname.isNotEmpty == true
-                                  ? user!.fullname[0].toUpperCase()
+                              user?.rawFullname?.isNotEmpty == true
+                                  ? user!.rawFullname![0].toUpperCase()
                                   : 'D',
                               style: const TextStyle(
                                 fontSize: 36,
@@ -2433,7 +2476,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              user?.fullname ?? 'Doctor',
+                              user?.rawFullname ?? 'Doctor',
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -2637,6 +2680,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       'Qualification (MBBS, MD, etc.)',
                       _qualController,
                       Icons.school_outlined,
+                      maxLength: 100,
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .,()]'))],
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
@@ -2650,6 +2695,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       'Medical Registration Number',
                       _licenseController,
                       Icons.badge_outlined,
+                      maxLength: 20,
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9/\-]'))],
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
@@ -2664,6 +2711,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       'Areas of Expertise (comma-separated)',
                       _areasOfExpertiseController,
                       Icons.star_outline,
+                      maxLength: 100,
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,]'))],
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
@@ -2681,6 +2730,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             'Qualification (MBBS, MD, etc.)',
                             _qualController,
                             Icons.school_outlined,
+                            maxLength: 100,
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .,()]'))],
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -2702,6 +2753,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             'Medical Registration Number',
                             _licenseController,
                             Icons.badge_outlined,
+                            maxLength: 20,
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9/\-]'))],
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -2724,6 +2777,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             'Areas of Expertise (comma-separated)',
                             _areasOfExpertiseController,
                             Icons.star_outline,
+                            maxLength: 100,
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,]'))],
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -2743,254 +2798,256 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               sectionSpacing,
 
-              // ── Section 2: Availability ───────────────────────
-              sectionCard('2', 'Availability', AppTheme.successColor, [
-                // Available / Leave Days chips
-                const Text(
-                  'Weekly Schedule (Tap: Available ↔ Leave)',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+              if (user?.role != 'Anaesthetist') ...[
+                // ── Section 2: Availability ───────────────────────
+                sectionCard('2', 'Availability', AppTheme.successColor, [
+                  // Available / Leave Days chips
+                  const Text(
+                    'Weekly Schedule (Tap: Available ↔ Leave)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-                      .map((day) {
-                        final isAvailable =
-                            _availableDays?.contains(day) ?? false;
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                        .map((day) {
+                          final isAvailable =
+                              _availableDays?.contains(day) ?? false;
 
-                        Color bgColor = isAvailable
-                            ? AppTheme.successColor
-                            : Colors.red.shade400;
-                        Color borderColor = bgColor;
-                        Color textColor = Colors.white;
+                          Color bgColor = isAvailable
+                              ? AppTheme.successColor
+                              : Colors.red.shade400;
+                          Color borderColor = bgColor;
+                          Color textColor = Colors.white;
 
-                        return MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: () => setLocalState(() {
-                              if (isAvailable) {
-                                _availableDays?.remove(day);
-                                (_weeklyOffDays ??= []).add(day);
-                              } else {
-                                _weeklyOffDays?.remove(day);
-                                (_availableDays ??= []).add(day);
-                              }
-                            }),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: bgColor,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: borderColor),
-                              ),
-                              child: Text(
-                                day,
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                          return MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: () => setLocalState(() {
+                                if (isAvailable) {
+                                  _availableDays?.remove(day);
+                                  (_weeklyOffDays ??= []).add(day);
+                                } else {
+                                  _weeklyOffDays?.remove(day);
+                                  (_availableDays ??= []).add(day);
+                                }
+                              }),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: bgColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                child: Text(
+                                  day,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                      })
-                      .toList(),
-                ),
-                fieldSpacing,
-                if (isMobile) ...[
-                  _buildTimePickerField(
-                    'Slot Start Time',
-                    _slotStartController,
-                    Icons.access_time_outlined,
+                          );
+                        })
+                        .toList(),
                   ),
                   fieldSpacing,
-                  _buildTimePickerField(
-                    'Slot End Time',
-                    _slotEndController,
-                    Icons.access_time_filled,
-                  ),
-                  fieldSpacing,
-                  _buildProfileTextField(
-                    'Slot Duration (e.g. 15 min)',
-                    _slotDurationController,
-                    Icons.timelapse_outlined,
-                  ),
-                ] else
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTimePickerField(
-                          'Slot Start Time',
-                          _slotStartController,
-                          Icons.access_time_outlined,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildTimePickerField(
-                          'Slot End Time',
-                          _slotEndController,
-                          Icons.access_time_filled,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildProfileTextField(
-                          'Slot Duration (e.g. 15 min)',
-                          _slotDurationController,
-                          Icons.timelapse_outlined,
-                        ),
-                      ),
-                    ],
-                  ),
-                fieldSpacing,
-
-                // ── Specific Leave Dates ────────────────────────
-                const Text(
-                  'Specific Leave Dates — pick individual dates.',
-                  style: TextStyle(fontSize: 12, color: Colors.black),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ...(_specificLeaveDates ?? []).map(
-                      (d) => Chip(
-                        label: Text(d, style: const TextStyle(fontSize: 12)),
-                        backgroundColor: Colors.orange.shade50,
-                        side: BorderSide(color: Colors.orange.shade200),
-                        deleteIcon: const Icon(Icons.close, size: 14),
-                        onDeleted: () =>
-                            setLocalState(() => _specificLeaveDates?.remove(d)),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 730),
-                          ),
-                        );
-                        if (picked != null) {
-                          final f =
-                              '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
-                          if (_specificLeaveDates?.contains(f) == false) {
-                            setLocalState(
-                              () => (_specificLeaveDates ??= []).add(f),
-                            );
-                          }
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.backgroundColor,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: AppTheme.primaryColor.withOpacity(0.5),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.add,
-                              size: 15,
-                              color: AppTheme.primaryColor,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Add Date',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.primaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ]),
-              sectionSpacing,
-
-              // ── Section 3: Clinic / Hospital Mapping ──────────
-              sectionCard(
-                '3',
-                'Clinic / Hospital Details',
-                const Color(0xFF805AD5),
-                [
                   if (isMobile) ...[
-                    _buildProfileTextField(
-                      'Clinic / Hospital Name',
-                      _clinicNameController,
-                      Icons.local_hospital_outlined,
+                    _buildTimePickerField(
+                      'Slot Start Time',
+                      _slotStartController,
+                      Icons.access_time_outlined,
+                    ),
+                    fieldSpacing,
+                    _buildTimePickerField(
+                      'Slot End Time',
+                      _slotEndController,
+                      Icons.access_time_filled,
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
-                      'Location',
-                      _clinicLocationController,
-                      Icons.location_on_outlined,
+                      'Slot Duration (e.g. 15 min)',
+                      _slotDurationController,
+                      Icons.timelapse_outlined,
                     ),
-                    fieldSpacing,
-                    _buildProfileTextField(
-                      'Consultation Fee (₹)',
-                      _consultationFeeController,
-                      Icons.currency_rupee,
-                      isNumeric: true,
-                      maxLength: 5,
-                    ),
-                  ] else ...[
-                    _buildProfileTextField(
-                      'Clinic / Hospital Name',
-                      _clinicNameController,
-                      Icons.local_hospital_outlined,
-                    ),
-                    fieldSpacing,
+                  ] else
                     Row(
                       children: [
                         Expanded(
-                          child: _buildProfileTextField(
-                            'Location',
-                            _clinicLocationController,
-                            Icons.location_on_outlined,
+                          child: _buildTimePickerField(
+                            'Slot Start Time',
+                            _slotStartController,
+                            Icons.access_time_outlined,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildTimePickerField(
+                            'Slot End Time',
+                            _slotEndController,
+                            Icons.access_time_filled,
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: _buildProfileTextField(
-                            'Consultation Fee (₹)',
-                            _consultationFeeController,
-                            Icons.currency_rupee,
-                            isNumeric: true,
-                            maxLength: 5,
+                            'Slot Duration (e.g. 15 min)',
+                            _slotDurationController,
+                            Icons.timelapse_outlined,
                           ),
                         ),
                       ],
                     ),
+                  fieldSpacing,
+
+                  // ── Specific Leave Dates ────────────────────────
+                  const Text(
+                    'Specific Leave Dates — pick individual dates.',
+                    style: TextStyle(fontSize: 12, color: Colors.black),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ...(_specificLeaveDates ?? []).map(
+                        (d) => Chip(
+                          label: Text(d, style: const TextStyle(fontSize: 12)),
+                          backgroundColor: Colors.orange.shade50,
+                          side: BorderSide(color: Colors.orange.shade200),
+                          deleteIcon: const Icon(Icons.close, size: 14),
+                          onDeleted: () =>
+                              setLocalState(() => _specificLeaveDates?.remove(d)),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 730),
+                            ),
+                          );
+                          if (picked != null) {
+                            final f =
+                                '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                            if (_specificLeaveDates?.contains(f) == false) {
+                              setLocalState(
+                                () => (_specificLeaveDates ??= []).add(f),
+                              );
+                            }
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.backgroundColor,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppTheme.primaryColor.withOpacity(0.5),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.add,
+                                size: 15,
+                                color: AppTheme.primaryColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Add Date',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ]),
+                sectionSpacing,
+
+                // ── Section 3: Clinic / Hospital Mapping ──────────
+                sectionCard(
+                  '3',
+                  'Clinic / Hospital Details',
+                  const Color(0xFF805AD5),
+                  [
+                    if (isMobile) ...[
+                      _buildProfileTextField(
+                        'Clinic / Hospital Name',
+                        _clinicNameController,
+                        Icons.local_hospital_outlined,
+                      ),
+                      fieldSpacing,
+                      _buildProfileTextField(
+                        'Location',
+                        _clinicLocationController,
+                        Icons.location_on_outlined,
+                      ),
+                      fieldSpacing,
+                      _buildProfileTextField(
+                        'Consultation Fee (₹)',
+                        _consultationFeeController,
+                        Icons.currency_rupee,
+                        isNumeric: true,
+                        maxLength: 5,
+                      ),
+                    ] else ...[
+                      _buildProfileTextField(
+                        'Clinic / Hospital Name',
+                        _clinicNameController,
+                        Icons.local_hospital_outlined,
+                      ),
+                      fieldSpacing,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildProfileTextField(
+                              'Location',
+                              _clinicLocationController,
+                              Icons.location_on_outlined,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildProfileTextField(
+                              'Consultation Fee (₹)',
+                              _consultationFeeController,
+                              Icons.currency_rupee,
+                              isNumeric: true,
+                              maxLength: 5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
-              ),
-              sectionSpacing,
+                ),
+                sectionSpacing,
+              ],
 
               sectionSpacing,
 
@@ -3110,7 +3167,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     bool isNumeric = false,
     bool isReadOnly = false,
     int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
   }) {
+    // Determine effective formatters: caller-supplied > isNumeric default > none
+    final effectiveFormatters = inputFormatters ??
+        (isNumeric ? [FilteringTextInputFormatter.digitsOnly] : null);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3128,9 +3190,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
           readOnly: isReadOnly,
           maxLength: maxLength,
-          inputFormatters: isNumeric
-              ? [FilteringTextInputFormatter.digitsOnly]
-              : null,
+          inputFormatters: effectiveFormatters,
           mouseCursor: isReadOnly ? SystemMouseCursors.forbidden : null,
           style: TextStyle(
             color: isReadOnly
@@ -3387,43 +3447,87 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (user == null) return const SizedBox.shrink();
                     return Row(
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.borderColor),
-                          ),
-                          child: CircleAvatar(
-                            backgroundColor: AppTheme.getAvatarColors(
-                              user.fullname,
-                            )['bg'],
-                            radius: 18,
-                            child: Text(
-                              user.fullname.isNotEmpty
-                                  ? user.fullname[0].toUpperCase()
-                                  : '?',
-                              style: TextStyle(
-                                color: AppTheme.getAvatarColors(
-                                  user.fullname,
-                                )['text'],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
                         Expanded(
+//                           child: InkWell(
+//                             onTap: () => UserProfileDialog.show(context, user),
+//                             borderRadius: BorderRadius.circular(8),
+//                             child: Padding(
+//                               padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+//                               child: Row(
+//                                 children: [
+//                                   Container(
+//                                     decoration: BoxDecoration(
+//                                       shape: BoxShape.circle,
+//                                       border: Border.all(color: AppTheme.borderColor),
+//                                     ),
+//                                     child: CircleAvatar(
+//                                       backgroundColor: AppTheme.getAvatarColors(
+//                                         user.rawFullname ?? '',
+//                                       )['bg'],
+//                                       radius: 18,
+//                                       child: Text(
+//                                         user.rawFullname?.isNotEmpty == true
+//                                             ? user.rawFullname![0].toUpperCase()
+//                                             : '?',
+//                                         style: TextStyle(
+//                                           color: AppTheme.getAvatarColors(
+//                                             user.rawFullname ?? '',
+//                                           )['text'],
+//                                           fontWeight: FontWeight.bold,
+//                                           fontSize: 12,
+//                                         ),
+//                                       ),
+//                                     ),
+//                                   ),
+//                                   const SizedBox(width: 12),
+//                                   Expanded(
+//                                     child: Column(
+//                                       crossAxisAlignment: CrossAxisAlignment.start,
+//                                       children: [
+//                                         Text(
+//                                           user.rawFullname ?? '',
+//                                           style: const TextStyle(
+//                                             fontWeight: FontWeight.bold,
+//                                             fontSize: 13,
+//                                           ),
+//                                           overflow: TextOverflow.ellipsis,
+//                                         ),
+//                                         Text(
+//                                           user.role,
+//                                           style: const TextStyle(
+//                                             fontSize: 11,
+//                                             color: AppTheme.textSecondaryColor,
+//                                           ),
+//                                         ),
+//                                       ],
+//                                     ),
+//                                   ),
+//                                 ],
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                user.fullname,
+                                user.rawFullname ?? '',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
+                              if (user.staffUniqueId != null &&
+                                  user.staffUniqueId!.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  user.staffUniqueId!,
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              const SizedBox(height: 2),
                               Text(
                                 user.role,
                                 style: const TextStyle(
@@ -3431,7 +3535,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   color: AppTheme.textSecondaryColor,
                                 ),
                               ),
-                            ],
+                            ),
                           ),
                         ),
                         IconButton(
@@ -3645,7 +3749,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '$greeting, ${user?.fullname ?? 'Doctor'}',
+          '$greeting, ${user?.rawFullname ?? 'Doctor'}',
           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
@@ -4282,7 +4386,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '$greeting, Dr. ${user?.fullname ?? 'Anaesthetist'}',
+          '$greeting, Dr. ${user?.rawFullname ?? 'Anaesthetist'}',
           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
@@ -4667,7 +4771,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
                   Text(
-                    'Patient Lab Reports',
+                    'Lab Reports',
                     style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 4),
@@ -4685,7 +4789,204 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          
+
+          // ─── Lab Summary Stats Row ──────────────────────────────────────
+          Builder(builder: (context) {
+            final now = DateTime.now();
+            final int total = _labReports.length;
+            final int pending = _labReports.where((r) {
+              final s = r['status'] ?? '';
+              return s == 'Pending' || s == 'Sample Collected';
+            }).length;
+            final int completed = _labReports.where((r) => r['status'] == 'Completed').length;
+
+            // Overdue = Pending/In-progress past estimated_completion_at
+            final List<Map<String, dynamic>> overdueList = _labReports.where((r) {
+              final s = r['status'] ?? '';
+              if (s == 'Completed') return false;
+              final estStr = r['estimated_completion_at'];
+              if (estStr == null) return false;
+              final est = DateTime.tryParse(estStr.toString());
+              if (est == null) return false;
+              return now.isAfter(est.toLocal());
+            }).toList();
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Stats Row
+                Row(
+                  children: [
+                    _buildLabSummaryCard(
+                      label: 'Total Sent',
+                      count: total,
+                      icon: Icons.biotech_outlined,
+                      color: AppTheme.primaryColor,
+                      bgColor: AppTheme.primaryColor.withOpacity(0.08),
+                    ),
+                    const SizedBox(width: 16),
+                    _buildLabSummaryCard(
+                      label: 'Pending',
+                      count: pending,
+                      icon: Icons.hourglass_empty_outlined,
+                      color: const Color(0xFFE65100),
+                      bgColor: Colors.orange.shade50,
+                    ),
+                    const SizedBox(width: 16),
+                    _buildLabSummaryCard(
+                      label: 'Completed',
+                      count: completed,
+                      icon: Icons.check_circle_outline,
+                      color: Colors.green.shade700,
+                      bgColor: Colors.green.shade50,
+                    ),
+                    const SizedBox(width: 16),
+                    _buildLabSummaryCard(
+                      label: 'Overdue',
+                      count: overdueList.length,
+                      icon: Icons.warning_amber_outlined,
+                      color: Colors.red.shade700,
+                      bgColor: Colors.red.shade50,
+                      highlight: overdueList.isNotEmpty,
+                      onTap: overdueList.isNotEmpty
+                          ? () => setState(() => _showOverduePanel = !_showOverduePanel)
+                          : null,
+                      isActive: _showOverduePanel,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Overdue Alert Panel — shown only when toggled
+                if (_showOverduePanel && overdueList.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.shade200, width: 1.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.access_time_filled, color: Colors.red.shade700, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Overdue Lab Results — ${overdueList.length} test${overdueList.length > 1 ? 's' : ''} past estimated completion',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ...overdueList.map((req) {
+                          final est = req['estimated_completion_at'] != null
+                              ? DateTime.tryParse(req['estimated_completion_at'].toString())?.toLocal()
+                              : null;
+                          final overdueDuration = est != null ? now.difference(est) : null;
+                          final overdueText = overdueDuration != null
+                              ? (overdueDuration.inHours > 0
+                                  ? '${overdueDuration.inHours}h ${overdueDuration.inMinutes.remainder(60)}m overdue'
+                                  : '${overdueDuration.inMinutes}m overdue')
+                              : 'Overdue';
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade100),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade400,
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${req['patient_name'] ?? 'Unknown'} (${req['patient_display_id'] ?? req['patient_id'] ?? ''})',
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.science, size: 12, color: Colors.grey.shade600),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            req['test_name'] ?? '',
+                                            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                                          ),
+                                          if (req['priority'] != null && req['priority'] != 'Normal') ...[
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: req['priority'] == 'Emergency' ? Colors.red.shade100 : Colors.orange.shade100,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                req['priority'],
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: req['priority'] == 'Emergency' ? Colors.red.shade800 : Colors.orange.shade800,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      if (est != null)
+                                        Text(
+                                          'Was due: ${DateFormat('dd-MMM-yyyy hh:mm a').format(est)}',
+                                          style: TextStyle(fontSize: 11, color: Colors.red.shade600),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade100,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    overdueText,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red.shade800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ),
+
+                if (_showOverduePanel && overdueList.isNotEmpty) const SizedBox(height: 20),
+              ],
+            );
+          }),
+
           // Search & Filter Panel
           Container(
             padding: const EdgeInsets.all(16),
@@ -4707,12 +5008,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: TextField(
                       controller: _labSearchController,
                       onChanged: (v) => setState(() => _labSearchQuery = v),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         hintText: 'Search by Patient Name, ID, or Test...',
-                        hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                        prefixIcon: Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                        prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                        suffixIcon: _labSearchQuery.isNotEmpty
+                            ? MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _labSearchController.clear();
+                                    setState(() => _labSearchQuery = '');
+                                  },
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                ),
+                              )
+                            : null,
                         border: InputBorder.none,
                       ),
                     ),
@@ -4759,6 +5076,91 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLabSummaryCard({
+    required String label,
+    required int count,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+    bool highlight = false,
+    VoidCallback? onTap,
+    bool isActive = false,
+  }) {
+    return Expanded(
+      child: MouseRegion(
+        cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            decoration: BoxDecoration(
+              color: isActive ? color.withOpacity(0.15) : bgColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isActive ? color : (highlight ? color.withOpacity(0.6) : color.withOpacity(0.2)),
+                width: isActive || highlight ? 1.5 : 1,
+              ),
+              boxShadow: isActive || highlight
+                  ? [BoxShadow(color: color.withOpacity(0.18), blurRadius: 8, offset: const Offset(0, 3))]
+                  : [],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        count.toString(),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: color.withOpacity(0.8),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (onTap != null) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              isActive ? Icons.expand_less : Icons.expand_more,
+                              size: 14,
+                              color: color.withOpacity(0.7),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -4863,7 +5265,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'ID: $patientId • $patientGender • $patientAge yrs',
+                          '$patientId • $patientGender • $patientAge yrs',
                           style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
                         ),
                         const SizedBox(height: 4),
@@ -5068,13 +5470,127 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              testName,
-                              style: const TextStyle(
-                                fontSize: 14, 
-                                fontWeight: FontWeight.bold, 
-                                color: AppTheme.textPrimaryColor
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  testName,
+                                  style: const TextStyle(
+                                    fontSize: 14, 
+                                    fontWeight: FontWeight.bold, 
+                                    color: AppTheme.textPrimaryColor
+                                  ),
+                                ),
+                                 if (req['target_tat_minutes'] != null) ...[
+                                   const SizedBox(height: 2),
+                                   Text(
+                                     'Duration: ${_formatDuration(req['target_tat_minutes'] is int ? req['target_tat_minutes'] as int : int.tryParse(req['target_tat_minutes']?.toString() ?? '') ?? 0)}',
+                                     style: const TextStyle(
+                                       fontSize: 11,
+                                       color: AppTheme.textSecondaryColor,
+                                       fontWeight: FontWeight.w500,
+                                     ),
+                                   ),
+                                 ],
+                                 if (status != 'Completed') ...[
+                                   if (req['queue_position'] != null) ...[
+                                     const SizedBox(height: 2),
+                                     Text(
+                                       'Queue Position: #${req['queue_position']}',
+                                       style: const TextStyle(
+                                         fontSize: 11,
+                                         color: AppTheme.primaryColor,
+                                         fontWeight: FontWeight.bold,
+                                       ),
+                                     ),
+                                   ],
+                                   if (req['estimated_completion_at'] != null) ...[
+                                     const SizedBox(height: 2),
+                                     Text(
+                                       'Est Completion: ${DateFormat('dd-MMM-yyyy hh:mm a').format(DateTime.parse(req['estimated_completion_at']).toLocal())}',
+                                       style: const TextStyle(
+                                         fontSize: 11,
+                                         color: AppTheme.secondaryColor,
+                                         fontWeight: FontWeight.bold,
+                                       ),
+                                     ),
+                                   ],
+                                   if (req['scheduled_start_override'] != null) ...[
+                                     const SizedBox(height: 2),
+                                     Text(
+                                       'Rescheduled: ${DateFormat('dd-MMM-yyyy').format(DateTime.parse(req['scheduled_start_override']).toLocal())}',
+                                       style: const TextStyle(
+                                         fontSize: 11,
+                                         color: Colors.blue,
+                                         fontWeight: FontWeight.bold,
+                                       ),
+                                     ),
+                                   ],
+                                   if (req['technician_name'] != null || req['machine_name'] != null) ...[
+                                     const SizedBox(height: 2),
+                                     Text(
+                                       'Resources: ${req['technician_name'] ?? 'Unassigned'} • ${req['machine_name'] ?? 'Unassigned'}',
+                                       style: const TextStyle(
+                                         fontSize: 11,
+                                         color: AppTheme.textPrimaryColor,
+                                         fontWeight: FontWeight.w600,
+                                       ),
+                                     ),
+                                   ],
+                                   if (req['schedule_status'] != null && req['schedule_status'] != 'Scheduled') ...[
+                                     const SizedBox(height: 2),
+                                     Container(
+                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                       decoration: BoxDecoration(
+                                         color: req['schedule_status'] == 'Waiting for Technician' ? Colors.purple.shade50 : Colors.teal.shade50,
+                                         borderRadius: BorderRadius.circular(4),
+                                       ),
+                                       child: Text(
+                                         req['schedule_status'],
+                                         style: TextStyle(
+                                           fontSize: 9,
+                                           color: req['schedule_status'] == 'Waiting for Technician' ? Colors.purple.shade800 : Colors.teal.shade800,
+                                           fontWeight: FontWeight.bold,
+                                         ),
+                                       ),
+                                     ),
+                                   ],
+                                   if (req['priority'] != null && req['priority'] != 'Normal') ...[
+                                     const SizedBox(height: 2),
+                                     Text(
+                                       'Priority: ${req['priority']}',
+                                       style: TextStyle(
+                                         fontSize: 11,
+                                         color: req['priority'] == 'Emergency' ? Colors.red.shade700 : Colors.orange.shade700,
+                                         fontWeight: FontWeight.bold,
+                                       ),
+                                     ),
+                                   ],
+                                   if (req['delay_reason'] != null && req['delay_reason'].toString().isNotEmpty) ...[
+                                     const SizedBox(height: 4),
+                                     Container(
+                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                       decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(4)),
+                                       child: Text(
+                                         'Delay Issue: ${req['delay_reason']}',
+                                         style: const TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
+                                       ),
+                                     ),
+                                   ],
+                                 ] else ...[
+                                   if (req['actual_tat_minutes'] != null) ...[
+                                     const SizedBox(height: 2),
+                                     Text(
+                                       'Actual TAT: ${req['actual_tat_minutes']} mins (${req['completion_status'] ?? 'On Time'})',
+                                       style: const TextStyle(
+                                         fontSize: 11,
+                                         color: Colors.green,
+                                         fontWeight: FontWeight.bold,
+                                       ),
+                                     ),
+                                   ],
+                                 ],
+                              ],
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -5293,5 +5809,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
+  }
+
+  String _formatDuration(int minutes) {
+    if (minutes <= 0) return '';
+    if (minutes < 60) {
+      return '$minutes mins';
+    }
+    final double hours = minutes / 60.0;
+    if (hours < 24) {
+      if (minutes % 60 == 0) {
+        final int h = minutes ~/ 60;
+        return '$h ${h == 1 ? 'hr' : 'hrs'}';
+      }
+      return '${hours.toStringAsFixed(1)} hrs';
+    }
+    final double days = hours / 24.0;
+    if (minutes % 1440 == 0) {
+      final int wholeDays = minutes ~/ 1440;
+      return '$wholeDays ${wholeDays == 1 ? 'day' : 'days'}';
+    }
+    return '${days.toStringAsFixed(1)} days';
   }
 }

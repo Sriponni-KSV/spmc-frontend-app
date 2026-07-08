@@ -18,6 +18,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final FocusNode _emailFocus = FocusNode();
+  final FocusNode _passwordFocus = FocusNode();
   final _formKey = GlobalKey<FormState>();
 
   bool _obscurePassword = true;
@@ -26,6 +28,8 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -215,11 +219,13 @@ class _LoginScreenState extends State<LoginScreen> {
         _buildTextField(
           context: context,
           controller: _emailController,
+          focusNode: _emailFocus,
           label: 'Email Address',
           hint: 'Enter Email Address',
           icon: Icons.email_outlined,
           maxLength: 50,
-          onSubmitted: (_) => _handleLogin(),
+          textInputAction: TextInputAction.next,
+          onSubmitted: (_) => FocusScope.of(context).requestFocus(_passwordFocus),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'Please enter Email Address';
@@ -235,12 +241,14 @@ class _LoginScreenState extends State<LoginScreen> {
         _buildTextField(
           context: context,
           controller: _passwordController,
+          focusNode: _passwordFocus,
           label: 'Password',
           hint: 'Enter Password',
           icon: Icons.lock_outline,
           isPassword: true,
           maxLength: 16,
           obscureText: _obscurePassword,
+          textInputAction: TextInputAction.done,
           onToggleVisibility: () {
             setState(() {
               _obscurePassword = !_obscurePassword;
@@ -333,6 +341,8 @@ class _LoginScreenState extends State<LoginScreen> {
     required String label,
     required String hint,
     required IconData icon,
+    FocusNode? focusNode,
+    TextInputAction? textInputAction,
     bool isPassword = false,
     bool obscureText = false,
     int? maxLength,
@@ -355,6 +365,8 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          focusNode: focusNode,
+          textInputAction: textInputAction,
           obscureText: obscureText,
           onFieldSubmitted: onSubmitted,
           autovalidateMode: AutovalidateMode.onUserInteraction,

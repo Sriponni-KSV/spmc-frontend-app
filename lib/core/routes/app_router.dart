@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/patient_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../screens/admin_dashboard.dart';
 import '../../screens/dashboard_page.dart'; // Doctor Dashboard
@@ -220,6 +221,13 @@ class AppRouter {
             child: AdminDashboardScreen(initialIndex: 9),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.adminInventory,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 11),
+          ),
+        ),
 
 
 
@@ -245,6 +253,17 @@ class AppRouter {
             child: NurseDashboardScreen(
               initialIndex: 1,
               isRegisteringPatient: true,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.nurseEditPatient,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('nurse_dashboard'),
+            child: NurseDashboardScreen(
+              initialIndex: 1,
+              isRegisteringPatient: true,
+              existingPatient: state.extra as PatientModel?,
             ),
           ),
         ),
@@ -309,6 +328,34 @@ class AppRouter {
             child: LabDashboardScreen(initialIndex: 0),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.labPending,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('lab_dashboard'),
+            child: LabDashboardScreen(initialIndex: 1),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.labCompleted,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('lab_dashboard'),
+            child: LabDashboardScreen(initialIndex: 2),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.labProfile,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('lab_dashboard'),
+            child: LabDashboardScreen(initialIndex: 3),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.labResources,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('lab_dashboard'),
+            child: LabDashboardScreen(initialIndex: 4),
+          ),
+        ),
 
         // --- Pharmacy Protected Routes ---
         GoRoute(
@@ -316,6 +363,20 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('pharmacy_dashboard'),
             child: PharmacyDashboardScreen(initialIndex: 0),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.pharmacyInventory,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('pharmacy_dashboard'),
+            child: PharmacyDashboardScreen(initialIndex: 1),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.pharmacyProfile,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('pharmacy_dashboard'),
+            child: PharmacyDashboardScreen(initialIndex: 2),
           ),
         ),
 
@@ -407,19 +468,24 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.frontDeskEditPatient,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('reception_dashboard'),
+            child: FrontDeskDashboardScreen(
+              initialIndex: 1,
+              isRegisteringPatient: true,
+              existingPatient: state.extra as PatientModel?,
+            ),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.frontDeskBookAppointment,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('reception_dashboard'),
             child: FrontDeskDashboardScreen(initialIndex: 2, forceBooking: true),
           ),
         ),
-        GoRoute(
-          path: AppRoutes.frontDeskAppointments,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            key: ValueKey('reception_dashboard'),
-            child: FrontDeskDashboardScreen(initialIndex: 2),
-          ),
-        ),
+
         GoRoute(
           path: AppRoutes.frontDeskDoctors,
           pageBuilder: (context, state) => const NoTransitionPage(

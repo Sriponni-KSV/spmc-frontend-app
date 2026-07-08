@@ -3,7 +3,7 @@ import 'nurse_model.dart';
 
 class UserModel {
   final int id;
-  final String fullname;
+  final String? rawFullname;
   final String email;
   final String role;
   final String status;
@@ -18,6 +18,11 @@ class UserModel {
 
   final List<String> permissions;
   final Map<String, String> permissionDisplayMap;
+
+  // Custom formatted name getter
+  String get fullname {
+    return rawFullname ?? '';
+  }
 
   // Backward compatibility getters for UI screens
   String? get medicalLicense => doctorProfile?.medicalLicense;
@@ -50,7 +55,7 @@ class UserModel {
 
   UserModel({
     required this.id,
-    required this.fullname,
+    this.rawFullname,
     required this.email,
     required this.role,
     this.status = 'active',
@@ -63,6 +68,7 @@ class UserModel {
     this.permissions = const [],
     this.permissionDisplayMap = const {},
   });
+
 
 
 
@@ -89,7 +95,7 @@ class UserModel {
 
     return UserModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
-      fullname: json['fullname'] ?? json['fullName'] ?? '',
+      rawFullname: json['fullname'] ?? json['fullName'] ?? '',
       email: json['email'] ?? '',
       role: json['role'] ?? '',
       status: json['status'] ?? 'active',
@@ -125,7 +131,7 @@ class UserModel {
   }) {
     return UserModel(
       id: id ?? this.id,
-      fullname: fullname ?? this.fullname,
+      rawFullname: fullname ?? this.rawFullname,
       email: email ?? this.email,
       role: role ?? this.role,
       status: status ?? this.status,
@@ -171,9 +177,9 @@ class UserModel {
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final map = {
       'id': id,
-      'fullname': fullname,
+      'fullname': rawFullname,
       'email': email,
       'role': role,
       'status': status,
@@ -183,5 +189,12 @@ class UserModel {
       'token': token,
       'permissions': permissions,
     };
+    if (doctorProfile != null) {
+      map.addAll(doctorProfile!.toJson());
+    }
+    if (nurseProfile != null) {
+      map.addAll(nurseProfile!.toJson());
+    }
+    return map;
   }
 }

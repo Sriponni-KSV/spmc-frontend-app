@@ -4,6 +4,8 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:provider/provider.dart';
 import 'utils/app_theme.dart';
 import 'providers/auth_provider.dart';
+import 'services/connectivity_service.dart';
+import 'widgets/offline_banner.dart';
 import 'core/routes/app_router.dart';
 
 Future<void> main() async {
@@ -18,6 +20,9 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+        ChangeNotifierProvider<ConnectivityService>(
+          create: (_) => ConnectivityService(dotenv.env['BASE_URL'] ?? ''),
+        ),
       ],
       child: const MyApp(),
     ),
@@ -36,6 +41,9 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: router,
+      builder: (context, child) => OfflineAwareWrapper(
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../widgets/appointment_details_dialog.dart';
 import 'dart:convert';
@@ -14,8 +15,12 @@ import '../utils/date_formatter.dart';
 
 class OPDManagementScreen extends StatefulWidget {
   final bool isMobile;
-  const OPDManagementScreen({Key? key, required this.isMobile})
-    : super(key: key);
+  final String title;
+  const OPDManagementScreen({
+    Key? key,
+    required this.isMobile,
+    this.title = 'OPD Management',
+  }) : super(key: key);
 
   @override
   State<OPDManagementScreen> createState() => _OPDManagementScreenState();
@@ -38,6 +43,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   String _selectedDoctor = 'All';
   String _searchQuery = '';
   bool _isFilterVisible = false;
+  final TextEditingController _searchCtrl = TextEditingController();
 
   List<UserModel> _doctors = [];
 
@@ -52,6 +58,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -161,8 +168,29 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             .toList();
       case 1: // In Consultation
         return baseApps.where((a) => a.status == 'In Consultation').toList();
-      case 2: // Completed
-        return baseApps.where((a) => a.status == 'Completed').toList();
+      case 2: // Completed – driven by consultations (all dates, not date-filtered)
+        return _consultations.map((c) {
+          return AppointmentModel(
+            id: c['appointment_id'] is int
+                ? c['appointment_id']
+                : int.tryParse(c['appointment_id']?.toString() ?? ''),
+            patientId: c['patient_id'] is int
+                ? c['patient_id']
+                : int.tryParse(c['patient_id']?.toString() ?? '') ?? 0,
+            patientName: c['patient_name'] as String? ?? 'Unknown',
+            doctorName: c['doctor_name'] as String? ?? '',
+            appointmentDate: c['appointment_date'] as String? ?? '',
+            appointmentTime: c['appointment_time'] as String? ?? '',
+            department: c['department'] as String? ?? '',
+            appointmentType: c['appointment_type'] as String? ?? 'Walk-in',
+            status: 'Completed',
+            patientDisplayId: c['patient_display_id'] as String?,
+            patientPhone: c['patient_phone'] as String?,
+            changesLog: c['changes_log'],
+            createdAt: c['created_at'] as String?,
+            updatedAt: c['updated_at'] as String?,
+          );
+        }).toList();
       case 3: // Cancelled & No-Show
         return baseApps
             .where((a) => a.status == 'Cancelled' || a.status == 'No-Show')
@@ -187,7 +215,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
       case 1:
         return walkins.where((a) => a.status == 'In Consultation').length;
       case 2:
-        return walkins.where((a) => a.status == 'Completed').length;
+        return _consultations.length;
       case 3:
         return walkins
             .where((a) => a.status == 'Cancelled' || a.status == 'No-Show')
@@ -293,7 +321,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'OPD Queue Management',
+                        widget.title,
                         style: TextStyle(
                           fontSize: widget.isMobile ? 18 : 24,
                           fontWeight: FontWeight.bold,
@@ -342,17 +370,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.local_hospital_outlined,
                             color: Colors.white,
                             size: 24,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
-                            'OPD Queue Management',
-                            style: TextStyle(
+                            widget.title,
+                            style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
@@ -570,6 +598,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
+              controller: _searchCtrl,
               onChanged: (v) => setState(() => _searchQuery = v),
               decoration: const InputDecoration(
                 hintText: 'Search patient name, ID, or phone...',
@@ -584,6 +613,24 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               ),
             ),
           ),
+          if (_searchQuery.isNotEmpty)
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  _searchCtrl.clear();
+                  setState(() => _searchQuery = '');
+                },
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(
+                    Icons.close,
+                    size: 16,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -938,13 +985,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.access_time,
+                              app.status == 'Completed'
+                                  ? Icons.calendar_today
+                                  : Icons.access_time,
                               size: 12,
                               color: statusColor,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              app.appointmentTime,
+                              app.status == 'Completed'
+                                  ? '${app.appointmentDate}  ${app.appointmentTime}'
+                                  : app.appointmentTime,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: statusColor,
@@ -1879,15 +1930,28 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                       color: Colors.grey.shade200,
                                     ),
                                   ),
-                                  child: app.changesLog != null
-                                      ? _buildTimeline(app.changesLog)
-                                      : const Text(
-                                          'No status changes recorded yet.',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: AppTheme.textSecondaryColor,
-                                          ),
-                                        ),
+                                  child: Builder(
+                                    builder: (_) {
+                                      // Prefer the freshly-fetched consultation's
+                                      // changes_log; fall back to app.changesLog
+                                      final timelineData =
+                                          (consultation != null &&
+                                                  consultation!['changes_log'] !=
+                                                      null)
+                                              ? consultation!['changes_log']
+                                              : app.changesLog;
+                                      return timelineData != null
+                                          ? _buildTimeline(timelineData)
+                                          : const Text(
+                                              'No status changes recorded yet.',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color:
+                                                    AppTheme.textSecondaryColor,
+                                              ),
+                                            );
+                                    },
+                                  ),
                                 ),
                               ],
                             ),
@@ -2415,7 +2479,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           final to = change['status']['to'] == 'Checked-in'
               ? 'Waiting'
               : change['status']['to'];
-          text = 'Status: $from → $to';
+          if (from == null || from == 'null' || from.toString().trim().isEmpty) {
+            text = 'Initial Status: $to';
+          } else {
+            text = 'Status: $from → $to';
+          }
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -2726,7 +2794,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         hint: 'Select doctor...',
                         value: selectedDoctor?.id.toString(),
                         dropdownMap: {
-                          for (var d in _doctors) d.id.toString(): d.fullname,
+                          for (var d in _doctors)
+                            d.id.toString(): d.staffUniqueId != null && d.staffUniqueId!.isNotEmpty
+                                ? '${d.fullname} (${d.staffUniqueId})'
+                                : d.fullname,
                         },
                         onChanged: (val) {
                           if (val != null) {
@@ -2913,9 +2984,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 TextFormField(
                                   controller: bpSysCtrl,
                                   keyboardType: TextInputType.number,
+                                  maxLength: 3,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                   decoration: const InputDecoration(
                                     hintText: '120',
                                     isDense: true,
+                                    counterText: '',
                                   ),
                                   autovalidateMode:
                                       AutovalidateMode.onUserInteraction,
@@ -2956,9 +3030,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 TextFormField(
                                   controller: bpDiaCtrl,
                                   keyboardType: TextInputType.number,
+                                  maxLength: 3,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                   decoration: const InputDecoration(
                                     hintText: '80',
                                     isDense: true,
+                                    counterText: '',
                                   ),
                                   autovalidateMode:
                                       AutovalidateMode.onUserInteraction,
@@ -3006,9 +3083,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                       const TextInputType.numberWithOptions(
                                         decimal: true,
                                       ),
+                                  maxLength: 6,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                  ],
                                   decoration: const InputDecoration(
                                     hintText: '95.5 mg/dL',
                                     isDense: true,
+                                    counterText: '',
                                   ),
                                   autovalidateMode:
                                       AutovalidateMode.onUserInteraction,
@@ -3048,13 +3130,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 const SizedBox(height: 4),
                                 TextFormField(
                                   controller: tempCtrl,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
+                                  keyboardType: const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  maxLength: 5,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                  ],
                                   decoration: const InputDecoration(
                                     hintText: '98.6 °F',
                                     isDense: true,
+                                    counterText: '',
                                   ),
                                   autovalidateMode:
                                       AutovalidateMode.onUserInteraction,
@@ -3085,6 +3171,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       TextFormField(
                         controller: complaintCtrl,
                         maxLines: 3,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                          LengthLimitingTextInputFormatter(100),
+                        ],
                         decoration: const InputDecoration(
                           hintText: 'Describe symptoms or reason for visit...',
                         ),

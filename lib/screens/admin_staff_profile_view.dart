@@ -130,7 +130,7 @@ class AdminStaffProfileView extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Center(
-                        child: Text(user.fullname.isNotEmpty == true ? user.fullname[0].toUpperCase() : 'S', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)),
+                        child: Text((user.rawFullname ?? '').isNotEmpty ? user.rawFullname![0].toUpperCase() : 'S', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)),
                       ),
                     ),
                     const SizedBox(width: 32),
@@ -138,7 +138,7 @@ class AdminStaffProfileView extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(user.fullname, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
+                          Text(user.rawFullname ?? '', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
                           const SizedBox(height: 8),
                           Row(
                             children: [
@@ -183,7 +183,7 @@ class AdminStaffProfileView extends StatelessWidget {
                 const SizedBox(height: 24),
                 const Divider(height: 1, color: Color(0xFFE2E8F0)),
                 const SizedBox(height: 20),
-                _buildDetailRow('Full Name', user.fullname, Icons.person_outline),
+                _buildDetailRow('Full Name', user.rawFullname ?? '-', Icons.person_outline),
                 _buildDetailRow('Email Address', user.email, Icons.alternate_email),
                 _buildDetailRow('Mobile Number', user.mobile ?? '-', Icons.phone_android_outlined),
                 if (user.bio != null && user.bio!.isNotEmpty)

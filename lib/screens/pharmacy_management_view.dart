@@ -3,6 +3,7 @@ import '../utils/app_theme.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
+import '../widgets/custom_dropdown_search.dart';
 
 class PharmacyManagementView extends StatefulWidget {
   final bool isMobile;
@@ -23,12 +24,17 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   List<dynamic> _lowStockItems = [];
   List<dynamic> _expiringItems = [];
   List<dynamic> _activityFeed = [];
-  Map<String, dynamic> _stats = {};
+
   Map<String, dynamic>? _selectedPrescription;
 
   bool _isLoading = true;
   String? _error;
   String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  String _ctrlSearchQuery = '';
+  String _selectedCtrlCategory = 'All';
+  int _ctrlPage = 0;
+  final int _itemsPerPage = 10;
 
   // Per-item quantity overrides for dispense
   final Map<int, TextEditingController> _qtyControllers = {};
@@ -45,6 +51,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   @override
   void dispose() {
     _tabController?.dispose();
+    _searchController.dispose();
     for (var c in _qtyControllers.values) {
       c.dispose();
     }
@@ -69,17 +76,24 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
       final ctrlBody    = ApiService.decodeJsonResponse(responses[1]);
       final invBody     = ApiService.decodeJsonResponse(responses[2]);
       final alertBody   = ApiService.decodeJsonResponse(responses[3]);
-      final statsBody   = ApiService.decodeJsonResponse(responses[4]);
+      // responses[4] = stats (unused; stats computed locally)
       final actBody     = ApiService.decodeJsonResponse(responses[5]);
 
       if (mounted) {
         final pList = List<dynamic>.from(presBody['data'] ?? []);
+
+        // Sort all prescriptions by created_at descending to find the latest
+        final sorted = List<dynamic>.from(pList)
+          ..sort((a, b) {
+            final aTime = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(2000);
+            final bTime = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(2000);
+            return bTime.compareTo(aTime);
+          });
+
+        // Auto-select the most recently prescribed or dispensed prescription
         Map<String, dynamic>? sel;
-        final pending = pList.where((p) => p['pharmacy_status'] == 'Pending').toList();
-        if (pending.isNotEmpty) {
-          sel = pending.first;
-        } else if (pList.isNotEmpty) {
-          sel = pList.first;
+        if (sorted.isNotEmpty) {
+          sel = sorted.first as Map<String, dynamic>;
         }
 
         setState(() {
@@ -88,7 +102,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
           _inventory       = List<dynamic>.from(invBody['data'] ?? []);
           _lowStockItems   = List<dynamic>.from(alertBody['data']?['low_stock'] ?? []);
           _expiringItems   = List<dynamic>.from(alertBody['data']?['expiring'] ?? []);
-          _stats           = Map<String, dynamic>.from(statsBody['data'] ?? {});
+
           _activityFeed    = List<dynamic>.from(actBody['data'] ?? []);
           _selectedPrescription = sel;
           _isLoading = false;
@@ -182,28 +196,49 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
     return (dailyCount * days * _getDosageMultiplier(dosage, medicineName)).ceil();
   }
 
+  /// Normalise a drug name for fuzzy matching:
+  /// lowercases, strips punctuation, and collapses whitespace.
+  String _normDrug(String s) =>
+      s.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
   Map<String, dynamic> _checkItemStock(String name, String dosage, int neededQty) {
-    final normP = name.toLowerCase().trim().replaceAll('o', 'a');
-    final normD = dosage.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+    final normP = _normDrug(name);
+    final normD = _normDrug(dosage);
     dynamic match;
 
+    // Pass 1 – exact normalised name match
     for (var item in _inventory) {
-      if (item['name'].toString().toLowerCase().trim().replaceAll('o', 'a') == normP) { match = item; break; }
+      if (_normDrug(item['name'].toString()) == normP) { match = item; break; }
     }
-    if (match == null && normD.isNotEmpty) {
-      for (var item in _inventory) {
-        final n = item['name'].toString().toLowerCase().trim().replaceAll('o', 'a');
-        if (n.contains(normP) && n.contains(normD)) { match = item; break; }
-      }
-    }
+
+    // Pass 2 – inventory name contains prescribed name (or vice-versa)
     if (match == null) {
       for (var item in _inventory) {
-        final n = item['name'].toString().toLowerCase().trim().replaceAll('o', 'a');
+        final n = _normDrug(item['name'].toString());
         if (n.contains(normP) || normP.contains(n)) { match = item; break; }
       }
     }
 
-    // Find alternative if no stock
+    // Pass 3 – first-word prefix match (e.g. "amox" matches "amoxicillin 500mg")
+    if (match == null && normP.length >= 4) {
+      final prefix = normP.substring(0, (normP.length * 0.6).round().clamp(4, normP.length));
+      for (var item in _inventory) {
+        final n = _normDrug(item['name'].toString());
+        if (n.startsWith(prefix) || normP.startsWith(_normDrug(item['name'].toString()).substring(0, (_normDrug(item['name'].toString()).length * 0.6).round().clamp(4, _normDrug(item['name'].toString()).length)))) {
+          match = item; break;
+        }
+      }
+    }
+
+    // Pass 4 – dosage-aware match (name + dosage both present in inventory name)
+    if (match == null && normD.isNotEmpty) {
+      for (var item in _inventory) {
+        final n = _normDrug(item['name'].toString());
+        if (n.contains(normP) && n.contains(normD)) { match = item; break; }
+      }
+    }
+
+    // Find alternative if insufficient stock
     dynamic alternative;
     if (match != null && (match['quantity'] ?? 0) < neededQty) {
       for (var item in _inventory) {
@@ -410,12 +445,36 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   }
 
   Widget _buildStatsCards() {
+    final now = DateTime.now();
+
+    // Compute from live data for accuracy
+    final todayPrescriptions = _prescriptions.where((p) {
+      final createdAtStr = p['created_at']?.toString();
+      if (createdAtStr == null) return false;
+      final dt = DateTime.tryParse(createdAtStr)?.toLocal();
+      if (dt == null) return false;
+      return dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    }).length;
+
+    final pendingOrders = _prescriptions
+        .where((p) => p['pharmacy_status'] != 'Dispensed')
+        .length;
+
+    final dispensedToday = _prescriptions.where((p) {
+      if (p['pharmacy_status'] != 'Dispensed') return false;
+      final updatedAtStr = p['updated_at']?.toString() ?? p['created_at']?.toString();
+      if (updatedAtStr == null) return false;
+      final dt = DateTime.tryParse(updatedAtStr)?.toLocal();
+      if (dt == null) return false;
+      return dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    }).length;
+
     final cards = [
-      _StatCard('Today\'s Prescriptions', '${_stats['total_prescriptions_today'] ?? 0}',
+      _StatCard('Today\'s Prescriptions', '$todayPrescriptions',
           Icons.receipt_long_outlined, const Color(0xFF2563EB), 'All OPD + IPD'),
-      _StatCard('Pending Orders', '${_stats['pending_orders'] ?? 0}',
+      _StatCard('Pending Orders', '$pendingOrders',
           Icons.pending_actions_outlined, const Color(0xFFF59E0B), 'Awaiting dispensing'),
-      _StatCard('Dispensed Today', '${_stats['dispensed_today'] ?? 0}',
+      _StatCard('Dispensed Today', '$dispensedToday',
           Icons.check_circle_outline, const Color(0xFF16A34A), 'Completed today'),
     ];
 
@@ -750,21 +809,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
           Expanded(
             flex: 6,
             child: _selectedPrescription == null
-                ? Container(
-                    height: 350,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
-                      boxShadow: AppTheme.cardShadow,
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'Select a prescription to review',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  )
+                ? _buildLastActivityPanel()
                 : _buildPrescriptionDetail(),
           ),
         ],
@@ -776,9 +821,26 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
     return Column(
       children: [
         TextField(
+          controller: _searchController,
           decoration: InputDecoration(
             hintText: 'Search patient name or ID…',
             prefixIcon: const Icon(Icons.search, size: 18),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                      child: const Icon(
+                        Icons.close,
+                        size: 16,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                  )
+                : null,
             fillColor: Colors.white,
             filled: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -812,6 +874,12 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                     _selectedPrescription!['id'] == pres['id'] &&
                     _selectedPrescription!['type'] == pres['type'];
                 final isDispensed = pres['pharmacy_status'] == 'Dispensed';
+                final createdAtStr = pres['created_at']?.toString();
+                final isToday = createdAtStr != null &&
+                    DateTime.tryParse(createdAtStr)?.toLocal().year == DateTime.now().year &&
+                    DateTime.tryParse(createdAtStr)?.toLocal().month == DateTime.now().month &&
+                    DateTime.tryParse(createdAtStr)?.toLocal().day == DateTime.now().day;
+
                 return Card(
                   color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.05) : Colors.white,
                   surfaceTintColor: Colors.transparent,
@@ -819,8 +887,10 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                     side: BorderSide(
-                      color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
-                      width: isSelected ? 1.5 : 1.0,
+                      color: isSelected
+                          ? AppTheme.primaryColor
+                          : (isToday ? AppTheme.logoRed : AppTheme.borderColor),
+                      width: (isSelected || isToday) ? 1.5 : 1.0,
                     ),
                   ),
                   margin: const EdgeInsets.only(bottom: 8),
@@ -851,17 +921,39 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  pres['patient_name'] ?? 'Unknown',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        pres['patient_name'] ?? 'Unknown',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (isToday) ...[
+                                      const SizedBox(width: 4),
+                                      _statusBadge('TODAY', AppTheme.logoRed),
+                                    ],
+                                  ],
                                 ),
-                                Text(
-                                  'ID: ${pres['patient_display_id'] ?? '--'} • Dr. ${pres['doctor_name'] ?? '--'}',
-                                  style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      pres['patient_display_id'] ?? '--',
+                                      style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Dr. ${pres['doctor_name'] ?? '--'}',
+                                      style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11, fontWeight: FontWeight.w500),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ),
+                          const SizedBox(width: 8),
                           _statusBadge(
                             isDispensed ? 'DISPENSED' : 'PENDING',
                             isDispensed ? AppTheme.successColor : Colors.amber.shade800,
@@ -877,12 +969,37 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
       ],
     );
   }
+  Widget _buildLastActivityPanel() {
+    // Find the most recently created prescription
+    if (_prescriptions.isEmpty) {
+      return Container(
+        height: 350,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: const Center(
+          child: Text('No prescriptions yet.', style: TextStyle(color: Colors.grey)),
+        ),
+      );
+    }
 
-  Widget _buildPrescriptionDetail() {
-    final pres = _selectedPrescription!;
-    final items = (pres['items'] as List<dynamic>? ?? []);
-    final isDispensed = pres['pharmacy_status'] == 'Dispensed';
-    final isOpd = pres['type'] == 'outpatient';
+    final sorted = List<dynamic>.from(_prescriptions)
+      ..sort((a, b) {
+        final aTime = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(2000);
+        final bTime = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(2000);
+        return bTime.compareTo(aTime);
+      });
+
+    // Most recently dispensed
+    final lastDispensed = sorted.firstWhere(
+      (p) => p['pharmacy_status'] == 'Dispensed',
+      orElse: () => null,
+    );
+    // Most recently prescribed (any status)
+    final lastPrescribed = sorted.first;
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -896,6 +1013,221 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Section title
+            Row(
+              children: [
+                const Icon(Icons.history_rounded, size: 18, color: AppTheme.primaryColor),
+                const SizedBox(width: 8),
+                const Text(
+                  'Recent Activity',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _selectedPrescription = lastPrescribed as Map<String, dynamic>;
+                      _initQtyControllers(_selectedPrescription);
+                    });
+                  },
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+                  label: const Text('View Latest'),
+                  style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor, textStyle: const TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+
+            // Last Prescribed card
+            _buildActivitySummaryCard(
+              label: 'Last Prescribed',
+              icon: Icons.medical_services_outlined,
+              iconColor: const Color(0xFF2563EB),
+              pres: lastPrescribed as Map<String, dynamic>,
+            ),
+
+            if (lastDispensed != null) ...[
+              const SizedBox(height: 16),
+              _buildActivitySummaryCard(
+                label: 'Last Dispensed',
+                icon: Icons.check_circle_outline,
+                iconColor: AppTheme.successColor,
+                pres: lastDispensed as Map<String, dynamic>,
+              ),
+            ],
+
+            const SizedBox(height: 20),
+            const Text(
+              'Select any prescription from the list to review and dispense.',
+              style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivitySummaryCard({
+    required String label,
+    required IconData icon,
+    required Color iconColor,
+    required Map<String, dynamic> pres,
+  }) {
+    final isDispensed = pres['pharmacy_status'] == 'Dispensed';
+    final isOpd = pres['type'] == 'outpatient';
+    final items = (pres['items'] as List<dynamic>? ?? []);
+    final createdAtStr = pres['created_at']?.toString();
+    final timeStr = createdAtStr != null
+        ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(createdAtStr).toLocal())
+        : '--';
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () {
+        setState(() {
+          _selectedPrescription = pres;
+          _initQtyControllers(_selectedPrescription);
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.backgroundColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isDispensed
+              ? AppTheme.successColor.withValues(alpha: 0.3)
+              : AppTheme.primaryColor.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: iconColor, size: 15),
+                const SizedBox(width: 6),
+                Text(label, style: TextStyle(color: iconColor, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 0.4)),
+                const Spacer(),
+                _statusBadge(isDispensed ? 'DISPENSED' : 'PENDING',
+                    isDispensed ? AppTheme.successColor : Colors.amber.shade800),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              pres['patient_name'] ?? 'Unknown',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 2),
+             Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Text(
+                   '${pres['patient_display_id'] ?? '--'} • ${isOpd ? 'OPD' : 'IPD'}',
+                   style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                 ),
+                 const SizedBox(height: 2),
+                 Text(
+                   'Dr. ${pres['doctor_name'] ?? '--'}',
+                   style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11, fontWeight: FontWeight.w500),
+                 ),
+               ],
+             ),
+            const SizedBox(height: 6),
+            Text(
+              timeStr,
+              style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+            ),
+            if (items.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  ...items.take(3).map<Widget>((item) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: Text(
+                        '${item['name'] ?? ''} ${item['dosage'] ?? ''}'.trim(),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                      ),
+                    );
+                  }),
+                  if (items.length > 3)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text('+${items.length - 3} more',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor)),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrescriptionDetail() {
+
+    final pres = _selectedPrescription!;
+    final items = (pres['items'] as List<dynamic>? ?? []);
+    final isDispensed = pres['pharmacy_status'] == 'Dispensed';
+    final isOpd = pres['type'] == 'outpatient';
+
+    final createdAtStr = pres['created_at']?.toString();
+    final isToday = createdAtStr != null &&
+        DateTime.tryParse(createdAtStr)?.toLocal().year == DateTime.now().year &&
+        DateTime.tryParse(createdAtStr)?.toLocal().month == DateTime.now().month &&
+        DateTime.tryParse(createdAtStr)?.toLocal().day == DateTime.now().day;
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isToday) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: AppTheme.dangerBg,
+                  border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.3)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'NEW MEDICATION PRESCRIBED TODAY',
+                      style: const TextStyle(
+                        color: AppTheme.dangerColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -909,9 +1241,19 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        'ID: ${pres['patient_display_id'] ?? '--'} • Dr. ${pres['doctor_name'] ?? '--'} • ${isOpd ? 'Outpatient' : 'Inpatient'}',
-                        style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${pres['patient_display_id'] ?? '--'} • ${isOpd ? 'Outpatient' : 'Inpatient'}',
+                            style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Prescribed by Dr. ${pres['doctor_name'] ?? '--'}',
+                            style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -952,9 +1294,11 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
               final displayUnit = stock['unit'].toString().replaceAll(RegExp(r'^\d+\s*'), '');
 
               final cardBg = stock['available'] == true ? AppTheme.successBg : AppTheme.dangerBg;
-              final cardBorderColor = stock['available'] == true
-                  ? AppTheme.successColor.withValues(alpha: 0.25)
-                  : AppTheme.dangerColor.withValues(alpha: 0.25);
+              final cardBorderColor = isToday
+                  ? AppTheme.logoRed.withValues(alpha: 0.6)
+                  : (stock['available'] == true
+                      ? AppTheme.successColor.withValues(alpha: 0.25)
+                      : AppTheme.dangerColor.withValues(alpha: 0.25));
               final stockTextColor = stock['available'] == true ? AppTheme.successColor : AppTheme.dangerColor;
 
               return Container(
@@ -963,7 +1307,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                 decoration: BoxDecoration(
                   color: cardBg,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: cardBorderColor),
+                  border: Border.all(color: cardBorderColor, width: isToday ? 1.5 : 1.0),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -976,6 +1320,10 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                         ),
+                        if (isToday) ...[
+                          _statusBadge('NEW TODAY', AppTheme.logoRed),
+                          const SizedBox(width: 8),
+                        ],
                         if (stock['is_controlled'] == true)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1166,6 +1514,35 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildControlledDrugsTab() {
+    final categories = ['All', ..._controlledDrugs.map((c) => c['category']?.toString() ?? 'N/A').toSet().where((c) => c.isNotEmpty && c.toLowerCase() != 'food' && c.toLowerCase() != 'food item' && c.toLowerCase() != 'food items' && c.toLowerCase() != 'food stock')];
+
+    final filtered = _controlledDrugs.where((item) {
+      if (_selectedCtrlCategory != 'All' &&
+          (item['category']?.toString() != _selectedCtrlCategory)) {
+        return false;
+      }
+      if (_ctrlSearchQuery.trim().isNotEmpty) {
+        final query = _ctrlSearchQuery.toLowerCase();
+        final matches = (item['name']?.toString().toLowerCase().contains(query) ?? false) ||
+            (item['category']?.toString().toLowerCase().contains(query) ?? false);
+        if (!matches) return false;
+      }
+      return true;
+    }).toList();
+
+    final totalItems = filtered.length;
+    final totalPages = (totalItems / _itemsPerPage).ceil();
+
+    if (_ctrlPage >= totalPages && totalPages > 0) {
+      _ctrlPage = totalPages - 1;
+    }
+    if (_ctrlPage < 0) _ctrlPage = 0;
+
+    final paginated = filtered
+        .skip(_ctrlPage * _itemsPerPage)
+        .take(_itemsPerPage)
+        .toList();
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1181,15 +1558,77 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              '${_controlledDrugs.length} items',
+              '${filtered.length} items',
               style: const TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 11),
             ),
           ),
         ]),
         const SizedBox(height: 16),
-        if (_controlledDrugs.isEmpty)
-          const Center(child: Padding(padding: EdgeInsets.all(48), child: Text('No controlled drugs in inventory', style: TextStyle(color: Colors.grey))))
-        else
+        
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        onChanged: (v) => setState(() {
+                          _ctrlSearchQuery = v;
+                          _ctrlPage = 0;
+                        }),
+                        decoration: const InputDecoration(
+                          hintText: 'Search controlled drugs...',
+                          hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 180,
+              child: CustomDropdownSearch(
+                label: '',
+                value: _selectedCtrlCategory,
+                dropdownItems: categories,
+                height: 44,
+                borderColor: AppTheme.borderColor,
+                borderWidth: 1.0,
+                focusedBorderColor: AppTheme.primaryColor,
+                focusedBorderWidth: 1.0,
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _selectedCtrlCategory = val;
+                      _ctrlPage = 0;
+                    });
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        if (filtered.isEmpty)
+          const Center(child: Padding(padding: EdgeInsets.all(48), child: Text('No controlled drugs matching criteria', style: TextStyle(color: Colors.grey))))
+        else ...[
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1207,6 +1646,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                   dataRowMinHeight: 52,
                   dataRowMaxHeight: 52,
                   columns: const [
+                    DataColumn(label: Text('S.No')),
                     DataColumn(label: Text('Item Name')),
                     DataColumn(label: Text('Category')),
                     DataColumn(label: Text('Stock')),
@@ -1214,7 +1654,9 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                     DataColumn(label: Text('Expiry Date')),
                     DataColumn(label: Text('Status')),
                   ],
-                  rows: _controlledDrugs.map((item) {
+                  rows: paginated.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
                     final qty = (item['quantity'] ?? 0) as int;
                     final threshold = (item['threshold'] ?? 10) as int;
                     final isLow = qty <= threshold;
@@ -1230,6 +1672,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                         return null;
                       }),
                       cells: [
+                        DataCell(Text('${(index + 1) + (_ctrlPage * _itemsPerPage)}', style: const TextStyle(fontSize: 12))),
                         DataCell(Text(item['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                         DataCell(Text(item['category'] ?? '', style: const TextStyle(fontSize: 12))),
                         DataCell(Text('$qty', style: TextStyle(
@@ -1269,6 +1712,11 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
               ),
             ),
           ),
+          if (totalPages > 1) ...[
+            const SizedBox(height: 12),
+            _buildCtrlPaginationControls(totalPages),
+          ],
+        ],
       ]),
     );
   }
@@ -1444,6 +1892,77 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
           Text(
             label,
             style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCtrlPaginationControls(int totalPages) {
+    if (totalPages <= 1) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            'Page ${_ctrlPage + 1} of $totalPages',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSecondaryColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 16),
+          OutlinedButton(
+            onPressed: _ctrlPage > 0
+                ? () => setState(() => _ctrlPage--)
+                : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(80, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              side: BorderSide(
+                color: _ctrlPage > 0
+                    ? AppTheme.primaryColor
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.chevron_left, size: 18),
+                Text('Prev'),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: _ctrlPage < totalPages - 1
+                ? () => setState(() => _ctrlPage++)
+                : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(80, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              side: BorderSide(
+                color: _ctrlPage < totalPages - 1
+                    ? AppTheme.primaryColor
+                    : AppTheme.borderColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text('Next'),
+                Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
           ),
         ],
       ),

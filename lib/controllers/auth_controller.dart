@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/token_service.dart';
@@ -120,5 +119,18 @@ class AuthController {
     }
   }
 
+  // ✅ Fetch current user with fresh profile data from backend
+  Future<UserModel?> fetchMe() async {
+    try {
+      final response = await ApiService.get('$baseUrl/auth/me');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return UserModel.fromJson(data['user']);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 
 }

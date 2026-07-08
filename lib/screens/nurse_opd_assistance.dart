@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../models/appointment_model.dart';
@@ -31,9 +32,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
   late TabController _tabController;
 
   List<AppointmentModel> _appointments = [];
+  List<Map<String, dynamic>> _consultations = [];
   bool _isLoading = true;
   String? _error;
   String _search = '';
+  final TextEditingController _searchCtrl = TextEditingController();
 
   // Tab labels + status filters
   static const _tabs = [
@@ -47,12 +50,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
+    _searchCtrl.addListener(() => setState(() {}));
     _load();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -64,10 +69,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
     });
     try {
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      // Fetch today's appointments for the active-queue tabs
       final data = await _ctrl.fetchAdminAppointments(date: today);
+      // Fetch ALL consultations (no date filter) so Completed tab shows history
+      final consultationsData = await _ctrl.fetchConsultations();
       if (mounted)
         setState(() {
           _appointments = data.where(_isWalkIn).toList();
+          _consultations = consultationsData;
           _isLoading = false;
         });
     } catch (e) {
@@ -102,6 +111,38 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
 
   List<AppointmentModel> _forTab(int idx) {
     final status = _tabs[idx]['status']!;
+
+    // Completed tab: build list from consultations (all dates, not date-filtered)
+    if (idx == 3) {
+      final q = _search.toLowerCase().trim();
+      final completedApps = _consultations.map((c) {
+        // Build a lightweight AppointmentModel from the consultation join data
+        return AppointmentModel(
+          id: c['appointment_id'] as int?,
+          patientId: c['patient_id'] as int? ?? 0,
+          patientName: c['patient_name'] as String? ?? 'Unknown',
+          doctorName: c['doctor_name'] as String? ?? '',
+          appointmentDate: c['appointment_date'] as String? ?? '',
+          appointmentTime: c['appointment_time'] as String? ?? '',
+          department: c['department'] as String? ?? '',
+          appointmentType: 'Walk-in',
+          status: 'Completed',
+          patientDisplayId: c['patient_display_id'] as String?,
+          patientPhone: c['patient_phone'] as String?,
+          changesLog: c['changes_log'],
+          createdAt: c['created_at'] as String?,
+          updatedAt: c['updated_at'] as String?,
+        );
+      }).where((a) {
+        if (q.isEmpty) return true;
+        return a.patientName.toLowerCase().contains(q) ||
+            (a.patientDisplayId?.toLowerCase().contains(q) ?? false) ||
+            a.doctorName.toLowerCase().contains(q);
+      }).toList();
+      completedApps.sort(_newestFirst);
+      return completedApps;
+    }
+
     final apps = _appointments.where((a) {
       final matchStatus = (status == 'Checked-in')
           ? (a.status == 'Checked-in' || a.status == 'Waiting')
@@ -216,6 +257,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
+                        controller: _searchCtrl,
                         onChanged: (v) => setState(() => _search = v),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
@@ -228,6 +270,24 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         ),
                       ),
                     ),
+                    if (_search.isNotEmpty)
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () {
+                            _searchCtrl.clear();
+                            setState(() => _search = '');
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.only(left: 4),
+                            child: Icon(
+                              Icons.close,
+                              size: 16,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -484,7 +544,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                     ],
                   ),
                 ),
-                // Time pill
+                // Date + Time pill
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -497,10 +557,16 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.access_time, size: 12, color: lineColor),
+                      Icon(
+                        isCompleted ? Icons.calendar_today : Icons.access_time,
+                        size: 12,
+                        color: lineColor,
+                      ),
                       const SizedBox(width: 4),
                       Text(
-                        app.appointmentTime,
+                        isCompleted
+                            ? '${app.appointmentDate}  ${app.appointmentTime}'
+                            : app.appointmentTime,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: lineColor,
@@ -889,10 +955,13 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           child: TextFormField(
                             controller: sysCtrl,
                             keyboardType: TextInputType.number,
+                            maxLength: 3,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                             decoration: const InputDecoration(
                               labelText: 'Systolic',
                               hintText: '120',
                               isDense: true,
+                              counterText: '',
                             ),
                             autovalidateMode: AutovalidateMode.onUserInteraction,
                             validator: (val) {
@@ -919,10 +988,13 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           child: TextFormField(
                             controller: diaCtrl,
                             keyboardType: TextInputType.number,
+                            maxLength: 3,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                             decoration: const InputDecoration(
                               labelText: 'Diastolic',
                               hintText: '80',
                               isDense: true,
+                              counterText: '',
                             ),
                             autovalidateMode: AutovalidateMode.onUserInteraction,
                             validator: (val) {
@@ -960,9 +1032,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
                                     ),
+                                maxLength: 6,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                ],
                                 decoration: const InputDecoration(
                                   hintText: '95.5',
                                   isDense: true,
+                                  counterText: '',
                                 ),
                                 autovalidateMode: AutovalidateMode.onUserInteraction,
                                 validator: (val) {
@@ -996,9 +1073,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
                                     ),
+                                maxLength: 5,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                ],
                                 decoration: const InputDecoration(
                                   hintText: '98.6',
                                   isDense: true,
+                                  counterText: '',
                                 ),
                                 autovalidateMode: AutovalidateMode.onUserInteraction,
                                 validator: (val) {
@@ -1020,6 +1102,10 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                     TextFormField(
                       controller: cmpCtrl,
                       maxLines: 3,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                        LengthLimitingTextInputFormatter(100),
+                      ],
                       decoration: const InputDecoration(
                         labelText: 'Chief Complaint',
                         hintText: 'Describe symptoms or reason for visit...',
@@ -1286,7 +1372,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           value: selectedDoctor?.id.toString(),
                           dropdownMap: {
                             for (var d in allDoctors)
-                              d.id.toString(): d.fullname,
+                              d.id.toString(): d.staffUniqueId != null && d.staffUniqueId!.isNotEmpty
+                                  ? '${d.fullname} (${d.staffUniqueId})'
+                                  : d.fullname,
                           },
                           onChanged: (val) {
                             if (val != null) {
@@ -1481,9 +1569,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                   TextFormField(
                                     controller: bpSysCtrl,
                                     keyboardType: TextInputType.number,
+                                    maxLength: 3,
+                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                     decoration: const InputDecoration(
                                       hintText: '120',
                                       isDense: true,
+                                      counterText: '',
                                     ),
                                     autovalidateMode:
                                         AutovalidateMode.onUserInteraction,
@@ -1524,9 +1615,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                   TextFormField(
                                     controller: bpDiaCtrl,
                                     keyboardType: TextInputType.number,
+                                    maxLength: 3,
+                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                     decoration: const InputDecoration(
                                       hintText: '80',
                                       isDense: true,
+                                      counterText: '',
                                     ),
                                     autovalidateMode:
                                         AutovalidateMode.onUserInteraction,
@@ -1574,9 +1668,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                         const TextInputType.numberWithOptions(
                                           decimal: true,
                                         ),
+                                    maxLength: 6,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                    ],
                                     decoration: const InputDecoration(
                                       hintText: '95.5 mg/dL',
                                       isDense: true,
+                                      counterText: '',
                                     ),
                                     autovalidateMode:
                                         AutovalidateMode.onUserInteraction,
@@ -1620,9 +1719,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                         const TextInputType.numberWithOptions(
                                           decimal: true,
                                         ),
+                                    maxLength: 5,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                    ],
                                     decoration: const InputDecoration(
                                       hintText: '98.6 °F',
                                       isDense: true,
+                                      counterText: '',
                                     ),
                                     autovalidateMode:
                                         AutovalidateMode.onUserInteraction,
@@ -1653,6 +1757,10 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         TextFormField(
                           controller: complaintCtrl,
                           maxLines: 3,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                            LengthLimitingTextInputFormatter(100),
+                          ],
                           decoration: const InputDecoration(
                             hintText:
                                 'Describe symptoms or reason for visit...',

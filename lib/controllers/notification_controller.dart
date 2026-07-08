@@ -5,21 +5,23 @@ import '../services/api_service.dart';
 class NotificationController {
   String get baseUrl => dotenv.env['BASE_URL']!;
 
-  /// Fetch all notifications for the current logged-in user
+  /// Fetch all notifications for the current logged-in user.
+  /// Returns an empty list on any error so failures are silent.
   Future<List<Map<String, dynamic>>> fetchNotifications() async {
     try {
       final url = '$baseUrl/notifications';
       final response = await ApiService.get(url);
-      final body = ApiService.decodeJsonResponse(response);
 
-      if (response.statusCode == 200 && body['success'] == true) {
-        final List data = body['data'] ?? [];
-        return List<Map<String, dynamic>>.from(data);
-      } else {
-        throw Exception(body['message'] ?? 'Failed to fetch notifications');
-      }
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
+      if (response.statusCode != 200) return [];
+
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) return [];
+
+      final List data = body['data'] ?? [];
+      return List<Map<String, dynamic>>.from(data);
+    } catch (_) {
+      // Silently return empty — notification errors should never break the UI
+      return [];
     }
   }
 

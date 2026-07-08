@@ -569,13 +569,53 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     if (!_progFormKey.currentState!.validate()) return;
 
     try {
+      final String notesText = _noteController.text.trim().isNotEmpty
+          ? _noteController.text.trim()
+          : (_obsController.text.trim().isNotEmpty
+              ? _obsController.text.trim()
+              : 'Vitals updated');
+
       await _ipdController.createProgressNote(widget.admission['id'], {
         'patient_id': widget.admission['patient_id'],
         'doctor_name': _staffName,
-        'notes': _noteController.text.trim(),
+        'notes': notesText,
         'treatment_changes': _changesController.text.trim(),
         'observation': _obsController.text.trim(),
       });
+
+      // Also save vitals if any vital field is filled (e.g. from the Nursing Notes tab)
+      final String bpText = _bpSystolicController.text.trim();
+      final String tempText = _tempController.text.trim();
+      final String pulseText = _pulseController.text.trim();
+      final String spo2Text = _spo2Controller.text.trim();
+
+      if (bpText.isNotEmpty || tempText.isNotEmpty || pulseText.isNotEmpty || spo2Text.isNotEmpty) {
+        int? sys;
+        int? dia;
+        if (bpText.isNotEmpty) {
+          if (bpText.contains('/')) {
+            final parts = bpText.split('/');
+            sys = int.tryParse(parts[0].trim());
+            dia = int.tryParse(parts[1].trim());
+          } else {
+            sys = int.tryParse(bpText);
+          }
+        }
+
+        await _ipdController.createVitals(widget.admission['id'], {
+          'patient_id': widget.admission['patient_id'],
+          'blood_pressure_systolic': sys,
+          'blood_pressure_diastolic': dia,
+          'temperature': double.tryParse(tempText),
+          'pulse': int.tryParse(pulseText),
+          'spo2': int.tryParse(spo2Text),
+        });
+
+        _bpSystolicController.clear();
+        _tempController.clear();
+        _pulseController.clear();
+        _spo2Controller.clear();
+      }
 
       _noteController.clear();
       _changesController.clear();
@@ -583,7 +623,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Progress note added!'),
+          content: Text('Note saved successfully!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -1576,6 +1616,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                     'Treating Doctor',
                     adm['doctor_name'] ?? '--',
                     Icons.person_outline,
+                    subtitle: adm['doctor_display_id'],
                   ),
 
                   _buildOverviewTile(
@@ -1638,7 +1679,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     );
   }
 
-  Widget _buildOverviewTile(String title, String value, IconData icon) {
+  Widget _buildOverviewTile(String title, String value, IconData icon, {String? subtitle}) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1679,6 +1720,19 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
+
+                if (subtitle != null && subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondaryColor,
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
           ),
@@ -1979,6 +2033,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           label: 'Dosage',
                           hint: '500mg',
                           icon: Icons.scale_outlined,
+                          maxLength: 10,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9a-zA-Z./]')),
+                          ],
                         ),
                         const SizedBox(height: 16),
                         _buildPrescriptionField(
@@ -1986,6 +2044,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           label: 'Frequency',
                           hint: '1-0-1',
                           icon: Icons.schedule_outlined,
+                          maxLength: 7,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9a-zA-Z\-]')),
+                          ],
                         ),
                       ],
                     )
@@ -1997,6 +2059,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             label: 'Dosage',
                             hint: '500mg',
                             icon: Icons.scale_outlined,
+                            maxLength: 10,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9a-zA-Z./]')),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 20),
@@ -2006,6 +2072,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             label: 'Frequency',
                             hint: '1-0-1',
                             icon: Icons.schedule_outlined,
+                            maxLength: 7,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9a-zA-Z\-]')),
+                            ],
                           ),
                         ),
                       ],
@@ -2022,6 +2092,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           label: 'Route',
                           hint: 'Oral / IV',
                           icon: Icons.route_outlined,
+                          maxLength: 15,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z/ ]')),
+                          ],
                         ),
                         const SizedBox(height: 16),
                         _buildPrescriptionField(
@@ -2029,6 +2103,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           label: 'Duration',
                           hint: '5 Days',
                           icon: Icons.calendar_today_outlined,
+                          maxLength: 10,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9a-zA-Z ]')),
+                          ],
                         ),
                       ],
                     )
@@ -2040,6 +2118,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             label: 'Route',
                             hint: 'Oral / IV',
                             icon: Icons.route_outlined,
+                            maxLength: 15,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z/ ]')),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 20),
@@ -2049,6 +2131,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             label: 'Duration',
                             hint: '5 Days',
                             icon: Icons.calendar_today_outlined,
+                            maxLength: 10,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9a-zA-Z ]')),
+                            ],
                           ),
                         ),
                       ],
@@ -2384,6 +2470,9 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     required String label,
     required String hint,
     required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
+    int? maxLength,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2395,8 +2484,12 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          maxLength: maxLength,
           decoration: InputDecoration(
             hintText: hint,
+            counterText: maxLength != null ? '' : null,
             prefixIcon: Icon(icon, color: AppTheme.primaryColor, size: 18),
             filled: true,
             fillColor: Colors.grey.shade50,
@@ -2574,78 +2667,22 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
               const SizedBox(height: 30),
 
-              // TEST NAME FIELD
-              const Text(
-                'Test Name',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              DropdownButtonFormField<String>(
+              CustomDropdownSearch(
+                label: 'Test Name',
                 value: _testNameController.text.isEmpty
                     ? null
                     : _testNameController.text,
-                decoration: InputDecoration(
-                  hintText: 'Select lab test',
-                  prefixIcon: const Icon(
-                    Icons.biotech_outlined,
-                    color: AppTheme.primaryColor,
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppTheme.primaryColor,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'Complete Blood Count (CBC)',
-                    child: Text('Complete Blood Count (CBC)'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Blood Sugar',
-                    child: Text('Blood Sugar'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Liver Function Test (LFT)',
-                    child: Text('Liver Function Test (LFT)'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Renal Function Test (RFT)',
-                    child: Text('Renal Function Test (RFT)'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Urine Routine',
-                    child: Text('Urine Routine'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'X-Ray',
-                    child: Text('X-Ray'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'CT Scan',
-                    child: Text('CT Scan'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'MRI Scan',
-                    child: Text('MRI Scan'),
-                  ),
-                  DropdownMenuItem(value: 'ECG', child: Text('ECG')),
+                hint: 'Select lab test',
+                dropdownItems: const [
+                  'Complete Blood Count (CBC)',
+                  'Blood Sugar',
+                  'Liver Function Test (LFT)',
+                  'Renal Function Test (RFT)',
+                  'Urine Routine',
+                  'X-Ray',
+                  'CT Scan',
+                  'MRI Scan',
+                  'ECG',
                 ],
                 onChanged: (value) {
                   setState(() {
@@ -4477,6 +4514,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           hint: 'Enter Systolic',
                           suffix: 'mmHg',
                           icon: Icons.favorite_outline,
+                          maxLength: 3,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         ),
                         const SizedBox(height: 20),
@@ -4486,6 +4524,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           hint: 'Enter Diastolic',
                           suffix: 'mmHg',
                           icon: Icons.favorite_outline,
+                          maxLength: 3,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         ),
                       ],
@@ -4499,6 +4538,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             hint: 'Enter Systolic',
                             suffix: 'mmHg',
                             icon: Icons.favorite_outline,
+                            maxLength: 3,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           ),
                         ),
@@ -4510,6 +4550,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             hint: 'Enter Diastolic',
                             suffix: 'mmHg',
                             icon: Icons.favorite_outline,
+                            maxLength: 3,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           ),
                         ),
@@ -4527,6 +4568,8 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           hint: 'Enter Temperature',
                           suffix: '°F',
                           icon: Icons.thermostat,
+                          maxLength: 5,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                           ],
@@ -4538,6 +4581,8 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           hint: 'Enter Pulse',
                           suffix: 'bpm',
                           icon: Icons.monitor_heart_outlined,
+                          maxLength: 3,
+                          keyboardType: TextInputType.number,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         ),
                       ],
@@ -4551,6 +4596,8 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             hint: 'Enter Temperature',
                             suffix: '°F',
                             icon: Icons.thermostat,
+                            maxLength: 5,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             inputFormatters: [
                               FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                             ],
@@ -4564,6 +4611,8 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             hint: 'Enter Pulse',
                             suffix: 'bpm',
                             icon: Icons.monitor_heart_outlined,
+                            maxLength: 3,
+                            keyboardType: TextInputType.number,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           ),
                         ),
@@ -4581,6 +4630,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           hint: 'Enter SPO2',
                           suffix: '%',
                           icon: Icons.air,
+                          maxLength: 3,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         ),
                         const SizedBox(height: 20),
@@ -4590,6 +4640,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           hint: 'Enter Respiratory Rate',
                           suffix: 'bpm',
                           icon: Icons.water_drop_outlined,
+                          maxLength: 3,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         ),
                       ],
@@ -4603,6 +4654,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             hint: 'Enter SPO2',
                             suffix: '%',
                             icon: Icons.air,
+                            maxLength: 3,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           ),
                         ),
@@ -4614,6 +4666,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             hint: 'Enter Respiratory Rate',
                             suffix: 'bpm',
                             icon: Icons.water_drop_outlined,
+                            maxLength: 3,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           ),
                         ),
@@ -4732,6 +4785,8 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     required String suffix,
     required IconData icon,
     List<TextInputFormatter>? inputFormatters,
+    int? maxLength,
+    TextInputType keyboardType = TextInputType.number,
   }) {
     final String labelWithStar = '$label *';
     final bool hasStar = labelWithStar.endsWith(' *');
@@ -4768,13 +4823,15 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         ),
         TextFormField(
           controller: controller,
-          keyboardType: TextInputType.number,
+          keyboardType: keyboardType,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           inputFormatters: inputFormatters,
+          maxLength: maxLength,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 13),
             suffixText: suffix,
+            counterText: maxLength != null ? '' : null,
             suffixStyle: const TextStyle(
               color: Color(0xFF718096),
               fontSize: 13,
@@ -5323,6 +5380,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                 label: 'Blood Pressure',
                 hint: '120/80',
                 icon: Icons.favorite_outline,
+                maxLength: 7,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9/]')),
+                ],
+                keyboardType: TextInputType.text,
               ),
 
               const SizedBox(height: 20),
@@ -5336,6 +5398,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           label: 'Temperature',
                           hint: '98.6 °F',
                           icon: Icons.thermostat_outlined,
+                          maxLength: 5,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                          ],
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         ),
                         const SizedBox(height: 16),
                         _buildNursingField(
@@ -5343,6 +5410,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           label: 'Pulse',
                           hint: '72 bpm',
                           icon: Icons.monitor_heart_outlined,
+                          maxLength: 3,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          keyboardType: TextInputType.number,
                         ),
                       ],
                     )
@@ -5354,6 +5426,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             label: 'Temperature',
                             hint: '98.6 °F',
                             icon: Icons.thermostat_outlined,
+                            maxLength: 5,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                            ],
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
                         ),
                         const SizedBox(width: 20),
@@ -5363,6 +5440,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             label: 'Pulse',
                             hint: '72 bpm',
                             icon: Icons.monitor_heart_outlined,
+                            maxLength: 3,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            keyboardType: TextInputType.number,
                           ),
                         ),
                       ],
@@ -5376,6 +5458,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                 label: 'Sugar Level',
                 hint: '98 mg/dL',
                 icon: Icons.water_drop_outlined,
+                maxLength: 6,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                ],
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
 
               const SizedBox(height: 24),
@@ -5423,9 +5510,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                   ),
                 ),
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter observations';
-                  }
                   return null;
                 },
               ),
@@ -5687,6 +5771,9 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     required String label,
     required String hint,
     required IconData icon,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    int? maxLength,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -5698,11 +5785,15 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          maxLength: maxLength,
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, color: AppTheme.primaryColor, size: 18),
             filled: true,
             fillColor: Colors.grey.shade50,
+            counterText: '',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),

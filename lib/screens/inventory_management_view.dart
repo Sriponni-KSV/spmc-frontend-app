@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../widgets/custom_dropdown_search.dart';
@@ -124,11 +125,13 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
               TextFormField(
                 controller: qtyCtrl,
                 keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                maxLength: 6,
                 decoration: AppTheme.standardInputDecoration(
                   label: null,
                   prefixIcon: Icons.inventory,
                   hintText: 'Enter initial quantity',
-                ),
+                ).copyWith(counterText: ''),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
                     return 'Please enter initial quantity';
@@ -158,11 +161,14 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
               const SizedBox(height: 6),
               TextFormField(
                 controller: unitCtrl,
+                keyboardType: TextInputType.text,
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]'))],
+                maxLength: 10,
                 decoration: AppTheme.standardInputDecoration(
                   label: null,
                   prefixIcon: Icons.square_foot,
                   hintText: 'Enter unit (e.g. pcs)',
-                ),
+                ).copyWith(counterText: ''),
                 validator: (v) => v == null || v.trim().isEmpty ? 'Please enter measurement unit' : null,
               ),
             ],
@@ -218,11 +224,14 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                         const SizedBox(height: 6),
                         TextFormField(
                           controller: nameCtrl,
+                          keyboardType: TextInputType.text,
+                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))],
+                          maxLength: 50,
                           decoration: AppTheme.standardInputDecoration(
                             label: null,
                             prefixIcon: Icons.fastfood_outlined,
                             hintText: 'Enter food item name (e.g. Rice, Dal)',
-                          ),
+                          ).copyWith(counterText: ''),
                           validator: (v) =>
                               (v == null || v.trim().isEmpty)
                                   ? 'Please enter food item name'
@@ -294,11 +303,13 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                       TextFormField(
                         controller: thresholdCtrl,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        maxLength: 6,
                         decoration: AppTheme.standardInputDecoration(
                           label: null,
                           prefixIcon: Icons.notifications_active,
                           hintText: 'Enter low stock alert threshold',
-                        ),
+                        ).copyWith(counterText: ''),
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
                             return 'Please enter low stock alert threshold';
@@ -1306,7 +1317,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Hospital Inventory Management',
+                      'Inventory Management',
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 6),
@@ -1345,7 +1356,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Hospital Inventory Management',
+                            'Inventory Management',
                             style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 4),
