@@ -165,6 +165,20 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
                                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
+                                              if (user.staffUniqueId != null &&
+                                                  user.staffUniqueId!.isNotEmpty) ...[
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  user.staffUniqueId!,
+                                                  style: const TextStyle(
+                                                    fontSize: 9,
+                                                    color: AppTheme.textSecondaryColor,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                              const SizedBox(height: 2),
                                               Text(
                                                 user.role,
                                                 style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
@@ -174,26 +188,7 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
                                         ),
                                       ],
                                     ),
-//                                   ),
-                                    if (user.staffUniqueId != null &&
-                                        user.staffUniqueId!.isNotEmpty) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        user.staffUniqueId!,
-                                        style: const TextStyle(
-                                          fontSize: 9,
-                                          color: AppTheme.textSecondaryColor,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      user.role,
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
                               IconButton(
