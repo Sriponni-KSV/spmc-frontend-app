@@ -202,6 +202,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   TimeOfDay _slotEndTime = const TimeOfDay(hour: 11, minute: 30);
   List<String> _selectedNurseNames = []; // Multi-select nurse names
 
+  int _pendingRequestsCount = 0;
+  int _scheduledTodayCount = 0;
+  int _activeInSurgeryCount = 0;
+  int _recoveryPostOpCount = 0;
+  bool _isLoadingStats = false;
+
   // Temporary Inputs for Workflow steps (kept for backward compat)
   final _otRoomController = TextEditingController();
   final _slotController = TextEditingController();
@@ -369,6 +375,28 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     }
   }
 
+  Future<void> _loadStats() async {
+    if (!mounted) return;
+    setState(() => _isLoadingStats = true);
+    try {
+      final stats = await _otController.fetchOtStats();
+      if (mounted) {
+        setState(() {
+          _pendingRequestsCount = stats['pendingCount'] ?? 0;
+          _scheduledTodayCount = stats['scheduledToday'] ?? 0;
+          _activeInSurgeryCount = stats['activeInSurgery'] ?? 0;
+          _recoveryPostOpCount = stats['recoveryPostOp'] ?? 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading OT stats: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
+    }
+  }
+
   Future<void> _loadPatientsAndDoctors() async {
     if (!mounted) return;
     setState(() {
@@ -384,6 +412,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         _otController.fetchOtCases(),
         _adminController.fetchStaff(role: 'Anaesthetist'),
         _adminController.fetchStaff(role: 'Nurse'),
+        _otController.fetchOtStats(),
       ]);
       if (mounted) {
         _patients = results[0] as List<PatientModel>;
@@ -391,9 +420,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         final fetchedCases = results[2] as List<OtCase>;
         _anaesthetists = results[3] as List<UserModel>;
         _nurses = results[4] as List<UserModel>;
+        final stats = results[5] as Map<String, dynamic>;
 
         setState(() {
           _otCases = fetchedCases;
+          _pendingRequestsCount = stats['pendingCount'] ?? 0;
+          _scheduledTodayCount = stats['scheduledToday'] ?? 0;
+          _activeInSurgeryCount = stats['activeInSurgery'] ?? 0;
+          _recoveryPostOpCount = stats['recoveryPostOp'] ?? 0;
+
           if (widget.initialSelectedCase != null) {
             final match = fetchedCases.firstWhere(
               (c) => c.dbId == widget.initialSelectedCase!.dbId,
@@ -566,6 +601,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           }
         }
       });
+      _loadStats();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1517,8 +1553,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             width: double.infinity,
             padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 16 : 24, vertical: 16),
             decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+              color: Colors.transparent,
             ),
             child: widget.isMobile
                 ? Column(
@@ -1532,7 +1567,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryColor,
+                              color: AppTheme.textPrimaryColor,
                             ),
                           ),
                           SizedBox(height: 4),
@@ -1563,7 +1598,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryColor,
+                              color: AppTheme.textPrimaryColor,
                             ),
                           ),
                           SizedBox(height: 4),
@@ -1625,12 +1660,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   Widget _buildDashboardView() {
-    // Count states
-    final reqCount = _otCases.where((c) => c.status == 'OT Requested').length;
-    final schedCount = _otCases.where((c) => c.status == 'OT Scheduled' || c.status == 'Pre-Op Completed' || c.status == 'Anaesthesia Cleared').length;
-    final inProgress = _otCases.where((c) => c.status == 'Patient In OT' || c.status == 'Surgery In Progress').length;
-    final recCount = _otCases.where((c) => c.status == 'Surgery Completed' || c.status == 'Post-Op Monitoring').length;
-
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Column(
@@ -1640,24 +1669,24 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           widget.isMobile
               ? Column(
                   children: [
-                    _buildStatCard('Pending Requests', reqCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange),
+                    _buildStatCard('Pending Requests', _pendingRequestsCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange),
                     const SizedBox(height: 12),
-                    _buildStatCard('Scheduled Today', schedCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue),
+                    _buildStatCard('Scheduled Today', _scheduledTodayCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue),
                     const SizedBox(height: 12),
-                    _buildStatCard('Active In Surgery', inProgress.toString(), 'Live operating room', Icons.flash_on, Colors.purple),
+                    _buildStatCard('Active In Surgery', _activeInSurgeryCount.toString(), 'Live operating room', Icons.flash_on, Colors.purple),
                     const SizedBox(height: 12),
-                    _buildStatCard('Recovery & Post-Op', recCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink),
+                    _buildStatCard('Recovery & Post-Op', _recoveryPostOpCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink),
                   ],
                 )
               : Row(
                   children: [
-                    Expanded(child: _buildStatCard('Pending Requests', reqCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange)),
+                    Expanded(child: _buildStatCard('Pending Requests', _pendingRequestsCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatCard('Scheduled Today', schedCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue)),
+                    Expanded(child: _buildStatCard('Scheduled Today', _scheduledTodayCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatCard('Active In Surgery', inProgress.toString(), 'Live operating room', Icons.flash_on, Colors.purple)),
+                    Expanded(child: _buildStatCard('Active In Surgery', _activeInSurgeryCount.toString(), 'Live operating room', Icons.flash_on, Colors.purple)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatCard('Recovery & Post-Op', recCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink)),
+                    Expanded(child: _buildStatCard('Recovery & Post-Op', _recoveryPostOpCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink)),
                   ],
                 ),
           const SizedBox(height: 28),

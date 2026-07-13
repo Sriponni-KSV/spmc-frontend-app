@@ -3171,7 +3171,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
@@ -3186,6 +3186,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

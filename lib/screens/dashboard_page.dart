@@ -626,7 +626,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: Column(
                 children: [
-                  _buildHeader(isMobile, user?.rawFullname ?? 'Doctor'),
+                  if (_selectedIndex != 0) _buildHeader(isMobile, user?.rawFullname ?? 'Doctor'),
                   Expanded(child: _buildMainContent(isMobile)),
                 ],
               ),
@@ -3329,18 +3329,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDashboardView(bool isMobile) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildGreeting(),
-          const SizedBox(height: 24),
-          _buildStatsRow(isMobile),
-          const SizedBox(height: 24),
-          _buildPatientsTable(),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Fixed Top Bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+          color: Colors.transparent,
+          child: _buildBannerTopBar(isMobile),
+        ),
+        // Scrollable Content
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildGreeting(),
+                const SizedBox(height: 24),
+                _buildStatsRow(isMobile),
+                const SizedBox(height: 24),
+                _buildPatientsTable(),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -3350,42 +3364,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Container(
       width: 260,
-      decoration: const BoxDecoration(
+      margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+      decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(
-          right: BorderSide(color: AppTheme.borderColor, width: 1),
-        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
           // Logo Section
           Container(
-            padding: const EdgeInsets.only(
-              left: 24,
-              top: 0,
-              bottom: 0,
-              right: 24,
-            ),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppTheme.borderColor, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                Image.asset(
-                  'assets/image/full_logo.png',
-                  width: 100,
-                  height: 89,
-                ),
-              ],
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Image.asset(
+              'assets/image/full_logo.png',
+              width: 110,
+              height: 90,
             ),
           ),
 
           // Navigation Items (Scrollable)
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: const EdgeInsets.symmetric(vertical: 12),
               child: Column(
                 children: [
                   if (isAnaesthetist) ...[
@@ -3431,82 +3437,83 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
 
           // User Profile Footer
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Divider(
-                color: AppTheme.borderColor,
-                height: 1,
-                thickness: 1,
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Consumer<AuthProvider>(
-                  builder: (context, auth, _) {
-                    final user = auth.user;
-                    if (user == null) return const SizedBox.shrink();
-                    return Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => UserProfileDialog.show(context, user),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: AppTheme.borderColor, width: 1)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: user == null
+                ? const SizedBox.shrink()
+                : Consumer<AuthProvider>(
+                    builder: (context, auth, _) {
+                      final user = auth.user;
+                      if (user == null) return const SizedBox.shrink();
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => UserProfileDialog.show(context, user),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    user.rawFullname ?? '',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (user.staffUniqueId != null &&
-                                      user.staffUniqueId!.isNotEmpty) ...[
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      user.staffUniqueId!,
+                                  CircleAvatar(
+                                    backgroundColor: AppTheme.primaryColor,
+                                    radius: 18,
+                                    child: Text(
+                                      (user.rawFullname ?? user.fullname).isNotEmpty
+                                          ? (user.rawFullname ?? user.fullname)[0].toUpperCase()
+                                          : '?',
                                       style: const TextStyle(
-                                        fontSize: 9,
-                                        color: AppTheme.textSecondaryColor,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ],
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    user.role,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.textSecondaryColor,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          user.rawFullname ?? user.fullname,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          user.role,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textSecondaryColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.logout,
-                            size: 18,
-                            color: AppTheme.textSecondaryColor,
+                          IconButton(
+                            icon: const Icon(
+                              Icons.logout,
+                              size: 18,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                            onPressed: () => LogoutHelper.showLogoutConfirmation(
+                              context,
+                              auth,
+                            ),
                           ),
-                          onPressed: () => LogoutHelper.showLogoutConfirmation(
-                            context,
-                            auth,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ],
+                        ],
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -3536,32 +3543,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
           context.go(AppRoutes.doctorDashboard);
         }
       },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.primaryColor.withOpacity(0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: isSelected
-                  ? AppTheme.primaryColor
-                  : AppTheme.textSecondaryColor,
-              size: 22,
+              color: isSelected ? Colors.white : const Color(0xFF4A5568),
+              size: 20,
             ),
             const SizedBox(width: 16),
             Text(
               label,
               style: TextStyle(
-                color: isSelected
-                    ? AppTheme.primaryColor
-                    : AppTheme.textSecondaryColor,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Colors.white : const Color(0xFF4A5568),
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -3570,122 +3573,127 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildHeader(bool isMobile, String name) {
-    return Container(
-      height: isMobile ? 80 : 90,
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.borderColor, width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          if (isMobile)
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(
-                  Icons.menu,
-                  color: AppTheme.textSecondaryColor,
-                ),
-                onPressed: () => Scaffold.of(context).openDrawer(),
+  Widget _buildBannerTopBar(bool isMobile) {
+    return Row(
+      children: [
+        if (isMobile)
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(
+                Icons.menu,
+                color: AppTheme.textSecondaryColor,
               ),
-            ),
-
-          Expanded(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 400),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.borderColor),
-              ),
-              child: TextFormField(
-                textAlignVertical: TextAlignVertical.center,
-                decoration: InputDecoration(
-                  isCollapsed: true,
-                  hintText: isMobile ? 'Search...' : 'Quick search...',
-                  hintStyle: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    size: 18,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
-                  ),
-                  fillColor: Colors.transparent,
-                  filled: true,
-                  contentPadding: const EdgeInsets.only(top: 2),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                ),
-                readOnly: true,
-                onTap: _showSearchOverlay,
-              ),
+              onPressed: () => Scaffold.of(context).openDrawer(),
             ),
           ),
 
-          if (!isMobile) ...[
-            const SizedBox(width: 24),
-            const Spacer(),
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                IconButton(
-                  icon: Icon(
-                    (_notifications ?? []).any((n) => n['is_read'] == false)
-                        ? Icons.notifications_active_outlined
-                        : Icons.notifications_none_outlined,
-                    color: (_notifications ?? []).any((n) => n['is_read'] == false)
-                        ? AppTheme.logoRed
-                        : AppTheme.textSecondaryColor,
-                  ),
-                  onPressed: _showNotificationsOverlay,
+        Expanded(
+          child: Container(
+            height: 40,
+            constraints: const BoxConstraints(maxWidth: 400),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: TextFormField(
+              textAlignVertical: TextAlignVertical.center,
+              decoration: InputDecoration(
+                isCollapsed: true,
+                hintText: isMobile ? 'Search...' : 'Quick search...',
+                hintStyle: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondaryColor,
                 ),
-                if ((_notifications ?? []).any((n) => n['is_read'] == false))
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 10,
-                        minHeight: 10,
-                      ),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  size: 18,
+                  color: AppTheme.textSecondaryColor,
+                ),
+                prefixIconConstraints: const BoxConstraints(
+                  minWidth: 40,
+                  minHeight: 40,
+                ),
+                fillColor: Colors.transparent,
+                filled: true,
+                contentPadding: const EdgeInsets.only(top: 2),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+              readOnly: true,
+              onTap: _showSearchOverlay,
+            ),
+          ),
+        ),
+
+        if (!isMobile) ...[
+          const SizedBox(width: 24),
+          const Spacer(),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: Icon(
+                  (_notifications ?? []).any((n) => n['is_read'] == false)
+                      ? Icons.notifications_active_outlined
+                      : Icons.notifications_none_outlined,
+                  color: (_notifications ?? []).any((n) => n['is_read'] == false)
+                      ? AppTheme.logoRed
+                      : AppTheme.textSecondaryColor,
+                ),
+                onPressed: _showNotificationsOverlay,
+              ),
+              if ((_notifications ?? []).any((n) => n['is_read'] == false))
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 10,
+                      minHeight: 10,
                     ),
                   ),
-              ],
+                ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          const Icon(Icons.help_outline, color: AppTheme.textSecondaryColor),
+          const SizedBox(width: 16),
+          ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              minimumSize: const Size(80, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
             ),
-            const SizedBox(width: 16),
-            const Icon(Icons.help_outline, color: AppTheme.textSecondaryColor),
-            const SizedBox(width: 16),
-            ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                minimumSize: const Size(80, 40),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-              ),
-              child: const Text('Share', style: TextStyle(fontSize: 14)),
-            ),
-          ],
-          SizedBox(width: isMobile ? 12 : 24),
-
-          // Date & Time
-          const LiveClock(),
+            child: const Text('Share', style: TextStyle(fontSize: 14)),
+          ),
         ],
+        SizedBox(width: isMobile ? 12 : 24),
+
+        // Date & Time
+        const LiveClock(),
+      ],
+    );
+  }
+
+  Widget _buildHeader(bool isMobile, String name) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
       ),
+      padding: EdgeInsets.only(
+        left: isMobile ? 16 : 24,
+        right: isMobile ? 16 : 24,
+        top: 20,
+        bottom: 0,
+      ),
+      child: _buildBannerTopBar(isMobile),
     );
   }
 
@@ -3697,19 +3705,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (hour >= 12 && hour < 17) greeting = 'Good Afternoon';
     if (hour >= 17) greeting = 'Good Evening';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$greeting, ${user?.rawFullname ?? 'Doctor'}',
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Here\'s a quick look at your scheduled appointments today.',
-          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
-        ),
-      ],
+    return Text(
+      '$greeting, ${user?.rawFullname ?? 'Doctor'}',
+      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
     );
   }
 
@@ -4307,23 +4305,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final activeRecovery = _anaesthetistOtCases.where((c) => c.status == 'Post-Op Monitoring').length;
     final emergencyCases = _anaesthetistOtCases.where((c) => c.priority?.toLowerCase() == 'emergency' && c.status != 'OT Case Closed').length;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Greeting
-          _buildAnaesthetistGreeting(),
-          const SizedBox(height: 24),
-          
-          // Stats Row
-          _buildAnaesthetistStatsRow(isMobile, totalCases, pacPending, activeRecovery, emergencyCases),
-          const SizedBox(height: 24),
-          
-          // OT Cases Schedule Table
-          _buildAnaesthetistScheduleTable(isMobile),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Fixed Top Bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+          color: Colors.transparent,
+          child: _buildBannerTopBar(isMobile),
+        ),
+        // Scrollable Content
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildAnaesthetistGreeting(),
+                const SizedBox(height: 24),
+                _buildAnaesthetistStatsRow(isMobile, totalCases, pacPending, activeRecovery, emergencyCases),
+                const SizedBox(height: 24),
+                _buildAnaesthetistScheduleTable(isMobile),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -4334,19 +4341,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (hour >= 12 && hour < 17) greeting = 'Good Afternoon';
     if (hour >= 17) greeting = 'Good Evening';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$greeting, Dr. ${user?.rawFullname ?? 'Anaesthetist'}',
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Here\'s a look at your anesthesia schedule and checklists today.',
-          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
-        ),
-      ],
+    return Text(
+      '$greeting, Dr. ${user?.rawFullname ?? 'Anaesthetist'}',
+      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
     );
   }
 
@@ -4745,7 +4742,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // ─── Lab Summary Stats Row ──────────────────────────────────────
           Builder(builder: (context) {
             final now = DateTime.now();
-            final int total = _labReports.length;
+            
+            // Group by consultation_id to find partially completed reports
+            final Map<String, List<Map<String, dynamic>>> groups = {};
+            for (final req in _labReports) {
+              final String groupKey = req['consultation_id']?.toString() ?? 'single_${req['id']}';
+              if (!groups.containsKey(groupKey)) {
+                groups[groupKey] = [];
+              }
+              groups[groupKey]!.add(req);
+            }
+
+            final int partiallyCompleted = groups.values.where((groupReqs) {
+              final totalTests = groupReqs.length;
+              final completedTests = groupReqs.where((r) => r['status'] == 'Completed').length;
+              return completedTests > 0 && completedTests < totalTests;
+            }).length;
+
             final int pending = _labReports.where((r) {
               final s = r['status'] ?? '';
               return s == 'Pending' || s == 'Sample Collected';
@@ -4770,11 +4783,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Row(
                   children: [
                     _buildLabSummaryCard(
-                      label: 'Total Sent',
-                      count: total,
-                      icon: Icons.biotech_outlined,
-                      color: AppTheme.primaryColor,
-                      bgColor: AppTheme.primaryColor.withOpacity(0.08),
+                      label: 'Overdue',
+                      count: overdueList.length,
+                      icon: Icons.warning_amber_outlined,
+                      color: Colors.red.shade700,
+                      bgColor: Colors.red.shade50,
+                      highlight: overdueList.isNotEmpty,
+                      onTap: overdueList.isNotEmpty
+                          ? () => setState(() => _showOverduePanel = !_showOverduePanel)
+                          : null,
+                      isActive: _showOverduePanel,
                     ),
                     const SizedBox(width: 16),
                     _buildLabSummaryCard(
@@ -4786,24 +4804,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(width: 16),
                     _buildLabSummaryCard(
+                      label: 'Partially Completed',
+                      count: partiallyCompleted,
+                      icon: Icons.incomplete_circle_outlined,
+                      color: Colors.amber.shade800,
+                      bgColor: Colors.amber.shade50,
+                    ),
+                    const SizedBox(width: 16),
+                    _buildLabSummaryCard(
                       label: 'Completed',
                       count: completed,
                       icon: Icons.check_circle_outline,
                       color: Colors.green.shade700,
                       bgColor: Colors.green.shade50,
-                    ),
-                    const SizedBox(width: 16),
-                    _buildLabSummaryCard(
-                      label: 'Overdue',
-                      count: overdueList.length,
-                      icon: Icons.warning_amber_outlined,
-                      color: Colors.red.shade700,
-                      bgColor: Colors.red.shade50,
-                      highlight: overdueList.isNotEmpty,
-                      onTap: overdueList.isNotEmpty
-                          ? () => setState(() => _showOverduePanel = !_showOverduePanel)
-                          : null,
-                      isActive: _showOverduePanel,
                     ),
                   ],
                 ),
