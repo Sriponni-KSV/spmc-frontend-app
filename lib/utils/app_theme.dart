@@ -4,29 +4,35 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // ── Colors ────────────────────────────────────────────────────────────────
-  static const Color backgroundColor = Color(0xFFF1F7FB); // Subtle blue-tinted background
+  static const Color backgroundColor = Color(
+    0xFFF1F7FB,
+  ); // Subtle blue-tinted background
   static const Color primaryColor = Color(0xFF065D96); // Logo Blue
   static const Color primaryLight = Color(0xFFEAF2F7);
   static const Color secondaryColor = Color(0xFF79B649); // Logo Green
   static const Color logoRed = Color(0xFFE53E3E); // Logo Red
   static const Color cardColor = Colors.white;
-  
-  static const Color textPrimaryColor = Color(0xFF1A202C); // Darker for better contrast
+
+  static const Color textPrimaryColor = Color(
+    0xFF1A202C,
+  ); // Darker for better contrast
   static const Color textSecondaryColor = Color(0xFF718096);
   static const Color textMutedColor = Color(0xFFA0AEC0);
-  
+
   static const Color borderColor = Color(0xFFE2E8F0);
   static const Color iconColor = Color(0xFF94A3B8);
-  
-  static const Color successColor = Color(0xFF79B649); // Using Logo Green for success
+
+  static const Color successColor = Color(
+    0xFF79B649,
+  ); // Using Logo Green for success
   static const Color successBg = Color(0xFFF1F8EB);
-  
+
   static const Color infoColor = Color(0xFF065D96); // Using Logo Blue for info
   static const Color infoBg = Color(0xFFEAF2F7);
-  
+
   static const Color warningColor = Color(0xFFDD6B20);
   static const Color warningBg = Color(0xFFFFFAF0);
-  
+
   static const Color dangerColor = Color(0xFFE53E3E);
   static const Color dangerBg = Color(0xFFFFF5F5);
 
@@ -81,8 +87,9 @@ class AppTheme {
   static const double paddingSmall = 8.0;
   static const double paddingMedium = 16.0;
   static const double paddingLarge = 24.0;
-  static const double cardElevation = 0.0; // Modern flat look with border/shadow
-  
+  static const double cardElevation =
+      0.0; // Modern flat look with border/shadow
+
   static List<BoxShadow> get cardShadow => [
     BoxShadow(
       color: Colors.black.withOpacity(0.04),
@@ -93,7 +100,7 @@ class AppTheme {
 
   static const String fontFamily = 'Inter';
 
-  // ── Typography ────────────────────────────────────────────────────────────
+  // ── Typography ────────────────────────────────────────────────────────────-
   static TextTheme get textTheme => const TextTheme(
     displayLarge: TextStyle(
       fontFamily: fontFamily,
@@ -172,10 +179,8 @@ class AppTheme {
     foregroundColor: Colors.white,
   );
 
-  static ButtonStyle get logoRedButton => baseButtonStyle(
-    backgroundColor: logoRed,
-    foregroundColor: Colors.white,
-  );
+  static ButtonStyle get logoRedButton =>
+      baseButtonStyle(backgroundColor: logoRed, foregroundColor: Colors.white);
 
   static ButtonStyle get successButton => baseButtonStyle(
     backgroundColor: successColor,
@@ -212,9 +217,7 @@ class AppTheme {
     backgroundColor: Colors.transparent,
     padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
     minimumSize: const Size(130, 48),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
-    ),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     textStyle: const TextStyle(
       fontFamily: fontFamily,
       fontSize: 15,
@@ -285,7 +288,7 @@ class AppTheme {
         background: backgroundColor,
         error: dangerColor,
       ),
-      
+
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.white,
         foregroundColor: textPrimaryColor,
@@ -308,11 +311,14 @@ class AppTheme {
 
       elevatedButtonTheme: ElevatedButtonThemeData(style: primaryButton),
       outlinedButtonTheme: OutlinedButtonThemeData(style: outlinedButton),
-      
+
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xFFF1F5F9),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
@@ -342,7 +348,7 @@ class AppTheme {
         thickness: 1,
         space: 1,
       ),
-      
+
       dataTableTheme: DataTableThemeData(
         headingRowColor: MaterialStateProperty.all(backgroundColor),
         headingTextStyle: textTheme.labelLarge?.copyWith(color: secondaryColor),
@@ -375,4 +381,3 @@ class AppTheme {
     return avatarColorPalettes[index];
   }
 }
-
