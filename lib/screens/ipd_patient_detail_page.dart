@@ -684,6 +684,21 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     }
   }
 
+  void _goBack() {
+    try {
+      final path = GoRouterState.of(context).matchedLocation;
+      if (path == '/nurse/ipd-management/nursing-station') {
+        context.go('/nurse/ipd-management');
+      } else if (path == '/doctor/ipd-management/monitoring') {
+        context.go('/doctor/ipd-management');
+      } else {
+        Navigator.pop(context, true);
+      }
+    } catch (_) {
+      Navigator.pop(context, true);
+    }
+  }
+
   Future<void> _executeDischarge() async {
     if (!_dischargeFormKey.currentState!.validate()) return;
 
@@ -706,7 +721,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pop(context, true);
+      _goBack();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1150,7 +1165,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         children: [
           // Back button
           InkWell(
-            onTap: () => Navigator.pop(context),
+            onTap: _goBack,
             borderRadius: BorderRadius.circular(8),
             child: Container(
               padding: const EdgeInsets.all(8),
@@ -4863,6 +4878,38 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
             if (value == null || value.trim().isEmpty) {
               return 'Please enter $label';
             }
+            final text = value.trim();
+            if (label == 'Systolic BP') {
+              final num = int.tryParse(text);
+              if (num == null) return 'Must be integer';
+              if (num == 0) return 'Cannot be 0';
+              if (num < 90 || num > 300) return 'Must be 90 to 300';
+            } else if (label == 'Diastolic BP') {
+              final num = int.tryParse(text);
+              if (num == null) return 'Must be integer';
+              if (num == 0) return 'Cannot be 0';
+              if (num < 50 || num > 180) return 'Must be 50 to 180';
+            } else if (label == 'Temperature') {
+              final num = double.tryParse(text);
+              if (num == null) return 'Must be number';
+              if (num == 0) return 'Cannot be 0';
+              if (num < 90 || num > 115) return 'Must be 90 to 115';
+            } else if (label == 'Pulse') {
+              final num = int.tryParse(text);
+              if (num == null) return 'Must be integer';
+              if (num == 0) return 'Cannot be 0';
+              if (num < 30 || num > 250) return 'Must be 30 to 250';
+            } else if (label == 'SPO2') {
+              final num = int.tryParse(text);
+              if (num == null) return 'Must be integer';
+              if (num == 0) return 'Cannot be 0';
+              if (num < 50 || num > 100) return 'Must be 50 to 100';
+            } else if (label == 'Respiratory Rate') {
+              final num = int.tryParse(text);
+              if (num == null) return 'Must be integer';
+              if (num == 0) return 'Cannot be 0';
+              if (num < 8 || num > 60) return 'Must be 8 to 60';
+            }
             return null;
           },
         ),
@@ -5385,6 +5432,25 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9/]')),
                 ],
                 keyboardType: TextInputType.text,
+                validator: (val) {
+                  final text = val?.trim() ?? '';
+                  if (text.isEmpty) return null;
+                  if (!text.contains('/')) {
+                    final num = int.tryParse(text);
+                    if (num == null) return 'BP must be systolic/diastolic (e.g. 120/80)';
+                    if (num == 0) return 'Cannot be 0';
+                    if (num < 90 || num > 300) return 'Systolic must be 90 to 300';
+                    return null;
+                  }
+                  final parts = text.split('/');
+                  final sys = int.tryParse(parts[0].trim());
+                  final dia = int.tryParse(parts[1].trim());
+                  if (sys == null || dia == null) return 'Invalid numbers';
+                  if (sys == 0 || dia == 0) return 'Cannot be 0';
+                  if (sys < 90 || sys > 300) return 'Systolic must be 90 to 300';
+                  if (dia < 50 || dia > 180) return 'Diastolic must be 50 to 180';
+                  return null;
+                },
               ),
 
               const SizedBox(height: 20),
@@ -5403,6 +5469,15 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                           ],
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          validator: (val) {
+                            final text = val?.trim() ?? '';
+                            if (text.isEmpty) return null;
+                            final num = double.tryParse(text);
+                            if (num == null) return 'Must be number';
+                            if (num == 0) return 'Cannot be 0';
+                            if (num < 90 || num > 115) return 'Must be 90 to 115';
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 16),
                         _buildNursingField(
@@ -5415,6 +5490,15 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             FilteringTextInputFormatter.digitsOnly,
                           ],
                           keyboardType: TextInputType.number,
+                          validator: (val) {
+                            final text = val?.trim() ?? '';
+                            if (text.isEmpty) return null;
+                            final num = int.tryParse(text);
+                            if (num == null) return 'Must be integer';
+                            if (num == 0) return 'Cannot be 0';
+                            if (num < 30 || num > 250) return 'Must be 30 to 250';
+                            return null;
+                          },
                         ),
                       ],
                     )
@@ -5431,6 +5515,15 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                               FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                             ],
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            validator: (val) {
+                              final text = val?.trim() ?? '';
+                              if (text.isEmpty) return null;
+                              final num = double.tryParse(text);
+                              if (num == null) return 'Must be number';
+                              if (num == 0) return 'Cannot be 0';
+                              if (num < 90 || num > 115) return 'Must be 90 to 115';
+                              return null;
+                            },
                           ),
                         ),
                         const SizedBox(width: 20),
@@ -5445,6 +5538,15 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             keyboardType: TextInputType.number,
+                            validator: (val) {
+                              final text = val?.trim() ?? '';
+                              if (text.isEmpty) return null;
+                              final num = int.tryParse(text);
+                              if (num == null) return 'Must be integer';
+                              if (num == 0) return 'Cannot be 0';
+                              if (num < 30 || num > 250) return 'Must be 30 to 250';
+                              return null;
+                            },
                           ),
                         ),
                       ],
@@ -5463,6 +5565,15 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                 ],
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                validator: (val) {
+                  final text = val?.trim() ?? '';
+                  if (text.isEmpty) return null;
+                  final num = double.tryParse(text);
+                  if (num == null) return 'Must be number';
+                  if (num == 0) return 'Cannot be 0';
+                  if (num < 30 || num > 600) return 'Must be 30 to 600';
+                  return null;
+                },
               ),
 
               const SizedBox(height: 24),
@@ -5774,6 +5885,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
     int? maxLength,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -5788,6 +5900,8 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
           maxLength: maxLength,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          validator: validator,
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, color: AppTheme.primaryColor, size: 18),

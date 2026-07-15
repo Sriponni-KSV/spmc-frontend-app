@@ -11,6 +11,8 @@ import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'ipd_patient_detail_page.dart';
+import 'package:go_router/go_router.dart';
+import '../core/routes/route_constants.dart';
 
 class DoctorIPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -650,16 +652,11 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
   List<Widget> _buildDoctorAdmissionActions(Map<String, dynamic> adm) {
     return [
       ElevatedButton.icon(
-        onPressed: () async {
-          final refreshed = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => IPDPatientDetailPage(admission: adm),
-            ),
+        onPressed: () {
+          GoRouter.of(context).go(
+            AppRoutes.doctorIpdMonitoring,
+            extra: adm,
           );
-          if (refreshed == true) {
-            _loadData();
-          }
         },
         icon: const Icon(Icons.medical_services_outlined, size: 16, color: Colors.white),
         label: const Text('IPD Monitoring', style: TextStyle(color: Colors.white, fontSize: 12)),
@@ -1148,16 +1145,11 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final refreshed = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => IPDPatientDetailPage(admission: adm),
-                              ),
+                          onPressed: () {
+                            GoRouter.of(context).go(
+                              AppRoutes.doctorIpdMonitoring,
+                              extra: adm,
                             );
-                            if (refreshed == true) {
-                              _loadData();
-                            }
                           },
                           icon: const Icon(Icons.medical_services_outlined,
                               size: 14, color: Colors.white),
@@ -1204,16 +1196,11 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                   Row(
                     children: [
                       ElevatedButton.icon(
-                        onPressed: () async {
-                          final refreshed = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => IPDPatientDetailPage(admission: adm),
-                            ),
+                        onPressed: () {
+                          GoRouter.of(context).go(
+                            AppRoutes.doctorIpdMonitoring,
+                            extra: adm,
                           );
-                          if (refreshed == true) {
-                            _loadData();
-                          }
                         },
                         icon: const Icon(Icons.medical_services_outlined,
                             size: 15, color: Colors.white),

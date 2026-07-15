@@ -1295,28 +1295,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             ),
                           ),
                         ],
-                        ElevatedButton.icon(
-                          onPressed: () => _handleMarkWaiting(app),
-                          icon: const Icon(Icons.hourglass_empty, size: 14, color: Colors.white),
-                          label: const Text(
-                            'Mark Waiting',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D9488),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
+
                         ElevatedButton.icon(
                           onPressed: () => _showCancelAppointmentDialog(app),
                           icon: const Icon(Icons.cancel_outlined, size: 14),
@@ -2998,9 +2977,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     if (text.isEmpty) {
                                       return 'Please enter BP systolic';
                                     }
-                                    return int.tryParse(text) == null
-                                        ? 'Enter a number'
-                                        : null;
+                                    final num = int.tryParse(text);
+                                    if (num == null) return 'Enter a number';
+                                    if (num == 0) return 'Cannot be 0';
+                                    if (num < 90 || num > 300) return 'Must be 90 to 300';
+                                    return null;
                                   },
                                 ),
                               ],
@@ -3044,9 +3025,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     if (text.isEmpty) {
                                       return 'Please enter BP diastolic';
                                     }
-                                    return int.tryParse(text) == null
-                                        ? 'Enter a number'
-                                        : null;
+                                    final num = int.tryParse(text);
+                                    if (num == null) return 'Enter a number';
+                                    if (num == 0) return 'Cannot be 0';
+                                    if (num < 50 || num > 180) return 'Must be 50 to 180';
+                                    return null;
                                   },
                                 ),
                               ],
@@ -3099,9 +3082,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     if (text.isEmpty) {
                                       return 'Please enter sugar level';
                                     }
-                                    return double.tryParse(text) == null
-                                        ? 'Enter a number'
-                                        : null;
+                                    final num = double.tryParse(text);
+                                    if (num == null) return 'Enter a number';
+                                    if (num == 0) return 'Cannot be 0';
+                                    if (num < 30 || num > 600) return 'Must be 30 to 600';
+                                    return null;
                                   },
                                 ),
                               ],
@@ -3149,9 +3134,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     if (text.isEmpty) {
                                       return 'Please enter temperature';
                                     }
-                                    return double.tryParse(text) == null
-                                        ? 'Enter a number'
-                                        : null;
+                                    final num = double.tryParse(text);
+                                    if (num == null) return 'Enter a number';
+                                    if (num == 0) return 'Cannot be 0';
+                                    if (num < 90 || num > 115) return 'Must be 90 to 115';
+                                    return null;
                                   },
                                 ),
                               ],

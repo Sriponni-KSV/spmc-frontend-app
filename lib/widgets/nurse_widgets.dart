@@ -11,12 +11,14 @@ class PatientModel {
   final String age;
   final String phone;
   final String initials;
+  final Map<String, dynamic>? originalData;
 
   PatientModel({
     required this.name,
     required this.age,
     required this.phone,
     required this.initials,
+    this.originalData,
   });
 }
 
@@ -448,7 +450,7 @@ class _CustomSpeedDialState extends State<CustomSpeedDial>
 class SearchOverlay extends StatefulWidget {
   final List<dynamic>? patients;
   final VoidCallback? onNewPatient;
-  final VoidCallback? onBookAppointment;
+  final Function(Map<String, dynamic>?)? onBookAppointment;
 
   const SearchOverlay({Key? key, this.patients, this.onNewPatient, this.onBookAppointment}) : super(key: key);
 
@@ -493,7 +495,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
               initials = parts.map((part) => part[0].toUpperCase()).join('');
             }
           }
-          return PatientModel(name: name, age: '${age}y', phone: phone, initials: initials);
+          return PatientModel(name: name, age: '${age}y', phone: phone, initials: initials, originalData: p);
         })
         .where((p) => p.name.toLowerCase().contains(query) || p.phone.contains(query))
         .toList();
@@ -602,7 +604,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                           onTap: () {
                             Navigator.of(context).pop();
                             if (widget.onBookAppointment != null) {
-                              widget.onBookAppointment!();
+                              widget.onBookAppointment!(null);
                             }
                           },
                         ),
@@ -643,8 +645,6 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   ),
                   child: Row(
                     children: [
-                      _buildShortcutHint('/', 'to search'),
-                      const SizedBox(width: 24),
                       _buildShortcutHint('Esc', 'to close'),
                     ],
                   ),
@@ -763,7 +763,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
             onPressed: () {
               Navigator.of(context).pop();
               if (widget.onBookAppointment != null) {
-                widget.onBookAppointment!();
+                widget.onBookAppointment!(patient.originalData);
               }
             },
             style: ElevatedButton.styleFrom(

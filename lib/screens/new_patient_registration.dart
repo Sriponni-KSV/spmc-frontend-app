@@ -180,6 +180,110 @@ class _NewPatientRegistrationViewState
     super.dispose();
   }
 
+  bool _hasFormChanges() {
+    if (widget.existingPatient != null) {
+      final p = widget.existingPatient!;
+      final bool basicInfoChanged = _nameController.text != p.name ||
+          _dobController.text != p.dob ||
+          _ageController.text != (p.age > 0 ? p.age.toString() : '') ||
+          _phoneController.text != p.phone ||
+          _emailController.text != p.email ||
+          _addressController.text != p.address ||
+          _addressLine2Controller.text != p.addressLine2 ||
+          _selectedDistrict != (p.district.isNotEmpty ? p.district : null) ||
+          _pincodeController.text != p.pincode ||
+          _selectedGender != p.gender;
+
+      final bool emergencyContactChanged = _emergencyContactNameController.text != p.emergencyContactName ||
+          _emergencyContactRelationController.text != p.emergencyContactRelation ||
+          _emergencyContactPhoneController.text != p.emergencyContactPhone;
+
+      final bool vitalsChanged = _bpSystolicController.text != (p.bpSystolic > 0 ? p.bpSystolic.toString() : '') ||
+          _bpDiastolicController.text != (p.bpDiastolic > 0 ? p.bpDiastolic.toString() : '') ||
+          _sugarController.text != (p.sugar > 0 ? p.sugar.toString() : '') ||
+          _tempController.text != (p.temp > 0 ? p.temp.toString() : '') ||
+          _heightController.text != (p.height > 0 ? p.height.toString() : '') ||
+          _weightController.text != (p.weight > 0 ? p.weight.toString() : '') ||
+          _bloodGroupController.text != p.bloodGroup ||
+          _allergiesController.text != p.allergies ||
+          _chronicConditionsController.text != p.chronicConditions ||
+          _complaintsController.text != p.complaints ||
+          _historyController.text != p.history;
+
+      final bool lifestyleChanged = _smokingStatus != ((p.smokingStatus == 'No' || p.smokingStatus.isEmpty) ? 'Never' : p.smokingStatus) ||
+          _alcoholStatus != ((p.alcoholStatus == 'No' || p.alcoholStatus.isEmpty) ? 'Never' : p.alcoholStatus) ||
+          _occupationController.text != p.occupation ||
+          _hobbiesController.text != p.hobbies ||
+          _foodHabitsController.text != p.foodHabits ||
+          _physicalActivityController.text != p.physicalActivity;
+
+      return basicInfoChanged || emergencyContactChanged || vitalsChanged || lifestyleChanged;
+    } else {
+      return _nameController.text.trim().isNotEmpty ||
+          _dobController.text.trim().isNotEmpty ||
+          _ageController.text.trim().isNotEmpty ||
+          _phoneController.text.trim().isNotEmpty ||
+          _emailController.text.trim().isNotEmpty ||
+          _addressController.text.trim().isNotEmpty ||
+          _addressLine2Controller.text.trim().isNotEmpty ||
+          _selectedDistrict != null ||
+          _pincodeController.text.trim().isNotEmpty ||
+          _selectedGender != null ||
+          _emergencyContactNameController.text.trim().isNotEmpty ||
+          _bpSystolicController.text.trim().isNotEmpty ||
+          _bpDiastolicController.text.trim().isNotEmpty ||
+          _sugarController.text.trim().isNotEmpty ||
+          _tempController.text.trim().isNotEmpty ||
+          _heightController.text.trim().isNotEmpty ||
+          _weightController.text.trim().isNotEmpty ||
+          _bloodGroupController.text.trim().isNotEmpty ||
+          _allergiesController.text.trim().isNotEmpty ||
+          _chronicConditionsController.text.trim().isNotEmpty ||
+          _complaintsController.text.trim().isNotEmpty ||
+          _historyController.text.trim().isNotEmpty ||
+          _smokingStatus != null ||
+          _alcoholStatus != null ||
+          _occupationController.text.trim().isNotEmpty ||
+          _hobbiesController.text.trim().isNotEmpty ||
+          _foodHabitsController.text.trim().isNotEmpty ||
+          _physicalActivityController.text.trim().isNotEmpty;
+    }
+  }
+
+  void _showDiscardDialog() {
+    if (!_hasFormChanges()) {
+      widget.onBack();
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard Changes?'),
+        content: const Text(
+          'You have unsaved changes. Are you sure you want to discard them and go back?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              widget.onBack();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerColor,
+            ),
+            child: const Text('Discard', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
@@ -201,7 +305,7 @@ class _NewPatientRegistrationViewState
             children: [
               // Back Button & Header
               InkWell(
-                onTap: widget.onBack,
+                onTap: _showDiscardDialog,
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -734,67 +838,34 @@ class _NewPatientRegistrationViewState
 
             // Action Buttons
             if (isMobile)
-              Column(
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.description_outlined, size: 18),
-                      label: const Text('Save as Draft'),
-                      style: AppTheme.outlinedButton.copyWith(
-                        minimumSize: MaterialStateProperty.all(const Size(0, 52)),
-                      ),
-                    ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (_formKeyStep1.currentState!.validate()) {
+                      setState(() => _currentStep = 2);
+                    }
+                  },
+                  style: AppTheme.logoRedButton.copyWith(
+                    minimumSize: MaterialStateProperty.all(const Size(0, 52)),
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (_formKeyStep1.currentState!.validate()) {
-                          setState(() => _currentStep = 2);
-                        }
-                      },
-                      style: AppTheme.logoRedButton.copyWith(
-                        minimumSize: MaterialStateProperty.all(const Size(0, 52)),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Next',
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Next',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          SizedBox(width: 12),
-                          Icon(Icons.arrow_forward_rounded, size: 18),
-                        ],
-                      ),
-                    ),
+                      SizedBox(width: 12),
+                      Icon(Icons.arrow_forward_rounded, size: 18),
+                    ],
                   ),
-                ],
+                ),
               )
             else
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.description_outlined, size: 18),
-                    label: const Text('Save as Draft'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF4A5568),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 20,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      minimumSize: const Size(0, 52),
-                    ),
-                  ),
                   ElevatedButton(
                     onPressed: () {
                       if (_formKeyStep1.currentState!.validate()) {
@@ -1285,45 +1356,22 @@ class _NewPatientRegistrationViewState
             if (isMobile)
               Column(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => setState(() => _currentStep = 1),
-                          icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                          label: const Text('Back'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF4A5568),
-                            side: const BorderSide(color: Color(0xFFE2E8F0)),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            minimumSize: const Size(0, 52),
-                          ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => setState(() => _currentStep = 1),
+                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                      label: const Text('Back'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF4A5568),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
+                        minimumSize: const Size(0, 52),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(
-                            Icons.description_outlined,
-                            size: 18,
-                          ),
-                          label: const Text('Save'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF4A5568),
-                            side: const BorderSide(color: Color(0xFFE2E8F0)),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            minimumSize: const Size(0, 52),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
@@ -1365,24 +1413,6 @@ class _NewPatientRegistrationViewState
                     onPressed: () => setState(() => _currentStep = 1),
                     icon: const Icon(Icons.arrow_back_rounded, size: 18),
                     label: const Text('Back'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF4A5568),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 20,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      minimumSize: const Size(0, 52),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.description_outlined, size: 18),
-                    label: const Text('Save as Draft'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF4A5568),
                       side: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -1615,45 +1645,22 @@ class _NewPatientRegistrationViewState
             if (isMobile)
               Column(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => setState(() => _currentStep = 2),
-                          icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                          label: const Text('Back'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF4A5568),
-                            side: const BorderSide(color: Color(0xFFE2E8F0)),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            minimumSize: const Size(0, 52),
-                          ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => setState(() => _currentStep = 2),
+                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                      label: const Text('Back'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF4A5568),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
+                        minimumSize: const Size(0, 52),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(
-                            Icons.description_outlined,
-                            size: 18,
-                          ),
-                          label: const Text('Save as Draft'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF4A5568),
-                            side: const BorderSide(color: Color(0xFFE2E8F0)),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            minimumSize: const Size(0, 52),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
@@ -1689,24 +1696,6 @@ class _NewPatientRegistrationViewState
                     onPressed: () => setState(() => _currentStep = 2),
                     icon: const Icon(Icons.arrow_back_rounded, size: 18),
                     label: const Text('Back'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF4A5568),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 20,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      minimumSize: const Size(0, 52),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.description_outlined, size: 18),
-                    label: const Text('Save as Draft'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF4A5568),
                       side: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -2126,42 +2115,22 @@ class _NewPatientRegistrationViewState
           if (isMobile)
             Column(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => setState(() => _currentStep = 3),
-                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                        label: const Text('Back'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF4A5568),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          minimumSize: const Size(0, 52),
-                        ),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => setState(() => _currentStep = 3),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                    label: const Text('Back'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF4A5568),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      minimumSize: const Size(0, 52),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.description_outlined, size: 18),
-                        label: const Text('Save as Draft'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF4A5568),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          minimumSize: const Size(0, 52),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
@@ -2201,24 +2170,6 @@ class _NewPatientRegistrationViewState
                   onPressed: () => setState(() => _currentStep = 3),
                   icon: const Icon(Icons.arrow_back_rounded, size: 18),
                   label: const Text('Back'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF4A5568),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 20,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    minimumSize: const Size(0, 52),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.description_outlined, size: 18),
-                  label: const Text('Save as Draft'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF4A5568),
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -2464,10 +2415,55 @@ class _NewPatientRegistrationViewState
     );
   }
 
+  void _validateVitals() {
+    final sysText = _bpSystolicController.text.trim();
+    final diaText = _bpDiastolicController.text.trim();
+    final sugarText = _sugarController.text.trim();
+    final tempText = _tempController.text.trim();
+    final heightText = _heightController.text.trim();
+    final weightText = _weightController.text.trim();
+
+    if (sysText.isNotEmpty) {
+      final val = int.tryParse(sysText);
+      if (val == null) throw 'BP Systolic must be an integer';
+      if (val == 0) throw 'BP Systolic cannot be 0';
+      if (val < 90 || val > 300) throw 'BP Systolic must be between 90 and 300 mmHg';
+    }
+    if (diaText.isNotEmpty) {
+      final val = int.tryParse(diaText);
+      if (val == null) throw 'BP Diastolic must be an integer';
+      if (val == 0) throw 'BP Diastolic cannot be 0';
+      if (val < 50 || val > 180) throw 'BP Diastolic must be between 50 and 180 mmHg';
+    }
+    if (sugarText.isNotEmpty) {
+      final val = double.tryParse(sugarText);
+      if (val == null) throw 'Sugar Level must be a number';
+      if (val == 0) throw 'Sugar Level cannot be 0';
+      if (val < 30 || val > 600) throw 'Sugar Level must be between 30 and 600 mg/dL';
+    }
+    if (tempText.isNotEmpty) {
+      final val = double.tryParse(tempText);
+      if (val == null) throw 'Temperature must be a number';
+      if (val == 0) throw 'Temperature cannot be 0';
+      if (val < 90 || val > 115) throw 'Temperature must be between 90 and 115 °F';
+    }
+    if (heightText.isNotEmpty) {
+      final val = double.tryParse(heightText);
+      if (val == null) throw 'Height must be a number';
+      if (val == 0) throw 'Height cannot be 0';
+    }
+    if (weightText.isNotEmpty) {
+      final val = double.tryParse(weightText);
+      if (val == null) throw 'Weight must be a number';
+      if (val == 0) throw 'Weight cannot be 0';
+    }
+  }
+
   Future<void> _submitPatientData() async {
     setState(() => _isSubmitting = true);
 
     try {
+      _validateVitals();
       if (_nameController.text.trim().isEmpty ||
           _dobController.text.trim().isEmpty ||
           _phoneController.text.trim().isEmpty ||

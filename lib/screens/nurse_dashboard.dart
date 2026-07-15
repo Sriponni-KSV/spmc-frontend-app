@@ -31,12 +31,16 @@ class NurseDashboardScreen extends StatefulWidget {
   final bool isRegisteringPatient;
   final bool forceBooking;
   final PatientModel? existingPatient;
+  final PatientModel? viewPatient;
+  final bool isEditingProfile;
   const NurseDashboardScreen({
     Key? key,
     this.initialIndex = 0,
     this.isRegisteringPatient = false,
     this.forceBooking = false,
     this.existingPatient,
+    this.viewPatient,
+    this.isEditingProfile = false,
   }) : super(key: key);
 
   @override
@@ -47,6 +51,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   int _selectedIndex = 0;
   bool _isRegisteringPatient = false;
   PatientModel? _patientToComplete;
+  PatientModel? _viewPatient;
   bool _forceBookingForm = false;
   PatientModel? _selectedPatientForBooking;
   UserModel? _selectedDoctorForBooking;
@@ -78,6 +83,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     _selectedIndex = widget.initialIndex;
     _isRegisteringPatient = widget.isRegisteringPatient;
     _patientToComplete = widget.existingPatient;
+    _viewPatient = widget.viewPatient;
     _forceBookingForm = widget.forceBooking;
     _fetchData();
   }
@@ -88,11 +94,13 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     if (widget.initialIndex != oldWidget.initialIndex ||
         widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
         widget.forceBooking != oldWidget.forceBooking ||
-        widget.existingPatient != oldWidget.existingPatient) {
+        widget.existingPatient != oldWidget.existingPatient ||
+        widget.viewPatient != oldWidget.viewPatient) {
       setState(() {
         _selectedIndex = widget.initialIndex;
         _isRegisteringPatient = widget.isRegisteringPatient;
         _patientToComplete = widget.existingPatient;
+        _viewPatient = widget.viewPatient;
         _forceBookingForm = widget.forceBooking;
       });
     }
@@ -309,7 +317,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return SearchOverlay(
           patients: _dbPatients.map((p) => p.toJson()).toList(),
           onNewPatient: () => _changePage(1, isRegistering: true),
-          onBookAppointment: () => _changePage(2, forceBooking: true),
+          onBookAppointment: (patientMap) {
+            if (patientMap != null) {
+              setState(() => _selectedPatientForBooking = PatientModel.fromJson(patientMap));
+            }
+            _changePage(2, forceBooking: true);
+          },
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -405,6 +418,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             patients: _dbPatients,
             isLoading: _isLoadingPatients,
             error: _patientError,
+            initialSelectedPatient: _viewPatient,
             onRegisterPatient: () => _changePage(1, isRegistering: true),
             onCompleteProfile: (patient) {
               context.go(AppRoutes.nurseEditPatient, extra: patient);
@@ -441,7 +455,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           },
         );
       case 4:
-        return const NurseProfileView();
+        return NurseProfileView(isEditing: widget.isEditingProfile);
       case 5:
         return OPDManagementScreen(isMobile: isMobile, title: 'OPD Assistance');
       case 6:
@@ -726,40 +740,33 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         ],
 
         Expanded(
-          child: Container(
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: TextFormField(
-              textAlignVertical: TextAlignVertical.center,
-              style: const TextStyle(color: AppTheme.textPrimaryColor),
-              decoration: InputDecoration(
-                isCollapsed: true,
-                hintText: 'Search anything...',
-                hintStyle: const TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textSecondaryColor,
-                ),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  size: 18,
-                  color: AppTheme.textSecondaryColor,
-                ),
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
-                ),
-                fillColor: Colors.transparent,
-                filled: true,
-                contentPadding: const EdgeInsets.only(top: 2),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
+          child: InkWell(
+            onTap: _showSearchOverlay,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
               ),
-              readOnly: true,
-              onTap: _showSearchOverlay,
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.search,
+                    size: 18,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Search anything...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

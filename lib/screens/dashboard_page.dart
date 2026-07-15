@@ -28,7 +28,12 @@ import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
   final int initialIndex;
-  const DashboardScreen({Key? key, this.initialIndex = 0}) : super(key: key);
+  final bool isEditingProfile;
+  const DashboardScreen({
+    Key? key,
+    this.initialIndex = 0,
+    this.isEditingProfile = false,
+  }) : super(key: key);
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -108,6 +113,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    _isEditingProfile = widget.isEditingProfile;
     _initControllers();
     _fetchDoctorData();
     _fetchLabReports();
@@ -120,9 +126,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void didUpdateWidget(covariant DashboardScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialIndex != oldWidget.initialIndex) {
+    if (widget.initialIndex != oldWidget.initialIndex || widget.isEditingProfile != oldWidget.isEditingProfile) {
       setState(() {
         _selectedIndex = widget.initialIndex;
+        _isEditingProfile = widget.isEditingProfile;
         _activeAppointment = null;
       });
     }
@@ -1824,7 +1831,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           context,
           listen: false,
         ).updateUser(updatedUser);
-        setState(() => _isEditingProfile = false);
+        setState(() {});
+        GoRouter.of(context).go(AppRoutes.doctorProfile);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -1885,7 +1893,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
-                      onPressed: () => setState(() => _isEditingProfile = true),
+                      onPressed: () => GoRouter.of(context).go(AppRoutes.doctorProfileEdit),
                       icon: const Icon(
                         Icons.edit_outlined,
                         size: 18,
@@ -1922,7 +1930,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                     ElevatedButton.icon(
-                      onPressed: () => setState(() => _isEditingProfile = true),
+                      onPressed: () => GoRouter.of(context).go(AppRoutes.doctorProfileEdit),
                       icon: const Icon(
                         Icons.edit_outlined,
                         size: 18,
@@ -2398,7 +2406,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               InkWell(
-                onTap: () => setState(() => _isEditingProfile = false),
+                onTap: () => GoRouter.of(context).go(AppRoutes.doctorProfile),
                 borderRadius: BorderRadius.circular(8),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
@@ -3113,7 +3121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OutlinedButton(
-                    onPressed: () => setState(() => _isEditingProfile = false),
+                    onPressed: () => GoRouter.of(context).go(AppRoutes.doctorProfile),
                     style: AppTheme.cancelButton.copyWith(
                       minimumSize: MaterialStateProperty.all(
                         const Size(120, 48),

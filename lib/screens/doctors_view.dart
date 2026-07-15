@@ -250,26 +250,26 @@ class _DoctorsViewState extends State<DoctorsView> {
                         ),
                       )
                     else
-                      Wrap(
-                        spacing: 24,
-                        runSpacing: 24,
-                        children: filteredDoctors.map((doc) {
-                          double cardWidth;
-                          if (isMobile) {
-                            cardWidth = MediaQuery.of(context).size.width - (isMobile ? 32 : 48);
-                          } else {
-                            final screenWidth = MediaQuery.of(context).size.width - 260 - 48; // Sidebar + Screen Padding
-                            if (screenWidth > 1200) {
-                              cardWidth = (screenWidth - (2 * 24)) / 3;
-                            } else {
-                              cardWidth = (screenWidth - 24) / 2;
-                            }
-                          }
-                          return SizedBox(
-                            width: cardWidth,
-                            child: _buildDoctorCard(doc, isMobile),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final availableWidth = constraints.maxWidth;
+                          return Wrap(
+                            spacing: 24,
+                            runSpacing: 24,
+                            children: filteredDoctors.map((doc) {
+                              double cardWidth;
+                              if (isMobile) {
+                                cardWidth = availableWidth;
+                              } else {
+                                cardWidth = (availableWidth - (2 * 24) - 2) / 3;
+                              }
+                              return SizedBox(
+                                width: cardWidth,
+                                child: _buildDoctorCard(doc, isMobile),
+                              );
+                            }).toList(),
                           );
-                        }).toList(),
+                        },
                       ),
                     const SizedBox(height: 40),
                   ],

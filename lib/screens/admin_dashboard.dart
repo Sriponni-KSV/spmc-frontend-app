@@ -269,7 +269,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return SearchOverlay(
           patients: _dbPatients.map((p) => p.toJson()).toList(),
           onNewPatient: () => context.go('${AppRoutes.adminDashboard}?tab=2'),
-          onBookAppointment: () => context.go('${AppRoutes.adminDashboard}?tab=4'),
+          onBookAppointment: (_) => context.go('${AppRoutes.adminDashboard}?tab=4'),
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {

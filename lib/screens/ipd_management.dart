@@ -12,6 +12,8 @@ import '../providers/auth_provider.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'ipd_patient_detail_page.dart';
 import '../controllers/nurse_shift_controller.dart';
+import 'package:go_router/go_router.dart';
+import '../core/routes/route_constants.dart';
 
 class IPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -848,17 +850,11 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   List<Widget> _buildNurseAdmissionActions(Map<String, dynamic> adm) {
     return [
       ElevatedButton.icon(
-        onPressed: () async {
-          final refreshed = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => IPDPatientDetailPage(admission: adm),
-            ),
+        onPressed: () {
+          GoRouter.of(context).go(
+            AppRoutes.nurseIpdMonitoring,
+            extra: adm,
           );
-
-          if (refreshed == true) {
-            _loadData();
-          }
         },
         icon: const Icon(Icons.edit_note, size: 16, color: Colors.white),
         label: const Text(
