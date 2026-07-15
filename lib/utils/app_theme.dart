@@ -241,6 +241,7 @@ class AppTheme {
       fillColor: const Color(0xFFF1F5F9),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       labelStyle: const TextStyle(color: textSecondaryColor, fontSize: 14),
+      errorMaxLines: 2,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide.none,
@@ -263,6 +264,7 @@ class AppTheme {
       ),
     );
   }
+
 
   // ── Card Decoration ───────────────────────────────────────────────────────
   static BoxDecoration cardDecoration = BoxDecoration(

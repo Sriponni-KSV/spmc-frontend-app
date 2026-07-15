@@ -80,6 +80,8 @@ class _PatientsViewState extends State<PatientsView> {
       context.go('/nurse/patients/view', extra: patient);
     } else if (path.startsWith('/reception')) {
       context.go('/reception/patients/view', extra: patient);
+    } else if (path.startsWith('/admin')) {
+      context.go('/admin/patients/view', extra: patient);
     } else {
       setState(() => _selectedPatient = patient);
     }
@@ -91,6 +93,8 @@ class _PatientsViewState extends State<PatientsView> {
       context.go('/nurse/patients');
     } else if (path == '/reception/patients/view') {
       context.go('/reception/patients');
+    } else if (path == '/admin/patients/view') {
+      context.go('/admin/patients');
     } else {
       setState(() => _selectedPatient = null);
     }

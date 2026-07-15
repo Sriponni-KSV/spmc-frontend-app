@@ -557,6 +557,7 @@ class _AdminAppointmentManagementState
                         TextFormField(
                           controller: reasonCtrl,
                           maxLines: 3,
+                          maxLength: 100,
                           decoration: InputDecoration(
                             hintText: 'Enter reason for this override',
                             errorText: reasonError,

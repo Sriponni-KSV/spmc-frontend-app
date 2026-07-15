@@ -11,7 +11,11 @@ class AppRoutes {
   // Admin Routes
   static const String adminDashboard = '/admin/dashboard';
   static const String adminUsers = '/admin/staff-management';
+  static const String adminViewStaff = '/admin/staff-management/view';
   static const String adminPatients = '/admin/patients';
+  static const String adminNewPatient = '/admin/patients/new-patient';
+  static const String adminEditPatient = '/admin/patients/edit';
+  static const String adminViewPatient = '/admin/patients/view';
   static const String adminSettings = '/admin/access-control';
   static const String adminAppointments = '/admin/appointments';
   static const String adminOpd = '/admin/opd-management';

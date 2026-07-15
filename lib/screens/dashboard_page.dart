@@ -614,14 +614,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Focus(
       focusNode: _mainFocusNode,
       autofocus: true,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            event.logicalKey == LogicalKeyboardKey.slash) {
-          _showSearchOverlay();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         drawer: isMobile ? Drawer(child: _buildSidebar(isMobile)) : null,
@@ -3596,40 +3588,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
 
         Expanded(
-          child: Container(
-            height: 40,
-            constraints: const BoxConstraints(maxWidth: 400),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: TextFormField(
-              textAlignVertical: TextAlignVertical.center,
-              decoration: InputDecoration(
-                isCollapsed: true,
-                hintText: isMobile ? 'Search...' : 'Quick search...',
-                hintStyle: const TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textSecondaryColor,
-                ),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  size: 18,
-                  color: AppTheme.textSecondaryColor,
-                ),
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
-                ),
-                fillColor: Colors.transparent,
-                filled: true,
-                contentPadding: const EdgeInsets.only(top: 2),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
+          child: InkWell(
+            onTap: _showSearchOverlay,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              height: 40,
+              constraints: const BoxConstraints(maxWidth: 400),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
               ),
-              readOnly: true,
-              onTap: _showSearchOverlay,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.search,
+                    size: 18,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isMobile ? 'Search...' : 'Quick search...',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

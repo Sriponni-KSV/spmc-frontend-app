@@ -596,18 +596,18 @@ class _SearchOverlayState extends State<SearchOverlay> {
                             }
                           },
                         ),
-                        const SizedBox(height: 12),
-                        _buildQuickAction(
-                          icon: Icons.calendar_month_outlined,
-                          label: 'Book Appointment',
-                          color: AppTheme.primaryColor,
-                          onTap: () {
-                            Navigator.of(context).pop();
-                            if (widget.onBookAppointment != null) {
+                        if (widget.onBookAppointment != null) ...[
+                          const SizedBox(height: 12),
+                          _buildQuickAction(
+                            icon: Icons.calendar_month_outlined,
+                            label: 'Book Appointment',
+                            color: AppTheme.primaryColor,
+                            onTap: () {
+                              Navigator.of(context).pop();
                               widget.onBookAppointment!(null);
-                            }
-                          },
-                        ),
+                            },
+                          ),
+                        ],
 
                         const SizedBox(height: 32),
                         _buildSectionTitle('Patients (${displayPatients.length})'),
@@ -759,27 +759,26 @@ class _SearchOverlayState extends State<SearchOverlay> {
               ],
             ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              if (widget.onBookAppointment != null) {
+          if (widget.onBookAppointment != null)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
                 widget.onBookAppointment!(patient.originalData);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(80, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(80, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              child: const Text(
+                'Book',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
             ),
-            child: const Text(
-              'Book',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-            ),
-          ),
         ],
       ),
     );

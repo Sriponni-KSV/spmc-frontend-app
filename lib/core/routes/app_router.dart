@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/patient_model.dart';
+import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../screens/admin_dashboard.dart';
 import '../../screens/dashboard_page.dart'; // Doctor Dashboard
@@ -167,10 +168,51 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.adminViewStaff,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(
+              initialIndex: 1,
+              viewingStaffProfile: state.extra as UserModel?,
+            ),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.adminPatients,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('admin_dashboard'),
             child: AdminDashboardScreen(initialIndex: 2),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminNewPatient,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(
+              initialIndex: 2,
+              isRegisteringPatient: true,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminEditPatient,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(
+              initialIndex: 2,
+              isRegisteringPatient: true,
+              existingPatient: state.extra as PatientModel?,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminViewPatient,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(
+              initialIndex: 2,
+              viewPatient: state.extra as PatientModel?,
+            ),
           ),
         ),
         GoRoute(

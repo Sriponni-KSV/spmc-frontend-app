@@ -159,17 +159,19 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                 ),
               ),
               const SizedBox(height: 6),
-              TextFormField(
-                controller: unitCtrl,
-                keyboardType: TextInputType.text,
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]'))],
-                maxLength: 10,
-                decoration: AppTheme.standardInputDecoration(
-                  label: null,
-                  prefixIcon: Icons.square_foot,
-                  hintText: 'Enter unit (e.g. pcs)',
-                ).copyWith(counterText: ''),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Please enter measurement unit' : null,
+              MouseRegion(
+                cursor: SystemMouseCursors.forbidden,
+                child: TextFormField(
+                  controller: unitCtrl,
+                  readOnly: true,
+                  mouseCursor: SystemMouseCursors.forbidden,
+                  decoration: AppTheme.standardInputDecoration(
+                    label: null,
+                    prefixIcon: Icons.square_foot,
+                    hintText: 'Auto-filled from item',
+                  ).copyWith(counterText: ''),
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Please select a stock item' : null,
+                ),
               ),
             ],
           );

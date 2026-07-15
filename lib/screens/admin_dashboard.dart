@@ -36,7 +36,19 @@ import 'inventory_management_view.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final int initialIndex;
-  const AdminDashboardScreen({Key? key, this.initialIndex = 0}) : super(key: key);
+  final bool isRegisteringPatient;
+  final PatientModel? existingPatient;
+  final PatientModel? viewPatient;
+  final UserModel? viewingStaffProfile;
+
+  const AdminDashboardScreen({
+    Key? key,
+    this.initialIndex = 0,
+    this.isRegisteringPatient = false,
+    this.existingPatient,
+    this.viewPatient,
+    this.viewingStaffProfile,
+  }) : super(key: key);
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -64,6 +76,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final PatientController _patientController = PatientController();
   bool _isRegisteringPatient = false;
   PatientModel? _patientToComplete;
+  PatientModel? _viewPatient;
   UserModel? _viewingStaffProfile;
   String _staffSearchQuery = '';
   int _staffCurrentPage = 0;
@@ -184,6 +197,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    _isRegisteringPatient = widget.isRegisteringPatient;
+    _patientToComplete = widget.existingPatient;
+    _viewPatient = widget.viewPatient;
+    _viewingStaffProfile = widget.viewingStaffProfile;
     _loadStaff();
     _loadRbacData();
     _fetchPatients();
@@ -195,11 +212,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void didUpdateWidget(covariant AdminDashboardScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialIndex != oldWidget.initialIndex) {
+    if (widget.initialIndex != oldWidget.initialIndex ||
+        widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
+        widget.existingPatient != oldWidget.existingPatient ||
+        widget.viewPatient != oldWidget.viewPatient ||
+        widget.viewingStaffProfile != oldWidget.viewingStaffProfile) {
       setState(() {
         _selectedIndex = widget.initialIndex;
-        _isRegisteringPatient = false;
-        _viewingStaffProfile = null;
+        _isRegisteringPatient = widget.isRegisteringPatient;
+        _patientToComplete = widget.existingPatient;
+        _viewPatient = widget.viewPatient;
+        _viewingStaffProfile = widget.viewingStaffProfile;
       });
       if (_selectedIndex == 8) {
         _loadShiftData();
@@ -269,7 +292,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return SearchOverlay(
           patients: _dbPatients.map((p) => p.toJson()).toList(),
           onNewPatient: () => context.go('${AppRoutes.adminDashboard}?tab=2'),
-          onBookAppointment: (_) => context.go('${AppRoutes.adminDashboard}?tab=4'),
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -859,14 +881,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Focus(
       focusNode: _mainFocusNode,
       autofocus: true,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            event.logicalKey == LogicalKeyboardKey.slash) {
-          _showSearchOverlay();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
@@ -901,7 +915,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (_viewingStaffProfile != null) {
       return AdminStaffProfileView(
         user: _viewingStaffProfile!,
-        onBack: () => setState(() => _viewingStaffProfile = null),
+        onBack: () {
+          setState(() => _viewingStaffProfile = null);
+          context.go(AppRoutes.adminUsers);
+        },
       );
     }
 
@@ -931,11 +948,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 2:
         if (user?.hasPermission('view_patients') ?? false) {
           return AdminPatientManagementWrapper(
-            onRegister: () => setState(() => _isRegisteringPatient = true),
-            onCompleteProfile: (patient) => setState(() {
-              _patientToComplete = patient;
-              _isRegisteringPatient = true;
-            }),
+            onRegister: () => context.go(AppRoutes.adminNewPatient),
+            onCompleteProfile: (patient) => context.go(
+              AppRoutes.adminEditPatient,
+              extra: patient,
+            ),
+            viewPatient: _viewPatient,
           );
         }
         return const AccessDeniedWidget();
@@ -1807,8 +1825,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       size: 18,
                                       color: AppTheme.primaryColor,
                                     ),
-                                    onPressed: () => setState(
-                                      () => _viewingStaffProfile = user,
+                                    onPressed: () => context.go(
+                                      AppRoutes.adminViewStaff,
+                                      extra: user,
                                     ),
                                   ),
                                   if (user.role != 'Super Admin') ...[
@@ -2120,8 +2139,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton.icon(
-                    onPressed: () =>
-                        setState(() => _viewingStaffProfile = user),
+                    onPressed: () => context.go(
+                      AppRoutes.adminViewStaff,
+                      extra: user,
+                    ),
                     icon: const Icon(Icons.visibility_outlined, size: 18),
                     label: const Text('View'),
                   ),
@@ -2323,7 +2344,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildSidebarItem(int index, IconData icon, String label) {
-    bool isSelected = _selectedIndex == index && !_isRegisteringPatient;
+    bool isSelected = (_selectedIndex == index && !_isRegisteringPatient) ||
+                      (_isRegisteringPatient && index == 2);
     return InkWell(
       onTap: () {
         switch (index) {
@@ -2416,41 +2438,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
 
         Expanded(
-          child: Container(
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: TextFormField(
-              textAlignVertical: TextAlignVertical.center,
-              decoration: InputDecoration(
-                isCollapsed: true,
-                hintText: isMobile ? 'Search...' : 'Quick search...',
-                hintStyle: const TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textSecondaryColor,
-                ),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  size: 18,
-                  color: AppTheme.textSecondaryColor,
-                ),
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
-                ),
-                suffixText: isMobile ? null : '/',
-                suffixStyle: const TextStyle(color: AppTheme.iconColor),
-                fillColor: Colors.transparent,
-                filled: true,
-                contentPadding: const EdgeInsets.only(top: 2),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
+          child: InkWell(
+            onTap: _showSearchOverlay,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
               ),
-              readOnly: true,
-              onTap: _showSearchOverlay,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.search,
+                    size: 18,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isMobile ? 'Search...' : 'Quick search...',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -2575,7 +2589,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       Icons.people_alt_outlined,
       AppTheme.primaryColor,
       isMobile,
-      () => setState(() => _selectedIndex = 1),
+      () => context.go(AppRoutes.adminUsers),
     );
 
     final card2 = _buildStatCard(
@@ -2585,7 +2599,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       Icons.monitor_heart_outlined,
       AppTheme.secondaryColor,
       isMobile,
-      () => setState(() => _selectedIndex = 1),
+      () => context.go(AppRoutes.adminUsers),
     );
 
     final card3 = _buildStatCard(
@@ -2605,7 +2619,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       Icons.security_outlined,
       securityColor,
       isMobile,
-      () => setState(() => _selectedIndex = 3),
+      () => context.go(AppRoutes.adminSettings),
     );
 
     if (isMobile) {
@@ -5069,9 +5083,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 children: [
                   TextField(
                     controller: nameCtrl,
+                    maxLength: 20,
                     decoration: const InputDecoration(
                       labelText: 'Shift Name',
                       hintText: 'e.g., Morning, Evening, Night',
+                      counterText: '',
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -6014,11 +6030,13 @@ class _AddUserDialogState extends State<AddUserDialog> {
 class AdminPatientManagementWrapper extends StatefulWidget {
   final VoidCallback onRegister;
   final Function(PatientModel) onCompleteProfile;
+  final PatientModel? viewPatient;
 
   const AdminPatientManagementWrapper({
     Key? key,
     required this.onRegister,
     required this.onCompleteProfile,
+    this.viewPatient,
   }) : super(key: key);
 
   @override
@@ -6060,6 +6078,7 @@ class _AdminPatientManagementWrapperState
       patients: _dbPatients,
       isLoading: _isLoading,
       error: _error,
+      initialSelectedPatient: widget.viewPatient,
       onCompleteProfile: widget.onCompleteProfile,
       onRefresh: _fetchPatients,
       onRegisterPatient: widget.onRegister,

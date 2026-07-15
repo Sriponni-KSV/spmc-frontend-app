@@ -82,44 +82,61 @@
     };
   </script>
   <script>
-    // ─── WebGL Context Loss Auto-Recovery ────────────────────────────────
-    // Flutter 3.22+ CanvasKit throws LateInitializationError when the browser
-    // loses the WebGL context (happens on hot restart in dev mode).
-    // This intercepts the event and auto-reloads the page to recover cleanly.
+    // ─── Flutter CanvasKit Hot-Restart Fix ───────────────────────────────────
+    // Root cause: During hot restart Flutter's compiled JS still holds a
+    // reference to a Dart "Surface" object whose late field
+    // _handledContextLostEvent has not yet been initialized in the new isolate.
+    // When the browser fires webglcontextlost the old JS callback tries to
+    // access that field and throws LateInitializationError.
+    //
+    // Solution: Override EventTarget.prototype.addEventListener so that every
+    // webglcontextlost listener Flutter registers is automatically wrapped in a
+    // try-catch. If the Dart error surfaces at the JS boundary we catch it and
+    // do a clean page reload instead of crashing.
+    // ─────────────────────────────────────────────────────────────────────────
     (function () {
-      var _patched = false;
-      function patchCanvas(canvas) {
-        if (!canvas || canvas.__ctxLossPatch) return;
-        canvas.__ctxLossPatch = true;
-        canvas.addEventListener('webglcontextlost', function (e) {
-          e.preventDefault();
-          console.warn('[Flutter] WebGL context lost — reloading page to recover…');
-          setTimeout(function () { window.location.reload(); }, 300);
-        }, false);
-      }
+      var _origAdd = EventTarget.prototype.addEventListener;
 
-      // Patch any canvas created after this script runs
-      var _origGetContext = HTMLCanvasElement.prototype.getContext;
-      HTMLCanvasElement.prototype.getContext = function (type, opts) {
-        var ctx = _origGetContext.apply(this, arguments);
-        if (type && type.startsWith('webgl')) patchCanvas(this);
-        return ctx;
+      EventTarget.prototype.addEventListener = function (type, listener, options) {
+        if (type === 'webglcontextlost' && typeof listener === 'function') {
+          var _dart = listener;
+          listener = function (e) {
+            try {
+              return _dart.call(this, e);
+            } catch (err) {
+              if (String(err).indexOf('_handledContextLostEvent') !== -1) {
+                console.warn('[Flutter] Caught _handledContextLostEvent in webglcontextlost handler — reloading…');
+                e.preventDefault();
+                setTimeout(function () { window.location.reload(); }, 50);
+              } else {
+                throw err;
+              }
+            }
+          };
+        }
+        return _origAdd.call(this, type, listener, options);
       };
 
-      // Also watch for dynamically added canvases (CanvasKit creates them late)
-      if (window.MutationObserver) {
-        var observer = new MutationObserver(function (mutations) {
-          mutations.forEach(function (m) {
-            m.addedNodes.forEach(function (node) {
-              if (node.tagName === 'CANVAS') patchCanvas(node);
-              if (node.querySelectorAll) {
-                node.querySelectorAll('canvas').forEach(patchCanvas);
-              }
-            });
-          });
-        });
-        observer.observe(document.documentElement, { childList: true, subtree: true });
-      }
+      // Belt-and-suspenders: also catch at the window error level in case
+      // Flutter dispatches via a non-addEventListener path.
+      window.addEventListener('error', function (e) {
+        if (e && e.message &&
+            e.message.indexOf('_handledContextLostEvent') !== -1) {
+          e.preventDefault();
+          console.warn('[Flutter] Global catch of _handledContextLostEvent — reloading…');
+          window.location.reload();
+          return true;
+        }
+      }, true);
+
+      window.addEventListener('unhandledrejection', function (e) {
+        if (e && e.reason &&
+            String(e.reason).indexOf('_handledContextLostEvent') !== -1) {
+          e.preventDefault();
+          console.warn('[Flutter] Unhandled rejection of _handledContextLostEvent — reloading…');
+          window.location.reload();
+        }
+      });
     })();
   </script>
   <script src="flutter_bootstrap.js" async></script>
