@@ -926,8 +926,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+              color: Colors.transparent,
             ),
             child: Row(
               children: [
@@ -935,7 +934,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                   child: Container(
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppTheme.backgroundColor,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppTheme.borderColor),
                     ),
@@ -965,6 +964,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                               )
                             : null,
                         border: InputBorder.none,
+                        filled: false,
                       ),
                     ),
                   ),

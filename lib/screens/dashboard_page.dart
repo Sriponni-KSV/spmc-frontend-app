@@ -5005,6 +5005,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               )
                             : null,
                         border: InputBorder.none,
+                        filled: false,
                       ),
                     ),
                   ),
