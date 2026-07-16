@@ -12,6 +12,8 @@ import '../controllers/patient_controller.dart';
 import '../models/patient_model.dart';
 import '../models/user_model.dart';
 import '../utils/date_formatter.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 
 class OPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -281,6 +283,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   }
 
   Widget _buildHeader() {
+    final user = Provider.of<AuthProvider>(context).user;
+    final isNurse = user?.role == 'Nurse';
+
     return Container(
       margin: EdgeInsets.fromLTRB(
         widget.isMobile ? 16 : 24,
@@ -341,25 +346,26 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   ),
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => _showWalkInDialog(),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text(
-                    'Walk-in',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppTheme.primaryColor,
-                    elevation: 3,
-                    shadowColor: Colors.black26,
-                    minimumSize: const Size(double.infinity, 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                if (isNurse)
+                  ElevatedButton.icon(
+                    onPressed: () => _showWalkInDialog(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text(
+                      'Walk-in',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppTheme.primaryColor,
+                      elevation: 3,
+                      shadowColor: Colors.black26,
+                      minimumSize: const Size(double.infinity, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                ),
               ],
             )
           : Row(
@@ -400,25 +406,26 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () => _showWalkInDialog(),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text(
-                    widget.isMobile ? 'Walk-in' : 'New Walk-in Entry',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppTheme.primaryColor,
-                    elevation: 3,
-                    shadowColor: Colors.black26,
-                    minimumSize: const Size(120, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                if (isNurse)
+                  ElevatedButton.icon(
+                    onPressed: () => _showWalkInDialog(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(
+                      widget.isMobile ? 'Walk-in' : 'New Walk-in Entry',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppTheme.primaryColor,
+                      elevation: 3,
+                      shadowColor: Colors.black26,
+                      minimumSize: const Size(120, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
     );
