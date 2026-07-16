@@ -31,6 +31,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   String? _error;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _ctrlSearchController = TextEditingController();
   String _ctrlSearchQuery = '';
   String _selectedCtrlCategory = 'All';
   int _ctrlPage = 0;
@@ -52,6 +53,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   void dispose() {
     _tabController?.dispose();
     _searchController.dispose();
+    _ctrlSearchController.dispose();
     for (var c in _qtyControllers.values) {
       c.dispose();
     }
@@ -1582,6 +1584,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
+                        controller: _ctrlSearchController,
                         onChanged: (v) => setState(() {
                           _ctrlSearchQuery = v;
                           _ctrlPage = 0;
@@ -1596,6 +1599,26 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                         ),
                       ),
                     ),
+                    if (_ctrlSearchQuery.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () {
+                            _ctrlSearchController.clear();
+                            setState(() {
+                              _ctrlSearchQuery = '';
+                              _ctrlPage = 0;
+                            });
+                          },
+                          child: const Icon(
+                            Icons.close,
+                            size: 16,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

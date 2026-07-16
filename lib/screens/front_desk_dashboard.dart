@@ -1614,11 +1614,13 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                       TextFormField(
                         controller: _bioController,
                         maxLines: 3,
+                        maxLength: 255,
                         style: const TextStyle(
                           color: AppTheme.textPrimaryColor,
                           fontWeight: FontWeight.normal,
                         ),
                         decoration: InputDecoration(
+                          counterText: '',
                           hintText: 'Share a brief summary of your expertise...',
                           hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
                           fillColor: AppTheme.backgroundColor,

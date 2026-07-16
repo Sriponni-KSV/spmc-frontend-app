@@ -2049,9 +2049,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           hint: '500mg',
                           icon: Icons.scale_outlined,
                           maxLength: 10,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'[0-9a-zA-Z./]')),
-                          ],
+                          readOnly: true,
                         ),
                         const SizedBox(height: 16),
                         _buildPrescriptionField(
@@ -2061,7 +2059,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           icon: Icons.schedule_outlined,
                           maxLength: 7,
                           inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'[0-9a-zA-Z\-]')),
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9\-]')),
                           ],
                         ),
                       ],
@@ -2075,9 +2073,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             hint: '500mg',
                             icon: Icons.scale_outlined,
                             maxLength: 10,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[0-9a-zA-Z./]')),
-                            ],
+                            readOnly: true,
                           ),
                         ),
                         const SizedBox(width: 20),
@@ -2089,7 +2085,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             icon: Icons.schedule_outlined,
                             maxLength: 7,
                             inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[0-9a-zA-Z\-]')),
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9\-]')),
                             ],
                           ),
                         ),
@@ -2120,7 +2116,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           icon: Icons.calendar_today_outlined,
                           maxLength: 10,
                           inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'[0-9a-zA-Z ]')),
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
                           ],
                         ),
                       ],
@@ -2148,7 +2144,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             icon: Icons.calendar_today_outlined,
                             maxLength: 10,
                             inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[0-9a-zA-Z ]')),
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
                             ],
                           ),
                         ),
@@ -2171,9 +2167,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               TextFormField(
                 controller: _instructionsController,
                 maxLines: 5,
+                maxLength: 255,
                 decoration: InputDecoration(
                   hintText: 'Enter special medication instructions...',
                   alignLabelWithHint: true,
+                  counterText: '',
                   prefixIcon: const Padding(
                     padding: EdgeInsets.only(bottom: 90),
                     child: Icon(
@@ -2488,6 +2486,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
     int? maxLength,
+    bool readOnly = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2502,12 +2501,13 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
           maxLength: maxLength,
+          readOnly: readOnly,
           decoration: InputDecoration(
             hintText: hint,
             counterText: maxLength != null ? '' : null,
             prefixIcon: Icon(icon, color: AppTheme.primaryColor, size: 18),
             filled: true,
-            fillColor: Colors.grey.shade50,
+            fillColor: readOnly ? Colors.grey.shade200 : Colors.grey.shade50,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -2515,8 +2515,8 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: AppTheme.primaryColor,
+              borderSide: BorderSide(
+                color: readOnly ? Colors.grey.shade300 : AppTheme.primaryColor,
                 width: 1.5,
               ),
             ),
@@ -3126,8 +3126,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               TextFormField(
                 controller: _noteController,
                 maxLines: 5,
+                maxLength: 255,
                 decoration: InputDecoration(
                   hintText: 'Enter patient progress notes...',
+                  counterText: '',
                   alignLabelWithHint: true,
                   prefixIcon: const Padding(
                     padding: EdgeInsets.only(bottom: 90),
@@ -3177,8 +3179,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               TextFormField(
                 controller: _changesController,
                 maxLines: 3,
+                maxLength: 255,
                 decoration: InputDecoration(
                   hintText: 'Medication updates, dosage changes...',
+                  counterText: '',
                   alignLabelWithHint: true,
                   prefixIcon: const Padding(
                     padding: EdgeInsets.only(bottom: 45),
@@ -3222,8 +3226,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               TextFormField(
                 controller: _obsController,
                 maxLines: 3,
+                maxLength: 255,
                 decoration: InputDecoration(
                   hintText: 'Clinical observations...',
+                  counterText: '',
                   alignLabelWithHint: true,
                   prefixIcon: const Padding(
                     padding: EdgeInsets.only(bottom: 45),
@@ -4427,9 +4433,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         TextFormField(
           controller: controller,
           maxLines: 5,
+          maxLength: 255,
           decoration: InputDecoration(
             hintText: hint,
             alignLabelWithHint: true,
+            counterText: '',
 
             prefixIcon: Padding(
               padding: const EdgeInsets.only(bottom: 90),

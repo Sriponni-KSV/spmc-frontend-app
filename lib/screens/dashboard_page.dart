@@ -29,10 +29,12 @@ import 'dart:async';
 class DashboardScreen extends StatefulWidget {
   final int initialIndex;
   final bool isEditingProfile;
+  final AppointmentModel? activeAppointment;
   const DashboardScreen({
     Key? key,
     this.initialIndex = 0,
     this.isEditingProfile = false,
+    this.activeAppointment,
   }) : super(key: key);
 
   @override
@@ -114,6 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _selectedIndex = widget.initialIndex;
     _isEditingProfile = widget.isEditingProfile;
+    _activeAppointment = widget.activeAppointment;
     _initControllers();
     _fetchDoctorData();
     _fetchLabReports();
@@ -126,11 +129,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void didUpdateWidget(covariant DashboardScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialIndex != oldWidget.initialIndex || widget.isEditingProfile != oldWidget.isEditingProfile) {
+    if (widget.initialIndex != oldWidget.initialIndex ||
+        widget.isEditingProfile != oldWidget.isEditingProfile ||
+        widget.activeAppointment != oldWidget.activeAppointment) {
       setState(() {
         _selectedIndex = widget.initialIndex;
         _isEditingProfile = widget.isEditingProfile;
-        _activeAppointment = null;
+        _activeAppointment = widget.activeAppointment;
       });
     }
   }
@@ -523,11 +528,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
       await _fetchDoctorData();
       if (!mounted) return;
-      setState(
-        () => _activeAppointment = appointment.copyWith(
-          status: 'In Consultation',
-        ),
+      
+      final updatedAppt = appointment.copyWith(
+        status: 'In Consultation',
       );
+      context.go(AppRoutes.doctorDashboardConsultation, extra: updatedAppt);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -544,9 +549,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _resumeConsultation(AppointmentModel appointment) {
     if (!mounted) return;
-    setState(() {
-      _activeAppointment = appointment;
-    });
+    context.go(AppRoutes.doctorDashboardConsultation, extra: appointment);
   }
 
   Future<void> _fetchConsultations() async {
@@ -649,7 +652,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         initialConsultation: existingConsul.isNotEmpty ? existingConsul : null,
         onBack: () {
           setState(() => _activeAppointment = null);
-          context.go(AppRoutes.doctorPatients);
+          if (_selectedIndex == 0) {
+            context.go(AppRoutes.doctorDashboard);
+          } else {
+            context.go(AppRoutes.doctorPatients);
+          }
           _fetchConsultations(); // Refresh after potentially saving/updating
           _fetchDoctorData(); // Refresh appointment list status
           _fetchLabReports(); // Refresh lab reports list to show newly ordered tests instantly
@@ -1597,9 +1604,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               appointmentType: c['appointment_type'] ?? 'Routine',
             );
 
-            setState(() {
-              _activeAppointment = appt;
-            });
+            context.go(AppRoutes.doctorConsultationsEdit, extra: appt);
           },
           child: const Padding(
             padding: EdgeInsets.all(6.0),
@@ -2545,11 +2550,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           TextFormField(
                             controller: _bioController,
                             maxLines: 3,
+                            maxLength: 255,
                             style: const TextStyle(
                               color: AppTheme.textPrimaryColor,
                               fontWeight: FontWeight.normal,
                             ),
                             decoration: InputDecoration(
+                              counterText: '',
                               hintText:
                                   'Share a brief summary of your expertise...',
                               hintStyle: const TextStyle(
@@ -2629,11 +2636,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         TextFormField(
                           controller: _bioController,
                           maxLines: 3,
+                          maxLength: 255,
                           style: const TextStyle(
                             color: AppTheme.textPrimaryColor,
                             fontWeight: FontWeight.normal,
                           ),
                           decoration: InputDecoration(
+                            counterText: '',
                             hintText:
                                 'Share a brief summary of your expertise...',
                             hintStyle: const TextStyle(
@@ -3000,12 +3009,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Clinic / Hospital Name',
                         _clinicNameController,
                         Icons.local_hospital_outlined,
+                        maxLength: 100,
                       ),
                       fieldSpacing,
                       _buildProfileTextField(
                         'Location',
                         _clinicLocationController,
                         Icons.location_on_outlined,
+                        maxLength: 100,
                       ),
                       fieldSpacing,
                       _buildProfileTextField(
@@ -3020,6 +3031,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Clinic / Hospital Name',
                         _clinicNameController,
                         Icons.local_hospital_outlined,
+                        maxLength: 100,
                       ),
                       fieldSpacing,
                       Row(
@@ -3029,6 +3041,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               'Location',
                               _clinicLocationController,
                               Icons.location_on_outlined,
+                              maxLength: 100,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -4849,9 +4862,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               : null;
                           final overdueDuration = est != null ? now.difference(est) : null;
                           final overdueText = overdueDuration != null
-                              ? (overdueDuration.inHours > 0
-                                  ? '${overdueDuration.inHours}h ${overdueDuration.inMinutes.remainder(60)}m overdue'
-                                  : '${overdueDuration.inMinutes}m overdue')
+                              ? (overdueDuration.inHours >= 24
+                                  ? '${overdueDuration.inDays}d ${overdueDuration.inHours.remainder(24)}h overdue'
+                                  : (overdueDuration.inHours > 0
+                                      ? '${overdueDuration.inHours}h ${overdueDuration.inMinutes.remainder(60)}m overdue'
+                                      : '${overdueDuration.inMinutes}m overdue'))
                               : 'Overdue';
 
                           return Container(

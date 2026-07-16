@@ -45,8 +45,11 @@ class AppRoutes {
 
   // Doctor Routes
   static const String doctorDashboard = '/doctor/dashboard';
+  static const String doctorDashboardConsultation = '/doctor/dashboard/consultation';
   static const String doctorPatients = '/doctor/consultations';
   static const String doctorConsultation = '/doctor/consultations';
+  static const String doctorConsultationSession = '/doctor/consultations/session';
+  static const String doctorConsultationsEdit = '/doctor/consultations/edit';
   static const String doctorIpd = '/doctor/ipd-management';
   static const String doctorIpdMonitoring = '/doctor/ipd-management/monitoring';
   static const String doctorProfile = '/doctor/profile';

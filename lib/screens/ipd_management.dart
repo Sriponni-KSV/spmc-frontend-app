@@ -3303,10 +3303,12 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                       TextFormField(
                         controller: finalDiagnosisController,
                         maxLines: 2,
+                        maxLength: 255,
                         decoration: const InputDecoration(
                           hintText: 'Enter final diagnosis',
                           isDense: true,
                           border: OutlineInputBorder(),
+                          counterText: '',
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
@@ -3327,10 +3329,12 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                       TextFormField(
                         controller: treatmentSummaryController,
                         maxLines: 3,
+                        maxLength: 255,
                         decoration: const InputDecoration(
                           hintText: 'Enter treatment summary',
                           isDense: true,
                           border: OutlineInputBorder(),
+                          counterText: '',
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -3345,10 +3349,12 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                       TextFormField(
                         controller: medicationPlanController,
                         maxLines: 3,
+                        maxLength: 255,
                         decoration: const InputDecoration(
                           hintText: 'Enter medication plan',
                           isDense: true,
                           border: OutlineInputBorder(),
+                          counterText: '',
                         ),
                       ),
                       const SizedBox(height: 12),

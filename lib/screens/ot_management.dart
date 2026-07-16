@@ -6416,6 +6416,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       hintText: hintText,
       prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 20) : null,
       suffixIcon: suffixIcon,
+      counterText: '',
       filled: true,
       fillColor: const Color(0xFFF1F5F9),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

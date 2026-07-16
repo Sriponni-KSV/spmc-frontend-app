@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../controllers/ipd_controller.dart';
@@ -874,6 +875,10 @@ class _FrontDeskAdmissionCounterViewState
                             const SizedBox(height: 10),
                             TextFormField(
                               controller: insuranceProviderController,
+                              maxLength: 50,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]')),
+                              ],
                               decoration: _fieldDecoration(
                                   'Insurance Provider',
                                   Icons.health_and_safety_outlined),
@@ -881,6 +886,10 @@ class _FrontDeskAdmissionCounterViewState
                             const SizedBox(height: 10),
                             TextFormField(
                               controller: insurancePolicyNoController,
+                              maxLength: 50,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'[0-9\-/]')),
+                              ],
                               decoration: _fieldDecoration(
                                   'Policy Number', Icons.numbers_outlined),
                             ),
@@ -895,9 +904,13 @@ class _FrontDeskAdmissionCounterViewState
                             const SizedBox(height: 10),
                             TextFormField(
                               controller: advancePaymentController,
+                              maxLength: 10,
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                       decimal: true),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                              ],
                               decoration: _fieldDecoration(
                                   'Amount collected (₹)',
                                   Icons.currency_rupee_outlined),
@@ -1177,6 +1190,7 @@ class _FrontDeskAdmissionCounterViewState
   InputDecoration _fieldDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
+      counterText: '',
       prefixIcon: Icon(icon, size: 18, color: AppTheme.iconColor),
       filled: true,
       fillColor: AppTheme.backgroundColor,

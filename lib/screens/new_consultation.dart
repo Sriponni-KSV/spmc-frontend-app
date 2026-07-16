@@ -717,6 +717,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                         TextFormField(
                           controller: reasonController,
                           maxLines: 3,
+                          maxLength: 100,
                           decoration: InputDecoration(
                             hintText:
                                 'Enter medical reason for IPD admission...',
@@ -724,6 +725,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                               color: Colors.grey.shade400,
                               fontSize: 12,
                             ),
+                            counterText: '',
                             filled: true,
                             fillColor: AppTheme.backgroundColor,
                             border: OutlineInputBorder(
@@ -763,6 +765,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                         TextFormField(
                           controller: diagnosisController,
                           maxLines: 2,
+                          maxLength: 100,
                           decoration: InputDecoration(
                             hintText:
                                 'e.g. Acute Appendicitis, Type 2 Diabetes...',
@@ -770,6 +773,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                               color: Colors.grey.shade400,
                               fontSize: 12,
                             ),
+                            counterText: '',
                             filled: true,
                             fillColor: AppTheme.backgroundColor,
                             border: OutlineInputBorder(
@@ -2208,6 +2212,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         TextFormField(
           controller: controller,
           maxLines: 3,
+          maxLength: 100,
           validator: required
               ? (v) => (v == null || v.trim().isEmpty)
                     ? 'This field is required'
@@ -2215,6 +2220,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               : null,
           decoration: InputDecoration(
             hintText: hint,
+            counterText: '',
             fillColor: AppTheme.backgroundColor,
             filled: true,
             border: OutlineInputBorder(

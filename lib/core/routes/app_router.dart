@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/patient_model.dart';
 import '../../models/user_model.dart';
+import '../../models/appointment_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../screens/admin_dashboard.dart';
 import '../../screens/dashboard_page.dart'; // Doctor Dashboard
@@ -90,6 +91,9 @@ class AppRouter {
           if (!isNurse) {
             return AppRoutes.dashboard;
           }
+          if (path == AppRoutes.nurseIpdMonitoring && state.extra == null) {
+            return AppRoutes.nurseIpd;
+          }
         } else if (path.startsWith('/doctor')) {
           final isDoctor = userRole == 'Doctor' || userRole == 'Anaesthetist';
           if (!isDoctor) {
@@ -97,6 +101,15 @@ class AppRouter {
           }
           if ((path == AppRoutes.doctorDictation || path == AppRoutes.doctorLabReports) && userRole == 'Anaesthetist') {
             return AppRoutes.dashboard;
+          }
+          if (path == AppRoutes.doctorDashboardConsultation && state.extra == null) {
+            return AppRoutes.doctorDashboard;
+          }
+          if (path == AppRoutes.doctorConsultationsEdit && state.extra == null) {
+            return AppRoutes.doctorPatients;
+          }
+          if (path == AppRoutes.doctorIpdMonitoring && state.extra == null) {
+            return AppRoutes.doctorIpd;
           }
         } else if (path.startsWith('/reception')) {
           // Allow reception routes or redirect (in case reception features are merged with Nurse)
@@ -380,7 +393,7 @@ class AppRouter {
           pageBuilder: (context, state) => NoTransitionPage(
             key: const ValueKey('nurse_ipd_monitoring'),
             child: IPDPatientDetailPage(
-              admission: state.extra as Map<String, dynamic>,
+              admission: (state.extra as Map<String, dynamic>?) ?? {},
             ),
           ),
         ),
@@ -461,6 +474,26 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.doctorDashboardConsultation,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('doctor_dashboard'),
+            child: DashboardScreen(
+              initialIndex: 0,
+              activeAppointment: state.extra as AppointmentModel?,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.doctorConsultationsEdit,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('doctor_dashboard'),
+            child: DashboardScreen(
+              initialIndex: 1,
+              activeAppointment: state.extra as AppointmentModel?,
+            ),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.doctorPatients,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('doctor_dashboard'),
@@ -486,7 +519,7 @@ class AppRouter {
           pageBuilder: (context, state) => NoTransitionPage(
             key: const ValueKey('doctor_ipd_monitoring'),
             child: IPDPatientDetailPage(
-              admission: state.extra as Map<String, dynamic>,
+              admission: (state.extra as Map<String, dynamic>?) ?? {},
             ),
           ),
         ),

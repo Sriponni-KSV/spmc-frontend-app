@@ -1580,6 +1580,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 TextFormField(
                   controller: controller,
                   keyboardType: TextInputType.number,
+                  maxLength: 5,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
@@ -1589,6 +1590,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     if (minutes == null || minutes <= 0) {
                       return 'Must be a valid positive number';
                     }
+                    if (minutes > 99999) {
+                      return 'Duration cannot exceed 99,999 minutes';
+                    }
                     return null;
                   },
                   decoration: const InputDecoration(
@@ -1596,6 +1600,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     hintText: 'e.g., 30, 60, 120',
                     border: OutlineInputBorder(),
                     isDense: true,
+                    counterText: '',
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -2162,6 +2167,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                         field['parameter'] = v;
                                         setDialogState(() {});
                                       },
+                                      maxLength: 50,
                                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                                       decoration: const InputDecoration(
                                         isDense: true,
@@ -2169,6 +2175,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                         filled: true,
                                         fillColor: Colors.white,
                                         border: OutlineInputBorder(),
+                                        counterText: '',
                                       ),
                                     ),
                                   ),
@@ -2218,6 +2225,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                     child: TextFormField(
                                       initialValue: field['unit'],
                                       onChanged: (v) => field['unit'] = v,
+                                      maxLength: 20,
                                       style: const TextStyle(fontSize: 12),
                                       decoration: const InputDecoration(
                                         isDense: true,
@@ -2225,6 +2233,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                         filled: true,
                                         fillColor: Colors.white,
                                         border: OutlineInputBorder(),
+                                        counterText: '',
                                       ),
                                     ),
                                   ),
@@ -2234,6 +2243,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                     child: TextFormField(
                                       initialValue: field['reference_range'],
                                       onChanged: (v) => field['reference_range'] = v,
+                                      maxLength: 50,
                                       style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
                                       decoration: const InputDecoration(
                                         isDense: true,
@@ -2241,6 +2251,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                         filled: true,
                                         fillColor: Colors.white,
                                         border: OutlineInputBorder(),
+                                        counterText: '',
                                       ),
                                     ),
                                   ),
@@ -2268,20 +2279,23 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                         const SizedBox(height: 24),
                         const Text('REMARKS & FILE REFERENCE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
                         const SizedBox(height: 12),
-                        TextFormField(
+                         TextFormField(
                           controller: remarksController,
                           maxLines: 2,
+                          maxLength: 250,
                           decoration: InputDecoration(
                             isDense: true,
                             labelText: 'Observation Remarks',
                             filled: true,
                             fillColor: AppTheme.backgroundColor,
                             border: const OutlineInputBorder(borderSide: BorderSide.none),
+                            counterText: '',
                           ),
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: attachmentController,
+                          maxLength: 100,
                           decoration: InputDecoration(
                             isDense: true,
                             labelText: 'Attach Report Document (File Name)',
@@ -2289,6 +2303,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                             fillColor: AppTheme.backgroundColor,
                             border: const OutlineInputBorder(borderSide: BorderSide.none),
                             prefixIcon: const Icon(Icons.attach_file, size: 16),
+                            counterText: '',
                           ),
                         ),
                       ],
@@ -2355,7 +2370,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
 
   bool _isNumericField(String parameterName) {
     final name = parameterName.toLowerCase().trim();
-    if (name.isEmpty) return false;
+    if (name.isEmpty) return true;
     const textParams = [
       'color', 
       'appearance', 
