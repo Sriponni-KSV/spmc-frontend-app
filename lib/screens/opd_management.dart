@@ -1394,9 +1394,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
 
   Widget _buildStatusBadge(String status) {
     final color = _getStatusColor(status);
-    final label = (status == 'Checked-in' || status == 'Confirmed')
-        ? 'Waiting'
-        : status;
+    final label = status;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1758,9 +1756,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                       ),
                                       _detailItem(
                                         'Session Status',
-                                        app.status == 'Checked-in'
-                                            ? 'Waiting'
-                                            : app.status,
+                                        app.status,
                                       ),
                                     ],
                                   ),
@@ -2496,12 +2492,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         } catch (_) {}
         String text = 'Updated';
         if (change is Map && change.containsKey('status')) {
-          final from = change['status']['from'] == 'Checked-in'
-              ? 'Waiting'
-              : change['status']['from'];
-          final to = change['status']['to'] == 'Checked-in'
-              ? 'Waiting'
-              : change['status']['to'];
+          final from = change['status']['from'];
+          final to = change['status']['to'];
           if (from == null ||
               from == 'null' ||
               from.toString().trim().isEmpty) {
@@ -2582,8 +2574,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     ? newStatus
                     : overrideStatuses[0],
                 dropdownMap: const {
-                  'Confirmed': 'Waiting (Not Triaged)',
-                  'Checked-in': 'Waiting (Triage Complete)',
+                  'Confirmed': 'Confirmed',
+                  'Checked-in': 'Checked-in',
+                  'Waiting': 'Waiting',
                   'In Consultation': 'In Consultation',
                   'Completed': 'Completed',
                   'Cancelled': 'Cancelled',
