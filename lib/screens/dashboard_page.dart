@@ -4006,7 +4006,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Row(
               children: [
                 Expanded(flex: 3, child: _buildTableHeaderText('PATIENT')),
-                Expanded(flex: 2, child: _buildTableHeaderText('PATIENT ID')),
                 Expanded(flex: 2, child: _buildTableHeaderText('TYPE')),
                 Expanded(flex: 2, child: _buildTableHeaderText('TIME')),
                 Expanded(flex: 3, child: _buildTableHeaderText('REASON')),
@@ -4139,28 +4138,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      appt.patientName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          appt.patientName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          patientIdText,
+                          style: const TextStyle(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
                 ],
-              ),
-            ),
-
-            // Patient ID Column
-            Expanded(
-              flex: 2,
-              child: Text(
-                patientIdText,
-                style: const TextStyle(
-                  color: AppTheme.textSecondaryColor,
-                  fontSize: 13,
-                ),
               ),
             ),
 
@@ -4191,14 +4194,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // Reason Column
             Expanded(
               flex: 3,
-              child: Text(
-                reasonText,
-                style: const TextStyle(
-                  color: AppTheme.textSecondaryColor,
-                  fontSize: 13,
+              child: Tooltip(
+                message: reasonText,
+                child: Text(
+                  reasonText,
+                  style: const TextStyle(
+                    color: AppTheme.textSecondaryColor,
+                    fontSize: 13,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
 

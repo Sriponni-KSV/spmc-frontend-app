@@ -2868,14 +2868,13 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 _buildTableHeader('S.No', flex: 1),
                 _buildTableHeader('Time', flex: 2),
                 _buildTableHeader('Date', flex: 2),
-                _buildTableHeader('Patient', flex: 3),
-                _buildTableHeader('Patient ID', flex: 2),
+                _buildTableHeader('Patient', flex: 4),
                 _buildTableHeader('Type', flex: 2),
                 _buildTableHeader('Department', flex: 2),
                 _buildTableHeader('Doctor', flex: 3),
-                _buildTableHeader('Reason', flex: 2),
+                _buildTableHeader('Reason', flex: 3),
                 _buildTableHeader('Status', flex: 2),
-                _buildTableHeader('Actions', flex: 4, leftPadding: 16),
+                _buildTableHeader('Actions', flex: 2, leftPadding: 16),
               ],
             ),
           ),
@@ -3319,7 +3318,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           ),
           Expanded(
-            flex: 3,
+            flex: 4,
             child: Row(
               children: [
                 Container(
@@ -3342,27 +3341,33 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    patientName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        patientName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        patientIdText,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              patientIdText,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF475569),
-              ),
             ),
           ),
           Expanded(
@@ -3437,12 +3442,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           ),
           Expanded(
-            flex: 2,
-            child: Text(
-              reason,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            flex: 3,
+            child: Tooltip(
+              message: reason,
+              child: Text(
+                reason,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              ),
             ),
           ),
           Expanded(
@@ -3465,7 +3473,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           ),
           Expanded(
-            flex: 4,
+            flex: 2,
             child: Padding(
               padding: const EdgeInsets.only(left: 16.0),
               child: Wrap(

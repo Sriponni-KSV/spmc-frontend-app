@@ -844,15 +844,16 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                       TextFormField(
                         controller: _bioController,
                         maxLines: 3,
+                        maxLength: 255,
                         inputFormatters: [
                           FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
-                          LengthLimitingTextInputFormatter(300),
                         ],
                         style: const TextStyle(
                           color: AppTheme.textPrimaryColor,
                           fontWeight: FontWeight.normal,
                         ),
                         decoration: InputDecoration(
+                          counterText: '',
                           hintText: 'Share a brief summary of your expertise...',
                           hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
                           fillColor: AppTheme.backgroundColor,
@@ -885,9 +886,9 @@ class _NurseProfileViewState extends State<NurseProfileView> {
             sectionSpacing,
             sectionCard('1', 'Professional Details', const Color(0xFF0D5D9A), [
               if (isMobile) ...[
-                _buildProfileTextField('Qualification', _qualController, Icons.school_outlined),
+                _buildProfileTextField('Qualification', _qualController, Icons.school_outlined, maxLength: 100),
                 fieldSpacing,
-                 _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true),
+                 _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true, maxLength: 20),
                 fieldSpacing,
                 _buildProfileTextField('Years of Experience', _yearsExpController, Icons.work_outline, isNumeric: true, maxLength: 2),
                 fieldSpacing,
@@ -896,11 +897,11 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 Row(
                   children: [
                     Expanded(
-                      child: _buildProfileTextField('Qualification', _qualController, Icons.school_outlined),
+                      child: _buildProfileTextField('Qualification', _qualController, Icons.school_outlined, maxLength: 100),
                     ),
                     const SizedBox(width: 16),
                      Expanded(
-                       child: _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true),
+                       child: _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true, maxLength: 20),
                      ),
                   ],
                 ),
