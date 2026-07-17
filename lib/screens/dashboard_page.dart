@@ -417,7 +417,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  bool _isDoctorMatch(String docName, String userName) {
+  bool _isDoctorMatch(AppointmentModel appt, UserModel? user) {
+    if (user == null) return false;
+    if (appt.doctorDisplayId != null &&
+        appt.doctorDisplayId!.isNotEmpty &&
+        user.staffUniqueId != null &&
+        user.staffUniqueId!.isNotEmpty) {
+      return appt.doctorDisplayId == user.staffUniqueId;
+    }
     String clean(String s) {
       s = s.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
       if (s.startsWith('dr.')) s = s.substring(3).trim();
@@ -426,10 +433,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return s;
     }
 
-    final cDoc = clean(docName);
-    final cUser = clean(userName);
+    final cDoc = clean(appt.doctorName);
+    final cUser = clean(user.rawFullname ?? user.fullname);
     if (cDoc.isEmpty || cUser.isEmpty) return false;
-    return cDoc == cUser || cDoc.contains(cUser) || cUser.contains(cDoc);
+    return cDoc == cUser;
   }
 
   bool _isSameDay(String apptDateStr, DateTime date) {
@@ -505,7 +512,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         setState(() {
           _doctorAppointments = allAppointments.where((appt) {
-            return _isDoctorMatch(appt.doctorName, user?.rawFullname ?? '');
+            return _isDoctorMatch(appt, user);
           }).toList();
           _isLoading = false;
         });
@@ -3897,9 +3904,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildPatientsTable() {
     List<AppointmentModel> filteredAppts = _doctorAppointments.where((a) {
-      // Show all appointments except Cancelled and Admitted ones
-      if (a.status.toLowerCase() == 'cancelled') return false;
-      if (a.status.toLowerCase() == 'admitted') return false;
+      // Only display appointments in Confirmed, Waiting, or In Consultation status
+      final status = a.status;
+      if (status != 'Confirmed' && status != 'Waiting' && status != 'In Consultation') {
+        return false;
+      }
       if (_selectedDate != null && !_isSameDay(a.appointmentDate, _selectedDate!)) {
         return false;
       }
