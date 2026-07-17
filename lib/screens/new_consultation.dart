@@ -951,6 +951,31 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     }
   }
 
+  Future<bool> _onWillPop() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit Consultation?'),
+        content: const Text('Are you sure you want to exit? The consultation is not completed yet. You can resume it later.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+    return confirm ?? false;
+  }
+
   List<String> getFinalOrderedLabs() {
     final List<String> result = [];
     _standardLabs.forEach((key, val) {
@@ -970,7 +995,11 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         children: [
           // Back Button above title
           InkWell(
-            onTap: widget.onBack,
+            onTap: () async {
+              if (await _onWillPop()) {
+                widget.onBack();
+              }
+            },
             borderRadius: BorderRadius.circular(8),
             child: const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
@@ -1029,8 +1058,10 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     }
 
     if (isMobile) {
-      return Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+      return WillPopScope(
+        onWillPop: _onWillPop,
+        child: Scaffold(
+          backgroundColor: AppTheme.backgroundColor,
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Form(
@@ -1050,12 +1081,15 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             ),
           ),
         ),
-      );
+      ),
+    );
     }
 
     // Desktop split layout
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Form(
@@ -1096,6 +1130,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
