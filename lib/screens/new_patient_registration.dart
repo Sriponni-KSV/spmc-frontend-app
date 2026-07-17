@@ -1033,7 +1033,17 @@ class _NewPatientRegistrationViewState
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                        LengthLimitingTextInputFormatter(6),
                       ],
+                      validator: (val) {
+                        final text = val?.trim() ?? '';
+                        if (text.isEmpty) return null;
+                        final num = double.tryParse(text);
+                        if (num == null) return 'Enter a number';
+                        if (num == 0) return 'Cannot be 0';
+                        if (num < 30 || num > 300) return '30 to 300 cm';
+                        return null;
+                      },
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -1044,7 +1054,17 @@ class _NewPatientRegistrationViewState
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                        LengthLimitingTextInputFormatter(6),
                       ],
+                      validator: (val) {
+                        final text = val?.trim() ?? '';
+                        if (text.isEmpty) return null;
+                        final num = double.tryParse(text);
+                        if (num == null) return 'Enter a number';
+                        if (num == 0) return 'Cannot be 0';
+                        if (num < 1 || num > 600) return '1 to 600 kg';
+                        return null;
+                      },
                     ),
                   ),
                 ],
@@ -1058,7 +1078,19 @@ class _NewPatientRegistrationViewState
                       controller: _bpSystolicController,
                       hint: 'Enter Systolic',
                       keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                      ],
+                      validator: (val) {
+                        final text = val?.trim() ?? '';
+                        if (text.isEmpty) return null;
+                        final num = int.tryParse(text);
+                        if (num == null) return 'Enter a number';
+                        if (num == 0) return 'Cannot be 0';
+                        if (num < 70 || num > 300) return '70 to 300';
+                        return null;
+                      },
                     ),
                   ),
                   const Padding(
@@ -1073,7 +1105,19 @@ class _NewPatientRegistrationViewState
                       controller: _bpDiastolicController,
                       hint: 'Enter Diastolic',
                       keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                      ],
+                      validator: (val) {
+                        final text = val?.trim() ?? '';
+                        if (text.isEmpty) return null;
+                        final num = int.tryParse(text);
+                        if (num == null) return 'Enter a number';
+                        if (num == 0) return 'Cannot be 0';
+                        if (num < 40 || num > 180) return '40 to 180';
+                        return null;
+                      },
                     ),
                   ),
                 ],
@@ -1094,7 +1138,17 @@ class _NewPatientRegistrationViewState
                             FilteringTextInputFormatter.allow(
                               RegExp(r'[0-9.]'),
                             ),
+                            LengthLimitingTextInputFormatter(6),
                           ],
+                          validator: (val) {
+                            final text = val?.trim() ?? '';
+                            if (text.isEmpty) return null;
+                            final num = double.tryParse(text);
+                            if (num == null) return 'Enter a number';
+                            if (num == 0) return 'Cannot be 0';
+                            if (num < 30 || num > 600) return '30 to 600';
+                            return null;
+                          },
                         ),
                       ],
                     ),
@@ -1113,7 +1167,17 @@ class _NewPatientRegistrationViewState
                             FilteringTextInputFormatter.allow(
                               RegExp(r'[0-9.]'),
                             ),
+                            LengthLimitingTextInputFormatter(5),
                           ],
+                          validator: (val) {
+                            final text = val?.trim() ?? '';
+                            if (text.isEmpty) return null;
+                            final num = double.tryParse(text);
+                            if (num == null) return 'Enter a number';
+                            if (num == 0) return 'Cannot be 0';
+                            if (num < 90 || num > 115) return '90 to 115 °F';
+                            return null;
+                          },
                         ),
                       ],
                     ),
@@ -1138,6 +1202,10 @@ class _NewPatientRegistrationViewState
                 controller: _allergiesController,
                 hint: 'Enter Allergies',
                 maxLines: 2,
+                inputFormatters: [
+                  FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                  LengthLimitingTextInputFormatter(100),
+                ],
               ),
               const SizedBox(height: 16),
               _buildLabel('Chronic Conditions'),
@@ -1145,6 +1213,10 @@ class _NewPatientRegistrationViewState
                 controller: _chronicConditionsController,
                 hint: 'Enter Pre-existing Conditions',
                 maxLines: 2,
+                inputFormatters: [
+                  FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                  LengthLimitingTextInputFormatter(100),
+                ],
               ),
             ] else ...[
               Row(
@@ -1165,7 +1237,17 @@ class _NewPatientRegistrationViewState
                                   FilteringTextInputFormatter.allow(
                                     RegExp(r'[0-9.]'),
                                   ),
+                                  LengthLimitingTextInputFormatter(6),
                                 ],
+                                validator: (val) {
+                                  final text = val?.trim() ?? '';
+                                  if (text.isEmpty) return null;
+                                  final num = double.tryParse(text);
+                                  if (num == null) return 'Enter a number';
+                                  if (num == 0) return 'Cannot be 0';
+                                  if (num < 30 || num > 300) return '30 to 300 cm';
+                                  return null;
+                                },
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -1178,7 +1260,17 @@ class _NewPatientRegistrationViewState
                                   FilteringTextInputFormatter.allow(
                                     RegExp(r'[0-9.]'),
                                   ),
+                                  LengthLimitingTextInputFormatter(6),
                                 ],
+                                validator: (val) {
+                                  final text = val?.trim() ?? '';
+                                  if (text.isEmpty) return null;
+                                  final num = double.tryParse(text);
+                                  if (num == null) return 'Enter a number';
+                                  if (num == 0) return 'Cannot be 0';
+                                  if (num < 1 || num > 600) return '1 to 600 kg';
+                                  return null;
+                                },
                               ),
                             ),
                           ],
@@ -1201,7 +1293,17 @@ class _NewPatientRegistrationViewState
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(3),
                                 ],
+                                validator: (val) {
+                                  final text = val?.trim() ?? '';
+                                  if (text.isEmpty) return null;
+                                  final num = int.tryParse(text);
+                                  if (num == null) return 'Enter a number';
+                                  if (num == 0) return 'Cannot be 0';
+                                  if (num < 70 || num > 300) return '70 to 300';
+                                  return null;
+                                },
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -1212,7 +1314,17 @@ class _NewPatientRegistrationViewState
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(3),
                                 ],
+                                validator: (val) {
+                                  final text = val?.trim() ?? '';
+                                  if (text.isEmpty) return null;
+                                  final num = int.tryParse(text);
+                                  if (num == null) return 'Enter a number';
+                                  if (num == 0) return 'Cannot be 0';
+                                  if (num < 40 || num > 180) return '40 to 180';
+                                  return null;
+                                },
                               ),
                             ),
                           ],
@@ -1241,7 +1353,17 @@ class _NewPatientRegistrationViewState
                                   FilteringTextInputFormatter.allow(
                                     RegExp(r'[0-9.]'),
                                   ),
+                                  LengthLimitingTextInputFormatter(6),
                                 ],
+                                validator: (val) {
+                                  final text = val?.trim() ?? '';
+                                  if (text.isEmpty) return null;
+                                  final num = double.tryParse(text);
+                                  if (num == null) return 'Enter a number';
+                                  if (num == 0) return 'Cannot be 0';
+                                  if (num < 30 || num > 600) return '30 to 600';
+                                  return null;
+                                },
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -1254,7 +1376,17 @@ class _NewPatientRegistrationViewState
                                   FilteringTextInputFormatter.allow(
                                     RegExp(r'[0-9.]'),
                                   ),
+                                  LengthLimitingTextInputFormatter(5),
                                 ],
+                                validator: (val) {
+                                  final text = val?.trim() ?? '';
+                                  if (text.isEmpty) return null;
+                                  final num = double.tryParse(text);
+                                  if (num == null) return 'Enter a number';
+                                  if (num == 0) return 'Cannot be 0';
+                                  if (num < 90 || num > 115) return '90 to 115 °F';
+                                  return null;
+                                },
                               ),
                             ),
                           ],
@@ -1305,6 +1437,10 @@ class _NewPatientRegistrationViewState
                           controller: _allergiesController,
                           hint: 'Enter Allergies',
                           maxLines: 2,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                            LengthLimitingTextInputFormatter(100),
+                          ],
                         ),
                       ],
                     ),
@@ -1319,6 +1455,10 @@ class _NewPatientRegistrationViewState
                           controller: _chronicConditionsController,
                           hint: 'Enter Pre-existing Conditions',
                           maxLines: 2,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                            LengthLimitingTextInputFormatter(100),
+                          ],
                         ),
                       ],
                     ),
@@ -1334,6 +1474,7 @@ class _NewPatientRegistrationViewState
               hint: 'Describe current health complaints...',
               maxLines: 4,
               inputFormatters: [
+                FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
                 FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,.\-/()]')),
                 LengthLimitingTextInputFormatter(500),
               ],
@@ -1505,6 +1646,7 @@ class _NewPatientRegistrationViewState
                   FilteringTextInputFormatter.allow(
                     RegExp(r'[a-zA-Z\s]'),
                   ),
+                  LengthLimitingTextInputFormatter(50),
                 ],
               ),
               const SizedBox(height: 20),
@@ -1516,6 +1658,7 @@ class _NewPatientRegistrationViewState
                   FilteringTextInputFormatter.allow(
                     RegExp(r'[a-zA-Z\s]'),
                   ),
+                  LengthLimitingTextInputFormatter(50),
                 ],
               ),
             ] else
@@ -1533,6 +1676,7 @@ class _NewPatientRegistrationViewState
                             FilteringTextInputFormatter.allow(
                               RegExp(r'[a-zA-Z\s]'),
                             ),
+                            LengthLimitingTextInputFormatter(50),
                           ],
                         ),
                       ],
@@ -1551,6 +1695,7 @@ class _NewPatientRegistrationViewState
                             FilteringTextInputFormatter.allow(
                               RegExp(r'[a-zA-Z\s]'),
                             ),
+                            LengthLimitingTextInputFormatter(50),
                           ],
                         ),
                       ],
@@ -1568,7 +1713,7 @@ class _NewPatientRegistrationViewState
               maxLines: 4,
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,.\-/()]')),
-                LengthLimitingTextInputFormatter(300),
+                LengthLimitingTextInputFormatter(100),
               ],
             ),
             const SizedBox(height: 24),
@@ -1636,7 +1781,7 @@ class _NewPatientRegistrationViewState
               maxLines: 1,
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,.\-/()]')),
-                LengthLimitingTextInputFormatter(200),
+                LengthLimitingTextInputFormatter(100),
               ],
             ),
             const SizedBox(height: 48),

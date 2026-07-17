@@ -4329,7 +4329,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
+//                       mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           appt.patientName,
@@ -4345,6 +4346,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: const TextStyle(
                             color: AppTheme.textSecondaryColor,
                             fontSize: 11,
+                            fontWeight: FontWeight.w500,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -4379,6 +4381,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     fontSize: 13,
                   ),
                   maxLines: 1,
+//                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
