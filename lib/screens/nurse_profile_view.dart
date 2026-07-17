@@ -9,9 +9,12 @@ import '../widgets/custom_dropdown_search.dart';
 import '../services/media_service.dart';
 import '../widgets/document_view_dialog.dart';
 import 'dart:io' as io;
+import 'package:go_router/go_router.dart';
+import '../core/routes/route_constants.dart';
 
 class NurseProfileView extends StatefulWidget {
-  const NurseProfileView({Key? key}) : super(key: key);
+  final bool isEditing;
+  const NurseProfileView({Key? key, this.isEditing = false}) : super(key: key);
 
   @override
   State<NurseProfileView> createState() => _NurseProfileViewState();
@@ -120,7 +123,18 @@ class _NurseProfileViewState extends State<NurseProfileView> {
   @override
   void initState() {
     super.initState();
+    _isEditingProfile = widget.isEditing;
     _initControllers();
+  }
+
+  @override
+  void didUpdateWidget(covariant NurseProfileView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isEditing != oldWidget.isEditing) {
+      setState(() {
+        _isEditingProfile = widget.isEditing;
+      });
+    }
   }
 
   void _initControllers() {
@@ -208,11 +222,11 @@ class _NurseProfileViewState extends State<NurseProfileView> {
       if (mounted) {
         Provider.of<AuthProvider>(context, listen: false).updateUser(updatedUser);
         setState(() {
-          _isEditingProfile = false;
           _certFileBytes = null;
           _certFileName = null;
           _certFileSizeStr = null;
         });
+        GoRouter.of(context).go(AppRoutes.nurseProfile);
         messenger.showSnackBar(
           const SnackBar(
             content: Text('Profile updated successfully!', style: TextStyle(color: Colors.white)),
@@ -533,7 +547,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
-                      onPressed: () => setState(() => _isEditingProfile = true),
+                      onPressed: () => GoRouter.of(context).go(AppRoutes.nurseProfileEdit),
                       icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
                       label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
                       style: AppTheme.primaryButton.copyWith(
@@ -566,7 +580,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     ),
                     const SizedBox(width: 16),
                     ElevatedButton.icon(
-                      onPressed: () => setState(() => _isEditingProfile = true),
+                      onPressed: () => GoRouter.of(context).go(AppRoutes.nurseProfileEdit),
                       icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
                       label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
                       style: AppTheme.primaryButton.copyWith(
@@ -694,7 +708,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
              InkWell(
-               onTap: () => setState(() => _isEditingProfile = false),
+               onTap: () => GoRouter.of(context).go(AppRoutes.nurseProfile),
                borderRadius: BorderRadius.circular(8),
                child: const Padding(
                  padding: EdgeInsets.symmetric(vertical: 8),
@@ -830,15 +844,16 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                       TextFormField(
                         controller: _bioController,
                         maxLines: 3,
+                        maxLength: 255,
                         inputFormatters: [
                           FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
-                          LengthLimitingTextInputFormatter(300),
                         ],
                         style: const TextStyle(
                           color: AppTheme.textPrimaryColor,
                           fontWeight: FontWeight.normal,
                         ),
                         decoration: InputDecoration(
+                          counterText: '',
                           hintText: 'Share a brief summary of your expertise...',
                           hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
                           fillColor: AppTheme.backgroundColor,
@@ -871,9 +886,9 @@ class _NurseProfileViewState extends State<NurseProfileView> {
             sectionSpacing,
             sectionCard('1', 'Professional Details', const Color(0xFF0D5D9A), [
               if (isMobile) ...[
-                _buildProfileTextField('Qualification', _qualController, Icons.school_outlined),
+                _buildProfileTextField('Qualification', _qualController, Icons.school_outlined, maxLength: 100),
                 fieldSpacing,
-                 _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true),
+                 _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true, maxLength: 20),
                 fieldSpacing,
                 _buildProfileTextField('Years of Experience', _yearsExpController, Icons.work_outline, isNumeric: true, maxLength: 2),
                 fieldSpacing,
@@ -882,11 +897,11 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 Row(
                   children: [
                     Expanded(
-                      child: _buildProfileTextField('Qualification', _qualController, Icons.school_outlined),
+                      child: _buildProfileTextField('Qualification', _qualController, Icons.school_outlined, maxLength: 100),
                     ),
                     const SizedBox(width: 16),
                      Expanded(
-                       child: _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true),
+                       child: _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true, maxLength: 20),
                      ),
                   ],
                 ),
@@ -911,7 +926,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 OutlinedButton(
-                  onPressed: () => setState(() => _isEditingProfile = false),
+                  onPressed: () => GoRouter.of(context).go(AppRoutes.nurseProfile),
                   style: AppTheme.cancelButton.copyWith(
                     minimumSize: MaterialStateProperty.all(const Size(120, 48)),
                   ),

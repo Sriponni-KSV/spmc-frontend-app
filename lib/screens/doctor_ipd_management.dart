@@ -11,6 +11,8 @@ import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'ipd_patient_detail_page.dart';
+import 'package:go_router/go_router.dart';
+import '../core/routes/route_constants.dart';
 
 class DoctorIPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -650,16 +652,11 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
   List<Widget> _buildDoctorAdmissionActions(Map<String, dynamic> adm) {
     return [
       ElevatedButton.icon(
-        onPressed: () async {
-          final refreshed = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => IPDPatientDetailPage(admission: adm),
-            ),
+        onPressed: () {
+          GoRouter.of(context).go(
+            AppRoutes.doctorIpdMonitoring,
+            extra: adm,
           );
-          if (refreshed == true) {
-            _loadData();
-          }
         },
         icon: const Icon(Icons.medical_services_outlined, size: 16, color: Colors.white),
         label: const Text('IPD Monitoring', style: TextStyle(color: Colors.white, fontSize: 12)),
@@ -1148,16 +1145,11 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final refreshed = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => IPDPatientDetailPage(admission: adm),
-                              ),
+                          onPressed: () {
+                            GoRouter.of(context).go(
+                              AppRoutes.doctorIpdMonitoring,
+                              extra: adm,
                             );
-                            if (refreshed == true) {
-                              _loadData();
-                            }
                           },
                           icon: const Icon(Icons.medical_services_outlined,
                               size: 14, color: Colors.white),
@@ -1204,16 +1196,11 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                   Row(
                     children: [
                       ElevatedButton.icon(
-                        onPressed: () async {
-                          final refreshed = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => IPDPatientDetailPage(admission: adm),
-                            ),
+                        onPressed: () {
+                          GoRouter.of(context).go(
+                            AppRoutes.doctorIpdMonitoring,
+                            extra: adm,
                           );
-                          if (refreshed == true) {
-                            _loadData();
-                          }
                         },
                         icon: const Icon(Icons.medical_services_outlined,
                             size: 15, color: Colors.white),
@@ -2021,26 +2008,71 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                           ),
                         ),
                         const SizedBox(height: 8),
-                        TextFormField(
-                          controller: reasonController,
-                          maxLines: 2,
-                          decoration: InputDecoration(
-                            hintText: 'Describe the medical reason...',
-                            hintStyle: TextStyle(
-                                color: Colors.grey.shade400, fontSize: 12),
-                            filled: true,
-                            fillColor: AppTheme.backgroundColor,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFFE2E8F0)),
-                            ),
-                          ),
+                        FormField<String>(
+                          initialValue: reasonController.text,
                           validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
+                            if (reasonController.text.trim().isEmpty) {
                               return 'Please enter reason for admission';
                             }
                             return null;
+                          },
+                          builder: (field) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextField(
+                                  controller: reasonController,
+                                  maxLines: 2,
+                                  maxLength: 100,
+                                  onChanged: (val) {
+                                    field.didChange(val);
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: 'Describe the medical reason...',
+                                    hintStyle: TextStyle(
+                                        color: Colors.grey.shade400, fontSize: 12),
+                                    counterText: '',
+                                    filled: true,
+                                    fillColor: AppTheme.backgroundColor,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(
+                                        color: field.hasError ? Colors.red : const Color(0xFFE2E8F0),
+                                        width: field.hasError ? 1.5 : 1.0,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(
+                                        color: field.hasError ? Colors.red : const Color(0xFFE2E8F0),
+                                        width: field.hasError ? 1.5 : 1.0,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(
+                                        color: field.hasError ? Colors.red : AppTheme.primaryColor,
+                                        width: 2.0,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (field.hasError)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4, left: 4),
+                                    child: Text(
+                                      field.errorText ?? '',
+                                      style: const TextStyle(
+                                        color: Colors.red,
+                                        fontSize: 11,
+                                        fontFamily: 'Inter',
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
                           },
                         ),
                         const SizedBox(height: 16),
@@ -2052,9 +2084,11 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                         TextFormField(
                           controller: diagnosisController,
                           maxLines: 2,
+                          maxLength: 100,
                           decoration: InputDecoration(
                             hintText: 'e.g. Acute Appendicitis, Type 2 Diabetes...',
                             hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                            counterText: '',
                             filled: true,
                             fillColor: AppTheme.backgroundColor,
                             border: OutlineInputBorder(
@@ -3072,10 +3106,12 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                       TextFormField(
                         controller: finalDiagnosisController,
                         maxLines: 2,
+                        maxLength: 255,
                         decoration: const InputDecoration(
                           hintText: 'Enter final diagnosis',
                           isDense: true,
                           border: OutlineInputBorder(),
+                          counterText: '',
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
@@ -3092,10 +3128,12 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                       TextFormField(
                         controller: treatmentSummaryController,
                         maxLines: 3,
+                        maxLength: 255,
                         decoration: const InputDecoration(
                           hintText: 'Enter treatment summary',
                           isDense: true,
                           border: OutlineInputBorder(),
+                          counterText: '',
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -3106,10 +3144,12 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                       TextFormField(
                         controller: medicationPlanController,
                         maxLines: 3,
+                        maxLength: 255,
                         decoration: const InputDecoration(
                           hintText: 'Enter medication plan',
                           isDense: true,
                           border: OutlineInputBorder(),
+                          counterText: '',
                         ),
                       ),
                       const SizedBox(height: 12),

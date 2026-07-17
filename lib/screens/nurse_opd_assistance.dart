@@ -969,7 +969,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                               if (text.isEmpty) {
                                 return 'Please enter BP systolic';
                               }
-                              return int.tryParse(text) == null ? 'Enter a number' : null;
+                              final num = int.tryParse(text);
+                              if (num == null) return 'Enter a number';
+                              if (num == 0) return 'Cannot be 0';
+                              if (num < 90 || num > 300) return 'BP Systolic must be between 90 and 300 mmHg';
+                              return null;
                             },
                           ),
                         ),
@@ -1002,7 +1006,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                               if (text.isEmpty) {
                                 return 'Please enter BP diastolic';
                               }
-                              return int.tryParse(text) == null ? 'Enter a number' : null;
+                              final num = int.tryParse(text);
+                              if (num == null) return 'Enter a number';
+                              if (num == 0) return 'Cannot be 0';
+                              if (num < 50 || num > 180) return 'BP Diastolic must be between 50 and 180 mmHg';
+                              return null;
                             },
                           ),
                         ),
@@ -1047,7 +1055,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                   if (text.isEmpty) {
                                     return 'Please enter sugar level';
                                   }
-                                  return double.tryParse(text) == null ? 'Enter a number' : null;
+                                  final num = double.tryParse(text);
+                                  if (num == null) return 'Enter a number';
+                                  if (num == 0) return 'Cannot be 0';
+                                  if (num < 30 || num > 600) return 'Sugar Level must be between 30 and 600 mg/dL';
+                                  return null;
                                 },
                               ),
                             ],
@@ -1088,7 +1100,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                   if (text.isEmpty) {
                                     return 'Please enter temperature';
                                   }
-                                  return double.tryParse(text) == null ? 'Enter a number' : null;
+                                  final num = double.tryParse(text);
+                                  if (num == null) return 'Enter a number';
+                                  if (num == 0) return 'Cannot be 0';
+                                  if (num < 90 || num > 115) return 'Temperature must be between 90 and 115 °F';
+                                  return null;
                                 },
                               ),
                             ],
@@ -1150,7 +1166,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         }
 
                         await _ctrl.updateVitals(app.id!, vitalsData);
-                        await _ctrl.updateStatus(app.id!, 'Checked-in');
+                        await _ctrl.updateStatus(app.id!, 'Waiting');
                         Navigator.pop(ctx);
                         _load();
                         _tabController.animateTo(1);
@@ -1583,9 +1599,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                       if (text.isEmpty) {
                                         return 'Please enter BP systolic';
                                       }
-                                      return int.tryParse(text) == null
-                                          ? 'Enter a number'
-                                          : null;
+                                      final num = int.tryParse(text);
+                                      if (num == null) return 'Enter a number';
+                                      if (num == 0) return 'Cannot be 0';
+                                      if (num < 90 || num > 300) return 'Must be 90 to 300';
+                                      return null;
                                     },
                                   ),
                                 ],
@@ -1629,9 +1647,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                       if (text.isEmpty) {
                                         return 'Please enter BP diastolic';
                                       }
-                                      return int.tryParse(text) == null
-                                          ? 'Enter a number'
-                                          : null;
+                                      final num = int.tryParse(text);
+                                      if (num == null) return 'Enter a number';
+                                      if (num == 0) return 'Cannot be 0';
+                                      if (num < 50 || num > 180) return 'Must be 50 to 180';
+                                      return null;
                                     },
                                   ),
                                 ],
@@ -1684,9 +1704,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                       if (text.isEmpty) {
                                         return 'Please enter sugar level';
                                       }
-                                      return double.tryParse(text) == null
-                                          ? 'Enter a number'
-                                          : null;
+                                      final num = double.tryParse(text);
+                                      if (num == null) return 'Enter a number';
+                                      if (num == 0) return 'Cannot be 0';
+                                      if (num < 30 || num > 600) return 'Must be 30 to 600';
+                                      return null;
                                     },
                                   ),
                                 ],
@@ -1735,9 +1757,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                       if (text.isEmpty) {
                                         return 'Please enter temperature';
                                       }
-                                      return double.tryParse(text) == null
-                                          ? 'Enter a number'
-                                          : null;
+                                      final num = double.tryParse(text);
+                                      if (num == null) return 'Enter a number';
+                                      if (num == 0) return 'Cannot be 0';
+                                      if (num < 90 || num > 115) return 'Temperature must be between 90 and 115 °F';
+                                      return null;
                                     },
                                   ),
                                 ],

@@ -29,6 +29,26 @@ class OtController {
     }
   }
 
+  /// Fetch OT statistics from the database
+  Future<Map<String, dynamic>> fetchOtStats() async {
+    try {
+      final response = await ApiService.get('$baseUrl/ot/stats');
+      if (response.statusCode != 200) {
+        throw Exception('Failed to fetch OT stats');
+      }
+
+      final body = jsonDecode(response.body);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Unknown error');
+      }
+
+      return Map<String, dynamic>.from(body['data'] ?? {});
+    } catch (e) {
+      print('Error in fetchOtStats: $e');
+      rethrow;
+    }
+  }
+
   /// Create a new OT Case (Surgery Request)
   Future<OtCase> createOtCase({
     required int patientDbId,

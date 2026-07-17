@@ -715,9 +715,8 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(60),
         child: Container(
-          decoration: BoxDecoration(
-            color: cardBg,
-            border: Border(bottom: BorderSide(color: borderClr)),
+          decoration: const BoxDecoration(
+            color: Colors.transparent,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Row(

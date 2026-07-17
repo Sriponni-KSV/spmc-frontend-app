@@ -135,22 +135,30 @@ class _ICUManagementViewState extends State<ICUManagementView> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 120, vertical: 60),
         title: const Text('Escalate Critical Alert'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Enter escalation instructions or clinical notes for the next tier:'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: notesCtrl,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'e.g., Patient status worsening, needs urgent consultant review...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        content: SizedBox(
+          width: 480,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Enter escalation instructions or clinical notes for the next tier:'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesCtrl,
+                maxLines: 3,
+                minLines: 1,
+                maxLength: 100,
+                decoration: InputDecoration(
+                  hintText: 'e.g., Patient status worsening, needs urgent consultant review...',
+                  hintMaxLines: 2,
+                  counterText: '',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),

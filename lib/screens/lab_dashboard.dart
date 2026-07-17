@@ -203,7 +203,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           Expanded(
             child: Column(
               children: [
-                _buildHeader(context, isMobile),
+                if (_selectedIndex != 0) _buildHeader(context, isMobile),
                 Expanded(child: _buildMainContent(isMobile)),
               ],
             ),
@@ -219,38 +219,36 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
         final user = auth.user;
         return Container(
           width: 260,
-          decoration: const BoxDecoration(
+          margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+          decoration: BoxDecoration(
             color: Colors.white,
-            border: Border(
-              right: BorderSide(color: AppTheme.borderColor, width: 1),
-            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             children: [
               // Logo Section
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: AppTheme.borderColor, width: 1),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Image.asset(
-                      'assets/image/full_logo.png',
-                      width: 100,
-                      height: 89,
-                    ),
-                  ],
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Image.asset(
+                  'assets/image/full_logo.png',
+                  width: 110,
+                  height: 90,
                 ),
               ),
 
               // Navigation
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildSidebarItem(0, Icons.dashboard_outlined, 'Dashboard'),
                       _buildSidebarItem(1, Icons.biotech_outlined, 'Pending Tests'),
@@ -263,80 +261,78 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               ),
 
               // Footer Profile
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Divider(color: AppTheme.borderColor, height: 1, thickness: 1),
-                  Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: user == null
-                        ? const SizedBox.shrink()
-                        : Row(
-                            children: [
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () => UserProfileDialog.show(context, user),
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-                                    child: Row(
+              Container(
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: AppTheme.borderColor, width: 1),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: user == null
+                    ? const SizedBox.shrink()
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => UserProfileDialog.show(context, user),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: AppTheme.primaryColor,
+                                    radius: 18,
+                                    child: Text(
+                                      user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        CircleAvatar(
-                                          backgroundColor: AppTheme.getAvatarColors(user.rawFullname ?? '')['bg'],
-                                          radius: 18,
-                                          child: Text(
-                                            (user.rawFullname ?? '').isNotEmpty ? user.rawFullname![0].toUpperCase() : '?',
-                                            style: TextStyle(
-                                              color: AppTheme.getAvatarColors(user.rawFullname ?? '')['text'],
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                            ),
+                                        Text(
+                                          user.fullname,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimaryColor,
                                           ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                user.rawFullname ?? '',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              if (user.staffUniqueId != null &&
-                                                  user.staffUniqueId!.isNotEmpty) ...[
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  user.staffUniqueId!,
-                                                  style: const TextStyle(
-                                                    fontSize: 9,
-                                                    color: AppTheme.textSecondaryColor,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ],
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                user.role,
-                                                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-                                              ),
-                                            ],
+                                        Text(
+                                          user.role,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textSecondaryColor,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.logout, size: 18, color: AppTheme.textSecondaryColor),
-                                onPressed: () => LogoutHelper.showLogoutConfirmation(context, auth),
-                              ),
-                            ],
+                            ),
                           ),
-                  ),
-                ],
+                          IconButton(
+                            icon: const Icon(
+                              Icons.logout,
+                              size: 18,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                            onPressed: () =>
+                                LogoutHelper.showLogoutConfirmation(
+                                  context,
+                                  auth,
+                                ),
+                          ),
+                        ],
+                      ),
               ),
             ],
           ),
@@ -349,26 +345,29 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
     bool isSelected = _selectedIndex == index;
     return InkWell(
       onTap: () => _changePage(index),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
-              size: 22,
+              color: isSelected ? Colors.white : const Color(0xFF4A5568),
+              size: 20,
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Colors.white : const Color(0xFF2D3748),
+                fontWeight: FontWeight.bold,
+                fontSize: 13.5,
               ),
             ),
           ],
@@ -379,35 +378,96 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
 
   Widget _buildHeader(BuildContext context, bool isMobile) {
     return Container(
-      height: isMobile ? 80 : 90,
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1)),
+        color: Colors.transparent,
       ),
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-      child: Row(
-        children: [
-          if (isMobile) ...[
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu, color: AppTheme.textSecondaryColor),
-                onPressed: () => Scaffold.of(context).openDrawer(),
+      padding: EdgeInsets.only(
+        left: isMobile ? 16 : 24,
+        right: isMobile ? 16 : 24,
+        top: 20,
+        bottom: 0,
+      ),
+      child: _buildBannerTopBar(isMobile),
+    );
+  }
+
+  Widget _buildBannerTopBar(bool isMobile) {
+    return Row(
+      children: [
+        if (isMobile) ...[
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(
+                Icons.menu,
+                color: Color(0xFF4A5568),
               ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          const Text(
-            'SPMC Laboratory Portal',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.primaryColor,
+              onPressed: () => Scaffold.of(context).openDrawer(),
             ),
           ),
-          const Spacer(),
-          const LiveClock(),
+          const SizedBox(width: 8),
         ],
-      ),
+
+        Expanded(
+          child: Container(
+            height: 40,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              'SPMC Laboratory Portal',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 16),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(
+              Icons.notifications_none_outlined,
+              color: Color(0xFF4A5568),
+              size: 22,
+            ),
+            Positioned(
+              right: -2,
+              top: -2,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE53E3E),
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 14,
+                  minHeight: 14,
+                ),
+                child: const Text(
+                  '3',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(width: 16),
+        const Icon(Icons.settings_outlined, color: Color(0xFF4A5568), size: 22),
+        const SizedBox(width: 16),
+        const LiveClock(isDark: false),
+      ],
     );
   }
 
@@ -439,292 +499,306 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
     final remainingTimeText = remainingMins > 0 ? _formatDuration(remainingMins as int) : 'Closed';
     final recentRequests = _labRequests.take(6).toList();
 
-    return RefreshIndicator(
-      onRefresh: _fetchData,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Welcome Back, Lab Team',
-              style: Theme.of(context).textTheme.displayLarge,
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Process patient test requests and register observed details efficiently.',
-              style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
-            ),
-            const SizedBox(height: 24),
-
-            // Stats Cards Row 1
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'Pending Tests',
-                    value: '$pendingCount',
-                    icon: Icons.hourglass_empty_outlined,
-                    color: Colors.orange,
-                    bgColor: Colors.orange.shade50,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'Remaining Work Time',
-                    value: remainingTimeText,
-                    icon: Icons.timer_outlined,
-                    color: Colors.blue,
-                    bgColor: Colors.blue.shade50,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'Complete Today',
-                    value: '$canCompleteToday',
-                    icon: Icons.check_circle_outline,
-                    color: Colors.green,
-                    bgColor: Colors.green.shade50,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Stats Cards Row 2
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'Moved to Tomorrow',
-                    value: '$movedTomorrow',
-                    icon: Icons.next_plan_outlined,
-                    color: Colors.red,
-                    bgColor: Colors.red.shade50,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'Waiting for Technician',
-                    value: '$waitingTechnician',
-                    icon: Icons.person_off_outlined,
-                    color: Colors.purple,
-                    bgColor: Colors.purple.shade50,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'Waiting for Machine',
-                    value: '$waitingMachine',
-                    icon: Icons.settings_suggest_outlined,
-                    color: Colors.teal,
-                    bgColor: Colors.teal.shade50,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-
-            // Recent Orders List Table
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-                boxShadow: AppTheme.cardShadow,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Fixed Top Bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+          color: Colors.transparent,
+          child: _buildBannerTopBar(isMobile),
+        ),
+        // Scrollable Content
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _fetchData,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                    'Welcome Back, Lab Team',
+                    style: Theme.of(context).textTheme.displayLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Process patient test requests and register observed details efficiently.',
+                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Stats Cards Row 1
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Recent Lab Test Orders',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                      Expanded(
+                        child: _buildStatCard(
+                          title: 'Pending Tests',
+                          value: '$pendingCount',
+                          icon: Icons.hourglass_empty_outlined,
+                          color: Colors.orange,
+                          bgColor: Colors.orange.shade50,
+                        ),
                       ),
-                      TextButton(
-                        onPressed: () => _changePage(1),
-                        child: const Text('View All Tests'),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildStatCard(
+                          title: 'Remaining Work Time',
+                          value: remainingTimeText,
+                          icon: Icons.timer_outlined,
+                          color: Colors.blue,
+                          bgColor: Colors.blue.shade50,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildStatCard(
+                          title: 'Complete Today',
+                          value: '$canCompleteToday',
+                          icon: Icons.check_circle_outline,
+                          color: Colors.green,
+                          bgColor: Colors.green.shade50,
+                        ),
                       ),
                     ],
                   ),
-                  const Divider(height: 24),
-                  if (_isLoadingRequests)
-                    const Center(child: Padding(padding: EdgeInsets.all(24.0), child: CircularProgressIndicator()))
-                  else if (_requestsError != null)
-                    Center(child: Text('Error loading requests: $_requestsError', style: const TextStyle(color: Colors.red)))
-                  else if (recentRequests.isEmpty)
-                    const Center(child: Padding(padding: EdgeInsets.all(24.0), child: Text('No orders found')))
-                  else
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: recentRequests.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, idx) {
-                        final req = recentRequests[idx];
-                        final formattedDate = _formatDate(req['created_at']);
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      req['test_name'] ?? 'Lab Test',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          'Estimated Duration: ${req['target_tat_minutes'] != null ? _formatDuration(req['target_tat_minutes'] is int ? req['target_tat_minutes'] as int : int.tryParse(req['target_tat_minutes']?.toString() ?? '') ?? 0) : 'Not Set'}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppTheme.logoRed,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        InkWell(
-                                          onTap: () => _showEditDurationDialog(req),
-                                          child: const Icon(
-                                            Icons.edit,
-                                            size: 12,
-                                            color: AppTheme.logoRed,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Ordered by Dr. ${req['doctor_name']}',
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        _buildPriorityBadge(req['priority']),
-                                        if (req['queue_position'] != null && req['status'] != 'Completed') ...[
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.05), borderRadius: BorderRadius.circular(4)),
-                                            child: Text('Pos #${req['queue_position']}', style: const TextStyle(fontSize: 10, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
-                                          ),
-                                        ],
-                                        if (req['scheduled_start_override'] != null && req['status'] != 'Completed') ...[
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
-                                            child: Text(
-                                              'Rescheduled: ${DateFormat('dd-MMM-yyyy').format(DateTime.parse(req['scheduled_start_override']).toLocal())}', 
-                                              style: TextStyle(fontSize: 10, color: Colors.blue.shade700, fontWeight: FontWeight.bold)
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      req['patient_name'] ?? 'Unknown',
-                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      req['patient_display_id'] ?? '',
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Ordered:',
-                                      style: TextStyle(fontSize: 9, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600),
-                                    ),
-                                    Text(
-                                      formattedDate,
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-                                    ),
-                                    if (req['status'] != 'Completed' && req['estimated_completion_at'] != null) ...[
-                                      const SizedBox(height: 4),
-                                      const Text(
-                                        'Est Completion:',
-                                        style: TextStyle(fontSize: 9, color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
-                                      ),
-                                      Text(
-                                        _formatDate(req['estimated_completion_at']),
-                                        style: const TextStyle(fontSize: 11, color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2.0),
-                                child: _buildStatusBadge(req['status']),
-                              ),
-                              const SizedBox(width: 12),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2.0),
-                                child: OutlinedButton(
-                                  onPressed: () {
-                                    if (req['status'] == 'Pending') {
-                                      _updateStatus(req['id'], 'Sample Collected');
-                                    } else if (req['status'] == 'Sample Collected') {
-                                      _showResultsEntryDialog(req);
-                                    } else {
-                                      _selectedIndex = 2; // Move to Completed
-                                      setState(() {});
-                                    }
-                                  },
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
-                                  ),
-                                  child: Text(
-                                    req['status'] == 'Pending'
-                                        ? 'Collect Sample'
-                                        : req['status'] == 'Sample Collected'
-                                            ? 'Enter Results'
-                                            : 'View',
-                                    style: const TextStyle(fontSize: 11),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                  const SizedBox(height: 16),
+                  // Stats Cards Row 2
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          title: 'Moved to Tomorrow',
+                          value: '$movedTomorrow',
+                          icon: Icons.next_plan_outlined,
+                          color: Colors.red,
+                          bgColor: Colors.red.shade50,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildStatCard(
+                          title: 'Waiting for Technician',
+                          value: '$waitingTechnician',
+                          icon: Icons.person_off_outlined,
+                          color: Colors.purple,
+                          bgColor: Colors.purple.shade50,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildStatCard(
+                          title: 'Waiting for Machine',
+                          value: '$waitingMachine',
+                          icon: Icons.settings_suggest_outlined,
+                          color: Colors.teal,
+                          bgColor: Colors.teal.shade50,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Recent Orders List Table
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+                      boxShadow: AppTheme.cardShadow,
                     ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Recent Lab Test Orders',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                            ),
+                            TextButton(
+                              onPressed: () => _changePage(1),
+                              child: const Text('View All Tests'),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 24),
+                        if (_isLoadingRequests)
+                          const Center(child: Padding(padding: EdgeInsets.all(24.0), child: CircularProgressIndicator()))
+                        else if (_requestsError != null)
+                          Center(child: Text('Error loading requests: $_requestsError', style: const TextStyle(color: Colors.red)))
+                        else if (recentRequests.isEmpty)
+                          const Center(child: Padding(padding: EdgeInsets.all(24.0), child: Text('No orders found')))
+                        else
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: recentRequests.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, idx) {
+                              final req = recentRequests[idx];
+                              final formattedDate = _formatDate(req['created_at']);
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 12.0),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            req['test_name'] ?? 'Lab Test',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                'Estimated Duration: ${req['target_tat_minutes'] != null ? _formatDuration(req['target_tat_minutes'] is int ? req['target_tat_minutes'] as int : int.tryParse(req['target_tat_minutes']?.toString() ?? '') ?? 0) : 'Not Set'}',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppTheme.logoRed,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              InkWell(
+                                                onTap: () => _showEditDurationDialog(req),
+                                                child: const Icon(
+                                                  Icons.edit,
+                                                  size: 12,
+                                                  color: AppTheme.logoRed,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Ordered by Dr. ${req['doctor_name']}',
+                                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              _buildPriorityBadge(req['priority']),
+                                              if (req['queue_position'] != null && req['status'] != 'Completed') ...[
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.05), borderRadius: BorderRadius.circular(4)),
+                                                  child: Text('Pos #${req['queue_position']}', style: const TextStyle(fontSize: 10, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                                                ),
+                                              ],
+                                              if (req['scheduled_start_override'] != null && req['status'] != 'Completed') ...[
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                                                  child: Text(
+                                                    'Rescheduled: ${DateFormat('dd-MMM-yyyy').format(DateTime.parse(req['scheduled_start_override']).toLocal())}', 
+                                                    style: TextStyle(fontSize: 10, color: Colors.blue.shade700, fontWeight: FontWeight.bold)
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            req['patient_name'] ?? 'Unknown',
+                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            req['patient_display_id'] ?? '',
+                                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Ordered:',
+                                            style: TextStyle(fontSize: 9, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600),
+                                          ),
+                                          Text(
+                                            formattedDate,
+                                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                          ),
+                                          if (req['status'] != 'Completed' && req['estimated_completion_at'] != null) ...[
+                                            const SizedBox(height: 4),
+                                            const Text(
+                                              'Est Completion:',
+                                              style: TextStyle(fontSize: 9, color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                                            ),
+                                            Text(
+                                              _formatDate(req['estimated_completion_at']),
+                                              style: const TextStyle(fontSize: 11, color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2.0),
+                                      child: _buildStatusBadge(req['status']),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2.0),
+                                      child: OutlinedButton(
+                                        onPressed: () {
+                                          if (req['status'] == 'Pending') {
+                                            _updateStatus(req['id'], 'Sample Collected');
+                                          } else if (req['status'] == 'Sample Collected') {
+                                            _showResultsEntryDialog(req);
+                                          } else {
+                                            _selectedIndex = 2; // Move to Completed
+                                            setState(() {});
+                                          }
+                                        },
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
+                                        ),
+                                        child: Text(
+                                          req['status'] == 'Pending'
+                                              ? 'Collect Sample'
+                                              : req['status'] == 'Sample Collected'
+                                                  ? 'Enter Results'
+                                                  : 'View',
+                                          style: const TextStyle(fontSize: 11),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -852,8 +926,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+              color: Colors.transparent,
             ),
             child: Row(
               children: [
@@ -861,7 +934,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                   child: Container(
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppTheme.backgroundColor,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppTheme.borderColor),
                     ),
@@ -891,6 +964,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                               )
                             : null,
                         border: InputBorder.none,
+                        filled: false,
                       ),
                     ),
                   ),
@@ -1506,6 +1580,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 TextFormField(
                   controller: controller,
                   keyboardType: TextInputType.number,
+                  maxLength: 5,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
@@ -1515,6 +1590,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     if (minutes == null || minutes <= 0) {
                       return 'Must be a valid positive number';
                     }
+                    if (minutes > 99999) {
+                      return 'Duration cannot exceed 99,999 minutes';
+                    }
                     return null;
                   },
                   decoration: const InputDecoration(
@@ -1522,6 +1600,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     hintText: 'e.g., 30, 60, 120',
                     border: OutlineInputBorder(),
                     isDense: true,
+                    counterText: '',
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -2088,6 +2167,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                         field['parameter'] = v;
                                         setDialogState(() {});
                                       },
+                                      maxLength: 50,
                                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                                       decoration: const InputDecoration(
                                         isDense: true,
@@ -2095,6 +2175,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                         filled: true,
                                         fillColor: Colors.white,
                                         border: OutlineInputBorder(),
+                                        counterText: '',
                                       ),
                                     ),
                                   ),
@@ -2144,6 +2225,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                     child: TextFormField(
                                       initialValue: field['unit'],
                                       onChanged: (v) => field['unit'] = v,
+                                      maxLength: 20,
                                       style: const TextStyle(fontSize: 12),
                                       decoration: const InputDecoration(
                                         isDense: true,
@@ -2151,6 +2233,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                         filled: true,
                                         fillColor: Colors.white,
                                         border: OutlineInputBorder(),
+                                        counterText: '',
                                       ),
                                     ),
                                   ),
@@ -2160,6 +2243,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                     child: TextFormField(
                                       initialValue: field['reference_range'],
                                       onChanged: (v) => field['reference_range'] = v,
+                                      maxLength: 50,
                                       style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
                                       decoration: const InputDecoration(
                                         isDense: true,
@@ -2167,6 +2251,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                         filled: true,
                                         fillColor: Colors.white,
                                         border: OutlineInputBorder(),
+                                        counterText: '',
                                       ),
                                     ),
                                   ),
@@ -2194,20 +2279,23 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                         const SizedBox(height: 24),
                         const Text('REMARKS & FILE REFERENCE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
                         const SizedBox(height: 12),
-                        TextFormField(
+                         TextFormField(
                           controller: remarksController,
                           maxLines: 2,
+                          maxLength: 250,
                           decoration: InputDecoration(
                             isDense: true,
                             labelText: 'Observation Remarks',
                             filled: true,
                             fillColor: AppTheme.backgroundColor,
                             border: const OutlineInputBorder(borderSide: BorderSide.none),
+                            counterText: '',
                           ),
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: attachmentController,
+                          maxLength: 100,
                           decoration: InputDecoration(
                             isDense: true,
                             labelText: 'Attach Report Document (File Name)',
@@ -2215,6 +2303,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                             fillColor: AppTheme.backgroundColor,
                             border: const OutlineInputBorder(borderSide: BorderSide.none),
                             prefixIcon: const Icon(Icons.attach_file, size: 16),
+                            counterText: '',
                           ),
                         ),
                       ],
@@ -2281,7 +2370,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
 
   bool _isNumericField(String parameterName) {
     final name = parameterName.toLowerCase().trim();
-    if (name.isEmpty) return false;
+    if (name.isEmpty) return true;
     const textParams = [
       'color', 
       'appearance', 

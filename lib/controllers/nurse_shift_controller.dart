@@ -302,4 +302,20 @@ class NurseShiftController {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
+
+  Future<Map<String, dynamic>> fetchNurseStats() async {
+    try {
+      final response = await ApiService.get('$baseUrl/nurse/stats');
+      final body = ApiService.decodeJsonResponse(
+        response,
+        fallbackMessage: 'Failed to fetch nurse stats',
+      );
+      if (response.statusCode == 200 && body['success'] == true) {
+        return Map<String, dynamic>.from(body['data'] ?? {});
+      }
+      throw Exception(body['message'] ?? 'Failed to fetch nurse stats');
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
 }

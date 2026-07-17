@@ -28,12 +28,16 @@ class FrontDeskDashboardScreen extends StatefulWidget {
   final bool isRegisteringPatient;
   final bool forceBooking;
   final PatientModel? existingPatient;
+  final PatientModel? viewPatient;
+  final bool isEditingProfile;
   const FrontDeskDashboardScreen({
     Key? key,
     this.initialIndex = 0,
     this.isRegisteringPatient = false,
     this.forceBooking = false,
     this.existingPatient,
+    this.viewPatient,
+    this.isEditingProfile = false,
   }) : super(key: key);
 
   @override
@@ -44,6 +48,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
   int _selectedIndex = 0;
   bool _isRegisteringPatient = false;
   PatientModel? _patientToComplete;
+  PatientModel? _viewPatient;
   bool _forceBookingForm = false;
   PatientModel? _selectedPatientForBooking;
   UserModel? _selectedDoctorForBooking;
@@ -62,6 +67,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     _selectedIndex = widget.initialIndex;
     _isRegisteringPatient = widget.isRegisteringPatient;
     _patientToComplete = widget.existingPatient;
+    _viewPatient = widget.viewPatient;
     _forceBookingForm = widget.forceBooking;
     _fetchData();
   }
@@ -72,11 +78,13 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     if (widget.initialIndex != oldWidget.initialIndex ||
         widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
         widget.forceBooking != oldWidget.forceBooking ||
-        widget.existingPatient != oldWidget.existingPatient) {
+        widget.existingPatient != oldWidget.existingPatient ||
+        widget.viewPatient != oldWidget.viewPatient) {
       setState(() {
         _selectedIndex = widget.initialIndex;
         _isRegisteringPatient = widget.isRegisteringPatient;
         _patientToComplete = widget.existingPatient;
+        _viewPatient = widget.viewPatient;
         _forceBookingForm = widget.forceBooking;
       });
     }
@@ -169,7 +177,12 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
         return SearchOverlay(
           patients: _dbPatients.map((p) => p.toJson()).toList(),
           onNewPatient: () => _changePage(1, isRegistering: true),
-          onBookAppointment: () => _changePage(2, forceBooking: true),
+          onBookAppointment: (patientMap) {
+            if (patientMap != null) {
+              setState(() => _selectedPatientForBooking = PatientModel.fromJson(patientMap));
+            }
+            _changePage(2, forceBooking: true);
+          },
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -227,7 +240,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           Expanded(
             child: Column(
               children: [
-                _buildHeader(context, isMobile),
+                if (_selectedIndex != 0) _buildHeader(context, isMobile),
                 Expanded(child: _buildMainContent(isMobile)),
               ],
             ),
@@ -266,6 +279,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
             patients: _dbPatients,
             isLoading: _isLoadingPatients,
             error: _patientError,
+            initialSelectedPatient: _viewPatient,
             onRegisterPatient: () => _changePage(1, isRegistering: true),
             onCompleteProfile: (patient) {
               context.go(AppRoutes.frontDeskEditPatient, extra: patient);
@@ -304,51 +318,65 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
       case 4:
         return const FrontDeskAdmissionCounterView();
       case 5:
-        return const FrontDeskProfileView();
+        return FrontDeskProfileView(isEditing: widget.isEditingProfile);
       default:
         return _buildDashboardView(isMobile);
     }
   }
 
   Widget _buildDashboardView(bool isMobile) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildGreeting(),
-          const SizedBox(height: 24),
-          _buildStatsRow(isMobile),
-          const SizedBox(height: 24),
-          if (isMobile) ...[
-            _buildAlertsSection(),
-            const SizedBox(height: 24),
-            _buildRecentPatients(),
-            const SizedBox(height: 24),
-            _buildUpcomingAppointments(),
-          ] else
-            Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Fixed Top Bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+          color: Colors.transparent,
+          child: _buildBannerTopBar(isMobile),
+        ),
+        // Scrollable Content
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  flex: 2,
-                  child: Column(
+                _buildGreeting(),
+                const SizedBox(height: 24),
+                _buildStatsRow(isMobile),
+                const SizedBox(height: 24),
+                if (isMobile) ...[
+                  _buildAlertsSection(),
+                  const SizedBox(height: 24),
+                  _buildRecentPatients(),
+                  const SizedBox(height: 24),
+                  _buildUpcomingAppointments(),
+                ] else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildAlertsSection(),
-                      const SizedBox(height: 24),
-                      _buildRecentPatients(),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          children: [
+                            _buildAlertsSection(),
+                            const SizedBox(height: 24),
+                            _buildRecentPatients(),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        flex: 1,
+                        child: Column(children: [_buildUpcomingAppointments()]),
+                      ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  flex: 1,
-                  child: Column(children: [_buildUpcomingAppointments()]),
-                ),
               ],
             ),
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -358,38 +386,36 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
         final user = auth.user;
         return Container(
           width: 260,
-          decoration: const BoxDecoration(
+          margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+          decoration: BoxDecoration(
             color: Colors.white,
-            border: Border(
-              right: BorderSide(color: AppTheme.borderColor, width: 1),
-            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             children: [
               // Logo Section
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: AppTheme.borderColor, width: 1),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Image.asset(
-                      'assets/image/full_logo.png',
-                      width: 100,
-                      height: 89,
-                    ),
-                  ],
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Image.asset(
+                  'assets/image/full_logo.png',
+                  width: 110,
+                  height: 90,
                 ),
               ),
 
               // Navigation Items (Scrollable Area)
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildSidebarItem(
                         0,
@@ -431,69 +457,72 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                     top: BorderSide(color: AppTheme.borderColor, width: 1),
                   ),
                 ),
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () {
-                          if (user != null) {
-                            UserProfileDialog.show(context, user);
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user?.rawFullname ?? 'Front Desk',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: user == null
+                    ? const SizedBox.shrink()
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => UserProfileDialog.show(context, user),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: AppTheme.primaryColor,
+                                    radius: 18,
+                                    child: Text(
+                                      user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          user.fullname,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          user.role,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textSecondaryColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                              if (user?.staffUniqueId != null &&
-                                  user!.staffUniqueId!.isNotEmpty) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  user.staffUniqueId!,
-                                  style: const TextStyle(
-                                      fontSize: 9,
-                                      color: AppTheme.textSecondaryColor),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                              const SizedBox(height: 2),
-                              Text(
-                                user?.role ?? 'Front Desk',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.textSecondaryColor,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.logout,
-                        size: 18,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                      onPressed: () =>
-                          LogoutHelper.showLogoutConfirmation(
-                            context,
-                            auth,
+                          IconButton(
+                            icon: const Icon(
+                              Icons.logout,
+                              size: 18,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                            onPressed: () =>
+                                LogoutHelper.showLogoutConfirmation(
+                                  context,
+                                  auth,
+                                ),
                           ),
-                    ),
-                  ],
-                ),
+                        ],
+                      ),
               ),
             ],
           ),
@@ -506,32 +535,29 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     bool isSelected = _selectedIndex == index;
     return InkWell(
       onTap: () => _changePage(index),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.primaryColor.withOpacity(0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: isSelected
-                  ? AppTheme.primaryColor
-                  : AppTheme.textSecondaryColor,
-              size: 22,
+              color: isSelected ? Colors.white : const Color(0xFF4A5568),
+              size: 20,
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Text(
               label,
               style: TextStyle(
-                color: isSelected
-                    ? AppTheme.primaryColor
-                    : AppTheme.textSecondaryColor,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Colors.white : const Color(0xFF2D3748),
+                fontWeight: FontWeight.bold,
+                fontSize: 13.5,
               ),
             ),
           ],
@@ -542,62 +568,108 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
 
   Widget _buildHeader(BuildContext context, bool isMobile) {
     return Container(
-      height: isMobile ? 80 : 90,
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.borderColor, width: 1),
-        ),
+        color: Colors.transparent,
       ),
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-      child: Row(
-        children: [
-          if (isMobile) ...[
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(
-                  Icons.menu,
-                  color: AppTheme.textPrimaryColor,
-                ),
-                onPressed: () => Scaffold.of(context).openDrawer(),
+      padding: EdgeInsets.only(
+        left: isMobile ? 16 : 24,
+        right: isMobile ? 16 : 24,
+        top: 20,
+        bottom: 0,
+      ),
+      child: _buildBannerTopBar(isMobile),
+    );
+  }
+
+  Widget _buildBannerTopBar(bool isMobile) {
+    return Row(
+      children: [
+        if (isMobile) ...[
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(
+                Icons.menu,
+                color: Color(0xFF4A5568),
               ),
+              onPressed: () => Scaffold.of(context).openDrawer(),
             ),
-            const SizedBox(width: 8),
-          ],
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Sri Ponni Medical Center',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-                Text(
-                  'Front Desk Operations',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.search,
-              color: AppTheme.textPrimaryColor,
-            ),
-            onPressed: _showSearchOverlay,
           ),
           const SizedBox(width: 8),
-          const LiveClock(),
         ],
-      ),
+
+        Expanded(
+          child: InkWell(
+            onTap: _showSearchOverlay,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.search,
+                    size: 18,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Search anything...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 16),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(
+              Icons.notifications_none_outlined,
+              color: Color(0xFF4A5568),
+              size: 22,
+            ),
+            Positioned(
+              right: -2,
+              top: -2,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE53E3E),
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 14,
+                  minHeight: 14,
+                ),
+                child: const Text(
+                  '3',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(width: 16),
+        const Icon(Icons.settings_outlined, color: Color(0xFF4A5568), size: 22),
+        const SizedBox(width: 16),
+        const LiveClock(isDark: false),
+      ],
     );
   }
 
@@ -1062,7 +1134,8 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
 }
 
 class FrontDeskProfileView extends StatefulWidget {
-  const FrontDeskProfileView({Key? key}) : super(key: key);
+  final bool isEditing;
+  const FrontDeskProfileView({Key? key, this.isEditing = false}) : super(key: key);
 
   @override
   State<FrontDeskProfileView> createState() => _FrontDeskProfileViewState();
@@ -1101,7 +1174,18 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
   @override
   void initState() {
     super.initState();
+    _isEditingProfile = widget.isEditing;
     _initControllers();
+  }
+
+  @override
+  void didUpdateWidget(covariant FrontDeskProfileView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isEditing != oldWidget.isEditing) {
+      setState(() {
+        _isEditingProfile = widget.isEditing;
+      });
+    }
   }
 
   void _initControllers() {
@@ -1162,7 +1246,8 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
 
       if (mounted) {
         Provider.of<AuthProvider>(context, listen: false).updateUser(updatedUser);
-        setState(() => _isEditingProfile = false);
+        setState(() {});
+        GoRouter.of(context).go(AppRoutes.frontDeskProfile);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile updated successfully!', style: TextStyle(color: Colors.white)),
@@ -1222,7 +1307,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
-                      onPressed: () => setState(() => _isEditingProfile = true),
+                      onPressed: () => GoRouter.of(context).go(AppRoutes.frontDeskProfileEdit),
                       icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
                       label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
                       style: AppTheme.primaryButton.copyWith(
@@ -1252,7 +1337,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                       ],
                     ),
                     ElevatedButton.icon(
-                      onPressed: () => setState(() => _isEditingProfile = true),
+                      onPressed: () => GoRouter.of(context).go(AppRoutes.frontDeskProfileEdit),
                       icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
                       label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
                       style: AppTheme.primaryButton.copyWith(
@@ -1394,7 +1479,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             InkWell(
-              onTap: () => setState(() => _isEditingProfile = false),
+              onTap: () => GoRouter.of(context).go(AppRoutes.frontDeskProfile),
               borderRadius: BorderRadius.circular(8),
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
@@ -1529,11 +1614,13 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                       TextFormField(
                         controller: _bioController,
                         maxLines: 3,
+                        maxLength: 255,
                         style: const TextStyle(
                           color: AppTheme.textPrimaryColor,
                           fontWeight: FontWeight.normal,
                         ),
                         decoration: InputDecoration(
+                          counterText: '',
                           hintText: 'Share a brief summary of your expertise...',
                           hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
                           fillColor: AppTheme.backgroundColor,
@@ -1568,7 +1655,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 OutlinedButton(
-                  onPressed: _isLoading ? null : () => setState(() => _isEditingProfile = false),
+                  onPressed: _isLoading ? null : () => GoRouter.of(context).go(AppRoutes.frontDeskProfile),
                   style: AppTheme.cancelButton,
                   child: const Text('Cancel'),
                 ),

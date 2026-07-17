@@ -622,6 +622,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             child: _buildTextField(
                               controller: _bpSystolicController,
                               hint: '120',
+                              maxLength: 3,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              validator: (val) {
+                                final text = val?.trim() ?? '';
+                                if (text.isEmpty) return null;
+                                final num = int.tryParse(text);
+                                if (num == null) return 'Enter a number';
+                                if (num == 0) return 'Cannot be 0';
+                                if (num < 90 || num > 300) return 'Must be 90 to 300';
+                                return null;
+                              },
                             ),
                           ),
                           const Padding(
@@ -638,6 +649,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             child: _buildTextField(
                               controller: _bpDiastolicController,
                               hint: '80',
+                              maxLength: 3,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              validator: (val) {
+                                final text = val?.trim() ?? '';
+                                if (text.isEmpty) return null;
+                                final num = int.tryParse(text);
+                                if (num == null) return 'Enter a number';
+                                if (num == 0) return 'Cannot be 0';
+                                if (num < 50 || num > 180) return 'Must be 50 to 180';
+                                return null;
+                              },
                             ),
                           ),
                         ],
@@ -653,6 +675,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 _buildTextField(
                                   controller: _sugarController,
                                   hint: '100 mg/dL',
+                                  maxLength: 6,
+                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                                  validator: (val) {
+                                    final text = val?.trim() ?? '';
+                                    if (text.isEmpty) return null;
+                                    final num = double.tryParse(text);
+                                    if (num == null) return 'Enter a number';
+                                    if (num == 0) return 'Cannot be 0';
+                                    if (num < 30 || num > 600) return 'Must be 30 to 600';
+                                    return null;
+                                  },
                                 ),
                               ],
                             ),
@@ -666,6 +699,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 _buildTextField(
                                   controller: _tempController,
                                   hint: '98.6°F',
+                                  maxLength: 5,
+                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                                  validator: (val) {
+                                    final text = val?.trim() ?? '';
+                                    if (text.isEmpty) return null;
+                                    final num = double.tryParse(text);
+                                    if (num == null) return 'Enter a number';
+                                    if (num == 0) return 'Cannot be 0';
+                                    if (num < 90 || num > 115) return 'Must be 90 to 115';
+                                    return null;
+                                  },
                                 ),
                               ],
                             ),
@@ -1070,6 +1114,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 _selectedTime != null)
                             ? () async {
                                 try {
+                                  _validateVitals();
                                   final hasVitalsDuringBooking =
                                       _bpSystolicController.text.trim().isNotEmpty &&
                                       _tempController.text.trim().isNotEmpty;
@@ -1261,6 +1306,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                             child: _buildTextField(
                                               controller: _bpSystolicController,
                                               hint: '120',
+                                              maxLength: 3,
+                                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                              validator: (val) {
+                                                final text = val?.trim() ?? '';
+                                                if (text.isEmpty) return null;
+                                                final num = int.tryParse(text);
+                                                if (num == null) return 'Enter a number';
+                                                if (num == 0) return 'Cannot be 0';
+                                                if (num < 90 || num > 300) return 'Must be 90 to 300';
+                                                return null;
+                                              },
                                             ),
                                           ),
                                           const Padding(
@@ -1277,9 +1333,19 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                           ),
                                           Expanded(
                                             child: _buildTextField(
-                                              controller:
-                                                  _bpDiastolicController,
+                                              controller: _bpDiastolicController,
                                               hint: '80',
+                                              maxLength: 3,
+                                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                              validator: (val) {
+                                                final text = val?.trim() ?? '';
+                                                if (text.isEmpty) return null;
+                                                final num = int.tryParse(text);
+                                                if (num == null) return 'Enter a number';
+                                                if (num == 0) return 'Cannot be 0';
+                                                if (num < 50 || num > 180) return 'Must be 50 to 180';
+                                                return null;
+                                              },
                                             ),
                                           ),
                                         ],
@@ -1298,6 +1364,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                       _buildTextField(
                                         controller: _sugarController,
                                         hint: '100 mg/dL',
+                                        maxLength: 6,
+                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                                        validator: (val) {
+                                          final text = val?.trim() ?? '';
+                                          if (text.isEmpty) return null;
+                                          final num = double.tryParse(text);
+                                          if (num == null) return 'Enter a number';
+                                          if (num == 0) return 'Cannot be 0';
+                                          if (num < 30 || num > 600) return 'Must be 30 to 600';
+                                          return null;
+                                        },
                                       ),
                                     ],
                                   ),
@@ -1313,6 +1390,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                       _buildTextField(
                                         controller: _tempController,
                                         hint: '98.6°F',
+                                        maxLength: 5,
+                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                                        validator: (val) {
+                                          final text = val?.trim() ?? '';
+                                          if (text.isEmpty) return null;
+                                          final num = double.tryParse(text);
+                                          if (num == null) return 'Enter a number';
+                                          if (num == 0) return 'Cannot be 0';
+                                          if (num < 90 || num > 115) return 'Must be 90 to 115';
+                                          return null;
+                                        },
                                       ),
                                     ],
                                   ),
@@ -1794,6 +1882,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                       _selectedTime != null)
                                   ? () async {
                                       try {
+                                        _validateVitals();
                                         final hasVitalsDuringBooking =
                                             _bpSystolicController.text.trim().isNotEmpty &&
                                             _tempController.text.trim().isNotEmpty;
@@ -1959,9 +2048,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     required TextEditingController controller,
     required String hint,
     bool isNumeric = true,
+    int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
   }) {
-    return TextField(
+    return TextFormField(
       controller: controller,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      validator: validator,
       decoration: InputDecoration(
         hintText: hint,
         filled: true,
@@ -1971,6 +2065,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           vertical: 12,
         ),
         isDense: true,
+        counterText: maxLength != null ? '' : null,
+        errorMaxLines: 2,
+        errorStyle: const TextStyle(
+          fontSize: 10,
+          height: 1.1,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppTheme.borderColor),
@@ -1984,13 +2084,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         ),
       ),
       style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+      maxLength: maxLength,
       keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
-      inputFormatters: isNumeric
-          ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
-          : [
-              FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
-              LengthLimitingTextInputFormatter(100),
-            ],
+      inputFormatters: inputFormatters ??
+          (isNumeric
+              ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
+              : [
+                  FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                  LengthLimitingTextInputFormatter(100),
+                ]),
     );
   }
 
@@ -2050,6 +2152,38 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         ],
       ),
     );
+  }
+
+  void _validateVitals() {
+    final sysText = _bpSystolicController.text.trim();
+    final diaText = _bpDiastolicController.text.trim();
+    final sugarText = _sugarController.text.trim();
+    final tempText = _tempController.text.trim();
+
+    if (sysText.isNotEmpty) {
+      final val = int.tryParse(sysText);
+      if (val == null) throw 'BP Systolic must be an integer';
+      if (val == 0) throw 'BP Systolic cannot be 0';
+      if (val < 90 || val > 300) throw 'BP Systolic must be between 90 and 300 mmHg';
+    }
+    if (diaText.isNotEmpty) {
+      final val = int.tryParse(diaText);
+      if (val == null) throw 'BP Diastolic must be an integer';
+      if (val == 0) throw 'BP Diastolic cannot be 0';
+      if (val < 50 || val > 180) throw 'BP Diastolic must be between 50 and 180 mmHg';
+    }
+    if (sugarText.isNotEmpty) {
+      final val = double.tryParse(sugarText);
+      if (val == null) throw 'Sugar Level must be a number';
+      if (val == 0) throw 'Sugar Level cannot be 0';
+      if (val < 30 || val > 600) throw 'Sugar Level must be between 30 and 600 mg/dL';
+    }
+    if (tempText.isNotEmpty) {
+      final val = double.tryParse(tempText);
+      if (val == null) throw 'Temperature must be a number';
+      if (val == 0) throw 'Temperature cannot be 0';
+      if (val < 90 || val > 115) throw 'Temperature must be between 90 and 115 °F';
+    }
   }
 
   void _clearSelections() {
@@ -2734,14 +2868,13 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 _buildTableHeader('S.No', flex: 1),
                 _buildTableHeader('Time', flex: 2),
                 _buildTableHeader('Date', flex: 2),
-                _buildTableHeader('Patient', flex: 3),
-                _buildTableHeader('Patient ID', flex: 2),
+                _buildTableHeader('Patient', flex: 4),
                 _buildTableHeader('Type', flex: 2),
                 _buildTableHeader('Department', flex: 2),
                 _buildTableHeader('Doctor', flex: 3),
-                _buildTableHeader('Reason', flex: 2),
+                _buildTableHeader('Reason', flex: 3),
                 _buildTableHeader('Status', flex: 2),
-                _buildTableHeader('Actions', flex: 4, leftPadding: 16),
+                _buildTableHeader('Actions', flex: 2, leftPadding: 16),
               ],
             ),
           ),
@@ -2965,30 +3098,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                           ),
                         ),
-                      ElevatedButton(
-                        onPressed: () async {
-                          if (!hasVitals) {
-                            await _showVitalsMissingDialog(context, appt);
-                            return;
-                          }
-                          try {
-                            await _appointmentController.updateStatus(appt.id!, 'Waiting');
-                            _fetchData();
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D9488),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          minimumSize: const Size(0, 36),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        ),
-                        child: const Text(
-                          'Mark Waiting',
-                          style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                      ),
+
                       ElevatedButton(
                         onPressed: () async {
                           String? cancelReason;
@@ -3208,7 +3318,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           ),
           Expanded(
-            flex: 3,
+            flex: 4,
             child: Row(
               children: [
                 Container(
@@ -3231,27 +3341,33 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    patientName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        patientName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        patientIdText,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              patientIdText,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF475569),
-              ),
             ),
           ),
           Expanded(
@@ -3326,12 +3442,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           ),
           Expanded(
-            flex: 2,
-            child: Text(
-              reason,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            flex: 3,
+            child: Tooltip(
+              message: reason,
+              child: Text(
+                reason,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              ),
             ),
           ),
           Expanded(
@@ -3354,7 +3473,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           ),
           Expanded(
-            flex: 4,
+            flex: 2,
             child: Padding(
               padding: const EdgeInsets.only(left: 16.0),
               child: Wrap(
@@ -3377,23 +3496,6 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         onTap: () => _openVitalsEntryDialog(context, appt),
                       ),
                     ],
-                    _buildActionLabel(
-                      Icons.hourglass_empty_outlined,
-                      'Mark Waiting',
-                      const Color(0xFF0D9488),
-                      onTap: () async {
-                        if (!hasVitals) {
-                          await _showVitalsMissingDialog(context, appt);
-                          return;
-                        }
-                        try {
-                          await _appointmentController.updateStatus(id, 'Waiting');
-                          _fetchData();
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                        }
-                      },
-                    ),
                     _buildActionLabel(
                       Icons.cancel_outlined,
                       'Cancel',

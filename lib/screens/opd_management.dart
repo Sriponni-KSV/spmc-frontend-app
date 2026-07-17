@@ -12,6 +12,8 @@ import '../controllers/patient_controller.dart';
 import '../models/patient_model.dart';
 import '../models/user_model.dart';
 import '../utils/date_formatter.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 
 class OPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -80,7 +82,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
 
       if (mounted) {
         setState(() {
-          _appointments = data; // include all appointment types (walk-in + pre-booked)
+          _appointments =
+              data; // include all appointment types (walk-in + pre-booked)
           _consultations = consultationsData;
           _isLoading = false;
         });
@@ -281,6 +284,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   }
 
   Widget _buildHeader() {
+    final user = Provider.of<AuthProvider>(context).user;
+    final isNurse = user?.role == 'Nurse';
+
     return Container(
       margin: EdgeInsets.fromLTRB(
         widget.isMobile ? 16 : 24,
@@ -341,25 +347,26 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   ),
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => _showWalkInDialog(),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text(
-                    'Walk-in',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppTheme.primaryColor,
-                    elevation: 3,
-                    shadowColor: Colors.black26,
-                    minimumSize: const Size(double.infinity, 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                if (isNurse)
+                  ElevatedButton.icon(
+                    onPressed: () => _showWalkInDialog(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text(
+                      'Walk-in',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppTheme.primaryColor,
+                      elevation: 3,
+                      shadowColor: Colors.black26,
+                      minimumSize: const Size(double.infinity, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                ),
               ],
             )
           : Row(
@@ -400,25 +407,26 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () => _showWalkInDialog(),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text(
-                    widget.isMobile ? 'Walk-in' : 'New Walk-in Entry',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppTheme.primaryColor,
-                    elevation: 3,
-                    shadowColor: Colors.black26,
-                    minimumSize: const Size(120, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                if (isNurse)
+                  ElevatedButton.icon(
+                    onPressed: () => _showWalkInDialog(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(
+                      widget.isMobile ? 'Walk-in' : 'New Walk-in Entry',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppTheme.primaryColor,
+                      elevation: 3,
+                      shadowColor: Colors.black26,
+                      minimumSize: const Size(120, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
     );
@@ -1066,40 +1074,42 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             ],
                             // Appointment type badge
                             const SizedBox(width: 6),
-                            Builder(builder: (_) {
-                              final normalized = app.appointmentType
-                                  .trim()
-                                  .toLowerCase()
-                                  .replaceAll(RegExp(r'[\s-]+'), '');
-                              final isWalkIn = normalized == 'walkin';
-                              final badgeColor = isWalkIn
-                                  ? const Color(0xFF0D9488)
-                                  : const Color(0xFF6366F1);
-                              final label = isWalkIn
-                                  ? 'Walk-in'
-                                  : app.appointmentType;
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: badgeColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                    color: badgeColor.withOpacity(0.4),
+                            Builder(
+                              builder: (_) {
+                                final normalized = app.appointmentType
+                                    .trim()
+                                    .toLowerCase()
+                                    .replaceAll(RegExp(r'[\s-]+'), '');
+                                final isWalkIn = normalized == 'walkin';
+                                final badgeColor = isWalkIn
+                                    ? const Color(0xFF0D9488)
+                                    : const Color(0xFF6366F1);
+                                final label = isWalkIn
+                                    ? 'Walk-in'
+                                    : app.appointmentType;
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
                                   ),
-                                ),
-                                child: Text(
-                                  label,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: badgeColor,
+                                  decoration: BoxDecoration(
+                                    color: badgeColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: badgeColor.withOpacity(0.4),
+                                    ),
                                   ),
-                                ),
-                              );
-                            }),
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: badgeColor,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -1274,7 +1284,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         if (!_hasVitals(app)) ...[
                           ElevatedButton.icon(
                             onPressed: () => _openVitalsDialog(app),
-                            icon: const Icon(Icons.monitor_heart, size: 14, color: Colors.white),
+                            icon: const Icon(
+                              Icons.monitor_heart,
+                              size: 14,
+                              color: Colors.white,
+                            ),
                             label: const Text(
                               'Add Vitals',
                               style: TextStyle(
@@ -1295,28 +1309,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             ),
                           ),
                         ],
-                        ElevatedButton.icon(
-                          onPressed: () => _handleMarkWaiting(app),
-                          icon: const Icon(Icons.hourglass_empty, size: 14, color: Colors.white),
-                          label: const Text(
-                            'Mark Waiting',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D9488),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
+
                         ElevatedButton.icon(
                           onPressed: () => _showCancelAppointmentDialog(app),
                           icon: const Icon(Icons.cancel_outlined, size: 14),
@@ -1936,10 +1929,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                       // changes_log; fall back to app.changesLog
                                       final timelineData =
                                           (consultation != null &&
-                                                  consultation!['changes_log'] !=
-                                                      null)
-                                              ? consultation!['changes_log']
-                                              : app.changesLog;
+                                              consultation!['changes_log'] !=
+                                                  null)
+                                          ? consultation!['changes_log']
+                                          : app.changesLog;
                                       return timelineData != null
                                           ? _buildTimeline(timelineData)
                                           : const Text(
@@ -2113,12 +2106,16 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (c['doctor_name'] != null && c['doctor_name'].toString().isNotEmpty) ...[
+        if (c['doctor_name'] != null &&
+            c['doctor_name'].toString().isNotEmpty) ...[
           const Text(
             'Doctor:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
-          Text(c['doctor_name'].toString(), style: const TextStyle(fontSize: 13)),
+          Text(
+            c['doctor_name'].toString(),
+            style: const TextStyle(fontSize: 13),
+          ),
           const SizedBox(height: 8),
         ],
         if (c['symptoms'] != null && c['symptoms'].toString().isNotEmpty) ...[
@@ -2129,12 +2126,16 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           Text(c['symptoms'].toString(), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
         ],
-        if (c['leading_questions'] != null && c['leading_questions'].toString().isNotEmpty) ...[
+        if (c['leading_questions'] != null &&
+            c['leading_questions'].toString().isNotEmpty) ...[
           const Text(
             'Leading Questions:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
-          Text(c['leading_questions'].toString(), style: const TextStyle(fontSize: 13)),
+          Text(
+            c['leading_questions'].toString(),
+            style: const TextStyle(fontSize: 13),
+          ),
           const SizedBox(height: 8),
         ],
         if (c['diagnosis'] != null && c['diagnosis'].toString().isNotEmpty) ...[
@@ -2153,20 +2154,28 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           Text(c['history'].toString(), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
         ],
-        if (c['examination'] != null && c['examination'].toString().isNotEmpty) ...[
+        if (c['examination'] != null &&
+            c['examination'].toString().isNotEmpty) ...[
           const Text(
             'Physical Examination:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
-          Text(c['examination'].toString(), style: const TextStyle(fontSize: 13)),
+          Text(
+            c['examination'].toString(),
+            style: const TextStyle(fontSize: 13),
+          ),
           const SizedBox(height: 8),
         ],
-        if (c['family_history'] != null && c['family_history'].toString().isNotEmpty) ...[
+        if (c['family_history'] != null &&
+            c['family_history'].toString().isNotEmpty) ...[
           const Text(
             'Family History:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
-          Text(c['family_history'].toString(), style: const TextStyle(fontSize: 13)),
+          Text(
+            c['family_history'].toString(),
+            style: const TextStyle(fontSize: 13),
+          ),
           const SizedBox(height: 8),
         ],
         if (c['social'] != null && c['social'].toString().isNotEmpty) ...[
@@ -2182,7 +2191,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             'Allergies:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
-          Text(c['allergy'].toString(), style: const TextStyle(fontSize: 13, color: Colors.red)),
+          Text(
+            c['allergy'].toString(),
+            style: const TextStyle(fontSize: 13, color: Colors.red),
+          ),
           const SizedBox(height: 8),
         ],
         if (c['procedure'] != null && c['procedure'].toString().isNotEmpty) ...[
@@ -2203,7 +2215,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         ],
         if (refMap != null &&
             ((refMap['referred_doctor']?.toString().isNotEmpty ?? false) ||
-             (refMap['referred_department']?.toString().isNotEmpty ?? false))) ...[
+                (refMap['referred_department']?.toString().isNotEmpty ??
+                    false))) ...[
           const Text(
             'Referral Details:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
@@ -2224,7 +2237,10 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             if (d is Map) {
               return Container(
                 margin: const EdgeInsets.only(bottom: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade50,
                   border: Border.all(color: Colors.grey.shade200),
@@ -2232,12 +2248,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.picture_as_pdf, size: 14, color: Colors.red),
+                    const Icon(
+                      Icons.picture_as_pdf,
+                      size: 14,
+                      color: Colors.red,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '${d['title']} (${d['file_name']})',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -2479,7 +2502,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           final to = change['status']['to'] == 'Checked-in'
               ? 'Waiting'
               : change['status']['to'];
-          if (from == null || from == 'null' || from.toString().trim().isEmpty) {
+          if (from == null ||
+              from == 'null' ||
+              from.toString().trim().isEmpty) {
             text = 'Initial Status: $to';
           } else {
             text = 'Status: $from → $to';
@@ -2795,7 +2820,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         value: selectedDoctor?.id.toString(),
                         dropdownMap: {
                           for (var d in _doctors)
-                            d.id.toString(): d.staffUniqueId != null && d.staffUniqueId!.isNotEmpty
+                            d.id.toString():
+                                d.staffUniqueId != null &&
+                                    d.staffUniqueId!.isNotEmpty
                                 ? '${d.fullname} (${d.staffUniqueId})'
                                 : d.fullname,
                         },
@@ -2985,7 +3012,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                   controller: bpSysCtrl,
                                   keyboardType: TextInputType.number,
                                   maxLength: 3,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
                                   decoration: const InputDecoration(
                                     hintText: '120',
                                     isDense: true,
@@ -2998,9 +3027,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     if (text.isEmpty) {
                                       return 'Please enter BP systolic';
                                     }
-                                    return int.tryParse(text) == null
-                                        ? 'Enter a number'
-                                        : null;
+                                    final num = int.tryParse(text);
+                                    if (num == null) return 'Enter a number';
+                                    if (num == 0) return 'Cannot be 0';
+                                    if (num < 90 || num > 300)
+                                      return 'Must be 90 to 300';
+                                    return null;
                                   },
                                 ),
                               ],
@@ -3031,7 +3063,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                   controller: bpDiaCtrl,
                                   keyboardType: TextInputType.number,
                                   maxLength: 3,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
                                   decoration: const InputDecoration(
                                     hintText: '80',
                                     isDense: true,
@@ -3044,9 +3078,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     if (text.isEmpty) {
                                       return 'Please enter BP diastolic';
                                     }
-                                    return int.tryParse(text) == null
-                                        ? 'Enter a number'
-                                        : null;
+                                    final num = int.tryParse(text);
+                                    if (num == null) return 'Enter a number';
+                                    if (num == 0) return 'Cannot be 0';
+                                    if (num < 50 || num > 180)
+                                      return 'Must be 50 to 180';
+                                    return null;
                                   },
                                 ),
                               ],
@@ -3085,7 +3122,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                       ),
                                   maxLength: 6,
                                   inputFormatters: [
-                                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'[0-9.]'),
+                                    ),
                                   ],
                                   decoration: const InputDecoration(
                                     hintText: '95.5 mg/dL',
@@ -3099,9 +3138,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     if (text.isEmpty) {
                                       return 'Please enter sugar level';
                                     }
-                                    return double.tryParse(text) == null
-                                        ? 'Enter a number'
-                                        : null;
+                                    final num = double.tryParse(text);
+                                    if (num == null) return 'Enter a number';
+                                    if (num == 0) return 'Cannot be 0';
+                                    if (num < 30 || num > 600)
+                                      return 'Must be 30 to 600';
+                                    return null;
                                   },
                                 ),
                               ],
@@ -3130,12 +3172,15 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 const SizedBox(height: 4),
                                 TextFormField(
                                   controller: tempCtrl,
-                                  keyboardType: const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   maxLength: 5,
                                   inputFormatters: [
-                                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'[0-9.]'),
+                                    ),
                                   ],
                                   decoration: const InputDecoration(
                                     hintText: '98.6 °F',
@@ -3149,9 +3194,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     if (text.isEmpty) {
                                       return 'Please enter temperature';
                                     }
-                                    return double.tryParse(text) == null
-                                        ? 'Enter a number'
-                                        : null;
+                                    final num = double.tryParse(text);
+                                    if (num == null) return 'Enter a number';
+                                    if (num == 0) return 'Cannot be 0';
+                                    if (num < 90 || num > 115)
+                                      return 'Must be 90 to 115';
+                                    return null;
                                   },
                                 ),
                               ],

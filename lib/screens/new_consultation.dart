@@ -717,6 +717,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                         TextFormField(
                           controller: reasonController,
                           maxLines: 3,
+                          maxLength: 100,
                           decoration: InputDecoration(
                             hintText:
                                 'Enter medical reason for IPD admission...',
@@ -724,6 +725,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                               color: Colors.grey.shade400,
                               fontSize: 12,
                             ),
+                            counterText: '',
                             filled: true,
                             fillColor: AppTheme.backgroundColor,
                             border: OutlineInputBorder(
@@ -763,6 +765,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                         TextFormField(
                           controller: diagnosisController,
                           maxLines: 2,
+                          maxLength: 100,
                           decoration: InputDecoration(
                             hintText:
                                 'e.g. Acute Appendicitis, Type 2 Diabetes...',
@@ -770,6 +773,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                               color: Colors.grey.shade400,
                               fontSize: 12,
                             ),
+                            counterText: '',
                             filled: true,
                             fillColor: AppTheme.backgroundColor,
                             border: OutlineInputBorder(
@@ -947,6 +951,31 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     }
   }
 
+  Future<bool> _onWillPop() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit Consultation?'),
+        content: const Text('Are you sure you want to exit? The consultation is not completed yet. You can resume it later.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+    return confirm ?? false;
+  }
+
   List<String> getFinalOrderedLabs() {
     final List<String> result = [];
     _standardLabs.forEach((key, val) {
@@ -966,7 +995,11 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         children: [
           // Back Button above title
           InkWell(
-            onTap: widget.onBack,
+            onTap: () async {
+              if (await _onWillPop()) {
+                widget.onBack();
+              }
+            },
             borderRadius: BorderRadius.circular(8),
             child: const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
@@ -1025,8 +1058,10 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     }
 
     if (isMobile) {
-      return Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+      return WillPopScope(
+        onWillPop: _onWillPop,
+        child: Scaffold(
+          backgroundColor: AppTheme.backgroundColor,
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Form(
@@ -1046,12 +1081,15 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             ),
           ),
         ),
-      );
+      ),
+    );
     }
 
     // Desktop split layout
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Form(
@@ -1092,6 +1130,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -2208,6 +2247,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         TextFormField(
           controller: controller,
           maxLines: 3,
+          maxLength: 100,
           validator: required
               ? (v) => (v == null || v.trim().isEmpty)
                     ? 'This field is required'
@@ -2215,6 +2255,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               : null,
           decoration: InputDecoration(
             hintText: hint,
+            counterText: '',
             fillColor: AppTheme.backgroundColor,
             filled: true,
             border: OutlineInputBorder(

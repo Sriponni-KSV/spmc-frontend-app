@@ -13,13 +13,31 @@ import '../models/user_model.dart';
 import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../controllers/ot_controller.dart';
+import '../controllers/ipd_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'dart:js' as js;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 
+// --- CUSTOM INPUT FORMATTERS ---
+
+/// Blocks any input that starts with '0', preventing entries like 0, 00, 000 etc.
+class _NoLeadingZeroFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.startsWith('0')) {
+      return oldValue; // reject the change, keep old value
+    }
+    return newValue;
+  }
+}
+
 // --- DATA STRUCTURES ---
+
 
 class AuditLog {
   final String actorName;
@@ -171,7 +189,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   final PatientController _patientController = PatientController();
   final AdminController _adminController = AdminController();
   final OtController _otController = OtController();
+  final IpdController _ipdController = IpdController();
   List<PatientModel> _patients = [];
+  List<Map<String, dynamic>> _beds = [];
+  bool _isLoadingBeds = false;
   List<UserModel> _doctors = [];
   List<UserModel> _anaesthetists = [];
   List<UserModel> _nurses = [];
@@ -201,6 +222,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   TimeOfDay _slotStartTime = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay _slotEndTime = const TimeOfDay(hour: 11, minute: 30);
   List<String> _selectedNurseNames = []; // Multi-select nurse names
+
+  int _pendingRequestsCount = 0;
+  int _scheduledTodayCount = 0;
+  int _activeInSurgeryCount = 0;
+  int _recoveryPostOpCount = 0;
+  bool _isLoadingStats = false;
 
   // Temporary Inputs for Workflow steps (kept for backward compat)
   final _otRoomController = TextEditingController();
@@ -322,6 +349,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   final _intraOpBloodController = TextEditingController();
   final _intraOpInstrumentController = TextEditingController();
 
+  // Intra-Op vitals real-time validation errors
+  String? _intraOpBpError;
+  String? _intraOpPulseError;
+  String? _intraOpTempError;
+  String? _intraOpSpo2Error;
+
   // Post-Op Notes
   final _opSummaryController = TextEditingController();
   final _procPerformedController = TextEditingController();
@@ -369,6 +402,28 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     }
   }
 
+  Future<void> _loadStats() async {
+    if (!mounted) return;
+    setState(() => _isLoadingStats = true);
+    try {
+      final stats = await _otController.fetchOtStats();
+      if (mounted) {
+        setState(() {
+          _pendingRequestsCount = stats['pendingCount'] ?? 0;
+          _scheduledTodayCount = stats['scheduledToday'] ?? 0;
+          _activeInSurgeryCount = stats['activeInSurgery'] ?? 0;
+          _recoveryPostOpCount = stats['recoveryPostOp'] ?? 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading OT stats: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
+    }
+  }
+
   Future<void> _loadPatientsAndDoctors() async {
     if (!mounted) return;
     setState(() {
@@ -376,6 +431,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       _isLoadingDoctors = true;
       _isLoadingAnaesthetists = true;
       _isLoadingCases = true;
+      _isLoadingBeds = true;
     });
     try {
       final results = await Future.wait([
@@ -384,6 +440,8 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         _otController.fetchOtCases(),
         _adminController.fetchStaff(role: 'Anaesthetist'),
         _adminController.fetchStaff(role: 'Nurse'),
+        _otController.fetchOtStats(),
+        _ipdController.fetchBeds(),
       ]);
       if (mounted) {
         _patients = results[0] as List<PatientModel>;
@@ -391,9 +449,16 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         final fetchedCases = results[2] as List<OtCase>;
         _anaesthetists = results[3] as List<UserModel>;
         _nurses = results[4] as List<UserModel>;
+        final stats = results[5] as Map<String, dynamic>;
+        _beds = results[6] as List<Map<String, dynamic>>;
 
         setState(() {
           _otCases = fetchedCases;
+          _pendingRequestsCount = stats['pendingCount'] ?? 0;
+          _scheduledTodayCount = stats['scheduledToday'] ?? 0;
+          _activeInSurgeryCount = stats['activeInSurgery'] ?? 0;
+          _recoveryPostOpCount = stats['recoveryPostOp'] ?? 0;
+
           if (widget.initialSelectedCase != null) {
             final match = fetchedCases.firstWhere(
               (c) => c.dbId == widget.initialSelectedCase!.dbId,
@@ -416,6 +481,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           _isLoadingDoctors = false;
           _isLoadingAnaesthetists = false;
           _isLoadingCases = false;
+          _isLoadingBeds = false;
         });
       }
     } catch (e) {
@@ -425,6 +491,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           _isLoadingDoctors = false;
           _isLoadingAnaesthetists = false;
           _isLoadingCases = false;
+          _isLoadingBeds = false;
         });
         debugPrint('Error loading OT database dependencies: $e');
       }
@@ -566,6 +633,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           }
         }
       });
+      _loadStats();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1517,8 +1585,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             width: double.infinity,
             padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 16 : 24, vertical: 16),
             decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+              color: Colors.transparent,
             ),
             child: widget.isMobile
                 ? Column(
@@ -1532,7 +1599,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryColor,
+                              color: AppTheme.textPrimaryColor,
                             ),
                           ),
                           SizedBox(height: 4),
@@ -1563,7 +1630,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryColor,
+                              color: AppTheme.textPrimaryColor,
                             ),
                           ),
                           SizedBox(height: 4),
@@ -1625,12 +1692,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   Widget _buildDashboardView() {
-    // Count states
-    final reqCount = _otCases.where((c) => c.status == 'OT Requested').length;
-    final schedCount = _otCases.where((c) => c.status == 'OT Scheduled' || c.status == 'Pre-Op Completed' || c.status == 'Anaesthesia Cleared').length;
-    final inProgress = _otCases.where((c) => c.status == 'Patient In OT' || c.status == 'Surgery In Progress').length;
-    final recCount = _otCases.where((c) => c.status == 'Surgery Completed' || c.status == 'Post-Op Monitoring').length;
-
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Column(
@@ -1640,24 +1701,24 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           widget.isMobile
               ? Column(
                   children: [
-                    _buildStatCard('Pending Requests', reqCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange),
+                    _buildStatCard('Pending Requests', _pendingRequestsCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange),
                     const SizedBox(height: 12),
-                    _buildStatCard('Scheduled Today', schedCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue),
+                    _buildStatCard('Scheduled Today', _scheduledTodayCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue),
                     const SizedBox(height: 12),
-                    _buildStatCard('Active In Surgery', inProgress.toString(), 'Live operating room', Icons.flash_on, Colors.purple),
+                    _buildStatCard('Active In Surgery', _activeInSurgeryCount.toString(), 'Live operating room', Icons.flash_on, Colors.purple),
                     const SizedBox(height: 12),
-                    _buildStatCard('Recovery & Post-Op', recCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink),
+                    _buildStatCard('Recovery & Post-Op', _recoveryPostOpCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink),
                   ],
                 )
               : Row(
                   children: [
-                    Expanded(child: _buildStatCard('Pending Requests', reqCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange)),
+                    Expanded(child: _buildStatCard('Pending Requests', _pendingRequestsCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatCard('Scheduled Today', schedCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue)),
+                    Expanded(child: _buildStatCard('Scheduled Today', _scheduledTodayCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatCard('Active In Surgery', inProgress.toString(), 'Live operating room', Icons.flash_on, Colors.purple)),
+                    Expanded(child: _buildStatCard('Active In Surgery', _activeInSurgeryCount.toString(), 'Live operating room', Icons.flash_on, Colors.purple)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatCard('Recovery & Post-Op', recCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink)),
+                    Expanded(child: _buildStatCard('Recovery & Post-Op', _recoveryPostOpCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink)),
                   ],
                 ),
           const SizedBox(height: 28),
@@ -3384,6 +3445,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           TextField(
             controller: _anaesthesiaNotesController,
             maxLines: 3,
+            maxLength: 100,
             enabled: canEdit,
             decoration: AppTheme.standardInputDecoration(
               label: 'PAC Assessment Notes & Warnings',
@@ -4613,41 +4675,83 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     children: [
                       TextFormField(
                         controller: _preOpBpController,
-                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter bp' : null,
+                        keyboardType: TextInputType.number,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'Please enter BP';
+                          final num = int.tryParse(val.trim());
+                          if (num == null) return 'BP must be an integer';
+                          if (num == 0) return 'BP cannot be 0';
+                          if (num < 90 || num > 300) return 'BP must be between 90 and 300 mmHg';
+                          return null;
+                        },
                         decoration: AppTheme.standardInputDecoration(
                           label: 'BP (mmHg)',
                           prefixIcon: Icons.monitor_heart_outlined,
-                          hintText: 'enter bp',
+                          hintText: '90–300',
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _preOpPulseController,
-                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter pulse' : null,
+                        keyboardType: TextInputType.number,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'Please enter Pulse';
+                          final num = int.tryParse(val.trim());
+                          if (num == null) return 'Pulse must be an integer';
+                          if (num == 0) return 'Pulse cannot be 0';
+                          if (num < 40 || num > 200) return 'Pulse must be between 40 and 200 bpm';
+                          return null;
+                        },
                         decoration: AppTheme.standardInputDecoration(
                           label: 'Pulse (bpm)',
                           prefixIcon: Icons.favorite_outline,
-                          hintText: 'enter pulse',
+                          hintText: '40–200',
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _preOpTempController,
-                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter temp' : null,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                        ],
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'Please enter Temperature';
+                          final num = double.tryParse(val.trim());
+                          if (num == null) return 'Temperature must be a number';
+                          if (num == 0) return 'Temperature cannot be 0';
+                          if (num < 90 || num > 115) return 'Temperature must be between 90 and 115 °F';
+                          return null;
+                        },
                         decoration: AppTheme.standardInputDecoration(
                           label: 'Temp (°F)',
                           prefixIcon: Icons.thermostat_outlined,
-                          hintText: 'enter temp',
+                          hintText: '90–115',
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _preOpSpo2Controller,
-                        validator: (val) => val == null || val.trim().isEmpty ? 'please enter spo2' : null,
+                        keyboardType: TextInputType.number,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'Please enter SpO2';
+                          final num = int.tryParse(val.trim());
+                          if (num == null) return 'SpO2 must be an integer';
+                          if (num == 0) return 'SpO2 cannot be 0';
+                          if (num < 70 || num > 100) return 'SpO2 must be between 70 and 100 %';
+                          return null;
+                        },
                         decoration: AppTheme.standardInputDecoration(
                           label: 'SpO2 (%)',
                           prefixIcon: Icons.bloodtype_outlined,
-                          hintText: 'enter spo2',
+                          hintText: '70–100',
                         ),
                       ),
                     ],
@@ -4657,11 +4761,21 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       Expanded(
                         child: TextFormField(
                           controller: _preOpBpController,
-                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter bp' : null,
+                          keyboardType: TextInputType.number,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return 'Please enter BP';
+                            final num = int.tryParse(val.trim());
+                            if (num == null) return 'BP must be an integer';
+                            if (num == 0) return 'BP cannot be 0';
+                            if (num < 90 || num > 300) return 'BP must be between 90–300 mmHg';
+                            return null;
+                          },
                           decoration: AppTheme.standardInputDecoration(
                             label: 'BP (mmHg)',
                             prefixIcon: Icons.monitor_heart_outlined,
-                            hintText: 'enter bp',
+                            hintText: '90–300',
                           ),
                         ),
                       ),
@@ -4669,11 +4783,21 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       Expanded(
                         child: TextFormField(
                           controller: _preOpPulseController,
-                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter pulse' : null,
+                          keyboardType: TextInputType.number,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return 'Please enter Pulse';
+                            final num = int.tryParse(val.trim());
+                            if (num == null) return 'Pulse must be an integer';
+                            if (num == 0) return 'Pulse cannot be 0';
+                            if (num < 40 || num > 200) return 'Pulse must be between 40–200 bpm';
+                            return null;
+                          },
                           decoration: AppTheme.standardInputDecoration(
                             label: 'Pulse (bpm)',
                             prefixIcon: Icons.favorite_outline,
-                            hintText: 'enter pulse',
+                            hintText: '40–200',
                           ),
                         ),
                       ),
@@ -4681,11 +4805,23 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       Expanded(
                         child: TextFormField(
                           controller: _preOpTempController,
-                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter temp' : null,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                          ],
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return 'Please enter Temperature';
+                            final num = double.tryParse(val.trim());
+                            if (num == null) return 'Temperature must be a number';
+                            if (num == 0) return 'Temperature cannot be 0';
+                            if (num < 90 || num > 115) return 'Temperature must be between 90–115 °F';
+                            return null;
+                          },
                           decoration: AppTheme.standardInputDecoration(
                             label: 'Temp (°F)',
                             prefixIcon: Icons.thermostat_outlined,
-                            hintText: 'enter temp',
+                            hintText: '90–115',
                           ),
                         ),
                       ),
@@ -4693,11 +4829,21 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       Expanded(
                         child: TextFormField(
                           controller: _preOpSpo2Controller,
-                          validator: (val) => val == null || val.trim().isEmpty ? 'please enter spo2' : null,
+                          keyboardType: TextInputType.number,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return 'Please enter SpO2';
+                            final num = int.tryParse(val.trim());
+                            if (num == null) return 'SpO2 must be an integer';
+                            if (num == 0) return 'SpO2 cannot be 0';
+                            if (num < 70 || num > 100) return 'SpO2 must be between 70–100 %';
+                            return null;
+                          },
                           decoration: AppTheme.standardInputDecoration(
                             label: 'SpO2 (%)',
                             prefixIcon: Icons.bloodtype_outlined,
-                            hintText: 'enter spo2',
+                            hintText: '70–100',
                           ),
                         ),
                       ),
@@ -4861,6 +5007,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           TextField(
             controller: _anaesthesiaNotesController,
             maxLines: 2,
+            maxLength: 100,
             decoration: AppTheme.standardInputDecoration(
               label: 'PAC Assessment Notes & Warnings',
               hintText: 'Enter patient history notes, airway concerns, warnings...',
@@ -5067,38 +5214,86 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           children: [
                             TextField(
                               controller: _intraOpBpController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              onChanged: (val) {
+                                setState(() {
+                                  if (val.trim().isEmpty) { _intraOpBpError = null; return; }
+                                  final n = int.tryParse(val.trim());
+                                  if (n == null) _intraOpBpError = 'BP must be an integer';
+                                  else if (n == 0) _intraOpBpError = 'BP cannot be 0';
+                                  else if (n < 90 || n > 300) _intraOpBpError = 'BP must be 90–300 mmHg';
+                                  else _intraOpBpError = null;
+                                });
+                              },
                               decoration: AppTheme.standardInputDecoration(
                                 label: 'BP (mmHg)',
                                 prefixIcon: Icons.monitor_heart_outlined,
-                                hintText: '120/80',
-                              ),
+                                hintText: '90–300',
+                              ).copyWith(errorText: _intraOpBpError),
                             ),
                             const SizedBox(height: 12),
                             TextField(
                               controller: _intraOpPulseController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              onChanged: (val) {
+                                setState(() {
+                                  if (val.trim().isEmpty) { _intraOpPulseError = null; return; }
+                                  final n = int.tryParse(val.trim());
+                                  if (n == null) _intraOpPulseError = 'HR must be an integer';
+                                  else if (n == 0) _intraOpPulseError = 'HR cannot be 0';
+                                  else if (n < 40 || n > 200) _intraOpPulseError = 'HR must be 40–200 bpm';
+                                  else _intraOpPulseError = null;
+                                });
+                              },
                               decoration: AppTheme.standardInputDecoration(
                                 label: 'HR (bpm)',
                                 prefixIcon: Icons.favorite_outline,
-                                hintText: '75',
-                              ),
+                                hintText: '40–200',
+                              ).copyWith(errorText: _intraOpPulseError),
                             ),
                             const SizedBox(height: 12),
                             TextField(
                               controller: _intraOpTempController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                              onChanged: (val) {
+                                setState(() {
+                                  if (val.trim().isEmpty) { _intraOpTempError = null; return; }
+                                  final n = double.tryParse(val.trim());
+                                  if (n == null) _intraOpTempError = 'Temp must be a number';
+                                  else if (n == 0) _intraOpTempError = 'Temp cannot be 0';
+                                  else if (n < 90 || n > 115) _intraOpTempError = 'Temp must be 90–115 °F';
+                                  else _intraOpTempError = null;
+                                });
+                              },
                               decoration: AppTheme.standardInputDecoration(
                                 label: 'Temp (°F)',
                                 prefixIcon: Icons.thermostat_outlined,
-                                hintText: '98.6',
-                              ),
+                                hintText: '90–115',
+                              ).copyWith(errorText: _intraOpTempError),
                             ),
                             const SizedBox(height: 12),
                             TextField(
                               controller: _intraOpSpo2Controller,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              onChanged: (val) {
+                                setState(() {
+                                  if (val.trim().isEmpty) { _intraOpSpo2Error = null; return; }
+                                  final n = int.tryParse(val.trim());
+                                  if (n == null) _intraOpSpo2Error = 'SpO2 must be an integer';
+                                  else if (n == 0) _intraOpSpo2Error = 'SpO2 cannot be 0';
+                                  else if (n < 70 || n > 100) _intraOpSpo2Error = 'SpO2 must be 70–100 %';
+                                  else _intraOpSpo2Error = null;
+                                });
+                              },
                               decoration: AppTheme.standardInputDecoration(
                                 label: 'SpO2 (%)',
                                 prefixIcon: Icons.bloodtype_outlined,
-                                hintText: '99',
-                              ),
+                                hintText: '70–100',
+                              ).copyWith(errorText: _intraOpSpo2Error),
                             ),
                           ],
                         )
@@ -5107,44 +5302,92 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                             Expanded(
                               child: TextField(
                                 controller: _intraOpBpController,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                onChanged: (val) {
+                                  setState(() {
+                                    if (val.trim().isEmpty) { _intraOpBpError = null; return; }
+                                    final n = int.tryParse(val.trim());
+                                    if (n == null) _intraOpBpError = 'BP must be an integer';
+                                    else if (n == 0) _intraOpBpError = 'BP cannot be 0';
+                                    else if (n < 90 || n > 300) _intraOpBpError = 'BP must be 90–300 mmHg';
+                                    else _intraOpBpError = null;
+                                  });
+                                },
                                 decoration: AppTheme.standardInputDecoration(
                                   label: 'BP (mmHg)',
                                   prefixIcon: Icons.monitor_heart_outlined,
-                                  hintText: '120/80',
-                                ),
+                                  hintText: '90–300',
+                                ).copyWith(errorText: _intraOpBpError),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: TextField(
                                 controller: _intraOpPulseController,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                onChanged: (val) {
+                                  setState(() {
+                                    if (val.trim().isEmpty) { _intraOpPulseError = null; return; }
+                                    final n = int.tryParse(val.trim());
+                                    if (n == null) _intraOpPulseError = 'HR must be an integer';
+                                    else if (n == 0) _intraOpPulseError = 'HR cannot be 0';
+                                    else if (n < 40 || n > 200) _intraOpPulseError = 'HR must be 40–200 bpm';
+                                    else _intraOpPulseError = null;
+                                  });
+                                },
                                 decoration: AppTheme.standardInputDecoration(
                                   label: 'HR (bpm)',
                                   prefixIcon: Icons.favorite_outline,
-                                  hintText: '75',
-                                ),
+                                  hintText: '40–200',
+                                ).copyWith(errorText: _intraOpPulseError),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: TextField(
                                 controller: _intraOpTempController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                                onChanged: (val) {
+                                  setState(() {
+                                    if (val.trim().isEmpty) { _intraOpTempError = null; return; }
+                                    final n = double.tryParse(val.trim());
+                                    if (n == null) _intraOpTempError = 'Temp must be a number';
+                                    else if (n == 0) _intraOpTempError = 'Temp cannot be 0';
+                                    else if (n < 90 || n > 115) _intraOpTempError = 'Temp must be 90–115 °F';
+                                    else _intraOpTempError = null;
+                                  });
+                                },
                                 decoration: AppTheme.standardInputDecoration(
                                   label: 'Temp (°F)',
                                   prefixIcon: Icons.thermostat_outlined,
-                                  hintText: '98.6',
-                                ),
+                                  hintText: '90–115',
+                                ).copyWith(errorText: _intraOpTempError),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: TextField(
                                 controller: _intraOpSpo2Controller,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                onChanged: (val) {
+                                  setState(() {
+                                    if (val.trim().isEmpty) { _intraOpSpo2Error = null; return; }
+                                    final n = int.tryParse(val.trim());
+                                    if (n == null) _intraOpSpo2Error = 'SpO2 must be an integer';
+                                    else if (n == 0) _intraOpSpo2Error = 'SpO2 cannot be 0';
+                                    else if (n < 70 || n > 100) _intraOpSpo2Error = 'SpO2 must be 70–100 %';
+                                    else _intraOpSpo2Error = null;
+                                  });
+                                },
                                 decoration: AppTheme.standardInputDecoration(
                                   label: 'SpO2 (%)',
                                   prefixIcon: Icons.bloodtype_outlined,
-                                  hintText: '99',
-                                ),
+                                  hintText: '70–100',
+                                ).copyWith(errorText: _intraOpSpo2Error),
                               ),
                             ),
                           ],
@@ -5453,6 +5696,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   TextFormField(
                     controller: _procedureDetailsController,
                     maxLines: 2,
+                    maxLength: 100,
                     validator: (val) => val == null || val.trim().isEmpty ? 'please enter procedure details done' : null,
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Procedure Details Done',
@@ -5464,6 +5708,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   TextFormField(
                     controller: _findingsController,
                     maxLines: 2,
+                    maxLength: 100,
                     validator: (val) => val == null || val.trim().isEmpty ? 'please enter surgical findings' : null,
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Surgical Findings',
@@ -5527,16 +5772,29 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _anesthesiaEndTimeController,
+                    readOnly: true,
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay.now(),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _anesthesiaEndTimeController.text = picked.format(context);
+                        });
+                      }
+                    },
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Anesthesia End Time',
                       prefixIcon: Icons.access_time_filled,
-                      hintText: 'e.g. 11:45 AM',
+                      hintText: 'Tap to select time',
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _finalAnesthesiaNotesController,
                     maxLines: 2,
+                    maxLength: 100,
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Final Anesthesia Notes',
                       prefixIcon: Icons.note_alt_outlined,
@@ -5561,6 +5819,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             TextField(
               controller: _opSummaryController,
               maxLines: 2,
+              maxLength: 100,
               decoration: AppTheme.standardInputDecoration(
                 label: 'Operation Summary',
                 prefixIcon: Icons.note_alt_outlined,
@@ -5569,6 +5828,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: _procPerformedController,
+              maxLength: 100,
               decoration: AppTheme.standardInputDecoration(
                 label: 'Procedure Performed',
                 prefixIcon: Icons.biotech_outlined,
@@ -5577,6 +5837,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: _outcomeController,
+              maxLength: 100,
               decoration: AppTheme.standardInputDecoration(
                 label: 'Surgical Outcome',
                 prefixIcon: Icons.check_circle_outline,
@@ -5586,6 +5847,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             TextField(
               controller: _postOpInstController,
               maxLines: 2,
+              maxLength: 100,
               decoration: AppTheme.standardInputDecoration(
                 label: 'Post-Operative Instructions',
                 prefixIcon: Icons.medical_information_outlined,
@@ -5594,6 +5856,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: _followUpController,
+              maxLength: 100,
               decoration: AppTheme.standardInputDecoration(
                 label: 'Follow-Up Recommendations',
                 prefixIcon: Icons.calendar_today_outlined,
@@ -5612,33 +5875,64 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           if (isNurse || isDoctor || isAnaesthetist || isAdmin) ...[
             const Text('Transfer to Recovery / ICU / Ward:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            CustomDropdownSearch(
+              label: 'Transfer Destination',
               value: _selectedTransferDest,
-              decoration: AppTheme.standardInputDecoration(
-                label: 'Transfer Destination',
-                prefixIcon: Icons.local_hospital_outlined,
-              ),
-              items: const [
-                DropdownMenuItem(value: 'Recovery Room', child: Text('Recovery Room')),
-                DropdownMenuItem(value: 'ICU', child: Text('ICU')),
-                DropdownMenuItem(value: 'Ward', child: Text('General Ward')),
-              ],
+              dropdownItems: const ['Recovery Room', 'ICU', 'Ward'],
               onChanged: (val) {
-                if (val != null) setState(() => _selectedTransferDest = val);
+                if (val != null) {
+                  setState(() {
+                    _selectedTransferDest = val;
+                  });
+                }
               },
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _transferDetailsController,
-              decoration: AppTheme.standardInputDecoration(
-                label: 'Transfer Details (e.g. Bed Number)',
-                prefixIcon: Icons.bed_outlined,
-              ),
+            Builder(
+              builder: (context) {
+                final String currentBed = _transferDetailsController.text;
+                List<String> availableBedNumbers = [];
+                for (var b in _beds) {
+                  final bedNum = b['bed_number'].toString();
+                  final wardType = b['ward_type'].toString();
+                  final status = b['status'].toString();
+
+                  bool matchesDest = false;
+                  if (_selectedTransferDest == 'ICU') {
+                    matchesDest = (wardType == 'ICU');
+                  } else if (_selectedTransferDest == 'Ward') {
+                    matchesDest = (wardType == 'General' || wardType == 'Semi-Private' || wardType == 'Private');
+                  } else {
+                    matchesDest = true;
+                  }
+
+                  if (matchesDest && (status == 'Available' || bedNum == currentBed)) {
+                    availableBedNumbers.add(bedNum);
+                  }
+                }
+                if (currentBed.isNotEmpty && !availableBedNumbers.contains(currentBed)) {
+                  availableBedNumbers.add(currentBed);
+                }
+                availableBedNumbers.sort((a, b) => a.compareTo(b));
+
+                return CustomDropdownSearch(
+                  label: 'Transfer Details (Bed Number)',
+                  hint: 'Select bed number',
+                  value: currentBed.isNotEmpty ? currentBed : null,
+                  dropdownItems: availableBedNumbers,
+                  onChanged: (val) {
+                    setState(() {
+                      _transferDetailsController.text = val ?? '';
+                    });
+                  },
+                );
+              }
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _nursingHandoverController,
               maxLines: 2,
+              maxLength: 100,
               decoration: AppTheme.standardInputDecoration(
                 label: 'Nursing Handover Notes',
                 prefixIcon: Icons.note_alt_outlined,
@@ -5752,6 +6046,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   TextField(
                     controller: _pacuObservationsController,
                     maxLines: 2,
+                    maxLength: 100,
                     decoration: AppTheme.standardInputDecoration(
                       label: 'PACU Recovery Vitals / Observations',
                       prefixIcon: Icons.monitor_heart_outlined,
@@ -5762,6 +6057,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   TextField(
                     controller: _anaesthesiaNotesController,
                     maxLines: 2,
+                    maxLength: 100,
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Post-Anesthesia Instructions',
                       prefixIcon: Icons.medical_information_outlined,
@@ -5849,6 +6145,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             TextField(
               controller: _doctorProgressController,
               maxLines: 2,
+              maxLength: 100,
               decoration: AppTheme.standardInputDecoration(
                 label: 'Doctor Daily Progress Note & Treatment Plan',
                 prefixIcon: Icons.note_add_outlined,
@@ -6119,6 +6416,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       hintText: hintText,
       prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 20) : null,
       suffixIcon: suffixIcon,
+      counterText: '',
       filled: true,
       fillColor: const Color(0xFFF1F5F9),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -6914,9 +7212,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       TextFormField(
         controller: _remarksController,
         maxLines: 2,
+        maxLength: 100,
         inputFormatters: [
           FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
-          LengthLimitingTextInputFormatter(250),
+          LengthLimitingTextInputFormatter(100),
         ],
         decoration: _noLabelDecoration(hintText: 'enter remarks'),
       ),

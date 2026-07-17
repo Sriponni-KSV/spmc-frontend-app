@@ -11,12 +11,14 @@ class PatientModel {
   final String age;
   final String phone;
   final String initials;
+  final Map<String, dynamic>? originalData;
 
   PatientModel({
     required this.name,
     required this.age,
     required this.phone,
     required this.initials,
+    this.originalData,
   });
 }
 
@@ -55,57 +57,54 @@ class _StatCardState extends State<StatCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(20),
-        decoration: AppTheme.cardDecoration.copyWith(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: _isHovered
+                  ? widget.color.withOpacity(0.12)
+                  : Colors.black.withOpacity(0.04),
+              blurRadius: _isHovered ? 16 : 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
           border: Border.all(
             color: _isHovered
-                ? widget.color.withOpacity(0.5)
-                : AppTheme.borderColor.withOpacity(0.5),
-            width: _isHovered ? 1.5 : 1.0,
+                ? widget.color.withOpacity(0.35)
+                : const Color(0xFFE8EDF2),
           ),
-          boxShadow: _isHovered ? AppTheme.cardShadow : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: widget.color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(widget.icon, color: widget.color, size: 20),
-                ),
-                Flexible(
-                  child: Text(
-                    widget.subLabel,
-                    style: TextStyle(
-                      color: widget.subLabel.startsWith('+')
-                          ? AppTheme.successColor
-                          : widget.color,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-              ],
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: widget.color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(widget.icon, color: widget.color, size: 20),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             Text(
               widget.value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1A202C),
+                letterSpacing: -0.5,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            const SizedBox(height: 3),
             Text(
               widget.title,
               style: const TextStyle(
-                color: AppTheme.textSecondaryColor,
+                color: Color(0xFF718096),
                 fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -126,7 +125,8 @@ class _StatCardState extends State<StatCard> {
 }
 
 class LiveClock extends StatefulWidget {
-  const LiveClock({Key? key}) : super(key: key);
+  final bool isDark;
+  const LiveClock({Key? key, this.isDark = false}) : super(key: key);
 
   @override
   State<LiveClock> createState() => _LiveClockState();
@@ -157,35 +157,42 @@ class _LiveClockState extends State<LiveClock> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
+        color: widget.isDark ? const Color(0xFF0F5132).withOpacity(0.4) : AppTheme.backgroundColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.3)),
+        border: Border.all(
+          color: widget.isDark ? Colors.white.withOpacity(0.15) : AppTheme.borderColor.withOpacity(0.3),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.access_time, size: 14, color: AppTheme.primaryColor),
-          const SizedBox(width: 8),
+          Icon(
+            Icons.access_time,
+            size: 16,
+            color: widget.isDark ? Colors.white70 : AppTheme.primaryColor,
+          ),
+          const SizedBox(width: 10),
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 DateFormat('dd/MM/yyyy').format(_currentTime),
-                style: const TextStyle(
-                  fontSize: 9,
+                style: TextStyle(
+                  fontSize: 10,
                   fontWeight: FontWeight.bold,
+                  color: widget.isDark ? Colors.white : AppTheme.textPrimaryColor,
                 ),
               ),
               Text(
                 DateFormat('hh:mm:ss a').format(_currentTime),
-                style: const TextStyle(
-                  fontSize: 10,
+                style: TextStyle(
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
+                  color: widget.isDark ? Colors.white70 : AppTheme.primaryColor,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -401,7 +408,7 @@ class _CustomSpeedDialState extends State<CustomSpeedDial>
               decoration: BoxDecoration(
                 color: _isOpen
                     ? const Color(0xFFE53E3E)
-                    : const Color(0xFF005691),
+                    : AppTheme.primaryColor,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
@@ -443,7 +450,7 @@ class _CustomSpeedDialState extends State<CustomSpeedDial>
 class SearchOverlay extends StatefulWidget {
   final List<dynamic>? patients;
   final VoidCallback? onNewPatient;
-  final VoidCallback? onBookAppointment;
+  final Function(Map<String, dynamic>?)? onBookAppointment;
 
   const SearchOverlay({Key? key, this.patients, this.onNewPatient, this.onBookAppointment}) : super(key: key);
 
@@ -488,7 +495,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
               initials = parts.map((part) => part[0].toUpperCase()).join('');
             }
           }
-          return PatientModel(name: name, age: '${age}y', phone: phone, initials: initials);
+          return PatientModel(name: name, age: '${age}y', phone: phone, initials: initials, originalData: p);
         })
         .where((p) => p.name.toLowerCase().contains(query) || p.phone.contains(query))
         .toList();
@@ -589,18 +596,18 @@ class _SearchOverlayState extends State<SearchOverlay> {
                             }
                           },
                         ),
-                        const SizedBox(height: 12),
-                        _buildQuickAction(
-                          icon: Icons.calendar_month_outlined,
-                          label: 'Book Appointment',
-                          color: AppTheme.primaryColor,
-                          onTap: () {
-                            Navigator.of(context).pop();
-                            if (widget.onBookAppointment != null) {
-                              widget.onBookAppointment!();
-                            }
-                          },
-                        ),
+                        if (widget.onBookAppointment != null) ...[
+                          const SizedBox(height: 12),
+                          _buildQuickAction(
+                            icon: Icons.calendar_month_outlined,
+                            label: 'Book Appointment',
+                            color: AppTheme.primaryColor,
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              widget.onBookAppointment!(null);
+                            },
+                          ),
+                        ],
 
                         const SizedBox(height: 32),
                         _buildSectionTitle('Patients (${displayPatients.length})'),
@@ -638,8 +645,6 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   ),
                   child: Row(
                     children: [
-                      _buildShortcutHint('/', 'to search'),
-                      const SizedBox(width: 24),
                       _buildShortcutHint('Esc', 'to close'),
                     ],
                   ),
@@ -754,27 +759,26 @@ class _SearchOverlayState extends State<SearchOverlay> {
               ],
             ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              if (widget.onBookAppointment != null) {
-                widget.onBookAppointment!();
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(80, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
+          if (widget.onBookAppointment != null)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                widget.onBookAppointment!(patient.originalData);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(80, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              child: const Text(
+                'Book',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
             ),
-            child: const Text(
-              'Book',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-            ),
-          ),
         ],
       ),
     );
@@ -912,7 +916,7 @@ class PatientInfoCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
           ],
-          const Spacer(),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(

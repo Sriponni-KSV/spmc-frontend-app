@@ -13,6 +13,7 @@ import '../widgets/nurse_widgets.dart' hide PatientModel;
 import '../widgets/admin_widgets.dart';
 import 'package:http/http.dart' as http;  
 import 'dart:convert';                     
+import 'dart:async';
 import '../widgets/rbac_management.dart';
 import '../widgets/access_denied_widget.dart';
 import '../models/patient_model.dart';
@@ -35,7 +36,19 @@ import 'inventory_management_view.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final int initialIndex;
-  const AdminDashboardScreen({Key? key, this.initialIndex = 0}) : super(key: key);
+  final bool isRegisteringPatient;
+  final PatientModel? existingPatient;
+  final PatientModel? viewPatient;
+  final UserModel? viewingStaffProfile;
+
+  const AdminDashboardScreen({
+    Key? key,
+    this.initialIndex = 0,
+    this.isRegisteringPatient = false,
+    this.existingPatient,
+    this.viewPatient,
+    this.viewingStaffProfile,
+  }) : super(key: key);
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -45,6 +58,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
   String _selectedRoleFilter = 'All';
   final AdminController _adminController = AdminController();
+
+  String _totalStaffCount = '--';
+  String _activeSessionsCount = '--';
+  String _systemHealthPercent = '--';
+  String _securityAlertsCount = '--';
+  bool _isLoadingDashboardStats = false;
+
   Future<List<UserModel>>? _staffFuture;
   Future<Map<String, dynamic>>? _rbacFuture;
   final ScrollController _verticalScrollController = ScrollController();
@@ -56,6 +76,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final PatientController _patientController = PatientController();
   bool _isRegisteringPatient = false;
   PatientModel? _patientToComplete;
+  PatientModel? _viewPatient;
   UserModel? _viewingStaffProfile;
   String _staffSearchQuery = '';
   int _staffCurrentPage = 0;
@@ -176,6 +197,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    _isRegisteringPatient = widget.isRegisteringPatient;
+    _patientToComplete = widget.existingPatient;
+    _viewPatient = widget.viewPatient;
+    _viewingStaffProfile = widget.viewingStaffProfile;
     _loadStaff();
     _loadRbacData();
     _fetchPatients();
@@ -187,11 +212,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void didUpdateWidget(covariant AdminDashboardScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialIndex != oldWidget.initialIndex) {
+    if (widget.initialIndex != oldWidget.initialIndex ||
+        widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
+        widget.existingPatient != oldWidget.existingPatient ||
+        widget.viewPatient != oldWidget.viewPatient ||
+        widget.viewingStaffProfile != oldWidget.viewingStaffProfile) {
       setState(() {
         _selectedIndex = widget.initialIndex;
-        _isRegisteringPatient = false;
-        _viewingStaffProfile = null;
+        _isRegisteringPatient = widget.isRegisteringPatient;
+        _patientToComplete = widget.existingPatient;
+        _viewPatient = widget.viewPatient;
+        _viewingStaffProfile = widget.viewingStaffProfile;
       });
       if (_selectedIndex == 8) {
         _loadShiftData();
@@ -261,7 +292,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return SearchOverlay(
           patients: _dbPatients.map((p) => p.toJson()).toList(),
           onNewPatient: () => context.go('${AppRoutes.adminDashboard}?tab=2'),
-          onBookAppointment: () => context.go('${AppRoutes.adminDashboard}?tab=4'),
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -276,10 +306,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Future<void> _loadDashboardStats() async {
+    if (!mounted) return;
+    setState(() => _isLoadingDashboardStats = true);
+    try {
+      final stats = await _adminController.fetchDashboardStats();
+      if (mounted) {
+        setState(() {
+          _totalStaffCount = stats['totalStaff']?.toString() ?? '--';
+          _activeSessionsCount = stats['activeSessions']?.toString() ?? '--';
+          _systemHealthPercent = stats['systemHealth']?.toString() ?? '--';
+          _securityAlertsCount = stats['securityAlerts']?.toString() ?? '--';
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading dashboard stats: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingDashboardStats = false);
+      }
+    }
+  }
+
   void _loadStaff() {
     setState(() {
       _staffFuture = _adminController.fetchStaff(showDeleted: _showDeleted);
     });
+    _loadDashboardStats();
   }
 
   void _loadRbacData() {
@@ -828,14 +881,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Focus(
       focusNode: _mainFocusNode,
       autofocus: true,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            event.logicalKey == LogicalKeyboardKey.slash) {
-          _showSearchOverlay();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
@@ -850,7 +895,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Expanded(
                 child: Column(
                   children: [
-                    _buildHeader(context, isMobile),
+                    if (_selectedIndex != 0) _buildHeader(context, isMobile),
                     Expanded(
                       child: ClipRRect(child: _buildBodyContent(isMobile)),
                     ),
@@ -870,7 +915,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (_viewingStaffProfile != null) {
       return AdminStaffProfileView(
         user: _viewingStaffProfile!,
-        onBack: () => setState(() => _viewingStaffProfile = null),
+        onBack: () {
+          setState(() => _viewingStaffProfile = null);
+          context.go(AppRoutes.adminUsers);
+        },
       );
     }
 
@@ -900,11 +948,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 2:
         if (user?.hasPermission('view_patients') ?? false) {
           return AdminPatientManagementWrapper(
-            onRegister: () => setState(() => _isRegisteringPatient = true),
-            onCompleteProfile: (patient) => setState(() {
-              _patientToComplete = patient;
-              _isRegisteringPatient = true;
-            }),
+            onRegister: () => context.go(AppRoutes.adminNewPatient),
+            onCompleteProfile: (patient) => context.go(
+              AppRoutes.adminEditPatient,
+              extra: patient,
+            ),
+            viewPatient: _viewPatient,
           );
         }
         return const AccessDeniedWidget();
@@ -956,52 +1005,66 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildControlPanel(bool isMobile) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildGreeting(),
-          const SizedBox(height: 24),
-          _buildStatsRow(isMobile),
-          const SizedBox(height: 24),
-          if (isMobile) ...[
-            _buildAlertsSection(),
-            const SizedBox(height: 24),
-            _buildQuickActions(),
-            const SizedBox(height: 24),
-            _buildUserManagementInfo(),
-            const SizedBox(height: 24),
-            _buildSystemStatus(),
-          ] else
-            Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Fixed Top Bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+          color: Colors.transparent,
+          child: _buildBannerTopBar(context, isMobile),
+        ),
+        // Scrollable Content
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  flex: 2,
-                  child: Column(
+                _buildGreeting(),
+                const SizedBox(height: 24),
+                _buildStatsRow(isMobile),
+                const SizedBox(height: 24),
+                if (isMobile) ...[
+                  _buildAlertsSection(),
+                  const SizedBox(height: 24),
+                  _buildQuickActions(),
+                  const SizedBox(height: 24),
+                  _buildStaffOverviewChart(),
+                  const SizedBox(height: 24),
+                  _buildSystemStatus(),
+                ] else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildAlertsSection(),
-                      const SizedBox(height: 24),
-                      _buildUserManagementInfo(),
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          children: [
+                            _buildAlertsSection(),
+                            const SizedBox(height: 24),
+                            _buildStaffOverviewChart(),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          children: [
+                            _buildQuickActions(),
+                            const SizedBox(height: 24),
+                            _buildSystemStatus(),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    children: [
-                      _buildQuickActions(),
-                      const SizedBox(height: 24),
-                      _buildSystemStatus(),
-                    ],
-                  ),
-                ),
               ],
             ),
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1762,8 +1825,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       size: 18,
                                       color: AppTheme.primaryColor,
                                     ),
-                                    onPressed: () => setState(
-                                      () => _viewingStaffProfile = user,
+                                    onPressed: () => context.go(
+                                      AppRoutes.adminViewStaff,
+                                      extra: user,
                                     ),
                                   ),
                                   if (user.role != 'Super Admin') ...[
@@ -2075,8 +2139,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton.icon(
-                    onPressed: () =>
-                        setState(() => _viewingStaffProfile = user),
+                    onPressed: () => context.go(
+                      AppRoutes.adminViewStaff,
+                      extra: user,
+                    ),
                     icon: const Icon(Icons.visibility_outlined, size: 18),
                     label: const Text('View'),
                   ),
@@ -2111,44 +2177,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildSidebar(BuildContext context) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+
     return Container(
       width: 260,
-      decoration: const BoxDecoration(
+      margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+      decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(
-          right: BorderSide(color: AppTheme.borderColor, width: 1),
-        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
           // Logo Section
           Container(
-            padding: const EdgeInsets.only(
-              left: 24,
-              top: 0,
-              bottom: 0,
-              right: 24,
-            ),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppTheme.borderColor, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                Image.asset(
-                  'assets/image/full_logo.png',
-                  width: 100,
-                  height: 89,
-                ),
-              ],
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Image.asset(
+              'assets/image/full_logo.png',
+              width: 110,
+              height: 90,
             ),
           ),
 
           // Navigation Items (Scrollable)
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: const EdgeInsets.symmetric(vertical: 12),
               child: Column(
                 children: [
                   _buildSidebarItem(
@@ -2194,90 +2254,89 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Icons.inventory_2_outlined,
                     'Inventory Management',
                   ),
-
-
                 ],
               ),
             ),
           ),
 
           // User Profile Footer
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Divider(
-                color: AppTheme.borderColor,
-                height: 1,
-                thickness: 1,
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Consumer<AuthProvider>(
-                  builder: (context, auth, _) {
-                    final user = auth.user;
-                    if (user == null) return const SizedBox.shrink();
-                    return Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => UserProfileDialog.show(context, user),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: AppTheme.borderColor, width: 1)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: user == null
+                ? const SizedBox.shrink()
+                : Consumer<AuthProvider>(
+                    builder: (context, auth, _) {
+                      final user = auth.user;
+                      if (user == null) return const SizedBox.shrink();
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => UserProfileDialog.show(context, user),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    user.fullname,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (user.staffUniqueId != null &&
-                                      user.staffUniqueId!.isNotEmpty) ...[
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      user.staffUniqueId!,
+                                  CircleAvatar(
+                                    backgroundColor: AppTheme.primaryColor,
+                                    radius: 18,
+                                    child: Text(
+                                      (user.rawFullname ?? user.fullname).isNotEmpty
+                                          ? (user.rawFullname ?? user.fullname)[0].toUpperCase()
+                                          : '?',
                                       style: const TextStyle(
-                                        fontSize: 9,
-                                        color: AppTheme.textSecondaryColor,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ],
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    user.role,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.textSecondaryColor,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          user.rawFullname ?? user.fullname,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          user.role,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textSecondaryColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.logout,
-                            size: 18,
-                            color: AppTheme.textSecondaryColor,
+                          IconButton(
+                            icon: const Icon(
+                              Icons.logout,
+                              size: 18,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                            onPressed: () => LogoutHelper.showLogoutConfirmation(
+                              context,
+                              auth,
+                            ),
                           ),
-                          onPressed: () => LogoutHelper.showLogoutConfirmation(
-                            context,
-                            auth,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ],
+                        ],
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -2285,7 +2344,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildSidebarItem(int index, IconData icon, String label) {
-    bool isSelected = _selectedIndex == index && !_isRegisteringPatient;
+    bool isSelected = (_selectedIndex == index && !_isRegisteringPatient) ||
+                      (_isRegisteringPatient && index == 2);
     return InkWell(
       onTap: () {
         switch (index) {
@@ -2327,33 +2387,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             context.go(AppRoutes.adminDashboard);
         }
       },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.primaryColor.withOpacity(0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: isSelected
-                  ? AppTheme.primaryColor
-                  : AppTheme.textSecondaryColor,
-              size: 22,
+              color: isSelected ? Colors.white : const Color(0xFF4A5568),
+              size: 20,
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
-                  color: isSelected
-                      ? AppTheme.primaryColor
-                      : AppTheme.textSecondaryColor,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? Colors.white : const Color(0xFF4A5568),
+                  fontWeight: FontWeight.bold,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -2364,224 +2420,230 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isMobile) {
-    return Container(
-      height: isMobile ? 80 : 90,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.borderColor, width: 1),
-        ),
-      ),
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (isMobile) ...[
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(
-                  Icons.menu,
-                  color: AppTheme.textSecondaryColor,
-                ),
-                onPressed: () => Scaffold.of(context).openDrawer(),
+  Widget _buildBannerTopBar(BuildContext context, bool isMobile) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (isMobile) ...[
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(
+                Icons.menu,
+                color: AppTheme.textSecondaryColor,
               ),
+              onPressed: () => Scaffold.of(context).openDrawer(),
             ),
-            const SizedBox(width: 8),
-          ],
+          ),
+          const SizedBox(width: 8),
+        ],
 
-          Expanded(
+        Expanded(
+          child: InkWell(
+            onTap: _showSearchOverlay,
+            borderRadius: BorderRadius.circular(20),
             child: Container(
               height: 40,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.borderColor),
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: TextFormField(
-                textAlignVertical: TextAlignVertical.center,
-                decoration: InputDecoration(
-                  isCollapsed: true,
-                  hintText: isMobile ? 'Search...' : 'Quick search...',
-                  hintStyle: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                  prefixIcon: const Icon(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  const Icon(
                     Icons.search,
                     size: 18,
                     color: AppTheme.textSecondaryColor,
                   ),
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
+                  const SizedBox(width: 8),
+                  Text(
+                    isMobile ? 'Search...' : 'Quick search...',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondaryColor,
+                    ),
                   ),
-                  suffixText: isMobile ? null : '/',
-                  suffixStyle: const TextStyle(color: AppTheme.iconColor),
-                  fillColor: Colors.transparent,
-                  filled: true,
-                  contentPadding: const EdgeInsets.only(top: 2),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                ),
-                readOnly: true,
-                onTap: _showSearchOverlay,
+                ],
               ),
             ),
           ),
+        ),
 
-          if (!isMobile) ...[
-            const SizedBox(width: 24),
-            const Spacer(),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.notifications_none_outlined,
-                  color: AppTheme.textSecondaryColor,
-                  size: 22,
-                ),
-                const SizedBox(width: 20),
-                const Icon(
-                  Icons.help_outline,
-                  color: AppTheme.textSecondaryColor,
-                  size: 22,
-                ),
-                const SizedBox(width: 20),
-                ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    minimumSize: const Size(80, 40),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Share',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-          ],
+        if (!isMobile) ...[
           const SizedBox(width: 24),
-
-          // Date & Time
-          const AdminLiveClock(),
+          const Spacer(),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.notifications_none_outlined,
+                color: AppTheme.textSecondaryColor,
+                size: 22,
+              ),
+              const SizedBox(width: 20),
+              const Icon(
+                Icons.help_outline,
+                color: AppTheme.textSecondaryColor,
+                size: 22,
+              ),
+              const SizedBox(width: 20),
+              ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  minimumSize: const Size(80, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Share',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
         ],
+        const SizedBox(width: 24),
+
+        // Date & Time
+        const AdminLiveClock(),
+      ],
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, bool isMobile) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
       ),
+      padding: EdgeInsets.only(
+        left: isMobile ? 16 : 24,
+        right: isMobile ? 16 : 24,
+        top: 20,
+        bottom: 0,
+      ),
+      child: _buildBannerTopBar(context, isMobile),
     );
   }
 
   Widget _buildGreeting() {
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          user != null ? 'Hello, ${user.rawFullname ?? ''}' : 'Dashboard',
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        const Text(
+          'Welcome back,',
+          style: TextStyle(
+            fontSize: 14,
+            color: AppTheme.textSecondaryColor,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Row(
+          children: const [
+            Text(
+              'System Admin',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryColor,
+              ),
+            ),
+            SizedBox(width: 8),
+            Text(
+              '👋',
+              style: TextStyle(fontSize: 24),
+            ),
+          ],
         ),
         const SizedBox(height: 4),
-        Text(
-          'Manage system operations and staff provisioning',
-          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+        const Text(
+          'Here\'s what\'s happening in your hospital today.',
+          style: TextStyle(
+            color: AppTheme.textSecondaryColor,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );
   }
 
   Widget _buildStatsRow(bool isMobile) {
+    final securityColor = (_securityAlertsCount != '0' && _securityAlertsCount != '--')
+        ? AppTheme.logoRed
+        : AppTheme.secondaryColor;
+    final securitySub = (_securityAlertsCount == '0')
+        ? 'Safe'
+        : (_securityAlertsCount == '--' ? '' : 'Requires attention');
+
+    final card1 = _buildStatCard(
+      'Total Staff',
+      _totalStaffCount,
+      _totalStaffCount == '--' ? '' : 'Registered',
+      Icons.people_alt_outlined,
+      AppTheme.primaryColor,
+      isMobile,
+      () => context.go(AppRoutes.adminUsers),
+    );
+
+    final card2 = _buildStatCard(
+      'Active Sessions',
+      _activeSessionsCount,
+      _activeSessionsCount == '--' ? '' : 'Live',
+      Icons.monitor_heart_outlined,
+      AppTheme.secondaryColor,
+      isMobile,
+      () => context.go(AppRoutes.adminUsers),
+    );
+
+    final card3 = _buildStatCard(
+      'System Health',
+      _systemHealthPercent,
+      _systemHealthPercent == '--' ? '' : 'Optimal',
+      Icons.health_and_safety_outlined,
+      Colors.indigo,
+      isMobile,
+      () => {},
+    );
+
+    final card4 = _buildStatCard(
+      'Security Alerts',
+      _securityAlertsCount,
+      securitySub,
+      Icons.security_outlined,
+      securityColor,
+      isMobile,
+      () => context.go(AppRoutes.adminSettings),
+    );
+
     if (isMobile) {
       return Wrap(
         spacing: 16,
         runSpacing: 16,
         children: [
-          _buildStatCard(
-            'Total Staff',
-            '24',
-            '+2',
-            Icons.badge_outlined,
-            Colors.blueGrey,
-            isMobile,
-          ),
-          _buildStatCard(
-            'Active Sessions',
-            '5',
-            'Live',
-            Icons.online_prediction,
-            Colors.green,
-            isMobile,
-          ),
-          _buildStatCard(
-            'System Health',
-            '98%',
-            'Optimal',
-            Icons.speed,
-            Colors.indigo,
-            isMobile,
-          ),
-          _buildStatCard(
-            'Security Alerts',
-            '0',
-            'Safe',
-            Icons.security,
-            Colors.teal,
-            isMobile,
-          ),
+          FractionallySizedBox(widthFactor: 0.47, child: card1),
+          FractionallySizedBox(widthFactor: 0.47, child: card2),
+          FractionallySizedBox(widthFactor: 0.47, child: card3),
+          FractionallySizedBox(widthFactor: 0.47, child: card4),
         ],
       );
     }
+
     return Row(
       children: [
-        Expanded(
-          child: _buildStatCard(
-            'Total Staff',
-            '24',
-            '+2',
-            Icons.badge_outlined,
-            Colors.blueGrey,
-            isMobile,
-          ),
-        ),
+        Expanded(child: card1),
         const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'Active Sessions',
-            '5',
-            'Live',
-            Icons.online_prediction,
-            Colors.green,
-            isMobile,
-          ),
-        ),
+        Expanded(child: card2),
         const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'System Health',
-            '98%',
-            'Optimal',
-            Icons.speed,
-            Colors.indigo,
-            isMobile,
-          ),
-        ),
+        Expanded(child: card3),
         const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'Security Alerts',
-            '0',
-            'Safe',
-            Icons.security,
-            Colors.teal,
-            isMobile,
-          ),
-        ),
+        Expanded(child: card4),
       ],
     );
   }
@@ -2593,39 +2655,134 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     IconData icon,
     Color color,
     bool isMobile,
+    VoidCallback onViewDetails,
   ) {
-    return StatCard(
-      title: title,
-      value: value,
-      subLabel: sub,
-      icon: icon,
-      color: color,
-      isMobile: isMobile,
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      value,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          InkWell(
+            onTap: onViewDetails,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'View details',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.arrow_forward,
+                  color: AppTheme.primaryColor,
+                  size: 14,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildAlertsSection() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
-              SizedBox(width: 8),
-              Text(
-                'System Alerts',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.logoRed.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.report_problem_outlined,
+                      color: AppTheme.logoRed,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'System Alerts',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ],
+              ),
+              InkWell(
+                onTap: () {},
+                child: const Text(
+                  'View all alerts',
+                  style: TextStyle(
+                    color: AppTheme.logoRed,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           _buildAlertItem(
             Colors.orange.shade50,
             Colors.orange.shade900,
@@ -2639,10 +2796,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildAlertItem(Color bg, Color textColor, String text, String type) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: textColor.withOpacity(0.1),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2657,9 +2818,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
           ),
-          Text(
-            type,
-            style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 11),
+          const SizedBox(width: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                type,
+                style: TextStyle(
+                  color: textColor.withOpacity(0.7),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.more_vert,
+                color: textColor.withOpacity(0.7),
+                size: 18,
+              ),
+            ],
           ),
         ],
       ),
@@ -2669,73 +2846,107 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildQuickActions() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor,
-        borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppTheme.primaryColor, Color(0xFF0D4D7A)],
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Administrative Actions',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Administrative Actions',
+                style: TextStyle(
+                  color: AppTheme.textPrimaryColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: 32,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          _buildActionButton(
-            Icons.person_add_outlined,
-            'Register New Staff',
-            () => _showAddUserDialog(context),
-          ),
-          _buildActionButton(
-            Icons.settings_suggest_outlined,
-            'System Configuration',
-            () {},
-          ),
-          _buildActionButton(
-            Icons.backup_outlined,
-            'Manual Database Backup',
-            () {},
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              _buildActionGridItem(
+                Icons.person_add_outlined,
+                'Register\nNew Staff',
+                () => _showAddUserDialog(context),
+              ),
+              const SizedBox(width: 12),
+              _buildActionGridItem(
+                Icons.settings_suggest_outlined,
+                'System\nConfiguration',
+                () {},
+              ),
+              const SizedBox(width: 12),
+              _buildActionGridItem(
+                Icons.storage_outlined,
+                'Manual\nDatabase Backup',
+                () {},
+              ),
+              const SizedBox(width: 12),
+              _buildActionGridItem(
+                Icons.receipt_long_outlined,
+                'Audit\nLogs',
+                () {},
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActionButton(IconData icon, String label, VoidCallback onTap) {
-    return QuickActionButton(icon: icon, label: label, onTap: onTap);
-  }
-
-  Widget _buildUserManagementInfo() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
+  Widget _buildActionGridItem(IconData icon, String label, VoidCallback onTap) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Staff Performance Overview',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.borderColor.withOpacity(0.7)),
           ),
-          SizedBox(height: 16),
-          Text(
-            'User statistics, audit logs, and system access history will be integrated here.',
-            style: TextStyle(color: AppTheme.textSecondaryColor),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.06),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: AppTheme.primaryColor, size: 20),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimaryColor,
+                  height: 1.2,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 120), // Placeholder space
-        ],
+        ),
       ),
     );
   }
@@ -2745,51 +2956,208 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'System Status',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'System Status',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: 32,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          _buildStatusRow('Backend API', 'Online', Colors.green),
-          _buildStatusRow('PostgreSQL DB', 'Connected', Colors.green),
-          _buildStatusRow('Storage Service', 'Active', Colors.green),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSystemStatusItem('Backend API', 'All systems operational', 'Online', AppTheme.secondaryColor),
+                    const SizedBox(height: 16),
+                    _buildSystemStatusItem('PostgreSQL DB', 'Database connected', 'Connected', AppTheme.secondaryColor),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.06),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.show_chart,
+                      color: AppTheme.primaryColor,
+                      size: 40,
+                    ),
+                  ),
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check_circle,
+                        color: AppTheme.secondaryColor,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatusRow(String label, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 13, color: AppTheme.labelColor),
-          ),
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  Widget _buildSystemStatusItem(String title, String subtitle, String status, Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              status,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
               ),
-              const SizedBox(width: 8),
-              Text(
-                value,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStaffOverviewChart() {
+    final List<double> weeklyData = [16, 24, 21, 32, 23, 12, 25];
+    final List<String> weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Staff Overview',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: Row(
+                  children: const [
+                    Text(
+                      'This Week',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                    ),
+                    SizedBox(width: 6),
+                    Icon(Icons.keyboard_arrow_down, size: 16, color: AppTheme.textSecondaryColor),
+                  ],
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            height: 180,
+            child: Row(
+              children: [
+                // Y-Axis labels
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: const [
+                    Text('40', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold)),
+                    Text('30', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold)),
+                    Text('20', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold)),
+                    Text('10', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold)),
+                    Text('0', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(width: 16),
+                // Line Graph
+                Expanded(
+                  child: CustomPaint(
+                    painter: LineChartPainter(weeklyData),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 155.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: List.generate(weekdays.length, (index) {
+                              return Text(
+                                weekdays[index],
+                                style: const TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold),
+                              );
+                            }),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -4715,9 +5083,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 children: [
                   TextField(
                     controller: nameCtrl,
+                    maxLength: 20,
                     decoration: const InputDecoration(
                       labelText: 'Shift Name',
                       hintText: 'e.g., Morning, Evening, Night',
+                      counterText: '',
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -5660,11 +6030,13 @@ class _AddUserDialogState extends State<AddUserDialog> {
 class AdminPatientManagementWrapper extends StatefulWidget {
   final VoidCallback onRegister;
   final Function(PatientModel) onCompleteProfile;
+  final PatientModel? viewPatient;
 
   const AdminPatientManagementWrapper({
     Key? key,
     required this.onRegister,
     required this.onCompleteProfile,
+    this.viewPatient,
   }) : super(key: key);
 
   @override
@@ -5706,6 +6078,7 @@ class _AdminPatientManagementWrapperState
       patients: _dbPatients,
       isLoading: _isLoading,
       error: _error,
+      initialSelectedPatient: widget.viewPatient,
       onCompleteProfile: widget.onCompleteProfile,
       onRefresh: _fetchPatients,
       onRegisterPatient: widget.onRegister,
@@ -5766,4 +6139,144 @@ class DashedBorderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class LineChartPainter extends CustomPainter {
+  final List<double> data;
+  LineChartPainter(this.data);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double chartHeight = size.height - 20;
+
+    final paint = Paint()
+      ..color = AppTheme.primaryColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          AppTheme.primaryColor.withOpacity(0.15),
+          AppTheme.primaryColor.withOpacity(0.0),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, chartHeight))
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    final fillPath = Path();
+
+    final double stepX = size.width / (data.length - 1);
+    final double maxY = 40.0;
+
+    double getX(int index) => index * stepX;
+    double getY(double value) => chartHeight - (value / maxY) * chartHeight;
+
+    path.moveTo(getX(0), getY(data[0]));
+    fillPath.moveTo(getX(0), chartHeight);
+    fillPath.lineTo(getX(0), getY(data[0]));
+
+    for (int i = 0; i < data.length - 1; i++) {
+      final x1 = getX(i);
+      final y1 = getY(data[i]);
+      final x2 = getX(i + 1);
+      final y2 = getY(data[i + 1]);
+
+      final cx1 = x1 + (x2 - x1) / 2;
+      final cy1 = y1;
+      final cx2 = x1 + (x2 - x1) / 2;
+      final cy2 = y2;
+
+      path.cubicTo(cx1, cy1, cx2, cy2, x2, y2);
+      fillPath.cubicTo(cx1, cy1, cx2, cy2, x2, y2);
+    }
+
+    fillPath.lineTo(size.width, chartHeight);
+    fillPath.close();
+
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(path, paint);
+
+    final pointPaint = Paint()
+      ..color = AppTheme.primaryColor
+      ..style = PaintingStyle.fill;
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    for (int i = 0; i < data.length; i++) {
+      canvas.drawCircle(Offset(getX(i), getY(data[i])), 5, borderPaint);
+      canvas.drawCircle(Offset(getX(i), getY(data[i])), 3, pointPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class AdminHeaderDateTimeCard extends StatefulWidget {
+  const AdminHeaderDateTimeCard({Key? key}) : super(key: key);
+
+  @override
+  State<AdminHeaderDateTimeCard> createState() => _AdminHeaderDateTimeCardState();
+}
+
+class _AdminHeaderDateTimeCardState extends State<AdminHeaderDateTimeCard> {
+  late Timer _timer;
+  late DateTime _now;
+
+  @override
+  void initState() {
+    super.initState();
+    _now = DateTime.now();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _now = DateTime.now();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.calendar_today_outlined, color: AppTheme.primaryColor, size: 20),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                DateFormat('dd MMMM yyyy').format(_now),
+                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
+              ),
+              Text(
+                DateFormat('hh:mm a').format(_now),
+                style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

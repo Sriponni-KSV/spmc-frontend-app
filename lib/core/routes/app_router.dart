@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/patient_model.dart';
+import '../../models/user_model.dart';
+import '../../models/appointment_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../screens/admin_dashboard.dart';
 import '../../screens/dashboard_page.dart'; // Doctor Dashboard
@@ -13,6 +15,7 @@ import '../../screens/nurse_dashboard.dart';
 import '../../screens/front_desk_dashboard.dart';
 import '../../screens/lab_dashboard.dart';
 import '../../screens/pharmacy_dashboard.dart';
+import '../../screens/ipd_patient_detail_page.dart';
 import 'route_constants.dart';
 import 'screens/not_found_screen.dart';
 
@@ -88,6 +91,9 @@ class AppRouter {
           if (!isNurse) {
             return AppRoutes.dashboard;
           }
+          if (path == AppRoutes.nurseIpdMonitoring && state.extra == null) {
+            return AppRoutes.nurseIpd;
+          }
         } else if (path.startsWith('/doctor')) {
           final isDoctor = userRole == 'Doctor' || userRole == 'Anaesthetist';
           if (!isDoctor) {
@@ -95,6 +101,15 @@ class AppRouter {
           }
           if ((path == AppRoutes.doctorDictation || path == AppRoutes.doctorLabReports) && userRole == 'Anaesthetist') {
             return AppRoutes.dashboard;
+          }
+          if (path == AppRoutes.doctorDashboardConsultation && state.extra == null) {
+            return AppRoutes.doctorDashboard;
+          }
+          if (path == AppRoutes.doctorConsultationsEdit && state.extra == null) {
+            return AppRoutes.doctorPatients;
+          }
+          if (path == AppRoutes.doctorIpdMonitoring && state.extra == null) {
+            return AppRoutes.doctorIpd;
           }
         } else if (path.startsWith('/reception')) {
           // Allow reception routes or redirect (in case reception features are merged with Nurse)
@@ -166,10 +181,51 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.adminViewStaff,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(
+              initialIndex: 1,
+              viewingStaffProfile: state.extra as UserModel?,
+            ),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.adminPatients,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('admin_dashboard'),
             child: AdminDashboardScreen(initialIndex: 2),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminNewPatient,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(
+              initialIndex: 2,
+              isRegisteringPatient: true,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminEditPatient,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(
+              initialIndex: 2,
+              isRegisteringPatient: true,
+              existingPatient: state.extra as PatientModel?,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminViewPatient,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(
+              initialIndex: 2,
+              viewPatient: state.extra as PatientModel?,
+            ),
           ),
         ),
         GoRoute(
@@ -268,6 +324,16 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.nurseViewPatient,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('nurse_dashboard'),
+            child: NurseDashboardScreen(
+              initialIndex: 1,
+              viewPatient: state.extra as PatientModel?,
+            ),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.nurseAppointments,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('nurse_dashboard'),
@@ -299,6 +365,16 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.nurseProfileEdit,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('nurse_dashboard'),
+            child: NurseDashboardScreen(
+              initialIndex: 4,
+              isEditingProfile: true,
+            ),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.nurseOpd,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('nurse_dashboard'),
@@ -310,6 +386,15 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('nurse_dashboard'),
             child: NurseDashboardScreen(initialIndex: 6),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.nurseIpdMonitoring,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('nurse_ipd_monitoring'),
+            child: IPDPatientDetailPage(
+              admission: (state.extra as Map<String, dynamic>?) ?? {},
+            ),
           ),
         ),
         GoRoute(
@@ -389,6 +474,26 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.doctorDashboardConsultation,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('doctor_dashboard'),
+            child: DashboardScreen(
+              initialIndex: 0,
+              activeAppointment: state.extra as AppointmentModel?,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.doctorConsultationsEdit,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('doctor_dashboard'),
+            child: DashboardScreen(
+              initialIndex: 1,
+              activeAppointment: state.extra as AppointmentModel?,
+            ),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.doctorPatients,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('doctor_dashboard'),
@@ -407,6 +512,15 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('doctor_dashboard'),
             child: DashboardScreen(initialIndex: 3),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.doctorIpdMonitoring,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('doctor_ipd_monitoring'),
+            child: IPDPatientDetailPage(
+              admission: (state.extra as Map<String, dynamic>?) ?? {},
+            ),
           ),
         ),
         GoRoute(
@@ -435,6 +549,16 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('doctor_dashboard'),
             child: DashboardScreen(initialIndex: 2),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.doctorProfileEdit,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('doctor_dashboard'),
+            child: DashboardScreen(
+              initialIndex: 2,
+              isEditingProfile: true,
+            ),
           ),
         ),
 
@@ -479,6 +603,16 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.frontDeskViewPatient,
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('reception_dashboard'),
+            child: FrontDeskDashboardScreen(
+              initialIndex: 1,
+              viewPatient: state.extra as PatientModel?,
+            ),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.frontDeskBookAppointment,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('reception_dashboard'),
@@ -505,6 +639,16 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('reception_dashboard'),
             child: FrontDeskDashboardScreen(initialIndex: 5),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.frontDeskProfileEdit,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('reception_dashboard'),
+            child: FrontDeskDashboardScreen(
+              initialIndex: 5,
+              isEditingProfile: true,
+            ),
           ),
         ),
       ],

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../utils/app_theme.dart';
 import 'package:flutter/services.dart';
@@ -24,6 +25,7 @@ class PatientsView extends StatefulWidget {
   final Function(PatientModel) onCompleteProfile;
   final Function(PatientModel) onBookAppointment;
   final VoidCallback? onRefresh;
+  final PatientModel? initialSelectedPatient;
 
   const PatientsView({
     Key? key,
@@ -34,6 +36,7 @@ class PatientsView extends StatefulWidget {
     required this.onCompleteProfile,
     required this.onBookAppointment,
     this.onRefresh,
+    this.initialSelectedPatient,
   }) : super(key: key);
 
   @override
@@ -57,7 +60,44 @@ class _PatientsViewState extends State<PatientsView> {
   @override
   void initState() {
     super.initState();
+    _selectedPatient = widget.initialSelectedPatient;
     _searchCtrl.addListener(() => setState(() {}));
+  }
+
+  @override
+  void didUpdateWidget(covariant PatientsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialSelectedPatient != oldWidget.initialSelectedPatient) {
+      setState(() {
+        _selectedPatient = widget.initialSelectedPatient;
+      });
+    }
+  }
+
+  void _viewPatient(PatientModel patient) {
+    final path = GoRouterState.of(context).matchedLocation;
+    if (path.startsWith('/nurse')) {
+      context.go('/nurse/patients/view', extra: patient);
+    } else if (path.startsWith('/reception')) {
+      context.go('/reception/patients/view', extra: patient);
+    } else if (path.startsWith('/admin')) {
+      context.go('/admin/patients/view', extra: patient);
+    } else {
+      setState(() => _selectedPatient = patient);
+    }
+  }
+
+  void _goBack() {
+    final path = GoRouterState.of(context).matchedLocation;
+    if (path == '/nurse/patients/view') {
+      context.go('/nurse/patients');
+    } else if (path == '/reception/patients/view') {
+      context.go('/reception/patients');
+    } else if (path == '/admin/patients/view') {
+      context.go('/admin/patients');
+    } else {
+      setState(() => _selectedPatient = null);
+    }
   }
 
   @override
@@ -116,7 +156,7 @@ class _PatientsViewState extends State<PatientsView> {
     if (_selectedPatient != null) {
       return PatientDetailView(
         patient: _selectedPatient!,
-        onBack: () => setState(() => _selectedPatient = null),
+        onBack: _goBack,
         onCompleteProfile: widget.onCompleteProfile,
         onBookAppointment: widget.onBookAppointment,
       );
@@ -727,7 +767,7 @@ class _PatientsViewState extends State<PatientsView> {
                   info: '${age}y • $gender',
                   initials: initials,
                   tags: patient.isQuickRegister ? ['Quick'] : [],
-                  onView: () => setState(() => _selectedPatient = patient),
+                  onView: () => _viewPatient(patient),
                   onBook: () => widget.onBookAppointment(patient),
                 ),
               )
@@ -739,7 +779,7 @@ class _PatientsViewState extends State<PatientsView> {
                   info: '${age}y • $gender',
                   initials: initials,
                   tags: patient.isQuickRegister ? ['Quick'] : [],
-                  onView: () => setState(() => _selectedPatient = patient),
+                  onView: () => _viewPatient(patient),
                   onBook: () => widget.onBookAppointment(patient),
                 ),
               )
@@ -748,7 +788,7 @@ class _PatientsViewState extends State<PatientsView> {
                 info: '${age}y • $gender',
                 initials: initials,
                 tags: patient.isQuickRegister ? ['Quick'] : [],
-                onView: () => setState(() => _selectedPatient = patient),
+                onView: () => _viewPatient(patient),
                 onBook: () => widget.onBookAppointment(patient),
               ),
       );
@@ -848,8 +888,7 @@ class _PatientsViewState extends State<PatientsView> {
               child: Row(
                 children: [
                   Expanded(child: _buildTableHeaderText('S.No')),
-                  Expanded(flex: 2, child: _buildTableHeaderText('Patient ID')),
-                  Expanded(flex: 3, child: _buildTableHeaderText('Name')),
+                  Expanded(flex: 3, child: _buildTableHeaderText('Patient')),
                   Expanded(child: _buildTableHeaderText('Age')),
                   if (!isMobile) Expanded(child: _buildTableHeaderText('Gender')),
                   if (!isMobile)
@@ -949,7 +988,7 @@ class _PatientsViewState extends State<PatientsView> {
         ],
       ),
       child: InkWell(
-        onTap: () => setState(() => _selectedPatient = patient),
+        onTap: () => _viewPatient(patient),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -1098,8 +1137,7 @@ class _PatientsViewState extends State<PatientsView> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () =>
-                          setState(() => _selectedPatient = patient),
+                      onPressed: () => _viewPatient(patient),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -1211,17 +1249,6 @@ class _PatientsViewState extends State<PatientsView> {
             ),
           ),
           Expanded(
-            flex: 2,
-            child: Text(
-              patient.patientId ?? 'N/A',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-          ),
-          Expanded(
             flex: 3,
             child: Row(
               children: [
@@ -1264,6 +1291,15 @@ class _PatientsViewState extends State<PatientsView> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        patient.patientId ?? 'N/A',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       if (tags.isNotEmpty)
                         Padding(
@@ -1387,7 +1423,7 @@ class _PatientsViewState extends State<PatientsView> {
                   Icons.visibility_outlined,
                   'View',
                   isQuick ? const Color(0xFF805AD5) : const Color(0xFF3182CE),
-                  onTap: () => setState(() => _selectedPatient = patient),
+                  onTap: () => _viewPatient(patient),
                 ),
                 if (!['Admin', 'Super Admin'].contains(
                   Provider.of<AuthProvider>(context, listen: false).user?.role,
@@ -3171,7 +3207,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
@@ -3186,6 +3222,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

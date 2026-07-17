@@ -125,6 +125,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                       const SizedBox(height: 4),
                       TextFormField(
                         controller: descCtrl,
+                        maxLength: 100,
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.description_outlined),

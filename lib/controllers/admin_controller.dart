@@ -241,4 +241,18 @@ class AdminController {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
+
+  Future<Map<String, dynamic>> fetchDashboardStats() async {
+    try {
+      final response = await ApiService.get('$baseUrl/admin/stats');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        return Map<String, dynamic>.from(body['data'] ?? {});
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch dashboard stats');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
 }
