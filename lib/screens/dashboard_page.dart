@@ -2361,6 +2361,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildProfileEditView(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
+    print('DEBUG USER JSON: ${user?.toJson()}');
     const sectionSpacing = SizedBox(height: 24);
     const fieldSpacing = SizedBox(height: 16);
 
@@ -2522,9 +2523,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimaryColor,
                               ),
                             ),
-                            if (user?.specialization?.isNotEmpty == true)
+                            if (user?.staffUniqueId != null && user!.staffUniqueId!.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                user!.staffUniqueId!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondaryColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                            if (user?.specialization?.isNotEmpty == true) ...[
+                              const SizedBox(height: 2),
                               Text(
                                 user!.specialization!,
                                 style: const TextStyle(
@@ -2532,6 +2546,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   fontSize: 14,
                                 ),
                               ),
+                            ],
                             const SizedBox(height: 2),
                             Text(
                               (user?.role != null && user!.role.isNotEmpty)

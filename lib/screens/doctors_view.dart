@@ -850,26 +850,32 @@ class _DoctorsViewState extends State<DoctorsView> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                RichText(
-                                  text: TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: 'Dr. ${doctor.fullname}',
-                                        style: const TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.textPrimaryColor,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: ' • ${doctor.specialization ?? "General Medicine"}',
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          color: AppTheme.textSecondaryColor,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
+                                Text(
+                                  'Dr. ${doctor.fullname}',
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimaryColor,
+                                  ),
+                                ),
+                                if (doctor.staffUniqueId != null && doctor.staffUniqueId!.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    doctor.staffUniqueId!,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: AppTheme.textSecondaryColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 2),
+                                Text(
+                                  doctor.specialization ?? 'General Medicine',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: AppTheme.textSecondaryColor,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],
