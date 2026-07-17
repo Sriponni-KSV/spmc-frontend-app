@@ -2869,9 +2869,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 _buildTableHeader('Time', flex: 2),
                 _buildTableHeader('Date', flex: 2),
                 _buildTableHeader('Patient', flex: 4),
-                _buildTableHeader('Type', flex: 2),
                 _buildTableHeader('Department', flex: 2),
                 _buildTableHeader('Doctor', flex: 3),
+                _buildTableHeader('Type', flex: 2),
                 _buildTableHeader('Reason', flex: 3),
                 _buildTableHeader('Status', flex: 2),
                 _buildTableHeader('Actions', flex: 2, leftPadding: 16),
@@ -3237,6 +3237,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     final isRescheduled = appt.isRescheduled;
     final bool hasVitals = appt.bloodPressureSystolic != null && appt.temperature != null;
 
+    final now = DateTime.now();
+    bool isToday = false;
+    try {
+      final parts = date.split('/');
+      if (parts.length == 3) {
+        isToday = int.parse(parts[0]) == now.day &&
+            int.parse(parts[1]) == now.month &&
+            int.parse(parts[2]) == now.year;
+      }
+    } catch (_) {}
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
@@ -3287,12 +3298,13 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _formatDate(date),
+                    isToday ? 'Today' : _formatDate(date),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF475569),
+                      color: const Color(0xFF475569),
+                      fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -3375,24 +3387,6 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             child: Padding(
               padding: const EdgeInsets.only(right: 12.0),
               child: Text(
-                type,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: type == 'Emergency'
-                      ? Colors.red
-                      : const Color(0xFF64748B),
-                  fontWeight: type == 'Emergency'
-                      ? FontWeight.bold
-                      : FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 12.0),
-              child: Text(
                 department,
                 style: const TextStyle(
                   fontSize: 13,
@@ -3415,30 +3409,55 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 12.0),
-                    child: Text.rich(
-                      TextSpan(
-                        text: doctorName,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF475569),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          doctorName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: Color(0xFF475569),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        children: [
-                          if (doctorDisplayId != null &&
-                              doctorDisplayId.isNotEmpty)
-                            TextSpan(
-                              text: ' ($doctorDisplayId)',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                                fontWeight: FontWeight.normal,
-                              ),
+                        if (doctorDisplayId != null && doctorDisplayId.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            doctorDisplayId,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ],
-                      ),
+                      ],
                     ),
                   ),
                 ),
               ],
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 12.0),
+              child: Text(
+                type,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: type == 'Emergency'
+                      ? Colors.red
+                      : const Color(0xFF64748B),
+                  fontWeight: type == 'Emergency'
+                      ? FontWeight.bold
+                      : FontWeight.w500,
+                ),
+              ),
             ),
           ),
           Expanded(
@@ -3447,7 +3466,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               message: reason,
               child: Text(
                 reason,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
               ),
