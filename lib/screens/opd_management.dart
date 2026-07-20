@@ -101,10 +101,20 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   Future<void> _loadDoctors() async {
     try {
       final staff = await _adminController.fetchStaff(role: 'Doctor');
+      final activeWithTimings = staff.where((d) {
+        if (d.status.toLowerCase() != 'active') return false;
+        final dp = d.doctorProfile;
+        if (dp == null) return false;
+        if (dp.slotStartTime == null || dp.slotStartTime!.trim().isEmpty) return false;
+        if (dp.slotEndTime == null || dp.slotEndTime!.trim().isEmpty) return false;
+        if (dp.slotDuration == null || dp.slotDuration!.trim().isEmpty) return false;
+        if (dp.availableDays == null || dp.availableDays!.isEmpty) return false;
+        return true;
+      }).toList();
       if (mounted) {
-        staff.sort((a, b) => a.fullname.compareTo(b.fullname));
+        activeWithTimings.sort((a, b) => a.fullname.compareTo(b.fullname));
         setState(() {
-          _doctors = staff;
+          _doctors = activeWithTimings;
         });
       }
     } catch (e) {

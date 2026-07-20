@@ -105,7 +105,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       if (!mounted) return;
       setState(() {
         _patients = patients;
-        _doctors = doctors.where((d) => d.status.toLowerCase() == 'active').toList();
+        _doctors = doctors.where((d) {
+          if (d.status.toLowerCase() != 'active') return false;
+          final dp = d.doctorProfile;
+          if (dp == null) return false;
+          if (dp.slotStartTime == null || dp.slotStartTime!.trim().isEmpty) return false;
+          if (dp.slotEndTime == null || dp.slotEndTime!.trim().isEmpty) return false;
+          if (dp.slotDuration == null || dp.slotDuration!.trim().isEmpty) return false;
+          if (dp.availableDays == null || dp.availableDays!.isEmpty) return false;
+          return true;
+        }).toList();
         _appointments = appointments;
         final activeDoctorSpecializations = _doctors
             .map((d) => d.specialization)

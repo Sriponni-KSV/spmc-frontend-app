@@ -74,6 +74,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<OtCase> _anaesthetistOtCases = [];
   OtCase? _otInitialSelectedCase;
   int? _otInitialTab;
+
+  final GlobalKey<FormState> _profileFormKey = GlobalKey<FormState>();
+  AutovalidateMode _profileAutovalidateMode = AutovalidateMode.disabled;
+  String? _scheduleError;
+
+  final FocusNode _qualFocusNode = FocusNode();
+  final FocusNode _licenseFocusNode = FocusNode();
+  final FocusNode _expFocusNode = FocusNode();
+  final FocusNode _areasOfExpertiseFocusNode = FocusNode();
+  final FocusNode _patientsFocusNode = FocusNode();
+  final FocusNode _bioFocusNode = FocusNode();
+  final FocusNode _clinicNameFocusNode = FocusNode();
+  final FocusNode _clinicLocationFocusNode = FocusNode();
+  final FocusNode _consultationFeeFocusNode = FocusNode();
+  final FocusNode _slotDurationFocusNode = FocusNode();
+
   // Profile Controllers — Basic
   late TextEditingController _nameController;
   late TextEditingController _specController;
@@ -208,10 +224,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _selectedDate = DateTime.now();
   }
 
+  int? _parseDuration(String text) {
+    final RegExp regExp = RegExp(r'\d+');
+    final match = regExp.firstMatch(text);
+    if (match != null) {
+      return int.tryParse(match.group(0)!);
+    }
+    return null;
+  }
+
   @override
   void dispose() {
     _notificationsTimer?.cancel();
     _mainFocusNode.dispose();
+    _qualFocusNode.dispose();
+    _licenseFocusNode.dispose();
+    _expFocusNode.dispose();
+    _areasOfExpertiseFocusNode.dispose();
+    _patientsFocusNode.dispose();
+    _bioFocusNode.dispose();
+    _clinicNameFocusNode.dispose();
+    _clinicLocationFocusNode.dispose();
+    _consultationFeeFocusNode.dispose();
+    _slotDurationFocusNode.dispose();
     _nameController.dispose();
     _specController.dispose();
     _emailController.dispose();
@@ -657,6 +692,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
     final user = Provider.of<AuthProvider>(context).user;
+
+    final hasTimings = user?.role != 'Doctor' || (
+        user?.doctorProfile?.slotStartTime != null &&
+        user!.doctorProfile!.slotStartTime!.isNotEmpty &&
+        user.doctorProfile?.slotEndTime != null &&
+        user.doctorProfile!.slotEndTime!.isNotEmpty &&
+        user.doctorProfile?.slotDuration != null &&
+        user.doctorProfile!.slotDuration!.isNotEmpty &&
+        user.doctorProfile?.availableDays != null &&
+        user.doctorProfile!.availableDays!.isNotEmpty
+    );
+    if (!hasTimings) {
+      _selectedIndex = 2;
+      _isEditingProfile = true;
+    }
 
     return Focus(
       focusNode: _mainFocusNode,
@@ -1839,6 +1889,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _saveProfile() async {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user?.role == 'Doctor') {
+      final isScheduleValid = _availableDays != null && _availableDays!.isNotEmpty;
+      final isFormValid = _profileFormKey.currentState?.validate() ?? false;
+      
+      if (!isFormValid || !isScheduleValid) {
+        setState(() {
+          _profileAutovalidateMode = AutovalidateMode.onUserInteraction;
+          if (!isScheduleValid) {
+            _scheduleError = 'Please select at least one available day';
+          }
+        });
+        
+        // Focus the first invalid field
+        if (_qualController.text.trim().isEmpty) {
+          _qualFocusNode.requestFocus();
+        } else if (_licenseController.text.trim().isEmpty) {
+          _licenseFocusNode.requestFocus();
+        } else if (_expController.text.trim().isEmpty) {
+          _expFocusNode.requestFocus();
+        } else if (_areasOfExpertiseController.text.trim().isEmpty) {
+          _areasOfExpertiseFocusNode.requestFocus();
+        } else if (_patientsController.text.trim().isEmpty) {
+          _patientsFocusNode.requestFocus();
+        } else if (_bioController.text.trim().isEmpty) {
+          _bioFocusNode.requestFocus();
+        } else if (_slotDurationController.text.trim().isEmpty || 
+                   _parseDuration(_slotDurationController.text) == null || 
+                   _parseDuration(_slotDurationController.text)! < 15 || 
+                   _parseDuration(_slotDurationController.text)! > 59) {
+          _slotDurationFocusNode.requestFocus();
+        } else if (_clinicNameController.text.trim().isEmpty) {
+          _clinicNameFocusNode.requestFocus();
+        } else if (_clinicLocationController.text.trim().isEmpty) {
+          _clinicLocationFocusNode.requestFocus();
+        } else if (_consultationFeeController.text.trim().isEmpty) {
+          _consultationFeeFocusNode.requestFocus();
+        }
+        
+        return;
+      }
+    }
+
     // Auto-calculate weekly off days: any day not selected as available is automatically a weekly off day
     final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     _weeklyOffDays = allDays
@@ -2368,7 +2461,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildProfileEditView(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    print('DEBUG USER JSON: ${user?.toJson()}');
+    final hasTimings = user?.role != 'Doctor' || (
+        user?.doctorProfile?.slotStartTime != null &&
+        user!.doctorProfile!.slotStartTime!.isNotEmpty &&
+        user.doctorProfile?.slotEndTime != null &&
+        user.doctorProfile!.slotEndTime!.isNotEmpty &&
+        user.doctorProfile?.slotDuration != null &&
+        user.doctorProfile!.slotDuration!.isNotEmpty &&
+        user.doctorProfile?.availableDays != null &&
+        user.doctorProfile!.availableDays!.isNotEmpty
+    );
     const sectionSpacing = SizedBox(height: 24);
     const fieldSpacing = SizedBox(height: 16);
 
@@ -2442,38 +2544,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _availableDays ??= [];
         _weeklyOffDays ??= [];
         _specificLeaveDates ??= [];
-        return SingleChildScrollView(
-          padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InkWell(
-                onTap: () => GoRouter.of(context).go(AppRoutes.doctorProfile),
-                borderRadius: BorderRadius.circular(8),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.arrow_back,
-                        color: AppTheme.primaryColor,
-                        size: 16,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Back to Profile',
-                        style: TextStyle(
+        return Form(
+          key: _profileFormKey,
+          autovalidateMode: _profileAutovalidateMode,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+              if (hasTimings || user?.role != 'Doctor') ...[
+                InkWell(
+                  onTap: () => GoRouter.of(context).go(AppRoutes.doctorProfile),
+                  borderRadius: BorderRadius.circular(8),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.arrow_back,
                           color: AppTheme.primaryColor,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          size: 16,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Back to Profile',
+                          style: TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+              if (!hasTimings && user?.role == 'Doctor') ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF5F5),
+                    border: Border.all(color: const Color(0xFFFEB2B2)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Color(0xFFC53030)),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Please configure your consultation start time, end time, and slot duration. These settings are required so nurses can book appointments for you.',
+                          style: TextStyle(
+                            color: Color(0xFF9B2C2C),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
+              ],
               const Text(
                 'Update Profile',
                 style: TextStyle(
@@ -2576,6 +2711,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         _nameController,
                         Icons.person_outline,
                         isReadOnly: true,
+                        isRequired: false,
                       ),
                       fieldSpacing,
                       _buildProfileTextField(
@@ -2583,6 +2719,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         _emailController,
                         Icons.email_outlined,
                         isReadOnly: true,
+                        isRequired: false,
                       ),
                       fieldSpacing,
                       _buildProfileTextField(
@@ -2592,28 +2729,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         isNumeric: true,
                         maxLength: 10,
                         isReadOnly: true,
+                        isRequired: false,
                       ),
                       const SizedBox(height: 16),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Bio / Professional Summary',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                          RichText(
+                            text: const TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'Bio / Professional Summary',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: _bioController,
+                            focusNode: _bioFocusNode,
                             maxLines: 3,
                             maxLength: 255,
                             style: const TextStyle(
                               color: AppTheme.textPrimaryColor,
                               fontWeight: FontWeight.normal,
                             ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter your bio / professional summary';
+                              }
+                              return null;
+                            },
                             decoration: InputDecoration(
                               counterText: '',
                               hintText:
@@ -2655,6 +2814,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               _nameController,
                               Icons.person_outline,
                               isReadOnly: true,
+                              isRequired: false,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -2664,6 +2824,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               _emailController,
                               Icons.email_outlined,
                               isReadOnly: true,
+                              isRequired: false,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -2675,6 +2836,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               isNumeric: true,
                               maxLength: 10,
                               isReadOnly: true,
+                              isRequired: false,
                             ),
                           ),
                         ],
@@ -2683,23 +2845,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Bio / Professional Summary',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                        RichText(
+                          text: const TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'Bio / Professional Summary',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _bioController,
+                          focusNode: _bioFocusNode,
                           maxLines: 3,
                           maxLength: 255,
                           style: const TextStyle(
                             color: AppTheme.textPrimaryColor,
                             fontWeight: FontWeight.normal,
                           ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter your bio / professional summary';
+                            }
+                            return null;
+                          },
                           decoration: InputDecoration(
                             counterText: '',
                             hintText:
@@ -2725,8 +2908,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: const BorderSide(
-                                color: AppTheme.primaryColor,
-                              ),
+                                  color: AppTheme.primaryColor,
+                                ),
                             ),
                           ),
                         ),
@@ -2750,6 +2933,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Icons.school_outlined,
                       maxLength: 100,
                       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .,()]'))],
+                      isRequired: true,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your qualification';
+                        }
+                        return null;
+                      },
+                      focusNode: _qualFocusNode,
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
@@ -2757,6 +2948,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _specController,
                       Icons.medical_services_outlined,
                       isReadOnly: true,
+                      isRequired: false,
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
@@ -2765,6 +2957,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Icons.badge_outlined,
                       maxLength: 20,
                       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9/\-]'))],
+                      isRequired: true,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your medical registration number';
+                        }
+                        return null;
+                      },
+                      focusNode: _licenseFocusNode,
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
@@ -2773,6 +2973,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Icons.work_outline,
                       isNumeric: true,
                       maxLength: 2,
+                      isRequired: true,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your total experience';
+                        }
+                        return null;
+                      },
+                      focusNode: _expFocusNode,
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
@@ -2781,6 +2989,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Icons.star_outline,
                       maxLength: 100,
                       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,]'))],
+                      isRequired: true,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your areas of expertise';
+                        }
+                        return null;
+                      },
+                      focusNode: _areasOfExpertiseFocusNode,
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
@@ -2789,6 +3005,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Icons.people_outline,
                       isNumeric: true,
                       maxLength: 6,
+                      isRequired: true,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter the number of patients attended';
+                        }
+                        return null;
+                      },
+                      focusNode: _patientsFocusNode,
                     ),
                   ] else ...[
                     Row(
@@ -2800,6 +3024,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Icons.school_outlined,
                             maxLength: 100,
                             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .,()]'))],
+                            isRequired: true,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter your qualification';
+                              }
+                              return null;
+                            },
+                            focusNode: _qualFocusNode,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -2809,6 +3041,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             _specController,
                             Icons.medical_services_outlined,
                             isReadOnly: true,
+                            isRequired: false,
                           ),
                         ),
                       ],
@@ -2823,6 +3056,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Icons.badge_outlined,
                             maxLength: 20,
                             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9/\-]'))],
+                            isRequired: true,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter your medical registration number';
+                              }
+                              return null;
+                            },
+                            focusNode: _licenseFocusNode,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -2833,6 +3074,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Icons.work_outline,
                             isNumeric: true,
                             maxLength: 2,
+                            isRequired: true,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter your total experience';
+                              }
+                              return null;
+                            },
+                            focusNode: _expFocusNode,
                           ),
                         ),
                       ],
@@ -2847,6 +3096,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Icons.star_outline,
                             maxLength: 100,
                             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,]'))],
+                            isRequired: true,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter your areas of expertise';
+                              }
+                              return null;
+                            },
+                            focusNode: _areasOfExpertiseFocusNode,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -2857,6 +3114,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Icons.people_outline,
                             isNumeric: true,
                             maxLength: 6,
+                            isRequired: true,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter the number of patients attended';
+                              }
+                              return null;
+                            },
+                            focusNode: _patientsFocusNode,
                           ),
                         ),
                       ],
@@ -2870,12 +3135,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // ── Section 2: Availability ───────────────────────
                 sectionCard('2', 'Availability', AppTheme.successColor, [
                   // Available / Leave Days chips
-                  const Text(
-                    'Weekly Schedule (Tap: Available ↔ Leave)',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                  RichText(
+                    text: const TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Weekly Schedule (Tap: Available ↔ Leave)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        TextSpan(
+                          text: ' *',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -2904,6 +3183,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   _weeklyOffDays?.remove(day);
                                   (_availableDays ??= []).add(day);
                                 }
+                                if (_availableDays!.isNotEmpty) {
+                                  _scheduleError = null;
+                                }
                               }),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 180),
@@ -2930,24 +3212,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         })
                         .toList(),
                   ),
+                  if (_scheduleError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _scheduleError!,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  ],
                   fieldSpacing,
                   if (isMobile) ...[
                     _buildTimePickerField(
                       'Slot Start Time',
                       _slotStartController,
                       Icons.access_time_outlined,
+                      isRequired: true,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please select start time';
+                        }
+                        return null;
+                      },
                     ),
                     fieldSpacing,
                     _buildTimePickerField(
                       'Slot End Time',
                       _slotEndController,
                       Icons.access_time_filled,
+                      isRequired: true,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please select end time';
+                        }
+                        return null;
+                      },
                     ),
                     fieldSpacing,
                     _buildProfileTextField(
                       'Slot Duration (e.g. 15 min)',
                       _slotDurationController,
                       Icons.timelapse_outlined,
+                      isRequired: true,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter slot duration';
+                        }
+                        final mins = _parseDuration(value);
+                        if (mins == null) {
+                          return 'Please enter a valid number (e.g. 15 mins)';
+                        }
+                        if (mins < 15) {
+                          return 'Minimum value is 15 minutes (recommended value)';
+                        }
+                        if (mins > 59) {
+                          return 'Maximum slot duration is 59 minutes';
+                        }
+                        return null;
+                      },
+                      focusNode: _slotDurationFocusNode,
                     ),
                   ] else
                     Row(
@@ -2957,6 +3278,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             'Slot Start Time',
                             _slotStartController,
                             Icons.access_time_outlined,
+                            isRequired: true,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please select start time';
+                              }
+                              return null;
+                            },
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -2965,6 +3293,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             'Slot End Time',
                             _slotEndController,
                             Icons.access_time_filled,
+                            isRequired: true,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please select end time';
+                              }
+                              return null;
+                            },
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -2973,6 +3308,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             'Slot Duration (e.g. 15 min)',
                             _slotDurationController,
                             Icons.timelapse_outlined,
+                            isRequired: true,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter slot duration';
+                              }
+                              final mins = _parseDuration(value);
+                              if (mins == null) {
+                                return 'Please enter a valid number (e.g. 15 mins)';
+                              }
+                              if (mins < 15) {
+                                return 'Minimum value is 15 minutes (recommended value)';
+                              }
+                              if (mins > 59) {
+                                return 'Maximum slot duration is 59 minutes';
+                              }
+                              return null;
+                            },
+                            focusNode: _slotDurationFocusNode,
                           ),
                         ),
                       ],
@@ -3069,6 +3422,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         _clinicNameController,
                         Icons.local_hospital_outlined,
                         maxLength: 100,
+                        isRequired: true,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your clinic / hospital name';
+                          }
+                          return null;
+                        },
+                        focusNode: _clinicNameFocusNode,
                       ),
                       fieldSpacing,
                       _buildProfileTextField(
@@ -3076,6 +3437,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         _clinicLocationController,
                         Icons.location_on_outlined,
                         maxLength: 100,
+                        isRequired: true,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your location';
+                          }
+                          return null;
+                        },
+                        focusNode: _clinicLocationFocusNode,
                       ),
                       fieldSpacing,
                       _buildProfileTextField(
@@ -3084,6 +3453,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Icons.currency_rupee,
                         isNumeric: true,
                         maxLength: 5,
+                        isRequired: true,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your consultation fee';
+                          }
+                          final fee = int.tryParse(value);
+                          if (fee == null || fee <= 0) {
+                            return 'Please enter a valid fee';
+                          }
+                          return null;
+                        },
+                        focusNode: _consultationFeeFocusNode,
                       ),
                     ] else ...[
                       _buildProfileTextField(
@@ -3091,6 +3472,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         _clinicNameController,
                         Icons.local_hospital_outlined,
                         maxLength: 100,
+                        isRequired: true,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your clinic / hospital name';
+                          }
+                          return null;
+                        },
+                        focusNode: _clinicNameFocusNode,
                       ),
                       fieldSpacing,
                       Row(
@@ -3101,6 +3490,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               _clinicLocationController,
                               Icons.location_on_outlined,
                               maxLength: 100,
+                              isRequired: true,
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Please enter your location';
+                                }
+                                return null;
+                              },
+                              focusNode: _clinicLocationFocusNode,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -3111,6 +3508,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Icons.currency_rupee,
                               isNumeric: true,
                               maxLength: 5,
+                              isRequired: true,
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Please enter your consultation fee';
+                                }
+                                final fee = int.tryParse(value);
+                                if (fee == null || fee <= 0) {
+                                  return 'Please enter a valid fee';
+                                }
+                                return null;
+                              },
+                              focusNode: _consultationFeeFocusNode,
                             ),
                           ),
                         ],
@@ -3184,16 +3593,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  OutlinedButton(
-                    onPressed: () => GoRouter.of(context).go(AppRoutes.doctorProfile),
-                    style: AppTheme.cancelButton.copyWith(
-                      minimumSize: MaterialStateProperty.all(
-                        const Size(120, 48),
+                  if (hasTimings || user?.role != 'Doctor') ...[
+                    OutlinedButton(
+                      onPressed: () => GoRouter.of(context).go(AppRoutes.doctorProfile),
+                      style: AppTheme.cancelButton.copyWith(
+                        minimumSize: MaterialStateProperty.all(
+                          const Size(120, 48),
+                        ),
                       ),
+                      child: const Text('Cancel'),
                     ),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 16),
+                    const SizedBox(width: 16),
+                  ],
                   ElevatedButton(
                     onPressed: _isLoading ? null : _saveProfile,
                     style: ElevatedButton.styleFrom(
@@ -3227,9 +3638,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 32),
             ],
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
   }
 
   Widget _buildProfileTextField(
@@ -3240,6 +3652,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     bool isReadOnly = false,
     int? maxLength,
     List<TextInputFormatter>? inputFormatters,
+    bool isRequired = false,
+    String? Function(String?)? validator,
+    FocusNode? focusNode,
   }) {
     // Determine effective formatters: caller-supplied > isNumeric default > none
     final effectiveFormatters = inputFormatters ??
@@ -3248,22 +3663,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
+        RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          focusNode: focusNode,
           keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
           readOnly: isReadOnly,
           maxLength: maxLength,
           inputFormatters: effectiveFormatters,
           mouseCursor: isReadOnly ? SystemMouseCursors.forbidden : null,
+          validator: validator,
           style: TextStyle(
             color: isReadOnly
                 ? AppTheme.textSecondaryColor.withOpacity(0.7)
@@ -3297,23 +3729,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildTimePickerField(
     String label,
     TextEditingController controller,
-    IconData icon,
-  ) {
+    IconData icon, {
+    bool isRequired = false,
+    String? Function(String?)? validator,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
+        RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           readOnly: true,
+          validator: validator,
           onTap: () async {
             final picked = await showTimePicker(
               context: context,
@@ -3594,8 +4044,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildSidebarItem(int index, IconData icon, String label) {
     bool isSelected = _selectedIndex == index;
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final hasTimings = user?.role != 'Doctor' || (
+        user?.doctorProfile?.slotStartTime != null &&
+        user!.doctorProfile!.slotStartTime!.isNotEmpty &&
+        user.doctorProfile?.slotEndTime != null &&
+        user.doctorProfile!.slotEndTime!.isNotEmpty &&
+        user.doctorProfile?.slotDuration != null &&
+        user.doctorProfile!.slotDuration!.isNotEmpty &&
+        user.doctorProfile?.availableDays != null &&
+        user.doctorProfile!.availableDays!.isNotEmpty
+    );
+
     return InkWell(
       onTap: () {
+        if (!hasTimings) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please complete the basic details and profile details.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
         _isEditingProfile = false;
         if (index == 0) {
           context.go(AppRoutes.doctorDashboard);
@@ -3635,8 +4106,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.white : const Color(0xFF4A5568),
-                fontWeight: FontWeight.bold,
+                color: isSelected ? Colors.white : const Color(0xFF4D5568),
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
             ),
           ],
