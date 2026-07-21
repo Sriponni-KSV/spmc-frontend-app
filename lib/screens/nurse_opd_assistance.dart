@@ -1298,9 +1298,16 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                   if (mounted) {
                     setDialogState(() {
                       allPatients = results[0] as List<PatientModel>;
-                      allDoctors = (results[1] as List<UserModel>)
-                          .where((d) => d.status.toLowerCase() == 'active')
-                          .toList();
+                      allDoctors = (results[1] as List<UserModel>).where((d) {
+                        if (d.status.toLowerCase() != 'active') return false;
+                        final dp = d.doctorProfile;
+                        if (dp == null) return false;
+                        if (dp.slotStartTime == null || dp.slotStartTime!.trim().isEmpty) return false;
+                        if (dp.slotEndTime == null || dp.slotEndTime!.trim().isEmpty) return false;
+                        if (dp.slotDuration == null || dp.slotDuration!.trim().isEmpty) return false;
+                        if (dp.availableDays == null || dp.availableDays!.isEmpty) return false;
+                        return true;
+                      }).toList();
                       isLoadingInitial = false;
                     });
                   }

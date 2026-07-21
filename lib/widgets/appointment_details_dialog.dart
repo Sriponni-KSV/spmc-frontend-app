@@ -457,7 +457,50 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
   }
 
   Widget _buildDoctorDetailsCard(bool isMobile) {
-    final docId = widget.appointment.doctorDisplayId;
+    final docId = widget.appointment.doctorDisplayId?.trim().isNotEmpty == true
+        ? widget.appointment.doctorDisplayId!
+        : 'N/A';
+
+    if (isMobile) {
+      return _buildCard(
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _buildInfoItem(
+                    'Doctor Name',
+                    widget.appointment.doctorName,
+                    icon: Icons.person_outline,
+                  ),
+                ),
+                Expanded(
+                  child: _buildInfoItem(
+                    'Doctor ID',
+                    docId,
+                    icon: Icons.badge_outlined,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildInfoItem(
+                    'Department',
+                    widget.appointment.department,
+                    icon: Icons.business_outlined,
+                  ),
+                ),
+                const Spacer(),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return _buildCard(
       child: Row(
         children: [
@@ -466,31 +509,13 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
               'Doctor Name',
               widget.appointment.doctorName,
               icon: Icons.person_outline,
-              customValueWidget: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.appointment.doctorName,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimaryColor,
-                    ),
-                  ),
-                  if (docId != null && docId.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      docId,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+            ),
+          ),
+          Expanded(
+            child: _buildInfoItem(
+              'Doctor ID',
+              docId,
+              icon: Icons.badge_outlined,
             ),
           ),
           Expanded(

@@ -789,8 +789,20 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimaryColor,
                             ),
                           ),
+                          if (user?.staffUniqueId != null && user!.staffUniqueId!.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              user!.staffUniqueId!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondaryColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 2),
                           Text(
                             user?.role ?? 'Nurse',

@@ -806,50 +806,82 @@ class _DoctorsViewState extends State<DoctorsView> {
                       topRight: Radius.circular(24),
                     ),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        radius: 32,
-                        backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                        child: Text(
-                          doctor.fullname.substring(0, 1).toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            canEdit ? 'Edit Doctor Profile' : 'Doctor Professional Profile',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimaryColor,
+                            ),
                           ),
-                        ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.close),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              padding: const EdgeInsets.all(8),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              canEdit ? 'Edit Doctor Profile' : 'Doctor Professional Profile',
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 32,
+                            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                            child: Text(
+                              doctor.fullname.substring(0, 1).toUpperCase(),
                               style: const TextStyle(
-                                fontSize: 20,
+                                color: AppTheme.primaryColor,
+                                fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimaryColor,
                               ),
                             ),
-                            Text(
-                              'Dr. ${doctor.fullname} • ${doctor.specialization ?? "General Medicine"}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: AppTheme.textSecondaryColor,
-                              ),
+                          ),
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Dr. ${doctor.fullname}',
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimaryColor,
+                                  ),
+                                ),
+                                if (doctor.staffUniqueId != null && doctor.staffUniqueId!.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    doctor.staffUniqueId!,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: AppTheme.textSecondaryColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 2),
+                                Text(
+                                  doctor.specialization ?? 'General Medicine',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: AppTheme.textSecondaryColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          padding: const EdgeInsets.all(8),
-                        ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
