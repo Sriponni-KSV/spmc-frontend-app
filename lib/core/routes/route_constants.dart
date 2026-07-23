@@ -25,6 +25,7 @@ class AppRoutes {
   static const String adminIcu = '/admin/icu-emergency';
   static const String adminPharmacy = '/admin/pharmacy';
   static const String adminInventory = '/admin/inventory-management';
+  static const String adminBilling = '/admin/billing';
 
 
   // Nurse Routes
@@ -69,6 +70,7 @@ class AppRoutes {
   static const String frontDeskAppointments = '/reception/appointments';
   static const String frontDeskDoctors = '/reception/doctors';
   static const String frontDeskAdmissionCounter = '/reception/admission-counter';
+  static const String frontDeskBilling = '/reception/billing';
   static const String frontDeskProfile = '/reception/profile';
   static const String frontDeskProfileEdit = '/reception/profile/edit';
 
@@ -78,9 +80,11 @@ class AppRoutes {
   static const String labCompleted = '/lab/completed-tests';
   static const String labProfile = '/lab/profile';
   static const String labResources = '/lab/resources';
+  static const String labBilling = '/lab/billing';
 
   // Pharmacy Routes
   static const String pharmacyDashboard = '/pharmacy/dashboard';
   static const String pharmacyInventory = '/pharmacy/inventory';
   static const String pharmacyProfile = '/pharmacy/profile';
+  static const String pharmacyBilling = '/pharmacy/billing';
 }

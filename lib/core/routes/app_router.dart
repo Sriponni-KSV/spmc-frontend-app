@@ -284,6 +284,13 @@ class AppRouter {
             child: AdminDashboardScreen(initialIndex: 11),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.adminBilling,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 10),
+          ),
+        ),
 
 
 
@@ -441,6 +448,13 @@ class AppRouter {
             child: LabDashboardScreen(initialIndex: 4),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.labBilling,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('lab_dashboard'),
+            child: LabDashboardScreen(initialIndex: 5),
+          ),
+        ),
 
         // --- Pharmacy Protected Routes ---
         GoRoute(
@@ -462,6 +476,13 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('pharmacy_dashboard'),
             child: PharmacyDashboardScreen(initialIndex: 2),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.pharmacyBilling,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('pharmacy_dashboard'),
+            child: PharmacyDashboardScreen(initialIndex: 3),
           ),
         ),
 
@@ -632,6 +653,13 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('reception_dashboard'),
             child: FrontDeskDashboardScreen(initialIndex: 4),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.frontDeskBilling,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('reception_dashboard'),
+            child: FrontDeskDashboardScreen(initialIndex: 6),
           ),
         ),
         GoRoute(

@@ -155,4 +155,26 @@ class PatientController {
       return {};
     }
   }
+
+  /// Fetch patients matching a phone number
+  Future<List<PatientModel>> fetchPatientsByPhone(String phone) async {
+    try {
+      final response = await ApiService.get('$baseUrl/patients/phone/$phone');
+
+      if (response.statusCode != 200) {
+        final body = jsonDecode(response.body);
+        throw Exception(body['message'] ?? 'Failed to search patients by phone');
+      }
+
+      final body = jsonDecode(response.body);
+
+      if (body is List) {
+        return body.map((e) => PatientModel.fromJson(e)).toList();
+      }
+
+      throw Exception('Unexpected response format');
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
 }

@@ -11,6 +11,7 @@ import '../widgets/nurse_widgets.dart' show LiveClock;
 import '../controllers/lab_controller.dart';
 import '../utils/logout_helper.dart';
 import '../widgets/user_profile_dialog.dart';
+import 'billing_management_view.dart';
 
 class LabDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -185,6 +186,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       case 4:
         context.go(AppRoutes.labResources);
         break;
+      case 5:
+        context.go(AppRoutes.labBilling);
+        break;
       default:
         context.go(AppRoutes.labDashboard);
     }
@@ -254,6 +258,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                       _buildSidebarItem(1, Icons.biotech_outlined, 'Pending Tests'),
                       _buildSidebarItem(2, Icons.fact_check_outlined, 'Completed Tests'),
                       _buildSidebarItem(4, Icons.settings_suggest_outlined, 'Resources'),
+                      _buildSidebarItem(5, Icons.receipt_long_outlined, 'Lab Billing'),
                       _buildSidebarItem(3, Icons.person_outline, 'My Profile'),
                     ],
                   ),
@@ -483,6 +488,8 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
         return _buildProfileView(isMobile);
       case 4:
         return _buildResourcesView(isMobile);
+      case 5:
+        return const BillingManagementView();
       default:
         return _buildDashboardView(isMobile);
     }

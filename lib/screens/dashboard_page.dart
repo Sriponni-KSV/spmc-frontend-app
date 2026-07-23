@@ -899,11 +899,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
           ),
           const SizedBox(height: 24),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: sortedPatients.length,
-            itemBuilder: (context, pIndex) {
+          if (sortedPatients.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 80.0),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.history_edu_outlined,
+                      size: 64,
+                      color: Colors.grey.withOpacity(0.3),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No consultations performed by you yet',
+                      style: TextStyle(color: AppTheme.textSecondaryColor),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: sortedPatients.length,
+              itemBuilder: (context, pIndex) {
               final patientName = sortedPatients[pIndex];
               final yearsMap = grouped[patientName]!;
 
@@ -4376,10 +4398,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildPatientsTable() {
     List<AppointmentModel> filteredAppts = _doctorAppointments.where((a) {
-      // Only display appointments in Confirmed, Waiting, or In Consultation status
-      final status = a.status;
-      if (status != 'Confirmed' && status != 'Waiting' && status != 'In Consultation') {
-        return false;
+      // If a specific date is selected, show all statuses. 
+      // If we are viewing all dates, only display active statuses.
+      if (_selectedDate == null) {
+        final status = a.status;
+        if (status != 'Confirmed' && status != 'Waiting' && status != 'In Consultation') {
+          return false;
+        }
       }
       if (_selectedDate != null && !_isSameDay(a.appointmentDate, _selectedDate!)) {
         return false;
@@ -4914,39 +4939,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               flex: 2,
               child: Align(
                 alignment: Alignment.center,
-                child: appt.status == 'Waiting'
+                child: (appt.status == 'Waiting' || appt.status == 'Confirmed' || appt.status == 'Admitted' || appt.status == 'Scheduled')
                     ? ElevatedButton.icon(
                         onPressed: () => _startConsultation(appt),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        icon: const Icon(
-                          Icons.medical_services_outlined,
-                          size: 16,
-                        ),
-                        label: const Text(
-                          'Take Consultation',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      )
-                    : appt.status == 'Confirmed'
-                    ? ElevatedButton.icon(
-                        onPressed: null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey.shade300,
-                          foregroundColor: Colors.grey,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
