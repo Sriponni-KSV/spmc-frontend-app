@@ -790,22 +790,28 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.search,
-                    size: 18,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    'Search anything...',
-                    style: TextStyle(
-                      fontSize: 14,
+              child: const ClipRect(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.search,
+                      size: 18,
                       color: AppTheme.textSecondaryColor,
                     ),
-                  ),
-                ],
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Search anything...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

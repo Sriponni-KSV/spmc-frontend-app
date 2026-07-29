@@ -1010,28 +1010,32 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Appointments',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimaryColor,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Appointments',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimaryColor,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Hospital metrics, and departmental view',
-                style: TextStyle(
-                  color: AppTheme.textSecondaryColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(height: 4),
+                Text(
+                  'Hospital metrics, and departmental view',
+                  style: TextStyle(
+                    color: AppTheme.textSecondaryColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           IconButton(
             onPressed: _fetchData,
             icon: const Icon(Icons.refresh),
@@ -1043,113 +1047,130 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   }
 
   Widget _buildFiltersRow(bool isMobile) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 24,
-        vertical: 12,
+    final switcherWidget = Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
-        children: [
-          // 1. View Mode Switcher
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: ['Doctor View', 'Hospital View', 'Combo View'].map((
+        mainAxisSize: MainAxisSize.min,
+        children: ['Doctor View', 'Hospital View', 'Combo View'].map((mode) {
+          final isSel = _currentViewMode == mode;
+          return InkWell(
+            onTap: () => setState(() => _currentViewMode = mode),
+            borderRadius: BorderRadius.circular(8),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: isSel ? Colors.white : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: isSel
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : [],
+              ),
+              child: Text(
                 mode,
-              ) {
-                final isSel = _currentViewMode == mode;
-                return InkWell(
-                  onTap: () => setState(() => _currentViewMode = mode),
-                  borderRadius: BorderRadius.circular(8),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSel ? Colors.white : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: isSel
-                          ? [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ]
-                          : [],
-                    ),
-                    child: Text(
-                      mode,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: isSel
-                            ? AppTheme.primaryColor
-                            : AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isSel
+                      ? AppTheme.primaryColor
+                      : AppTheme.textSecondaryColor,
+                ),
+              ),
             ),
-          ),
-          const Spacer(),
+          );
+        }).toList(),
+      ),
+    );
 
-          // 3. Search Bar
-          Container(
-            width: 250,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.search,
-                  size: 16,
+    final searchWidget = Container(
+      width: isMobile ? double.infinity : 250,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.search,
+            size: 16,
+            color: AppTheme.textSecondaryColor,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (v) => setState(() => _searchQuery = v),
+              decoration: const InputDecoration(
+                hintText: 'Search patients...',
+                hintStyle: TextStyle(
+                  fontSize: 13,
                   color: AppTheme.textSecondaryColor,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                    decoration: const InputDecoration(
-                      hintText: 'Search patients...',
-                      hintStyle: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                      border: InputBorder.none,
-                      isDense: true,
-                    ),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-                if (_searchQuery.isNotEmpty)
-                  GestureDetector(
-                    onTap: () {
-                      _searchCtrl.clear();
-                      setState(() => _searchQuery = '');
-                    },
-                    child: const Icon(
-                      Icons.clear,
-                      size: 16,
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                  ),
-              ],
+                border: InputBorder.none,
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 13),
             ),
           ),
+          if (_searchQuery.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                _searchCtrl.clear();
+                setState(() => _searchQuery = '');
+              },
+              child: const Icon(
+                Icons.clear,
+                size: 16,
+                color: AppTheme.textSecondaryColor,
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: switcherWidget,
+            ),
+            const SizedBox(height: 10),
+            searchWidget,
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      child: Row(
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: switcherWidget,
+          ),
+          const Spacer(),
+          searchWidget,
         ],
       ),
     );
@@ -1184,7 +1205,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildDoctorSelectorBar(),
+          _buildDoctorSelectorBar(isMobile),
           Expanded(
             child: Center(
               child: Column(
@@ -1237,17 +1258,18 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildDoctorSelectorBar(),
+          _buildDoctorSelectorBar(isMobile),
           const SizedBox(height: 8),
           Expanded(
             child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: _buildMonthlyCalendar(_selectedFilterDoctor!),
-                  ),
-                  const Divider(height: 24),
+                  _buildMonthlyCalendar(_selectedFilterDoctor!),
+                  const SizedBox(height: 20),
+                  const Divider(height: 1, color: AppTheme.borderColor),
+                  const SizedBox(height: 12),
                   _buildSlotsPanel(isMobile, slots, isDocAvailable),
                 ],
               ),
@@ -1260,7 +1282,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildDoctorSelectorBar(),
+        _buildDoctorSelectorBar(isMobile),
         const SizedBox(height: 8),
         Expanded(
           child: Row(
@@ -1269,12 +1291,13 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
               Expanded(
                 flex: 3,
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 12, 24),
+                  padding: const EdgeInsets.fromLTRB(24, 0, 16, 24),
                   child: _buildMonthlyCalendar(_selectedFilterDoctor!),
                 ),
               ),
               Container(
-                width: 450,
+                width: 440,
+                padding: const EdgeInsets.fromLTRB(16, 0, 24, 24),
                 decoration: const BoxDecoration(
                   border: Border(left: BorderSide(color: AppTheme.borderColor)),
                 ),
@@ -1287,7 +1310,119 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
     );
   }
 
-  Widget _buildDoctorSelectorBar() {
+  Widget _buildDoctorSelectorBar(bool isMobile) {
+    final dropdownWidget = _buildDropdown<UserModel>(
+      hint: 'Search/Select Doctor',
+      value: _selectedFilterDoctor,
+      items: _doctors,
+      itemLabel: (doc) =>
+          '${doc.fullname} (${doc.staffUniqueId ?? "N/A"}) - ${doc.specialization ?? "General"}',
+      fillColor: Colors.white,
+      borderColor: AppTheme.borderColor,
+      onChanged: (val) {
+        if (val != null) {
+          setState(() => _selectedFilterDoctor = val);
+        }
+      },
+    );
+
+    Widget? doctorCard;
+    if (_selectedFilterDoctor != null) {
+      doctorCard = Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryColor.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: AppTheme.primaryColor.withOpacity(0.15),
+          ),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: AppTheme.primaryColor,
+              child: const Icon(
+                Icons.person,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Dr. ${_selectedFilterDoctor!.fullname}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppTheme.textPrimaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      Text(
+                        'ID: ${_selectedFilterDoctor!.staffUniqueId ?? "N/A"}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.textSecondaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Text(
+                        '|',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFFCBD5E1),
+                        ),
+                      ),
+                      Text(
+                        'Specialization: ${_selectedFilterDoctor!.specialization ?? "General"}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: dropdownWidget,
+            ),
+            if (doctorCard != null) ...[
+              const SizedBox(height: 10),
+              doctorCard,
+            ],
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
@@ -1295,97 +1430,12 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
         children: [
           SizedBox(
             width: 380,
-            child: _buildDropdown<UserModel>(
-              hint: 'Search/Select Doctor',
-              value: _selectedFilterDoctor,
-              items: _doctors,
-              itemLabel: (doc) =>
-                  '${doc.fullname} (${doc.staffUniqueId ?? "N/A"}) - ${doc.specialization ?? "General"}',
-              fillColor: Colors.white,
-              borderColor: AppTheme.borderColor,
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() => _selectedFilterDoctor = val);
-                }
-              },
-            ),
+            child: dropdownWidget,
           ),
           const SizedBox(width: 24),
-          if (_selectedFilterDoctor != null)
+          if (doctorCard != null)
             Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.04),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AppTheme.primaryColor.withOpacity(0.15),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundColor: AppTheme.primaryColor,
-                      child: const Icon(
-                        Icons.person,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Dr. ${_selectedFilterDoctor!.fullname}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: AppTheme.textPrimaryColor,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Text(
-                                'ID: ${_selectedFilterDoctor!.staffUniqueId ?? "N/A"}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.textSecondaryColor,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Text(
-                                '|',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFFCBD5E1),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Specialization: ${_selectedFilterDoctor!.specialization ?? "General"}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.primaryColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              child: doctorCard,
             ),
         ],
       ),
@@ -1474,7 +1524,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              childAspectRatio: 1.0,
+              childAspectRatio: 0.8,
               crossAxisSpacing: 4,
               mainAxisSpacing: 4,
             ),
@@ -1538,7 +1588,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(6, 4, 6, 2),
+                        padding: const EdgeInsets.fromLTRB(4, 3, 4, 2),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -1555,21 +1605,24 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                               ),
                             ),
                             if (dayAppts.isNotEmpty)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  '${dayAppts.length}',
-                                  style: const TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.primaryColor,
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 3,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${dayAppts.length}',
+                                    style: const TextStyle(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ),
@@ -1740,16 +1793,77 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       return appt != null || !_isSlotInPast(s, _filterDate);
     }).toList();
 
+    final slotsContent = displaySlots.isEmpty
+        ? const Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Center(
+              child: Text(
+                'No slots available.',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          )
+        : GridView.builder(
+            shrinkWrap: isMobile,
+            physics: isMobile
+                ? const NeverScrollableScrollPhysics()
+                : const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 0,
+              vertical: 8,
+            ),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 1.35,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: displaySlots.length,
+            itemBuilder: (context, idx) {
+              final slot = displaySlots[idx];
+              final appt = _getAppointmentInSlot(
+                _selectedFilterDoctor!,
+                slot,
+                _filterDate,
+              );
+
+              if (_searchQuery.isNotEmpty && appt != null) {
+                final match =
+                    appt.patientName.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ) ||
+                    (appt.patientDisplayId?.toLowerCase().contains(
+                          _searchQuery.toLowerCase(),
+                        ) ??
+                        false);
+                if (!match) return const SizedBox.shrink();
+              }
+
+              if (appt != null) {
+                return _buildBookedSlotCard(appt);
+              } else {
+                return _buildAvailableSlotCard(
+                  _selectedFilterDoctor!,
+                  slot,
+                );
+              }
+            },
+          );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Row(
             children: [
               const Icon(
                 Icons.access_time_filled,
-                size: 16,
+                size: 18,
                 color: AppTheme.primaryColor,
               ),
               const SizedBox(width: 8),
@@ -1757,72 +1871,17 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                 'Slots for ${DateFormat('dd MMM yyyy').format(_filterDate)}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: 16,
                   color: AppTheme.primaryColor,
                 ),
               ),
             ],
           ),
         ),
-        Expanded(
-          child: displaySlots.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No slots available.',
-                    style: TextStyle(
-                      color: AppTheme.textSecondaryColor,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                )
-              : GridView.builder(
-                  shrinkWrap: isMobile,
-                  physics: isMobile
-                      ? const NeverScrollableScrollPhysics()
-                      : const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: isMobile ? 2 : 2,
-                    childAspectRatio: 2.1,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: displaySlots.length,
-                  itemBuilder: (context, idx) {
-                    final slot = displaySlots[idx];
-                    final appt = _getAppointmentInSlot(
-                      _selectedFilterDoctor!,
-                      slot,
-                      _filterDate,
-                    );
-
-                    if (_searchQuery.isNotEmpty && appt != null) {
-                      final match =
-                          appt.patientName.toLowerCase().contains(
-                            _searchQuery.toLowerCase(),
-                          ) ||
-                          (appt.patientDisplayId?.toLowerCase().contains(
-                                _searchQuery.toLowerCase(),
-                              ) ??
-                              false);
-                      if (!match) return const SizedBox.shrink();
-                    }
-
-                    if (appt != null) {
-                      return _buildBookedSlotCard(appt);
-                    } else {
-                      return _buildAvailableSlotCard(
-                        _selectedFilterDoctor!,
-                        slot,
-                      );
-                    }
-                  },
-                ),
-        ),
+        if (isMobile)
+          slotsContent
+        else
+          Expanded(child: slotsContent),
       ],
     );
   }
@@ -1852,7 +1911,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
         children: [
           // Card Header with Slot Time and Status
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             decoration: BoxDecoration(
               color: statusColor.withOpacity(0.08),
               borderRadius: const BorderRadius.only(
@@ -1863,24 +1922,31 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.access_time,
-                      size: 12,
-                      color: AppTheme.textPrimaryColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      appt.appointmentTime,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.access_time,
+                        size: 12,
                         color: AppTheme.textPrimaryColor,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          appt.appointmentTime,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            color: AppTheme.textPrimaryColor,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 4),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
@@ -1907,62 +1973,68 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          appt.patientName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: AppTheme.textPrimaryColor,
+              child: SingleChildScrollView(
+                physics: const NeverScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            appt.patientName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: AppTheme.textPrimaryColor,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      if (isRescheduled)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF3E8FF),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: const Text(
-                            'Resched',
-                            style: TextStyle(
-                              color: Color(0xFF9333EA),
-                              fontSize: 8,
+                        if (isRescheduled)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF3E8FF),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: const Text(
+                              'Resched',
+                              style: TextStyle(
+                                color: Color(0xFF9333EA),
+                                fontSize: 8,
+                              ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    appt.patientDisplayId ?? 'ID: ${appt.patientId}',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: AppTheme.textSecondaryColor,
-                      fontFamily: 'monospace',
+                      ],
                     ),
-                  ),
-                  if (appt.patientPhone != null) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
-                      appt.patientPhone!,
+                      appt.patientDisplayId ?? 'ID: ${appt.patientId}',
                       style: const TextStyle(
                         fontSize: 10,
-                        color: AppTheme.textMutedColor,
+                        color: AppTheme.textSecondaryColor,
+                        fontFamily: 'monospace',
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    if (appt.patientPhone != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        appt.patientPhone!,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.textMutedColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -2125,10 +2197,10 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: isMobile ? 1 : 3,
-        childAspectRatio: isMobile ? 2.5 : 1.7,
+        childAspectRatio: isMobile ? 1.5 : 1.7,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
