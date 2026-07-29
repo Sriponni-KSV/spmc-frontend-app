@@ -108,6 +108,24 @@ class PatientController {
     }
   }
 
+  /// Fetch vitals history for a patient
+  Future<List<Map<String, dynamic>>> fetchVitalsHistory(int patientId) async {
+    try {
+      final url = '$baseUrl/patients/$patientId/vitals-history';
+      final response = await ApiService.get(url);
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        final data = body['data'] as List<dynamic>;
+        return data.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching vitals history: $e');
+      return [];
+    }
+  }
+
   /// Delete a patient by ID
   Future<void> deletePatient(int patientId) async {
     try {

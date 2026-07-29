@@ -35,7 +35,8 @@ class AppRouter {
       // 🛑 ROUTE GUARDS & DYNAMIC REDIRECTION (Auth & Role-Based Checks)
       redirect: (context, state) {
         final isLoggedIn = authProvider.user != null;
-        final goingToPublic = state.matchedLocation == AppRoutes.login ||
+        final goingToPublic =
+            state.matchedLocation == AppRoutes.login ||
             state.matchedLocation == AppRoutes.forgotPassword ||
             state.matchedLocation == AppRoutes.resetPassword ||
             state.matchedLocation == AppRoutes.forceChangePassword;
@@ -80,7 +81,8 @@ class AppRouter {
         final path = state.matchedLocation;
 
         if (path.startsWith('/admin')) {
-          final isAdmin = userRole == 'Admin' ||
+          final isAdmin =
+              userRole == 'Admin' ||
               userRole == 'Supervisor' ||
               userRole == 'Super Admin';
           if (!isAdmin) {
@@ -99,13 +101,17 @@ class AppRouter {
           if (!isDoctor) {
             return AppRoutes.dashboard;
           }
-          if ((path == AppRoutes.doctorDictation || path == AppRoutes.doctorLabReports) && userRole == 'Anaesthetist') {
+          if ((path == AppRoutes.doctorDictation ||
+                  path == AppRoutes.doctorLabReports) &&
+              userRole == 'Anaesthetist') {
             return AppRoutes.dashboard;
           }
-          if (path == AppRoutes.doctorDashboardConsultation && state.extra == null) {
+          if (path == AppRoutes.doctorDashboardConsultation &&
+              state.extra == null) {
             return AppRoutes.doctorDashboard;
           }
-          if (path == AppRoutes.doctorConsultationsEdit && state.extra == null) {
+          if (path == AppRoutes.doctorConsultationsEdit &&
+              state.extra == null) {
             return AppRoutes.doctorPatients;
           }
           if (path == AppRoutes.doctorIpdMonitoring && state.extra == null) {
@@ -113,7 +119,8 @@ class AppRouter {
           }
         } else if (path.startsWith('/reception')) {
           // Allow reception routes or redirect (in case reception features are merged with Nurse)
-          final isReception = userRole == 'Receptionist' ||
+          final isReception =
+              userRole == 'Receptionist' ||
               userRole == 'Reception' ||
               userRole == 'Front Desk' ||
               userRole == 'Nurse' ||
@@ -162,7 +169,8 @@ class AppRouter {
         // --- Common Protected Route (redirects to role-specific dashboard) ---
         GoRoute(
           path: AppRoutes.dashboard,
-          builder: (context, state) => const SizedBox.shrink(), // Never rendered; always redirected by guard
+          builder: (context, state) =>
+              const SizedBox.shrink(), // Never rendered; always redirected by guard
         ),
 
         // --- Admin Protected Routes ---
@@ -292,8 +300,6 @@ class AppRouter {
           ),
         ),
 
-
-
         // --- Nurse Protected Routes ---
         GoRoute(
           path: AppRoutes.nurseDashboard,
@@ -351,10 +357,14 @@ class AppRouter {
           path: AppRoutes.nurseBookAppointment,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('nurse_dashboard'),
-            child: NurseDashboardScreen(
-              initialIndex: 2,
-              forceBooking: true,
-            ),
+            child: NurseDashboardScreen(initialIndex: 2, forceBooking: true),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.nurseDocAppointments,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('nurse_dashboard'),
+            child: NurseDashboardScreen(initialIndex: 8),
           ),
         ),
         GoRoute(
@@ -576,10 +586,7 @@ class AppRouter {
           path: AppRoutes.doctorProfileEdit,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('doctor_dashboard'),
-            child: DashboardScreen(
-              initialIndex: 2,
-              isEditingProfile: true,
-            ),
+            child: DashboardScreen(initialIndex: 2, isEditingProfile: true),
           ),
         ),
 
@@ -609,7 +616,10 @@ class AppRouter {
           path: AppRoutes.frontDeskNewPatient,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('reception_dashboard'),
-            child: FrontDeskDashboardScreen(initialIndex: 1, isRegisteringPatient: true),
+            child: FrontDeskDashboardScreen(
+              initialIndex: 1,
+              isRegisteringPatient: true,
+            ),
           ),
         ),
         GoRoute(
@@ -637,7 +647,10 @@ class AppRouter {
           path: AppRoutes.frontDeskBookAppointment,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('reception_dashboard'),
-            child: FrontDeskDashboardScreen(initialIndex: 2, forceBooking: true),
+            child: FrontDeskDashboardScreen(
+              initialIndex: 2,
+              forceBooking: true,
+            ),
           ),
         ),
 
