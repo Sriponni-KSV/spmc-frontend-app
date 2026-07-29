@@ -7,6 +7,7 @@ import 'providers/auth_provider.dart';
 import 'services/connectivity_service.dart';
 import 'widgets/offline_banner.dart';
 import 'core/routes/app_router.dart';
+import 'config/api_config.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +22,7 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ChangeNotifierProvider<ConnectivityService>(
-          create: (_) => ConnectivityService(dotenv.env['BASE_URL'] ?? ''),
+          create: (_) => ConnectivityService(ApiEndpoints.baseUrl),
         ),
       ],
       child: const MyApp(),

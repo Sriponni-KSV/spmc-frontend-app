@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/token_service.dart';
@@ -12,7 +13,7 @@ class RequiresPasswordChangeException implements Exception {
 }
 
 class AuthController {
-  String get baseUrl => dotenv.env['BASE_URL']!;
+  String get baseUrl => ApiEndpoints.baseUrl;
 
   Future<UserModel?> login({
     required String email,
