@@ -18,6 +18,9 @@ import 'opd_management.dart';
 import 'ipd_management.dart';
 import 'ot_management.dart';
 import 'mocdoc_appointments_view.dart';
+import 'home_visit_list_view.dart';
+import 'home_visit_execution_screen.dart';
+import '../controllers/home_visit_controller.dart';
 import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
@@ -49,6 +52,7 @@ class NurseDashboardScreen extends StatefulWidget {
 
 class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   int _selectedIndex = 0;
+  int? _selectedHomeVisitId;
   bool _isRegisteringPatient = false;
   PatientModel? _patientToComplete;
   PatientModel? _viewPatient;
@@ -267,6 +271,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     bool forceBooking = false,
   }) {
     if (!mounted) return;
+    setState(() => _selectedHomeVisitId = null);
     switch (index) {
       case 0:
         context.go(AppRoutes.nurseDashboard);
@@ -302,6 +307,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         break;
       case 8:
         context.go(AppRoutes.nurseDocAppointments);
+        break;
+      case 9:
+        context.go(AppRoutes.nurseHomeVisits);
         break;
       default:
         context.go(AppRoutes.nurseDashboard);
@@ -470,6 +478,24 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return OTManagementScreen(isMobile: isMobile);
       case 8:
         return MocDocAppointmentsView();
+      case 9:
+        if (_selectedHomeVisitId != null) {
+          return HomeVisitExecutionScreen(
+            visitId: _selectedHomeVisitId!,
+            onBack: () {
+              setState(() {
+                _selectedHomeVisitId = null;
+              });
+            },
+          );
+        }
+        return HomeVisitListView(
+          onExecuteVisit: (visitId) {
+            setState(() {
+              _selectedHomeVisitId = visitId;
+            });
+          },
+        );
       default:
         return _buildDashboardView(isMobile);
     }
@@ -624,6 +650,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         7,
                         Icons.healing_outlined,
                         'OT Management',
+                      ),
+                      _buildSidebarItem(
+                        9,
+                        Icons.home_work_outlined,
+                        'Home Visit Care',
                       ),
                       _buildSidebarItem(4, Icons.person_outline, 'Profile'),
                     ],

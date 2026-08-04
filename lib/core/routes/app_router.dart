@@ -421,6 +421,13 @@ class AppRouter {
             child: NurseDashboardScreen(initialIndex: 7),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.nurseHomeVisits,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('nurse_dashboard'),
+            child: NurseDashboardScreen(initialIndex: 9),
+          ),
+        ),
 
         // --- Lab Protected Routes ---
         GoRoute(

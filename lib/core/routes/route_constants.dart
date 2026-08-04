@@ -44,6 +44,7 @@ class AppRoutes {
   static const String nurseIpdMonitoring =
       '/nurse/ipd-management/nursing-station';
   static const String nurseOt = '/nurse/ot-management';
+  static const String nurseHomeVisits = '/nurse/home-visits';
 
   // Doctor Routes
   static const String doctorDashboard = '/doctor/dashboard';
