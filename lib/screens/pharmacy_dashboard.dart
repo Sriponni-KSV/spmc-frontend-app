@@ -9,6 +9,7 @@ import '../utils/logout_helper.dart';
 import '../widgets/user_profile_dialog.dart';
 import 'pharmacy_management_view.dart';
 import 'inventory_management_view.dart';
+import 'billing_management_view.dart';
 
 class PharmacyDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -48,6 +49,9 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
         break;
       case 2:
         context.go(AppRoutes.pharmacyProfile);
+        break;
+      case 3:
+        context.go(AppRoutes.pharmacyBilling);
         break;
       default:
         context.go(AppRoutes.pharmacyDashboard);
@@ -116,6 +120,7 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
                     children: [
                       _buildSidebarItem(0, Icons.local_pharmacy_outlined, 'Pharmacy Management'),
                       _buildSidebarItem(1, Icons.inventory_2_outlined, 'Inventory Management'),
+                      _buildSidebarItem(3, Icons.receipt_long_outlined, 'Pharmacy Billing'),
                       _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
                     ],
                   ),
@@ -344,6 +349,8 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
         return InventoryManagementView(isMobile: isMobile);
       case 2:
         return _buildProfileView(isMobile);
+      case 3:
+        return const BillingManagementView();
       default:
         return PharmacyManagementView(isMobile: isMobile);
     }

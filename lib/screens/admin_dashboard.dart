@@ -31,6 +31,7 @@ import '../utils/password_policy.dart';
 import '../controllers/nurse_shift_controller.dart';
 import 'icu_management_view.dart';
 import 'inventory_management_view.dart';
+import 'billing_management_view.dart';
 
 
 
@@ -990,6 +991,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 9:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return ICUManagementView(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 10:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return const BillingManagementView();
         }
         return const AccessDeniedWidget();
       case 11:
@@ -2250,6 +2256,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     'ICU & Emergency',
                   ),
                   _buildSidebarItem(
+                    10,
+                    Icons.receipt_long_outlined,
+                    'Billing & Invoices',
+                  ),
+                  _buildSidebarItem(
                     11,
                     Icons.inventory_2_outlined,
                     'Inventory Management',
@@ -2378,6 +2389,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             break;
           case 9:
             context.go(AppRoutes.adminIcu);
+            break;
+          case 10:
+            context.go(AppRoutes.adminBilling);
             break;
           case 11:
             context.go(AppRoutes.adminInventory);

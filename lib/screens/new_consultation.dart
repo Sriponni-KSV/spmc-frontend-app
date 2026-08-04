@@ -1100,31 +1100,52 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               buildHeader(),
               const SizedBox(height: 24),
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Left Column: Admit to IPD + Vitals + History
-                    SizedBox(
-                      width: 320,
-                      child: SingleChildScrollView(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isMobileView = constraints.maxWidth < 800;
+                    if (isMobileView) {
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.only(bottom: 24),
                         child: Column(
                           children: [
                             _buildAdmitToIPDCard(),
+                            const SizedBox(height: 16),
                             _buildPatientInfoSummary(),
                             const SizedBox(height: 16),
                             _buildClinicalHistoryCard(),
+                            const SizedBox(height: 24),
+                            _buildConsultationForm(),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    // Right Column: Active Consult Form (Scrollable)
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: _buildConsultationForm(),
-                      ),
-                    ),
-                  ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left Column: Admit to IPD + Vitals + History
+                        SizedBox(
+                          width: 320,
+                          child: SingleChildScrollView(
+                            child: Column(
+                              children: [
+                                _buildAdmitToIPDCard(),
+                                _buildPatientInfoSummary(),
+                                const SizedBox(height: 16),
+                                _buildClinicalHistoryCard(),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        // Right Column: Active Consult Form (Scrollable)
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: _buildConsultationForm(),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -1409,6 +1430,30 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   }
 
   Future<void> _saveConsultation() async {
+    if (_symptomsController.text.trim().isEmpty) {
+      setState(() => _currentStep = 0);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter Subjective Symptoms in the Complaint tab.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      _formKey.currentState!.validate();
+      return;
+    }
+
+    if (_diagnosisController.text.trim().isEmpty) {
+      setState(() => _currentStep = 4);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter Diagnosis in the Diagnosis tab.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      _formKey.currentState!.validate();
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -1512,45 +1557,170 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     );
   }
 
-  Widget _buildTextField(
-    String label,
-    TextEditingController controller,
-    String hint,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            color: Colors.black,
+
+  bool _validateCurrentTab() {
+    if (_currentStep == 0 && _symptomsController.text.trim().isEmpty) {
+      _formKey.currentState?.validate();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter Subjective Symptoms before proceeding to the next step.',
           ),
+          backgroundColor: Colors.orange,
         ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: hint,
-            fillColor: AppTheme.backgroundColor,
-            filled: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
+      );
+      return false;
+    }
+
+    if (_currentStep == 4 && _diagnosisController.text.trim().isEmpty) {
+      _formKey.currentState?.validate();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter Diagnosis before proceeding to the next step.',
           ),
+          backgroundColor: Colors.orange,
         ),
-      ],
+      );
+      return false;
+    }
+
+    if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
+      return false;
+    }
+
+    return true;
+  }
+
+  Widget _buildMocDocTabBar() {
+    final tabs = [
+      {'title': 'Complaint', 'badge': null},
+      {'title': 'Examination', 'badge': null},
+      {
+        'title': 'Investigation',
+        'badge': getFinalOrderedLabs().isNotEmpty
+            ? getFinalOrderedLabs().length.toString()
+            : null,
+      },
+      {
+        'title': 'Docket',
+        'badge': _documents.isNotEmpty ? _documents.length.toString() : null,
+      },
+      {'title': 'Diagnosis', 'badge': null},
+      {'title': 'Treatment', 'badge': null},
+      {
+        'title': 'Prescription',
+        'badge': _medications.isNotEmpty
+            ? _medications.length.toString()
+            : null,
+      },
+    ];
+
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAFAFA),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFCBD5E1), width: 1.0),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: List.generate(tabs.length, (index) {
+            final isSelected = _currentStep == index;
+            final tab = tabs[index];
+            final title = tab['title'] as String;
+            final String? badge = tab['badge'];
+
+            return MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  if (index > _currentStep && !_validateCurrentTab()) {
+                    return;
+                  }
+                  setState(() {
+                    _currentStep = index;
+                  });
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(right: 2, top: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 11,
+                  ),
+                  decoration: isSelected
+                      ? const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(6.0),
+                          ),
+                          border: Border.fromBorderSide(
+                            BorderSide(color: Color(0xFFCBD5E1), width: 1.0),
+                          ),
+                        )
+                      : const BoxDecoration(
+                          color: Colors.transparent,
+                        ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFFC26100),
+                        ),
+                      ),
+                      if (badge != null) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.primaryColor
+                                : const Color(0xFFD97706),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            badge,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
     );
   }
 
-  Widget _buildConsultationForm() {
+  Widget _buildComplaintTab() {
     return Column(
+      key: const ValueKey('complaint_tab'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionCard(
-          '1. Symptoms',
+          '1. Chief Complaint & Symptoms',
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1580,30 +1750,49 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         ),
         const SizedBox(height: 16),
         _buildSectionCard(
-          '3. Family History',
-          _buildTextArea(
-            'Family History',
-            _familyHistoryController,
-            'Enter family medical history, chronic diseases in relatives...',
+          '3. Family & Social History',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTextArea(
+                'Family History',
+                _familyHistoryController,
+                'Enter family medical history, chronic diseases in relatives...',
+              ),
+              const SizedBox(height: 16),
+              _buildTextArea(
+                'Social History',
+                _socialHistoryController,
+                'Enter social background, lifestyle, habits, occupation status...',
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
         _buildSectionCard(
-          '4. Social History',
+          '4. Known Allergies',
           _buildTextArea(
-            'Social History',
-            _socialHistoryController,
-            'Enter social background, lifestyle, habits, occupation status...',
+            'Patient Allergies',
+            _allergyController,
+            'Describe drug allergies, food allergies, environmental/latex allergies...',
           ),
         ),
-        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildExaminationTab() {
+    return Column(
+      key: const ValueKey('examination_tab'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         _buildSectionCard(
-          '5. Physical Examination',
+          'Physical Examination & Vitals Summary',
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Recorded Vitals Summary',
+                'Recorded Nurse Vitals Intake',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
@@ -1647,80 +1836,22 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               _buildTextArea(
                 'Physical / Systemic Examination',
                 _examinationController,
-                'Describe physical examination findings, general condition...',
+                'Describe physical examination findings, general condition, organ systems...',
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildInvestigationTab() {
+    return Column(
+      key: const ValueKey('investigation_tab'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         _buildSectionCard(
-          '6. Allergies',
-          _buildTextArea(
-            'Patient Allergies',
-            _allergyController,
-            'Describe drug allergies, food allergies, environmental/latex allergies...',
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildSectionCard(
-          '7. Diagnosis',
-          _buildTextArea(
-            'Diagnosis / Impression',
-            _diagnosisController,
-            'Enter the diagnostic decision or impression...',
-            required: true,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildSectionCard(
-          '8. Procedures',
-          _buildTextArea(
-            'Procedure Details',
-            _procedureController,
-            'Describe procedures performed or scheduled (e.g. sutures, dressings)...',
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildSectionCard(
-          '9. Plan',
-          _buildTextArea(
-            'Plan',
-            _planController,
-            'Enter plan details (e.g. diagnostic, therapeutic, educational plan)...',
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildSectionCard(
-          '10. Prescribed Medications',
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Prescription Flow',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-              const Text(
-                'Automatically sent to Pharmacy upon submission',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF0D9488),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildMedicationInput(),
-              const SizedBox(height: 16),
-              _buildMedicationList(),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildSectionCard(
-          '11. Test Request (Lab Orders)',
+          'Investigation & Lab Orders',
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1745,73 +1876,17 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildDocketTab() {
+    return Column(
+      key: const ValueKey('docket_tab'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         _buildSectionCard(
-          '12. Referral Details',
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Doctor / Department Referral',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-              const SizedBox(height: 16),
-              CustomDropdownSearch(
-                label: 'Referred Doctor Name',
-                hint: 'e.g. Dr. Gayathri',
-                value: _referredDoctorController.text.isEmpty
-                    ? null
-                    : _referredDoctorController.text,
-                dropdownItems: _doctorsList,
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _referredDoctorController.text = val;
-                      final matchedDocs = _rawDoctors
-                          .where((d) => d.fullname == val)
-                          .toList();
-                      if (matchedDocs.isNotEmpty) {
-                        final spec = matchedDocs.first.specialization;
-                        if (spec != null && spec.isNotEmpty) {
-                          _referredDeptController.text = spec;
-                        }
-                      }
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              CustomDropdownSearch(
-                label: 'Referred Department',
-                hint: 'e.g. Cardiology, Paediatrics',
-                value: _referredDeptController.text.isEmpty
-                    ? null
-                    : _referredDeptController.text,
-                dropdownItems: _departmentsList,
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _referredDeptController.text = val;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              _buildTextArea(
-                'Referral Reason & Clinical Notes',
-                _referralNotesController,
-                'Provide details for the receiving doctor...',
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildSectionCard(
-          '13. Document Attachments',
+          '1. Diagnostic Documents & Attachments',
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2071,7 +2146,124 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         ),
         const SizedBox(height: 16),
         _buildSectionCard(
-          '14. Follow-Up Schedule',
+          '2. Doctor & Department Referral',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Doctor / Department Referral',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(height: 16),
+              CustomDropdownSearch(
+                label: 'Referred Doctor Name',
+                hint: 'e.g. Dr. Gayathri',
+                value: _referredDoctorController.text.isEmpty
+                    ? null
+                    : _referredDoctorController.text,
+                dropdownItems: _doctorsList,
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _referredDoctorController.text = val;
+                      final matchedDocs = _rawDoctors
+                          .where((d) => d.fullname == val)
+                          .toList();
+                      if (matchedDocs.isNotEmpty) {
+                        final spec = matchedDocs.first.specialization;
+                        if (spec != null && spec.isNotEmpty) {
+                          _referredDeptController.text = spec;
+                        }
+                      }
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              CustomDropdownSearch(
+                label: 'Referred Department',
+                hint: 'e.g. Cardiology, Paediatrics',
+                value: _referredDeptController.text.isEmpty
+                    ? null
+                    : _referredDeptController.text,
+                dropdownItems: _departmentsList,
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _referredDeptController.text = val;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              _buildTextArea(
+                'Referral Reason & Clinical Notes',
+                _referralNotesController,
+                'Provide details for the receiving doctor...',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '3. General Docket Remarks',
+          _buildTextArea(
+            'Comments / General Remarks',
+            _commentController,
+            'Enter general remarks, advice notes...',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDiagnosisTab() {
+    return Column(
+      key: const ValueKey('diagnosis_tab'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionCard(
+          '1. Diagnosis & Impression',
+          _buildTextArea(
+            'Diagnosis / Impression',
+            _diagnosisController,
+            'Enter the diagnostic decision or impression...',
+            required: true,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '2. Procedure Details',
+          _buildTextArea(
+            'Procedure Details',
+            _procedureController,
+            'Describe procedures performed or scheduled (e.g. sutures, dressings)...',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTreatmentTab() {
+    return Column(
+      key: const ValueKey('treatment_tab'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionCard(
+          '1. Treatment Plan',
+          _buildTextArea(
+            'Plan',
+            _planController,
+            'Enter plan details (e.g. diagnostic, therapeutic, educational plan)...',
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSectionCard(
+          '2. Recommendations & Follow-Up',
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2154,62 +2346,211 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildPrescriptionTab() {
+    return Column(
+      key: const ValueKey('prescription_tab'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         _buildSectionCard(
-          '15. Comments & Remarks',
-          _buildTextArea(
-            'Comments / General Remarks',
-            _commentController,
-            'Enter general remarks, advice notes...',
-          ),
-        ),
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            OutlinedButton(
-              onPressed: widget.onBack,
-              style: AppTheme.cancelButton,
-              child: const Text('Cancel '),
-            ),
-            const SizedBox(width: 16),
-            ElevatedButton(
-              onPressed: _isSaving ? null : _saveConsultation,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.logoRed,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(130, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
+          'Prescribed Medications',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Prescription Flow',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.primaryColor,
                 ),
               ),
-              child: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Text(
-                      widget.initialConsultation != null
-                          ? 'Update & Save'
-                          : 'Complete & Submit',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 80),
-          ],
+              const Text(
+                'Automatically sent to Pharmacy upon submission',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF0D9488),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildMedicationInput(),
+              const SizedBox(height: 16),
+              _buildMedicationList(),
+            ],
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildTabFooterNavigation() {
+    final tabTitles = [
+      'Complaint',
+      'Examination',
+      'Investigation',
+      'Docket',
+      'Diagnosis',
+      'Treatment',
+      'Prescription',
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          if (_currentStep > 0)
+            OutlinedButton.icon(
+              onPressed: () => setState(() => _currentStep--),
+              icon: const Icon(Icons.arrow_back, size: 16),
+              label: Text('Previous: ${tabTitles[_currentStep - 1]}'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryColor,
+                side: const BorderSide(color: AppTheme.borderColor),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            )
+          else
+            const SizedBox.shrink(),
+
+          Row(
+            children: [
+              OutlinedButton(
+                onPressed: () async {
+                  if (await _onWillPop()) {
+                    widget.onBack();
+                  }
+                },
+                style: AppTheme.cancelButton,
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 12),
+              if (_currentStep < 6) ...[
+                ElevatedButton.icon(
+                  onPressed: () {
+                    if (_validateCurrentTab()) {
+                      setState(() => _currentStep++);
+                    }
+                  },
+                  icon: const Icon(
+                    Icons.arrow_forward,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                  label: Text(
+                    'Next: ${tabTitles[_currentStep + 1]}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              ElevatedButton.icon(
+                onPressed: _isSaving ? null : _saveConsultation,
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.check_circle_outline,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                label: Text(
+                  widget.initialConsultation != null
+                      ? 'Update & Save'
+                      : 'Complete & Submit',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.logoRed,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  minimumSize: const Size(140, 44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConsultationForm() {
+    Widget activeTabContent;
+    switch (_currentStep) {
+      case 0:
+        activeTabContent = _buildComplaintTab();
+        break;
+      case 1:
+        activeTabContent = _buildExaminationTab();
+        break;
+      case 2:
+        activeTabContent = _buildInvestigationTab();
+        break;
+      case 3:
+        activeTabContent = _buildDocketTab();
+        break;
+      case 4:
+        activeTabContent = _buildDiagnosisTab();
+        break;
+      case 5:
+        activeTabContent = _buildTreatmentTab();
+        break;
+      case 6:
+        activeTabContent = _buildPrescriptionTab();
+        break;
+      default:
+        activeTabContent = _buildComplaintTab();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildMocDocTabBar(),
+        const SizedBox(height: 16),
+        activeTabContent,
+        const SizedBox(height: 24),
+        _buildTabFooterNavigation(),
       ],
     );
   }

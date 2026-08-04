@@ -88,6 +88,9 @@ class _NewPatientRegistrationViewState
   final TextEditingController _physicalActivityController =
       TextEditingController();
   String? _selectedGender;
+  PatientModel? _matchedExistingPatient;
+  String _lastCheckedPhone = '';
+  bool _isSearchingPhone = false;
 
   // Form keys for validation
   final _formKeyStep1 = GlobalKey<FormState>();
@@ -100,10 +103,207 @@ class _NewPatientRegistrationViewState
     if (widget.existingPatient != null) {
       _preFillForm();
     }
+    _phoneController.addListener(_onPhoneChanged);
+  }
+
+  void _onPhoneChanged() {
+    final phone = _phoneController.text.trim();
+    if (phone.length == 10) {
+      if (phone != _lastCheckedPhone) {
+        _lastCheckedPhone = phone;
+        _checkExistingPatient(phone);
+      }
+    } else {
+      if (phone.length < 10) {
+        _lastCheckedPhone = '';
+      }
+    }
+  }
+
+  Future<void> _checkExistingPatient(String phone) async {
+    setState(() {
+      _isSearchingPhone = true;
+    });
+
+    try {
+      final patients = await _patientController.fetchPatientsByPhone(phone);
+      if (patients.isNotEmpty) {
+        if (mounted) {
+          _showExistingPatientsDialog(patients);
+        }
+      }
+    } catch (e) {
+      print('Error searching patient by phone: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearchingPhone = false;
+        });
+      }
+    }
+  }
+
+  void _showExistingPatientsDialog(List<PatientModel> patients) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          backgroundColor: Colors.white,
+          title: Row(
+            children: [
+              const Icon(
+                Icons.info_outline,
+                color: AppTheme.primaryColor,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Existing Patient Found',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+              ),
+            ],
+          ),
+          content: Container(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  patients.length == 1
+                      ? 'A patient is already registered with this mobile number.'
+                      : 'Multiple patients are registered with this mobile number.',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: patients.map((patient) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppTheme.borderColor),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildDialogDetailRow('Patient ID', patient.patientId ?? '-'),
+                              _buildDialogDetailRow('Name', patient.name),
+                              _buildDialogDetailRow('Gender / Age', '${patient.gender} / ${patient.age} years'),
+                              _buildDialogDetailRow('DOB', patient.dob),
+                              _buildDialogDetailRow('Address', patient.fullAddress),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 40,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop(patient);
+                                  },
+                                  style: AppTheme.primaryButton.copyWith(
+                                    minimumSize: MaterialStateProperty.all(const Size(0, 40)),
+                                    padding: MaterialStateProperty.all(const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+                                  ),
+                                  child: const Text('Load Patient Details'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Would you like to load their details to edit/complete their profile, or register a new patient instead?',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () {
+                Navigator.of(context).pop(null);
+              },
+              style: AppTheme.cancelButton.copyWith(
+                minimumSize: MaterialStateProperty.all(const Size(180, 48)),
+              ),
+              child: const Text('Register New Patient'),
+            ),
+          ],
+        );
+      },
+    ).then((selectedPatient) {
+      if (selectedPatient != null && selectedPatient is PatientModel) {
+        setState(() {
+          _matchedExistingPatient = selectedPatient;
+          _loadMatchedPatient(selectedPatient);
+        });
+      }
+    });
+  }
+
+  Widget _buildDialogDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondaryColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value.isNotEmpty ? value : '-',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textPrimaryColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _preFillForm() {
-    final p = widget.existingPatient!;
+    _loadPatientIntoForm(widget.existingPatient!);
+  }
+
+  void _loadMatchedPatient(PatientModel p) {
+    _loadPatientIntoForm(p);
+  }
+
+  void _loadPatientIntoForm(PatientModel p) {
     _nameController.text = p.name;
     _dobController.text = p.dob;
     _ageController.text = p.age > 0 ? p.age.toString() : '';
@@ -120,12 +320,8 @@ class _NewPatientRegistrationViewState
     _emergencyContactPhoneController.text = p.emergencyContactPhone;
 
     // Medical Intake
-    _bpSystolicController.text = p.bpSystolic > 0
-        ? p.bpSystolic.toString()
-        : '';
-    _bpDiastolicController.text = p.bpDiastolic > 0
-        ? p.bpDiastolic.toString()
-        : '';
+    _bpSystolicController.text = p.bpSystolic > 0 ? p.bpSystolic.toString() : '';
+    _bpDiastolicController.text = p.bpDiastolic > 0 ? p.bpDiastolic.toString() : '';
     _sugarController.text = p.sugar > 0 ? p.sugar.toString() : '';
     _tempController.text = p.temp > 0 ? p.temp.toString() : '';
     _heightController.text = p.height > 0 ? p.height.toString() : '';
@@ -137,12 +333,8 @@ class _NewPatientRegistrationViewState
     _historyController.text = p.history;
 
     // Lifestyle
-    _smokingStatus = (p.smokingStatus == 'No' || p.smokingStatus.isEmpty)
-        ? 'Never'
-        : p.smokingStatus;
-    _alcoholStatus = (p.alcoholStatus == 'No' || p.alcoholStatus.isEmpty)
-        ? 'Never'
-        : p.alcoholStatus;
+    _smokingStatus = (p.smokingStatus == 'No' || p.smokingStatus.isEmpty) ? 'Never' : p.smokingStatus;
+    _alcoholStatus = (p.alcoholStatus == 'No' || p.alcoholStatus.isEmpty) ? 'Never' : p.alcoholStatus;
     _occupationController.text = p.occupation;
     _hobbiesController.text = p.hobbies;
     _foodHabitsController.text = p.foodHabits;
@@ -181,8 +373,9 @@ class _NewPatientRegistrationViewState
   }
 
   bool _hasFormChanges() {
-    if (widget.existingPatient != null) {
-      final p = widget.existingPatient!;
+    final existing = _matchedExistingPatient ?? widget.existingPatient;
+    if (existing != null) {
+      final p = existing;
       final bool basicInfoChanged = _nameController.text != p.name ||
           _dobController.text != p.dob ||
           _ageController.text != (p.age > 0 ? p.age.toString() : '') ||
@@ -334,8 +527,8 @@ class _NewPatientRegistrationViewState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.existingPatient != null
-                              ? (widget.existingPatient!.isQuickRegister
+                          (widget.existingPatient != null || _matchedExistingPatient != null)
+                              ? (((widget.existingPatient?.isQuickRegister ?? _matchedExistingPatient?.isQuickRegister ?? false))
                                     ? 'Complete Patient Profile'
                                     : 'Edit Patient Profile')
                               : 'New Patient Registration',
@@ -346,7 +539,7 @@ class _NewPatientRegistrationViewState
                         if (!isMobile) ...[
                           const SizedBox(height: 4),
                           Text(
-                            widget.existingPatient != null
+                            (widget.existingPatient != null || _matchedExistingPatient != null)
                                 ? 'Update patient information and medical history'
                                 : 'Register a new patient with AI-powered voice input',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -657,6 +850,19 @@ class _NewPatientRegistrationViewState
                         controller: _phoneController,
                         hint: 'Enter Mobile Number',
                         keyboardType: TextInputType.phone,
+                        suffixIcon: _isSearchingPhone
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: Padding(
+                                  padding: EdgeInsets.all(12.0),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                              )
+                            : null,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(10),
@@ -2489,6 +2695,7 @@ class _NewPatientRegistrationViewState
     required TextEditingController controller,
     required String hint,
     IconData? icon,
+    Widget? suffixIcon,
     int maxLines = 1,
     VoidCallback? onTap,
     bool readOnly = false,
@@ -2508,9 +2715,9 @@ class _NewPatientRegistrationViewState
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 13),
-        suffixIcon: icon != null
+        suffixIcon: suffixIcon ?? (icon != null
             ? Icon(icon, color: const Color(0xFFCBD5E0), size: 18)
-            : null,
+            : null),
         filled: true,
         fillColor: AppTheme.backgroundColor,
         border: OutlineInputBorder(
@@ -2618,9 +2825,10 @@ class _NewPatientRegistrationViewState
         );
       }
 
+      final existing = _matchedExistingPatient ?? widget.existingPatient;
       final patient = PatientModel(
-        id: widget.existingPatient?.id,
-        patientId: widget.existingPatient?.patientId,
+        id: existing?.id,
+        patientId: existing?.patientId,
         name: _nameController.text.trim(),
         dob: _dobController.text.trim(),
         age: int.tryParse(_ageController.text.trim()) ?? 0,
@@ -2652,13 +2860,13 @@ class _NewPatientRegistrationViewState
         hobbies: _hobbiesController.text.trim(),
         foodHabits: _foodHabitsController.text.trim(),
         physicalActivity: _physicalActivityController.text.trim(),
-        isQuickRegister: widget.existingPatient?.isQuickRegister ?? false,
+        isQuickRegister: existing?.isQuickRegister ?? false,
       );
 
-      if (widget.existingPatient != null &&
-          widget.existingPatient!.id != null) {
+      if (existing != null &&
+          existing.id != null) {
         await _patientController.updatePatient(
-          widget.existingPatient!.id!,
+          existing.id!,
           patient,
         );
       } else {
@@ -2669,7 +2877,7 @@ class _NewPatientRegistrationViewState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              widget.existingPatient != null
+              existing != null
                   ? 'Patient profile completed successfully!'
                   : 'Patient registered successfully!',
             ),

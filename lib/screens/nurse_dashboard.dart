@@ -17,6 +17,10 @@ import 'nurse_profile_view.dart';
 import 'opd_management.dart';
 import 'ipd_management.dart';
 import 'ot_management.dart';
+import 'mocdoc_appointments_view.dart';
+import 'home_visit_list_view.dart';
+import 'home_visit_execution_screen.dart';
+import '../controllers/home_visit_controller.dart';
 import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
@@ -24,7 +28,6 @@ import '../utils/logout_helper.dart';
 import '../models/user_model.dart';
 import '../controllers/nurse_shift_controller.dart';
 import '../widgets/user_profile_dialog.dart';
-
 
 class NurseDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -49,6 +52,7 @@ class NurseDashboardScreen extends StatefulWidget {
 
 class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   int _selectedIndex = 0;
+  int? _selectedHomeVisitId;
   bool _isRegisteringPatient = false;
   PatientModel? _patientToComplete;
   PatientModel? _viewPatient;
@@ -75,7 +79,6 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   List<Map<String, dynamic>> _allWardsShiftData = [];
   bool _isLoadingShiftStatus = false;
   List<Map<String, dynamic>> _handovers = [];
-
 
   @override
   void initState() {
@@ -113,7 +116,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       final stats = await _shiftCtrl.fetchNurseStats();
       if (mounted) {
         setState(() {
-          _activeAdmissionsCount = stats['activeAdmissions']?.toString() ?? '--';
+          _activeAdmissionsCount =
+              stats['activeAdmissions']?.toString() ?? '--';
           _patientVisitsCount = stats['patientVisits']?.toString() ?? '--';
         });
       }
@@ -227,7 +231,6 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     }
   }
 
-
   Future<void> _fetchAppointments() async {
     setState(() => _isLoadingAppointments = true);
     try {
@@ -268,6 +271,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     bool forceBooking = false,
   }) {
     if (!mounted) return;
+    setState(() => _selectedHomeVisitId = null);
     switch (index) {
       case 0:
         context.go(AppRoutes.nurseDashboard);
@@ -301,6 +305,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 7:
         context.go(AppRoutes.nurseOt);
         break;
+      case 8:
+        context.go(AppRoutes.nurseDocAppointments);
+        break;
+      case 9:
+        context.go(AppRoutes.nurseHomeVisits);
+        break;
       default:
         context.go(AppRoutes.nurseDashboard);
     }
@@ -319,7 +329,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           onNewPatient: () => _changePage(1, isRegistering: true),
           onBookAppointment: (patientMap) {
             if (patientMap != null) {
-              setState(() => _selectedPatientForBooking = PatientModel.fromJson(patientMap));
+              setState(
+                () => _selectedPatientForBooking = PatientModel.fromJson(
+                  patientMap,
+                ),
+              );
             }
             _changePage(2, forceBooking: true);
           },
@@ -462,6 +476,26 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return IPDManagementScreen(isMobile: isMobile);
       case 7:
         return OTManagementScreen(isMobile: isMobile);
+      case 8:
+        return MocDocAppointmentsView();
+      case 9:
+        if (_selectedHomeVisitId != null) {
+          return HomeVisitExecutionScreen(
+            visitId: _selectedHomeVisitId!,
+            onBack: () {
+              setState(() {
+                _selectedHomeVisitId = null;
+              });
+            },
+          );
+        }
+        return HomeVisitListView(
+          onExecuteVisit: (visitId) {
+            setState(() {
+              _selectedHomeVisitId = visitId;
+            });
+          },
+        );
       default:
         return _buildDashboardView(isMobile);
     }
@@ -481,7 +515,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         // Scrollable Content
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 16.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -519,20 +556,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        flex: 5,
-                        child: _buildAlertsSection(),
-                      ),
+                      Expanded(flex: 5, child: _buildAlertsSection()),
                       const SizedBox(width: 20),
-                      Expanded(
-                        flex: 5,
-                        child: _buildRecentPatients(),
-                      ),
+                      Expanded(flex: 5, child: _buildRecentPatients()),
                       const SizedBox(width: 20),
-                      Expanded(
-                        flex: 4,
-                        child: _buildUpcomingAppointments(),
-                      ),
+                      Expanded(flex: 4, child: _buildUpcomingAppointments()),
                     ],
                   ),
                 const SizedBox(height: 20),
@@ -566,7 +594,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             children: [
               // Logo Section
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
                 child: Image.asset(
                   'assets/image/full_logo.png',
                   width: 110,
@@ -581,15 +612,50 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildSidebarItem(0, Icons.dashboard_outlined, 'Dashboard'),
+                      _buildSidebarItem(
+                        0,
+                        Icons.dashboard_outlined,
+                        'Dashboard',
+                      ),
                       if (user?.hasPermission('view_patients') ?? false)
                         _buildSidebarItem(1, Icons.people_outline, 'Patients'),
                       if (user?.hasPermission('book_appointment') ?? false)
-                        _buildSidebarItem(2, Icons.calendar_today_outlined, 'Appointments'),
-                      _buildSidebarItem(3, Icons.medical_services_outlined, 'Doctors'),
-                      _buildSidebarItem(5, Icons.local_hospital_outlined, 'OPD Assistance'),
-                      _buildSidebarItem(6, Icons.bedroom_child_outlined, 'IPD Management'),
-                      _buildSidebarItem(7, Icons.healing_outlined, 'OT Management'),
+                        _buildSidebarItem(
+                          2,
+                          Icons.calendar_today_outlined,
+                          'Appointments',
+                        ),
+                      if (user?.hasPermission('book_appointment') ?? false)
+                        _buildSidebarItem(
+                          8,
+                          Icons.edit_calendar_outlined,
+                          'Appointments',
+                        ),
+                      _buildSidebarItem(
+                        3,
+                        Icons.medical_services_outlined,
+                        'Doctors',
+                      ),
+                      _buildSidebarItem(
+                        5,
+                        Icons.local_hospital_outlined,
+                        'OPD Assistance',
+                      ),
+                      _buildSidebarItem(
+                        6,
+                        Icons.bedroom_child_outlined,
+                        'IPD Management',
+                      ),
+                      _buildSidebarItem(
+                        7,
+                        Icons.healing_outlined,
+                        'OT Management',
+                      ),
+                      _buildSidebarItem(
+                        9,
+                        Icons.home_work_outlined,
+                        'Home Visit Care',
+                      ),
                       _buildSidebarItem(4, Icons.person_outline, 'Profile'),
                     ],
                   ),
@@ -598,16 +664,22 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
               Container(
                 decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: AppTheme.borderColor, width: 1)),
+                  border: Border(
+                    top: BorderSide(color: AppTheme.borderColor, width: 1),
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 child: user == null
                     ? const SizedBox.shrink()
                     : Row(
                         children: [
                           Expanded(
                             child: InkWell(
-                              onTap: () => UserProfileDialog.show(context, user),
+                              onTap: () =>
+                                  UserProfileDialog.show(context, user),
                               borderRadius: BorderRadius.circular(8),
                               child: Row(
                                 children: [
@@ -615,7 +687,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                                     backgroundColor: AppTheme.primaryColor,
                                     radius: 18,
                                     child: Text(
-                                      user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                                      user.fullname.isNotEmpty
+                                          ? user.fullname[0].toUpperCase()
+                                          : '?',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
@@ -626,7 +700,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           user.fullname,
@@ -658,10 +733,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                               size: 18,
                               color: AppTheme.textSecondaryColor,
                             ),
-                            onPressed: () => LogoutHelper.showLogoutConfirmation(
-                              context,
-                              auth,
-                            ),
+                            onPressed: () =>
+                                LogoutHelper.showLogoutConfirmation(
+                                  context,
+                                  auth,
+                                ),
                           ),
                         ],
                       ),
@@ -710,9 +786,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   Widget _buildHeader(BuildContext context, bool isMobile) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
+      decoration: const BoxDecoration(color: Colors.transparent),
       padding: EdgeInsets.only(
         left: isMobile ? 16 : 24,
         right: isMobile ? 16 : 24,
@@ -729,10 +803,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         if (isMobile) ...[
           Builder(
             builder: (context) => IconButton(
-              icon: const Icon(
-                Icons.menu,
-                color: Color(0xFF4A5568),
-              ),
+              icon: const Icon(Icons.menu, color: Color(0xFF4A5568)),
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
           ),
@@ -750,22 +821,28 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.search,
-                    size: 18,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    'Search anything...',
-                    style: TextStyle(
-                      fontSize: 14,
+              child: const ClipRect(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.search,
+                      size: 18,
                       color: AppTheme.textSecondaryColor,
                     ),
-                  ),
-                ],
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Search anything...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -789,10 +866,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   color: Color(0xFFE53E3E),
                   shape: BoxShape.circle,
                 ),
-                constraints: const BoxConstraints(
-                  minWidth: 14,
-                  minHeight: 14,
-                ),
+                constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
                 child: const Text(
                   '3',
                   style: TextStyle(
@@ -846,10 +920,30 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           spacing: 12,
           runSpacing: 12,
           children: [
-            _buildStatItem('Total Patients', totalPatients.toString(), Icons.people_outline, const Color(0xFF0C5D9A)),
-            _buildStatItem('Today\'s Appointments', todaysApptsCount.toString(), Icons.calendar_today_outlined, AppTheme.secondaryColor),
-            _buildStatItem('Active Admissions', _activeAdmissionsCount, Icons.bedroom_child_outlined, const Color(0xFFDD3B3B)),
-            _buildStatItem('Patient Visits', _patientVisitsCount, Icons.monitor_heart_outlined, const Color(0xFF7C5CBF)),
+            _buildStatItem(
+              'Total Patients',
+              totalPatients.toString(),
+              Icons.people_outline,
+              const Color(0xFF0C5D9A),
+            ),
+            _buildStatItem(
+              'Today\'s Appointments',
+              todaysApptsCount.toString(),
+              Icons.calendar_today_outlined,
+              AppTheme.secondaryColor,
+            ),
+            _buildStatItem(
+              'Active Admissions',
+              _activeAdmissionsCount,
+              Icons.bedroom_child_outlined,
+              const Color(0xFFDD3B3B),
+            ),
+            _buildStatItem(
+              'Patient Visits',
+              _patientVisitsCount,
+              Icons.monitor_heart_outlined,
+              const Color(0xFF7C5CBF),
+            ),
           ],
         ),
       );
@@ -871,13 +965,41 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       child: IntrinsicHeight(
         child: Row(
           children: [
-            Expanded(child: _buildStatItem('Total Patients', totalPatients.toString(), Icons.people_outline, const Color(0xFF0C5D9A))),
+            Expanded(
+              child: _buildStatItem(
+                'Total Patients',
+                totalPatients.toString(),
+                Icons.people_outline,
+                const Color(0xFF0C5D9A),
+              ),
+            ),
             _buildVerticalDivider(),
-            Expanded(child: _buildStatItem('Today\'s Appointments', todaysApptsCount.toString(), Icons.calendar_today_outlined, AppTheme.secondaryColor)),
+            Expanded(
+              child: _buildStatItem(
+                'Today\'s Appointments',
+                todaysApptsCount.toString(),
+                Icons.calendar_today_outlined,
+                AppTheme.secondaryColor,
+              ),
+            ),
             _buildVerticalDivider(),
-            Expanded(child: _buildStatItem('Active Admissions', _activeAdmissionsCount, Icons.bedroom_child_outlined, const Color(0xFFDD3B3B))),
+            Expanded(
+              child: _buildStatItem(
+                'Active Admissions',
+                _activeAdmissionsCount,
+                Icons.bedroom_child_outlined,
+                const Color(0xFFDD3B3B),
+              ),
+            ),
             _buildVerticalDivider(),
-            Expanded(child: _buildStatItem('Patient Visits', _patientVisitsCount, Icons.monitor_heart_outlined, const Color(0xFF7C5CBF))),
+            Expanded(
+              child: _buildStatItem(
+                'Patient Visits',
+                _patientVisitsCount,
+                Icons.monitor_heart_outlined,
+                const Color(0xFF7C5CBF),
+              ),
+            ),
           ],
         ),
       ),
@@ -892,7 +1014,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     );
   }
 
-  Widget _buildStatItem(String title, String value, IconData icon, Color color) {
+  Widget _buildStatItem(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
@@ -1047,9 +1174,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(10),
-        border: Border(
-          left: BorderSide(color: textColor, width: 3),
-        ),
+        border: Border(left: BorderSide(color: textColor, width: 3)),
       ),
       child: Row(
         children: [
@@ -1068,7 +1193,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 const SizedBox(height: 3),
                 Text(
                   time,
-                  style: TextStyle(color: textColor.withOpacity(0.65), fontSize: 11),
+                  style: TextStyle(
+                    color: textColor.withOpacity(0.65),
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
@@ -1106,13 +1234,20 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         color: AppTheme.secondaryColor.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.people_outline, color: AppTheme.secondaryColor, size: 18),
+                      child: const Icon(
+                        Icons.people_outline,
+                        color: AppTheme.secondaryColor,
+                        size: 18,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(
                         'Recent Patients',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1122,8 +1257,13 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               const SizedBox(width: 8),
               TextButton(
                 onPressed: () => _changePage(1),
-                style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
-                child: const Text('View All', style: TextStyle(fontWeight: FontWeight.w600)),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.primaryColor,
+                ),
+                child: const Text(
+                  'View All',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
@@ -1152,7 +1292,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 '${p.age}y • ${p.gender}',
                 'Registered',
                 p.isQuickRegister ? 'Quick' : 'Standard',
-                p.isQuickRegister ? const Color(0xFF6B7FD4) : const Color(0xFF0EA5A0),
+                p.isQuickRegister
+                    ? const Color(0xFF6B7FD4)
+                    : const Color(0xFF0EA5A0),
               );
             }).toList(),
         ],
@@ -1270,13 +1412,20 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         color: AppTheme.primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.calendar_month_outlined, color: AppTheme.primaryColor, size: 18),
+                      child: const Icon(
+                        Icons.calendar_month_outlined,
+                        color: AppTheme.primaryColor,
+                        size: 18,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(
                         'Upcoming Appointments',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1286,8 +1435,13 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               const SizedBox(width: 8),
               TextButton(
                 onPressed: () => _changePage(2),
-                style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
-                child: const Text('View All', style: TextStyle(fontWeight: FontWeight.w600)),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.primaryColor,
+                ),
+                child: const Text(
+                  'View All',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
@@ -1338,12 +1492,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 40),
                     child: Column(
                       children: [
-                        Icon(Icons.calendar_month_outlined,
-                            size: 40, color: AppTheme.borderColor),
+                        Icon(
+                          Icons.calendar_month_outlined,
+                          size: 40,
+                          color: AppTheme.borderColor,
+                        ),
                         const SizedBox(height: 12),
                         const Text(
                           'No appointments for today',
-                          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                          style: TextStyle(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -1474,12 +1634,16 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     Map<String, dynamic>? dataToUse = _activeShiftData ?? _todayShiftData;
 
     if (dataToUse != null) {
-      currentShift = '${dataToUse['shift_name'] ?? dataToUse['current_shift'] ?? 'Active'} Shift';
+      currentShift =
+          '${dataToUse['shift_name'] ?? dataToUse['current_shift'] ?? 'Active'} Shift';
       wardType = '${dataToUse['ward_type'] ?? 'General'} Ward';
       final startTime = dataToUse['start_time']?.toString();
       final endTime = dataToUse['end_time']?.toString();
       timings = '${_formatTo12Hour(startTime)} - ${_formatTo12Hour(endTime)}';
-      assignedNurse = dataToUse['assigned_nurse']?.toString() ?? dataToUse['nurse_name']?.toString() ?? 'Not Assigned';
+      assignedNurse =
+          dataToUse['assigned_nurse']?.toString() ??
+          dataToUse['nurse_name']?.toString() ??
+          'Not Assigned';
       status = dataToUse['status']?.toString() ?? 'Assigned';
       prevNurse = dataToUse['previous_nurse']?.toString() ?? 'None';
       nextNurse = dataToUse['next_nurse']?.toString() ?? 'None';
@@ -1487,8 +1651,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     }
 
     final isAssigned = status.toLowerCase() == 'assigned';
-    final statusColor = isAssigned ? const Color(0xFF2E7D32) : const Color(0xFF92400E);
-    final statusBg = isAssigned ? const Color(0xFFE8F5E9) : const Color(0xFFFEF3C7);
+    final statusColor = isAssigned
+        ? const Color(0xFF2E7D32)
+        : const Color(0xFF92400E);
+    final statusBg = isAssigned
+        ? const Color(0xFFE8F5E9)
+        : const Color(0xFFFEF3C7);
 
     return Container(
       width: double.infinity,
@@ -1496,7 +1664,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primaryColor, width: 2.5), // Outer blue border
+        border: Border.all(
+          color: AppTheme.primaryColor,
+          width: 2.5,
+        ), // Outer blue border
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -1514,7 +1685,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             color: AppTheme.primaryColor, // Logo Blue
             child: Row(
               children: [
-                const Icon(Icons.wb_sunny_outlined, color: Colors.white, size: 20),
+                const Icon(
+                  Icons.wb_sunny_outlined,
+                  color: Colors.white,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -1527,7 +1702,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
@@ -1544,7 +1722,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               ],
             ),
           ),
-          
+
           // Body Columns
           Container(
             color: Colors.white,
@@ -1555,7 +1733,13 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 if (isMobile) ...[
                   _buildShiftInfoRowLight('Assigned Nurse', assignedNurse),
                   const SizedBox(height: 10),
-                  _buildShiftInfoRowLight('Status', status, isStatus: true, statusBg: statusBg, statusColor: statusColor),
+                  _buildShiftInfoRowLight(
+                    'Status',
+                    status,
+                    isStatus: true,
+                    statusBg: statusBg,
+                    statusColor: statusColor,
+                  ),
                   const SizedBox(height: 10),
                   _buildShiftInfoRowLight('Prev Nurse', prevNurse),
                   const SizedBox(height: 10),
@@ -1565,15 +1749,47 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 ] else
                   Row(
                     children: [
-                      Expanded(child: _buildShiftInfoColumnWithIcon(Icons.person_outline, 'Assigned Nurse', assignedNurse)),
+                      Expanded(
+                        child: _buildShiftInfoColumnWithIcon(
+                          Icons.person_outline,
+                          'Assigned Nurse',
+                          assignedNurse,
+                        ),
+                      ),
                       _buildShiftLightDivider(),
-                      Expanded(child: _buildShiftStatusBadgeColumnWithIcon(Icons.person_outline, 'Status', status, statusBg, statusColor)),
+                      Expanded(
+                        child: _buildShiftStatusBadgeColumnWithIcon(
+                          Icons.person_outline,
+                          'Status',
+                          status,
+                          statusBg,
+                          statusColor,
+                        ),
+                      ),
                       _buildShiftLightDivider(),
-                      Expanded(child: _buildShiftInfoColumnWithIcon(Icons.person_outline, 'Prev Nurse', prevNurse)),
+                      Expanded(
+                        child: _buildShiftInfoColumnWithIcon(
+                          Icons.person_outline,
+                          'Prev Nurse',
+                          prevNurse,
+                        ),
+                      ),
                       _buildShiftLightDivider(),
-                      Expanded(child: _buildShiftInfoColumnWithIcon(Icons.single_bed_outlined, 'Next Nurse', nextNurse)),
+                      Expanded(
+                        child: _buildShiftInfoColumnWithIcon(
+                          Icons.single_bed_outlined,
+                          'Next Nurse',
+                          nextNurse,
+                        ),
+                      ),
                       _buildShiftLightDivider(),
-                      Expanded(child: _buildShiftInfoColumnWithIcon(Icons.hub_outlined, 'Ward/Room', wardRoom)),
+                      Expanded(
+                        child: _buildShiftInfoColumnWithIcon(
+                          Icons.hub_outlined,
+                          'Ward/Room',
+                          wardRoom,
+                        ),
+                      ),
                     ],
                   ),
               ],
@@ -1584,7 +1800,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     );
   }
 
-  Widget _buildShiftInfoColumnWithIcon(IconData icon, String label, String value) {
+  Widget _buildShiftInfoColumnWithIcon(
+    IconData icon,
+    String label,
+    String value,
+  ) {
     return Row(
       children: [
         Container(
@@ -1601,11 +1821,21 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 11,
+                ),
+              ),
               const SizedBox(height: 4),
               Text(
                 value,
-                style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 13.5, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: AppTheme.textPrimaryColor,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -1615,7 +1845,13 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     );
   }
 
-  Widget _buildShiftStatusBadgeColumnWithIcon(IconData icon, String label, String value, Color bg, Color textColor) {
+  Widget _buildShiftStatusBadgeColumnWithIcon(
+    IconData icon,
+    String label,
+    String value,
+    Color bg,
+    Color textColor,
+  ) {
     return Row(
       children: [
         Container(
@@ -1632,17 +1868,30 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11)),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 11,
+                ),
+              ),
               const SizedBox(height: 4),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 2.5,
+                ),
                 decoration: BoxDecoration(
                   color: bg,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   value,
-                  style: TextStyle(color: textColor, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -1652,11 +1901,23 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     );
   }
 
-  Widget _buildShiftInfoRowLight(String label, String value, {bool isStatus = false, Color? statusBg, Color? statusColor}) {
+  Widget _buildShiftInfoRowLight(
+    String label,
+    String value, {
+    bool isStatus = false,
+    Color? statusBg,
+    Color? statusColor,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13)),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppTheme.textSecondaryColor,
+            fontSize: 13,
+          ),
+        ),
         if (isStatus && statusBg != null && statusColor != null)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -1664,10 +1925,24 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               color: statusBg,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text(value, style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
+            child: Text(
+              value,
+              style: TextStyle(
+                color: statusColor,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           )
         else
-          Text(value, style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 13, fontWeight: FontWeight.w600)),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppTheme.textPrimaryColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
       ],
     );
   }
@@ -1685,10 +1960,13 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     if (user == null) return [];
 
-    final pending = _handovers.where((h) =>
-      h['incoming_nurse_id']?.toString() == user.id.toString() &&
-      h['status'] == 'Pending'
-    ).toList();
+    final pending = _handovers
+        .where(
+          (h) =>
+              h['incoming_nurse_id']?.toString() == user.id.toString() &&
+              h['status'] == 'Pending',
+        )
+        .toList();
 
     return pending.map((h) {
       final outgoing = h['outgoing_nurse_name'] ?? 'Unassigned';
@@ -1711,7 +1989,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 color: const Color(0xFFF59E0B).withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.swap_horiz, color: Color(0xFFD97706), size: 22),
+              child: const Icon(
+                Icons.swap_horiz,
+                color: Color(0xFFD97706),
+                size: 22,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1720,12 +2002,19 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 children: [
                   const Text(
                     'Pending Shift Handover',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF92400E)),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF92400E),
+                    ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     'Incoming from $outgoing for $ward Ward ($shift Shift). Please acknowledge.',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFB45309),
+                    ),
                   ),
                 ],
               ),
@@ -1737,7 +2026,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFF59E0B),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: () => _acknowledgeHandover(h['id']),
             ),
@@ -1752,13 +2043,14 @@ class CardWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFD1D5DB) // Soft gray line
+      ..color =
+          const Color(0xFFD1D5DB) // Soft gray line
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
     final path = Path();
     path.moveTo(0, size.height * 0.6);
-    
+
     // Smooth S-curve wave going across the bottom
     path.cubicTo(
       size.width * 0.25,
@@ -1768,7 +2060,7 @@ class CardWavePainter extends CustomPainter {
       size.width,
       size.height * 0.6,
     );
-    
+
     canvas.drawPath(path, paint);
   }
 
@@ -1789,10 +2081,10 @@ class BubbleBackgroundPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path();
-    
+
     // Circle base
     path.addOval(Rect.fromLTWH(0, 0, size.width, size.height));
-    
+
     // Symmetrical speech bubble tail pointers extending outwards
     if (isLeft) {
       path.moveTo(size.width * 0.18, size.height * 0.76);
@@ -1811,4 +2103,3 @@ class BubbleBackgroundPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

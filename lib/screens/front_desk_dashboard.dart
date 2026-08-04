@@ -22,6 +22,7 @@ import '../controllers/nurse/nurse_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'front_desk_admission_counter.dart';
 import '../widgets/user_profile_dialog.dart';
+import 'billing_management_view.dart';
 
 class FrontDeskDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -157,6 +158,9 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
         break;
       case 4:
         context.go(AppRoutes.frontDeskAdmissionCounter);
+        break;
+      case 6:
+        context.go(AppRoutes.frontDeskBilling);
         break;
       case 5:
         context.go(AppRoutes.frontDeskProfile);
@@ -319,6 +323,8 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
         return const FrontDeskAdmissionCounterView();
       case 5:
         return FrontDeskProfileView(isEditing: widget.isEditingProfile);
+      case 6:
+        return const BillingManagementView();
       default:
         return _buildDashboardView(isMobile);
     }
@@ -439,6 +445,11 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                         4,
                         Icons.assignment_turned_in_outlined,
                         'Admission Counter',
+                      ),
+                      _buildSidebarItem(
+                        6,
+                        Icons.receipt_long_outlined,
+                        'Billing & Invoices',
                       ),
                       _buildSidebarItem(
                         5,
