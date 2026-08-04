@@ -1100,31 +1100,52 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               buildHeader(),
               const SizedBox(height: 24),
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Left Column: Admit to IPD + Vitals + History
-                    SizedBox(
-                      width: 320,
-                      child: SingleChildScrollView(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isMobileView = constraints.maxWidth < 800;
+                    if (isMobileView) {
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.only(bottom: 24),
                         child: Column(
                           children: [
                             _buildAdmitToIPDCard(),
+                            const SizedBox(height: 16),
                             _buildPatientInfoSummary(),
                             const SizedBox(height: 16),
                             _buildClinicalHistoryCard(),
+                            const SizedBox(height: 24),
+                            _buildConsultationForm(),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    // Right Column: Active Consult Form (Scrollable)
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: _buildConsultationForm(),
-                      ),
-                    ),
-                  ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left Column: Admit to IPD + Vitals + History
+                        SizedBox(
+                          width: 320,
+                          child: SingleChildScrollView(
+                            child: Column(
+                              children: [
+                                _buildAdmitToIPDCard(),
+                                _buildPatientInfoSummary(),
+                                const SizedBox(height: 16),
+                                _buildClinicalHistoryCard(),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        // Right Column: Active Consult Form (Scrollable)
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: _buildConsultationForm(),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],

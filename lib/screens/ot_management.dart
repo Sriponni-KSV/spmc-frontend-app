@@ -16,7 +16,7 @@ import '../controllers/ot_controller.dart';
 import '../controllers/ipd_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'dart:js' as js;
+import '../utils/web_audio_recorder.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 
@@ -7352,20 +7352,18 @@ class _OtDictationDialogState extends State<OtDictationDialog> {
         });
       });
 
-      try {
-        final recorder = js.context['audioRecorder'];
-        if (recorder == null) {
-          setState(() {
-            _isListening = false;
-            _errorMessage = "audioRecorder helper not found in window object.";
-          });
-          _webSpeechTimer?.cancel();
-          _webSpeechTimer = null;
-          return;
-        }
+      if (!isAudioRecorderAvailable()) {
+        setState(() {
+          _isListening = false;
+          _errorMessage = "audioRecorder helper not found in window object.";
+        });
+        _webSpeechTimer?.cancel();
+        _webSpeechTimer = null;
+        return;
+      }
 
-        final callback = js.JsFunction.withThis((_, dynamic successVal) {
-          final bool success = successVal == true;
+      try {
+        startAudioRecording((bool success) {
           if (!success) {
             setState(() {
               _isListening = false;
@@ -7375,8 +7373,6 @@ class _OtDictationDialogState extends State<OtDictationDialog> {
             });
           }
         });
-
-        js.context['audioRecorder'].callMethod('startRecording', [callback]);
       } catch (e) {
         setState(() {
           _isListening = false;
@@ -7419,18 +7415,15 @@ class _OtDictationDialogState extends State<OtDictationDialog> {
         _isListening = false;
         _isLoading = true;
       });
+      if (!isAudioRecorderAvailable()) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = "audioRecorder helper not found in window object.";
+        });
+        return;
+      }
       try {
-        final recorder = js.context['audioRecorder'];
-        if (recorder == null) {
-          setState(() {
-            _isLoading = false;
-            _errorMessage = "audioRecorder helper not found in window object.";
-          });
-          return;
-        }
-
-        final callback = js.JsFunction.withThis((_, dynamic base64Val) async {
-          final String base64 = base64Val?.toString() ?? "";
+        stopAudioRecording((String base64) async {
           if (base64.isEmpty) {
             setState(() {
               _isLoading = false;
@@ -7463,8 +7456,6 @@ class _OtDictationDialogState extends State<OtDictationDialog> {
             });
           }
         });
-
-        js.context['audioRecorder'].callMethod('stopRecording', [callback]);
       } catch (e) {
         setState(() {
           _isLoading = false;
