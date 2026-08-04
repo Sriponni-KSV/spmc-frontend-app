@@ -47,6 +47,7 @@ class ApiService {
   /// Converts low-level network / timeout errors into the appropriate
   /// [NetworkException] subclass so the UI can show the right message.
   static Never _handleNetworkError(dynamic e) {
+    print('[API Network Error] $e');
     // Timeout (dart:async TimeoutException from .timeout())
     if (e is TimeoutException) {
       throw RequestTimeoutException();

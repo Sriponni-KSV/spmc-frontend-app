@@ -4284,46 +4284,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final int totalPatients = _doctorAppointments.length;
 
     if (isMobile) {
-      return Wrap(
-        spacing: 16,
-        runSpacing: 16,
-        children: [
-          _buildStatCard(
-            'Total Appointments',
-            totalPatients.toString(),
-            'All time',
-            Icons.calendar_today_outlined,
-            Colors.blue,
-            isMobile,
-          ),
-          _buildStatCard(
-            'Today\'s Appointments',
-            todayCount.toString(),
-            'Scheduled',
-            Icons.calendar_month_outlined,
-            Colors.indigo,
-            isMobile,
-          ),
-          _buildStatCard(
-            'Confirmed Cases',
-            confirmedCount.toString(),
-            'Ready',
-            Icons.check_circle_outline,
-            Colors.green,
-            isMobile,
-          ),
-          _buildStatCard(
-            'IPD Admission Cases',
-            _doctorAppointments
-                .where((a) => a.status == 'Admitted')
-                .length
-                .toString(),
-            'Pending ward assignment',
-            Icons.local_hospital_outlined,
-            Colors.red,
-            isMobile,
-          ),
-        ],
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final cardWidth = constraints.maxWidth < 450
+              ? constraints.maxWidth
+              : (constraints.maxWidth - 12) / 2;
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SizedBox(
+                width: cardWidth,
+                child: _buildStatCard(
+                  'Total Appointments',
+                  totalPatients.toString(),
+                  'All time',
+                  Icons.calendar_today_outlined,
+                  Colors.blue,
+                  isMobile,
+                ),
+              ),
+              SizedBox(
+                width: cardWidth,
+                child: _buildStatCard(
+                  'Today\'s Appointments',
+                  todayCount.toString(),
+                  'Scheduled',
+                  Icons.calendar_month_outlined,
+                  Colors.indigo,
+                  isMobile,
+                ),
+              ),
+              SizedBox(
+                width: cardWidth,
+                child: _buildStatCard(
+                  'Confirmed Cases',
+                  confirmedCount.toString(),
+                  'Ready',
+                  Icons.check_circle_outline,
+                  Colors.green,
+                  isMobile,
+                ),
+              ),
+              SizedBox(
+                width: cardWidth,
+                child: _buildStatCard(
+                  'IPD Admission Cases',
+                  _doctorAppointments
+                      .where((a) => a.status == 'Admitted')
+                      .length
+                      .toString(),
+                  'Pending ward assignment',
+                  Icons.local_hospital_outlined,
+                  Colors.red,
+                  isMobile,
+                ),
+              ),
+            ],
+          );
+        },
       );
     }
     return Row(
@@ -4397,6 +4416,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildPatientsTable() {
+    final bool isMobile = MediaQuery.of(context).size.width < 800;
     List<AppointmentModel> filteredAppts = _doctorAppointments.where((a) {
       // If a specific date is selected, show all statuses. 
       // If we are viewing all dates, only display active statuses.
@@ -4645,73 +4665,83 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-          // Table Rows Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            color: const Color(0xFFF7FAFC),
-            child: Row(
-              children: [
-                Expanded(flex: 2, child: _buildTableHeaderText('TIME')),
-                Expanded(flex: 2, child: _buildTableHeaderText('DATE')),
-                Expanded(flex: 3, child: _buildTableHeaderText('PATIENT')),
-                Expanded(flex: 2, child: _buildTableHeaderText('TYPE')),
-                Expanded(flex: 3, child: _buildTableHeaderText('REASON')),
-                Expanded(flex: 2, child: _buildTableHeaderText('STATUS')),
-                Expanded(
-                  flex: 2,
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: _buildTableHeaderText('ACTION'),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: isMobile ? 850 : null,
+              child: Column(
+                children: [
+                  // Table Rows Header
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    color: const Color(0xFFF7FAFC),
+                    child: Row(
+                      children: [
+                        Expanded(flex: 2, child: _buildTableHeaderText('TIME')),
+                        Expanded(flex: 2, child: _buildTableHeaderText('DATE')),
+                        Expanded(flex: 3, child: _buildTableHeaderText('PATIENT')),
+                        Expanded(flex: 2, child: _buildTableHeaderText('TYPE')),
+                        Expanded(flex: 3, child: _buildTableHeaderText('REASON')),
+                        Expanded(flex: 2, child: _buildTableHeaderText('STATUS')),
+                        Expanded(
+                          flex: 2,
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: _buildTableHeaderText('ACTION'),
+                          ),
+                        ), // Action column for alignment
+                      ],
+                    ),
                   ),
-                ), // Action column for alignment
-              ],
+
+                  if (_isLoading)
+                    const Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (filteredAppts.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(48.0),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.event_busy,
+                              size: 48,
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _selectedDate == null
+                                  ? 'No records found'
+                                  : 'No appointments for this date',
+                              style: const TextStyle(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 14,
+                              ),
+                            ),
+                            if (_selectedDate != null)
+                              TextButton(
+                                onPressed: () => setState(() => _selectedDate = null),
+                                child: const Text('View All Records'),
+                              ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    ...paginatedAppts.map((appt) {
+                      return Column(
+                        children: [
+                          _buildPatientTableRow(appt),
+                          const Divider(height: 1),
+                        ],
+                      );
+                    }).toList(),
+                ],
+              ),
             ),
           ),
-
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(32.0),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (filteredAppts.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(48.0),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.event_busy,
-                      size: 48,
-                      color: Colors.grey.withOpacity(0.3),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _selectedDate == null
-                          ? 'No records found'
-                          : 'No appointments for this date',
-                      style: const TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 14,
-                      ),
-                    ),
-                    if (_selectedDate != null)
-                      TextButton(
-                        onPressed: () => setState(() => _selectedDate = null),
-                        child: const Text('View All Records'),
-                      ),
-                  ],
-                ),
-              ),
-            )
-          else
-            ...paginatedAppts.map((appt) {
-              return Column(
-                children: [
-                  _buildPatientTableRow(appt),
-                  const Divider(height: 1),
-                ],
-              );
-            }).toList(),
 
           if (totalPages > 1)
             Padding(
