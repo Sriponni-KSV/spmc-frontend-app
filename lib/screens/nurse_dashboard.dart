@@ -36,6 +36,8 @@ class NurseDashboardScreen extends StatefulWidget {
   final PatientModel? existingPatient;
   final PatientModel? viewPatient;
   final bool isEditingProfile;
+  final int? selectedHomeVisitId;
+  final bool isReadOnlyHomeVisit;
   const NurseDashboardScreen({
     Key? key,
     this.initialIndex = 0,
@@ -44,6 +46,8 @@ class NurseDashboardScreen extends StatefulWidget {
     this.existingPatient,
     this.viewPatient,
     this.isEditingProfile = false,
+    this.selectedHomeVisitId,
+    this.isReadOnlyHomeVisit = false,
   }) : super(key: key);
 
   @override
@@ -53,6 +57,7 @@ class NurseDashboardScreen extends StatefulWidget {
 class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   int _selectedIndex = 0;
   int? _selectedHomeVisitId;
+  bool _isReadOnlyHomeVisit = false;
   bool _isRegisteringPatient = false;
   PatientModel? _patientToComplete;
   PatientModel? _viewPatient;
@@ -84,6 +89,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    _selectedHomeVisitId = widget.selectedHomeVisitId;
+    _isReadOnlyHomeVisit = widget.isReadOnlyHomeVisit;
     _isRegisteringPatient = widget.isRegisteringPatient;
     _patientToComplete = widget.existingPatient;
     _viewPatient = widget.viewPatient;
@@ -98,9 +105,13 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
         widget.forceBooking != oldWidget.forceBooking ||
         widget.existingPatient != oldWidget.existingPatient ||
-        widget.viewPatient != oldWidget.viewPatient) {
+        widget.viewPatient != oldWidget.viewPatient ||
+        widget.selectedHomeVisitId != oldWidget.selectedHomeVisitId ||
+        widget.isReadOnlyHomeVisit != oldWidget.isReadOnlyHomeVisit) {
       setState(() {
         _selectedIndex = widget.initialIndex;
+        _selectedHomeVisitId = widget.selectedHomeVisitId;
+        _isReadOnlyHomeVisit = widget.isReadOnlyHomeVisit;
         _isRegisteringPatient = widget.isRegisteringPatient;
         _patientToComplete = widget.existingPatient;
         _viewPatient = widget.viewPatient;
@@ -482,10 +493,13 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         if (_selectedHomeVisitId != null) {
           return HomeVisitExecutionScreen(
             visitId: _selectedHomeVisitId!,
+            isReadOnlyView: _isReadOnlyHomeVisit,
             onBack: () {
               setState(() {
                 _selectedHomeVisitId = null;
+                _isReadOnlyHomeVisit = false;
               });
+              context.go(AppRoutes.nurseHomeVisits);
             },
           );
         }
@@ -493,7 +507,16 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           onExecuteVisit: (visitId) {
             setState(() {
               _selectedHomeVisitId = visitId;
+              _isReadOnlyHomeVisit = false;
             });
+            context.go('/nurse/home-visits/execute/$visitId');
+          },
+          onViewSummary: (visitId) {
+            setState(() {
+              _selectedHomeVisitId = visitId;
+              _isReadOnlyHomeVisit = true;
+            });
+            context.go('/nurse/home-visits/summary/$visitId');
           },
         );
       default:

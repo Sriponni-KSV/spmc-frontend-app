@@ -428,6 +428,34 @@ class AppRouter {
             child: NurseDashboardScreen(initialIndex: 9),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.nurseHomeVisitExecute,
+          pageBuilder: (context, state) {
+            final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+            return NoTransitionPage(
+              key: ValueKey('nurse_home_visit_execute_$id'),
+              child: NurseDashboardScreen(
+                initialIndex: 9,
+                selectedHomeVisitId: id,
+                isReadOnlyHomeVisit: false,
+              ),
+            );
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.nurseHomeVisitSummary,
+          pageBuilder: (context, state) {
+            final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+            return NoTransitionPage(
+              key: ValueKey('nurse_home_visit_summary_$id'),
+              child: NurseDashboardScreen(
+                initialIndex: 9,
+                selectedHomeVisitId: id,
+                isReadOnlyHomeVisit: true,
+              ),
+            );
+          },
+        ),
 
         // --- Lab Protected Routes ---
         GoRoute(

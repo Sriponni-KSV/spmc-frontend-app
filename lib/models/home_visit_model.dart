@@ -66,7 +66,7 @@ class HomeVisitVitals {
       bloodSugar: json['blood_sugar'] != null ? double.tryParse(json['blood_sugar'].toString()) : null,
       weight: json['weight'] != null ? double.tryParse(json['weight'].toString()) : null,
       height: json['height'] != null ? double.tryParse(json['height'].toString()) : null,
-      recordedAt: json['recorded_at'],
+      recordedAt: json['recorded_at'] ?? json['created_at'],
     );
   }
 
@@ -122,6 +122,7 @@ class HomeVisitMedicine {
   final String? route;
   final int quantity;
   final double unitPrice;
+  final String? administeredAt;
 
   HomeVisitMedicine({
     this.id,
@@ -130,6 +131,7 @@ class HomeVisitMedicine {
     this.route,
     this.quantity = 1,
     this.unitPrice = 0.0,
+    this.administeredAt,
   });
 
   factory HomeVisitMedicine.fromJson(Map<String, dynamic> json) {
@@ -140,6 +142,7 @@ class HomeVisitMedicine {
       route: json['route'],
       quantity: json['quantity'] != null ? int.tryParse(json['quantity'].toString()) ?? 1 : 1,
       unitPrice: json['unit_price'] != null ? double.tryParse(json['unit_price'].toString()) ?? 0.0 : 0.0,
+      administeredAt: json['administered_at'],
     );
   }
 
@@ -149,6 +152,7 @@ class HomeVisitMedicine {
         'route': route,
         'quantity': quantity,
         'unit_price': unitPrice,
+        'administered_at': administeredAt,
       };
 }
 
@@ -157,12 +161,14 @@ class HomeVisitConsumable {
   final String itemName;
   final int quantityUsed;
   final double unitPrice;
+  final String? createdAt;
 
   HomeVisitConsumable({
     this.id,
     required this.itemName,
     this.quantityUsed = 1,
     this.unitPrice = 0.0,
+    this.createdAt,
   });
 
   factory HomeVisitConsumable.fromJson(Map<String, dynamic> json) {
@@ -171,6 +177,7 @@ class HomeVisitConsumable {
       itemName: json['item_name'] ?? '',
       quantityUsed: json['quantity_used'] != null ? int.tryParse(json['quantity_used'].toString()) ?? 1 : 1,
       unitPrice: json['unit_price'] != null ? double.tryParse(json['unit_price'].toString()) ?? 0.0 : 0.0,
+      createdAt: json['created_at'],
     );
   }
 
@@ -178,6 +185,7 @@ class HomeVisitConsumable {
         'item_name': itemName,
         'quantity_used': quantityUsed,
         'unit_price': unitPrice,
+        'created_at': createdAt,
       };
 }
 
@@ -235,6 +243,8 @@ class HomeVisitModel {
   final String? notes;
   final List<HomeVisitCarriedItem> carriedItems;
   final HomeVisitVitals? vitals;
+  final List<HomeVisitVitals> vitalsHistory;
+  final VitalsScheduleStatusModel? vitalsScheduleStatus;
   final HomeVisitCareActivities? careActivities;
   final List<HomeVisitMedicine> medicines;
   final List<HomeVisitConsumable> consumables;
@@ -263,12 +273,25 @@ class HomeVisitModel {
     this.notes,
     this.carriedItems = const [],
     this.vitals,
+    this.vitalsHistory = const [],
+    this.vitalsScheduleStatus,
     this.careActivities,
     this.medicines = const [],
     this.consumables = const [],
     this.photos = const [],
     this.invoice,
   });
+
+  String get formattedScheduledDate {
+    if (scheduledDate.isEmpty) return '';
+    try {
+      final parts = scheduledDate.split('T')[0].split('-');
+      if (parts.length == 3 && parts[0].length == 4) {
+        return '${parts[2]}-${parts[1]}-${parts[0]}'; // dd-mm-yyyy
+      }
+    } catch (_) {}
+    return scheduledDate;
+  }
 
   factory HomeVisitModel.fromJson(Map<String, dynamic> json) {
     return HomeVisitModel(
@@ -296,6 +319,12 @@ class HomeVisitModel {
               .toList() ??
           [],
       vitals: json['vitals'] != null ? HomeVisitVitals.fromJson(json['vitals']) : null,
+      vitalsHistory: (json['vitals_history'] as List<dynamic>?) != null && (json['vitals_history'] as List<dynamic>).isNotEmpty
+          ? (json['vitals_history'] as List<dynamic>).map((v) => HomeVisitVitals.fromJson(v)).toList()
+          : (json['vitals'] != null ? [HomeVisitVitals.fromJson(json['vitals'])] : []),
+      vitalsScheduleStatus: json['vitals_schedule_status'] != null
+          ? VitalsScheduleStatusModel.fromJson(json['vitals_schedule_status'])
+          : null,
       careActivities: json['care_activities'] != null
           ? HomeVisitCareActivities.fromJson(json['care_activities'])
           : null,
@@ -311,7 +340,55 @@ class HomeVisitModel {
               ?.map((p) => HomeVisitPhotoEvidence.fromJson(p))
               .toList() ??
           [],
-      invoice: json['invoice'] as Map<String, dynamic>?,
+      invoice: json['invoice'] is Map<String, dynamic>
+          ? json['invoice'] as Map<String, dynamic>
+          : (json['invoice_number'] != null
+              ? {
+                  'invoice_number': json['invoice_number'],
+                  'total_amount': json['invoice_total_amount'],
+                  'net_amount': json['invoice_net_amount'],
+                  'payment_status': json['invoice_payment_status'],
+                }
+              : null),
     );
   }
 }
+
+class VitalsScheduleStatusModel {
+  final bool isLocked;
+  final String statusCode;
+  final String nextAvailableTime;
+  final String? lockReason;
+  final String startTime;
+  final String endTime;
+  final int intervalMinutes;
+  final int timeRemainingSeconds;
+  final String? lastRecordedAt;
+
+  VitalsScheduleStatusModel({
+    required this.isLocked,
+    required this.statusCode,
+    required this.nextAvailableTime,
+    this.lockReason,
+    required this.startTime,
+    required this.endTime,
+    required this.intervalMinutes,
+    required this.timeRemainingSeconds,
+    this.lastRecordedAt,
+  });
+
+  factory VitalsScheduleStatusModel.fromJson(Map<String, dynamic> json) {
+    return VitalsScheduleStatusModel(
+      isLocked: json['is_locked'] ?? false,
+      statusCode: json['status_code'] ?? 'UNLOCKED',
+      nextAvailableTime: json['next_available_time'] ?? '9:00 AM',
+      lockReason: json['lock_reason'],
+      startTime: json['start_time'] ?? '9:00 AM',
+      endTime: json['end_time'] ?? '6:00 PM',
+      intervalMinutes: json['interval_minutes'] ?? 60,
+      timeRemainingSeconds: json['time_remaining_seconds'] ?? 0,
+      lastRecordedAt: json['last_recorded_at'],
+    );
+  }
+}
+

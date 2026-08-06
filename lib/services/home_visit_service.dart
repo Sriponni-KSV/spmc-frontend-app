@@ -4,7 +4,7 @@ import 'api_service.dart';
 
 class HomeVisitService {
   String get baseUrl {
-    final url = dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api';
+    final url = dotenv.env['BASE_URL'] ?? 'http://localhost:3001/api';
     return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
   }
 
@@ -146,4 +146,52 @@ class HomeVisitService {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
     }
   }
+
+  // Update vitals schedule config
+  Future<void> updateVitalsConfig(String startTime, String endTime, int intervalMinutes) async {
+    try {
+      final response = await ApiService.put('$baseUrl/home-visits/vitals-config', {
+        'start_time': startTime,
+        'end_time': endTime,
+        'interval_minutes': intervalMinutes,
+      });
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to update vitals schedule configuration');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Get vitals status for a visit
+  Future<VitalsScheduleStatusModel> getVitalsScheduleStatus(int visitId) async {
+    try {
+      final response = await ApiService.get('$baseUrl/home-visits/$visitId/vitals-status');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true && body['data'] != null) {
+        return VitalsScheduleStatusModel.fromJson(body['data']);
+      }
+      throw Exception(body['message'] ?? 'Failed to fetch vitals status');
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Cancel / Discontinue home visit care
+  Future<void> cancelHomeVisit(int visitId, String reason, String notes) async {
+    try {
+      final response = await ApiService.put('$baseUrl/home-visits/$visitId/cancel', {
+        'reason': reason,
+        'notes': notes,
+      });
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to discontinue home visit care');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
 }
+

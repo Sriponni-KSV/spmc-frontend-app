@@ -150,4 +150,39 @@ class HomeVisitController with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // Update Vitals Schedule Config
+  Future<bool> updateVitalsConfig(String startTime, String endTime, int intervalMinutes) async {
+    try {
+      await _service.updateVitalsConfig(startTime, endTime, intervalMinutes);
+      if (_selectedVisit != null) {
+        await fetchVisitDetails(_selectedVisit!.id);
+      }
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Cancel / Discontinue visit
+  Future<bool> cancelVisit(int visitId, String reason, String notes) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _service.cancelHomeVisit(visitId, reason, notes);
+      await fetchVisits();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }
+

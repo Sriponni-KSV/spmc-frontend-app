@@ -14,8 +14,12 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final invoice = invoiceData['invoice'] ?? {};
-    final items = (invoice['items'] as List<dynamic>?) ?? [];
+    final Map<String, dynamic> invoice = (invoiceData['invoice'] is Map)
+        ? Map<String, dynamic>.from(invoiceData['invoice'])
+        : Map<String, dynamic>.from(invoiceData);
+    final List<dynamic> items = (invoice['items'] as List<dynamic>?) ??
+        (invoiceData['items'] as List<dynamic>?) ??
+        [];
     final String invoiceNumber = invoice['invoice_number'] ?? 'INV-HV-0000';
     final double totalAmount = (invoice['total_amount'] != null)
         ? double.tryParse(invoice['total_amount'].toString()) ?? 0.0
