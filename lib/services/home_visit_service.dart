@@ -98,6 +98,39 @@ class HomeVisitService {
     }
   }
 
+  // Record Carried Item
+  Future<void> recordCarriedItem(int visitId, Map<String, dynamic> itemData) async {
+    try {
+      var response = await ApiService.post('$baseUrl/home-visits/$visitId/carried-items', itemData);
+      var body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        response = await ApiService.post('$baseUrl/home-visits/$visitId/care-activities', {
+          'is_carried_item': true,
+          'carried_item': itemData,
+        });
+        body = ApiService.decodeJsonResponse(response);
+      }
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to add kit item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Delete Carried Item
+  Future<void> deleteCarriedItem(int visitId, int itemId) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/home-visits/$visitId/carried-items/$itemId');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to delete kit item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
   // Record consumable item used
   Future<void> recordConsumable(int visitId, Map<String, dynamic> consData) async {
     try {

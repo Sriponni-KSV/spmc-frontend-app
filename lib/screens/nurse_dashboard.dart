@@ -830,73 +830,66 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
 
-        Expanded(
-          child: InkWell(
-            onTap: _showSearchOverlay,
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const ClipRect(
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.search,
-                      size: 18,
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Search anything...',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textSecondaryColor,
+        // Search — full bar on desktop, icon-only on mobile
+        if (!isMobile)
+          Expanded(
+            child: InkWell(
+              onTap: _showSearchOverlay,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const ClipRect(
+                  child: Row(
+                    children: [
+                      Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Search anything...',
+                          style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
 
-        const SizedBox(width: 16),
+        if (isMobile) const Spacer(),
+
+        if (isMobile)
+          IconButton(
+            icon: const Icon(Icons.search, color: Color(0xFF4A5568), size: 22),
+            tooltip: 'Search',
+            onPressed: _showSearchOverlay,
+          ),
+
+        SizedBox(width: isMobile ? 0 : 16),
         Stack(
           clipBehavior: Clip.none,
           children: [
-            const Icon(
-              Icons.notifications_none_outlined,
-              color: Color(0xFF4A5568),
-              size: 22,
-            ),
+            const Icon(Icons.notifications_none_outlined, color: Color(0xFF4A5568), size: 22),
             Positioned(
               right: -2,
               top: -2,
               child: Container(
                 padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE53E3E),
-                  shape: BoxShape.circle,
-                ),
+                decoration: const BoxDecoration(color: Color(0xFFE53E3E), shape: BoxShape.circle),
                 constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
                 child: const Text(
                   '3',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
               ),

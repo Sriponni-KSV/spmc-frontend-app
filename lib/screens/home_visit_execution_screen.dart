@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../models/home_visit_model.dart';
 import '../controllers/home_visit_controller.dart';
@@ -70,6 +71,41 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     text: '20.00',
   );
 
+  // Kit & Devices Form Controllers
+  String? _selectedKitDropdown;
+  final TextEditingController _customKitNameCtrl = TextEditingController();
+  final TextEditingController _kitItemNameCtrl = TextEditingController();
+  final TextEditingController _kitItemQtyCtrl = TextEditingController(text: '1');
+  String _kitItemType = 'Device';
+
+  final List<String> _defaultKitDevices = const [
+    'Digital BP Monitor',
+    'Glucometer Kit',
+    'Pulse Oximeter',
+    'Digital Thermometer',
+    'Stethoscope',
+    'ECG Machine (Portable)',
+    'Nebulizer Machine',
+    'Suction Machine',
+    'Sterile Dressing Bandage Kit',
+    'IV Infusion Set',
+    'Oxygen Cylinder & Regulator',
+    'Syringe & Needle Kit',
+    'Catheterization Kit',
+    'Blood Glucose Test Strips',
+    'Antiseptic Solution & Wipes',
+    'Other (Type Custom Kit Item...)',
+  ];
+
+  void _clearKitForm() {
+    _selectedKitDropdown = null;
+    _customKitNameCtrl.clear();
+    _kitItemNameCtrl.clear();
+    _kitItemQtyCtrl.text = '1';
+    _kitItemType = 'Device';
+    setState(() {});
+  }
+
   List<String> _dbMedicines = [];
   List<String> _dbConsumables = [];
 
@@ -126,7 +162,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
       // Periodically refresh visit details every 10 seconds to auto-unlock form when scheduled time is reached
@@ -243,6 +279,180 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final ctrl = Provider.of<HomeVisitController>(context, listen: false);
     await ctrl.fetchVisitDetails(widget.visitId);
     _fetchInventoryCatalogs();
+    if (ctrl.selectedVisit != null &&
+        (ctrl.selectedVisit!.startTime == null || ctrl.selectedVisit!.startTime!.trim().isEmpty) &&
+        ctrl.selectedVisit!.status != 'Cancelled' &&
+        ctrl.selectedVisit!.status != 'Completed' &&
+        ctrl.selectedVisit!.status != 'Verified') {
+      _promptStartVisitDialog(ctrl.selectedVisit!);
+    }
+  }
+
+  void _promptStartVisitDialog(HomeVisitModel visit) {
+    final formKey = GlobalKey<FormState>();
+    final now = DateTime.now();
+    final defaultTime = DateFormat('hh:mm a').format(now);
+
+    final nurseCtrl = TextEditingController(text: visit.startNurseName ?? visit.nurseName ?? '');
+    final timeCtrl = TextEditingController(text: defaultTime);
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.play_circle_fill_outlined, color: AppTheme.primaryColor, size: 26),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Start Home Visit Session',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Record visit start time and executing nurse name to begin executing vitals & care activities.',
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6.0),
+                      child: const Text('Executing Nurse Name', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor)),
+                    ),
+                    TextFormField(
+                      controller: nurseCtrl,
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(30),
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                      ],
+                      decoration: AppTheme.standardInputDecoration(
+                        hintText: 'Enter Nurse Full Name',
+                        prefixIcon: Icons.person_outline,
+                      ),
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) return 'Nurse name is required';
+                        if (val.trim().length < 3) return 'Nurse name must be at least 3 characters';
+                        if (val.trim().length > 30) return 'Nurse name cannot exceed 30 characters';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6.0),
+                      child: const Text('Visit Start Time', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor)),
+                    ),
+                    TextFormField(
+                      controller: timeCtrl,
+                      readOnly: true,
+                      onTap: () async {
+                        final TimeOfDay? picked = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.now(),
+                        );
+                        if (picked != null) {
+                          final dt = DateTime(now.year, now.month, now.day, picked.hour, picked.minute);
+                          setDialogState(() {
+                            timeCtrl.text = DateFormat('hh:mm a').format(dt);
+                          });
+                        }
+                      },
+                      decoration: AppTheme.standardInputDecoration(
+                        hintText: 'Select Start Time',
+                        prefixIcon: Icons.access_time,
+                        suffixIcon: const Icon(Icons.arrow_drop_down, color: AppTheme.primaryColor),
+                      ),
+                      validator: (val) => (val == null || val.trim().isEmpty) ? 'Start time is required' : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            SizedBox(
+              height: 44,
+              child: ElevatedButton.icon(
+                style: AppTheme.primaryButton,
+                icon: isSubmitting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.arrow_forward, size: 16),
+                label: Text(isSubmitting ? 'Starting...' : 'Submit & Start Visit'),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        if (formKey.currentState?.validate() == true) {
+                          setDialogState(() => isSubmitting = true);
+                          try {
+                            final baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3001/api';
+                            final payload = {
+                              'start_time': timeCtrl.text.trim(),
+                              'nurse_name': nurseCtrl.text.trim(),
+                            };
+                            var res = await ApiService.put('$baseUrl/home-visits/${visit.id}/start', payload);
+                            var body = ApiService.decodeJsonResponse(res);
+                            if (body['success'] != true) {
+                              res = await ApiService.post('$baseUrl/home-visits/${visit.id}/start', payload);
+                              body = ApiService.decodeJsonResponse(res);
+                            }
+                            if (body['success'] != true) {
+                              res = await ApiService.post('$baseUrl/home-visits/${visit.id}/vitals', {
+                                'is_start_only': true,
+                                'start_time': timeCtrl.text.trim(),
+                                'nurse_name': nurseCtrl.text.trim(),
+                                'bypass_schedule': true,
+                              });
+                              body = ApiService.decodeJsonResponse(res);
+                            }
+                            if (body['success'] == true) {
+                              if (mounted) {
+                                Provider.of<HomeVisitController>(context, listen: false).fetchVisitDetails(visit.id);
+                                Navigator.of(dialogCtx).pop();
+                              }
+                            } else {
+                              setDialogState(() => isSubmitting = false);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(body['message'] ?? 'Failed to record start time'),
+                                    backgroundColor: AppTheme.dangerColor,
+                                  ),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            setDialogState(() => isSubmitting = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error starting visit: $e'),
+                                  backgroundColor: AppTheme.dangerColor,
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -276,33 +486,52 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   }
 
   Widget _buildLabel(String label) {
-    final bool hasStar = label.endsWith(' *');
-    final String baseText = hasStar
-        ? label.substring(0, label.length - 2)
-        : label;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
-      child: RichText(
-        text: TextSpan(
-          text: baseText,
+    if (!label.contains('*')) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
+        child: Text(
+          label,
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
             fontFamily: 'Inter',
           ),
-          children: [
-            if (hasStar)
-              const TextSpan(
-                text: ' *',
-                style: TextStyle(
-                  color: AppTheme.dangerColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-          ],
         ),
+      );
+    }
+
+    final parts = label.split('*');
+    final List<InlineSpan> spans = [];
+    for (int i = 0; i < parts.length; i++) {
+      if (parts[i].isNotEmpty) {
+        spans.add(TextSpan(
+          text: parts[i],
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+            fontFamily: 'Inter',
+          ),
+        ));
+      }
+      if (i < parts.length - 1) {
+        spans.add(const TextSpan(
+          text: '*',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.dangerColor,
+            fontFamily: 'Inter',
+          ),
+        ));
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
+      child: RichText(
+        text: TextSpan(children: spans),
       ),
     );
   }
@@ -384,7 +613,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                       ),
                       Text(
-                        'Patient: ${visit.patientName ?? "N/A"} (${visit.patientDisplayId ?? ""})',
+                        'Patient: ${visit.patientName ?? "N/A"} (${visit.patientDisplayId ?? ""})${visit.startTime != null && visit.startTime!.isNotEmpty ? " • Start Time: ${visit.startTime}" : ""}${visit.startNurseName != null && visit.startNurseName!.isNotEmpty ? " • Nurse: ${visit.startNurseName}" : ""}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.grey,
@@ -457,6 +686,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         icon: Icon(Icons.draw_outlined),
                         text: 'Attender Signature',
                       ),
+                      Tab(
+                        icon: Icon(Icons.analytics_outlined),
+                        text: 'View Live Summary',
+                      ),
                     ],
                   ),
           ),
@@ -473,12 +706,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               : TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildKitTab(visit),
+                    _buildKitTab(visit, controller),
                     _buildVitalsTab(visit, controller),
                     _buildCareTab(visit, controller),
                     _buildMedsAndConsumablesTab(visit, controller),
                     _buildPhotosTab(visit, controller),
                     _buildSignatureTab(visit, controller),
+                    _buildLiveSessionSummaryTab(visit, controller),
                   ],
                 ),
         );
@@ -486,28 +720,190 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     );
   }
 
-  // 1. Kit Overview Tab
-  Widget _buildKitTab(HomeVisitModel visit) {
+  // 1. Kit & Devices Tab with Interactive Form
+  Widget _buildKitTab(HomeVisitModel visit, HomeVisitController controller) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader(
-            'Medical Devices, Medicines & Supplies Carried in Kit',
+            'Select & Add Kit Items & Medical Devices Used',
             Icons.shopping_bag_outlined,
           ),
           const SizedBox(height: 16),
+
+          // Interactive Form to Select & Add Used Kit/Devices
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Add Kit Device / Item Used During Visit',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    // 1. Dropdown for Kit Item / Device Name
+                    Expanded(
+                      flex: 3,
+                      child: CustomDropdownSearch(
+                        label: '',
+                        hint: 'Select Kit Item / Device',
+                        dropdownItems: _defaultKitDevices,
+                        value: _selectedKitDropdown,
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedKitDropdown = val;
+                            if (val != null && val != 'Other (Type Custom Kit Item...)') {
+                              _kitItemNameCtrl.text = val;
+                            } else {
+                              _kitItemNameCtrl.clear();
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    // 2. Free Text Field (If 'Other' selected or to type custom device name)
+                    if (_selectedKitDropdown == 'Other (Type Custom Kit Item...)') ...[
+                      Expanded(
+                        flex: 3,
+                        child: TextFormField(
+                          controller: _customKitNameCtrl,
+                          decoration: AppTheme.standardInputDecoration(
+                            hintText: 'Enter Custom Kit Item / Device Name *',
+                            prefixIcon: Icons.edit_note,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+
+                    // 3. Category Dropdown
+                    Expanded(
+                      flex: 2,
+                      child: CustomDropdownSearch(
+                        label: '',
+                        hint: 'Category',
+                        dropdownMap: const {
+                          'Device': 'Medical Device',
+                          'Tool': 'Kit Tool',
+                          'Consumable': 'Supply / Consumable',
+                          'Medicine': 'Kit Medicine',
+                        },
+                        value: _kitItemType,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _kitItemType = val;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    // 4. Qty Field
+                    Expanded(
+                      child: TextFormField(
+                        controller: _kitItemQtyCtrl,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: AppTheme.standardInputDecoration(
+                          hintText: 'Qty',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    // 5. Add Button
+                    ElevatedButton.icon(
+                      style: AppTheme.primaryButton,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Kit Item'),
+                      onPressed: () async {
+                        final name = (_selectedKitDropdown == 'Other (Type Custom Kit Item...)')
+                            ? _customKitNameCtrl.text.trim()
+                            : (_selectedKitDropdown ?? _kitItemNameCtrl.text.trim());
+
+                        if (name.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select or enter a kit device name'),
+                              backgroundColor: AppTheme.dangerColor,
+                            ),
+                          );
+                          return;
+                        }
+                        final success = await controller.submitCarriedItem(visit.id, {
+                          'item_type': _kitItemType,
+                          'item_name': name,
+                          'quantity_carried': int.tryParse(_kitItemQtyCtrl.text) ?? 1,
+                        });
+                        if (success) {
+                          _clearKitForm();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Kit item / device added successfully'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(controller.errorMessage ?? 'Failed to add kit item'),
+                              backgroundColor: AppTheme.dangerColor,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Added Kit Items List
+          const Text(
+            'Carried & Used Kit Devices List',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryColor,
+            ),
+          ),
+          const SizedBox(height: 12),
+
           if (visit.carriedItems.isEmpty)
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
+              width: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: const Text(
-                'Default kit loaded: BP Apparatus, Stethoscope, Glucometer, Thermometer, Pulse Oximeter, Dressing Kit, Bandages & Antiseptics.',
+              child: const Center(
+                child: Text(
+                  'No kit items or medical devices added yet. Select and add devices using the form above.',
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
               ),
             )
           else
@@ -528,8 +924,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     final item = visit.carriedItems[index];
                     IconData itemIcon = Icons.medical_services;
                     if (item.itemType == 'Device') itemIcon = Icons.devices;
-                    if (item.itemType == 'Medicine')
-                      itemIcon = Icons.medication;
+                    if (item.itemType == 'Medicine') itemIcon = Icons.medication;
+                    if (item.itemType == 'Consumable') itemIcon = Icons.clean_hands;
 
                     return Container(
                       padding: const EdgeInsets.all(16),
@@ -542,9 +938,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       child: Row(
                         children: [
                           CircleAvatar(
-                            backgroundColor: AppTheme.primaryColor.withOpacity(
-                              0.1,
-                            ),
+                            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
                             child: Icon(
                               itemIcon,
                               color: AppTheme.primaryColor,
@@ -574,6 +968,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               ],
                             ),
                           ),
+                          if (item.id != null)
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, color: AppTheme.dangerColor, size: 20),
+                              tooltip: 'Remove Device',
+                              onPressed: () async {
+                                final ok = await controller.removeCarriedItem(visit.id, item.id!);
+                                if (ok) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Kit item removed')),
+                                  );
+                                }
+                              },
+                            ),
                         ],
                       ),
                     );
@@ -586,353 +993,363 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     );
   }
 
-  // 2. Vitals Tab with 9 AM - 6 PM Hourly Slot Cards (Starting 9:30 AM)
+  // 2. Single Unified Vitals Entry Form Tab (Not Time-Based)
   Widget _buildVitalsTab(HomeVisitModel visit, HomeVisitController controller) {
-    final status = visit.vitalsScheduleStatus;
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildSectionHeader(
-                'Hourly Vitals Monitoring Cards (9:00 AM - 6:00 PM)',
-                Icons.monitor_heart_outlined,
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.settings_outlined,
-                  color: AppTheme.primaryColor,
-                ),
-                tooltip: 'Configure Vitals Schedule',
-                onPressed: () => _showVitalsScheduleConfigDialog(
-                  context,
-                  controller,
-                  status,
-                ),
-              ),
-            ],
+          _buildSectionHeader(
+            'Record Patient Vitals Entry',
+            Icons.monitor_heart_outlined,
           ),
           const SizedBox(height: 16),
 
-          // Schedule Status Banner
-          _buildVitalsScheduleStatusBanner(status),
-          const SizedBox(height: 20),
+          // Single Form for Vitals Entry
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Form(
+              key: _formKeyVitals,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Enter Patient Vital Signs',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-          // 9 to 6 Hourly Vitals Entry Slot Cards
-          _buildHourlyVitalsCardsList(visit, controller),
+                  // Row 1: BP Systolic, BP Diastolic, Pulse Rate, Temperature
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLabel('Systolic BP (mmHg) * [90-300]'),
+                            TextFormField(
+                              controller: _sysBpCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              decoration: AppTheme.standardInputDecoration(
+                                hintText: 'e.g. 120',
+                                suffixIcon: const Icon(Icons.speed, color: AppTheme.primaryColor, size: 18),
+                              ),
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Systolic BP is mandatory';
+                                }
+                                final n = int.tryParse(val.trim());
+                                if (n == null || n < 90 || n > 300) {
+                                  return 'Must be between 90 - 300 mmHg';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLabel('Diastolic BP (mmHg) * [50-180]'),
+                            TextFormField(
+                              controller: _diaBpCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              decoration: AppTheme.standardInputDecoration(
+                                hintText: 'e.g. 80',
+                                suffixIcon: const Icon(Icons.speed, color: AppTheme.primaryColor, size: 18),
+                              ),
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Diastolic BP is mandatory';
+                                }
+                                final n = int.tryParse(val.trim());
+                                if (n == null || n < 50 || n > 180) {
+                                  return 'Must be between 50 - 180 mmHg';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLabel('Pulse Rate (bpm)'),
+                            TextFormField(
+                              controller: _pulseCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              decoration: AppTheme.standardInputDecoration(
+                                hintText: 'e.g. 72',
+                                suffixIcon: const Icon(Icons.favorite_border, color: AppTheme.primaryColor, size: 18),
+                              ),
+                              validator: (val) {
+                                if (val != null && val.trim().isNotEmpty) {
+                                  final n = int.tryParse(val.trim());
+                                  if (n == null || n < 30 || n > 250) {
+                                    return 'Invalid pulse rate';
+                                  }
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLabel('Temperature (°F) * [90-115]'),
+                            TextFormField(
+                              controller: _tempCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                              ],
+                              decoration: AppTheme.standardInputDecoration(
+                                hintText: 'e.g. 98.6',
+                                suffixIcon: const Icon(Icons.thermostat, color: AppTheme.primaryColor, size: 18),
+                              ),
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Temperature is mandatory';
+                                }
+                                final n = double.tryParse(val.trim());
+                                if (n == null || n < 90 || n > 115) {
+                                  return 'Must be between 90 - 115 °F';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Row 2: SpO2, Blood Sugar, Weight, Height
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLabel('SpO2 (%)'),
+                            TextFormField(
+                              controller: _spo2Ctrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              decoration: AppTheme.standardInputDecoration(
+                                hintText: 'e.g. 98',
+                                suffixIcon: const Icon(Icons.air, color: AppTheme.primaryColor, size: 18),
+                              ),
+                              validator: (val) {
+                                if (val != null && val.trim().isNotEmpty) {
+                                  final n = int.tryParse(val.trim());
+                                  if (n == null || n < 50 || n > 100) {
+                                    return 'Must be between 50 - 100%';
+                                  }
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLabel('Blood Sugar (mg/dL) [30-600]'),
+                            TextFormField(
+                              controller: _sugarCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              decoration: AppTheme.standardInputDecoration(
+                                hintText: 'e.g. 110',
+                                suffixIcon: const Icon(Icons.water_drop_outlined, color: AppTheme.primaryColor, size: 18),
+                              ),
+                              validator: (val) {
+                                if (val != null && val.trim().isNotEmpty) {
+                                  final n = int.tryParse(val.trim());
+                                  if (n == null || n < 30 || n > 600) {
+                                    return 'Must be between 30 - 600 mg/dL';
+                                  }
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLabel('Weight (kg)'),
+                            TextFormField(
+                              controller: _weightCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                              ],
+                              decoration: AppTheme.standardInputDecoration(
+                                hintText: 'e.g. 65.5',
+                                suffixIcon: const Icon(Icons.scale, color: AppTheme.primaryColor, size: 18),
+                              ),
+                              validator: (val) {
+                                if (val != null && val.trim().isNotEmpty) {
+                                  final n = double.tryParse(val.trim());
+                                  if (n == null || n <= 0) {
+                                    return 'Must be > 0 kg';
+                                  }
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLabel('Height (cm)'),
+                            TextFormField(
+                              controller: _heightCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                              ],
+                              decoration: AppTheme.standardInputDecoration(
+                                hintText: 'e.g. 170',
+                                suffixIcon: const Icon(Icons.height, color: AppTheme.primaryColor, size: 18),
+                              ),
+                              validator: (val) {
+                                if (val != null && val.trim().isNotEmpty) {
+                                  final n = double.tryParse(val.trim());
+                                  if (n == null || n <= 0) {
+                                    return 'Must be > 0 cm';
+                                  }
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Save Vitals Button
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        style: AppTheme.primaryButton,
+                        icon: _isSavingVitals
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Icon(Icons.favorite, size: 20),
+                        label: Text(_isSavingVitals ? 'Saving Vitals...' : 'Save Vitals Entry'),
+                        onPressed: _isSavingVitals
+                            ? null
+                            : () async {
+                                if (!(_formKeyVitals.currentState?.validate() ?? false)) {
+                                  return;
+                                }
+
+                                final sys = int.tryParse(_sysBpCtrl.text);
+                                final dia = int.tryParse(_diaBpCtrl.text);
+                                final pulse = int.tryParse(_pulseCtrl.text);
+                                final temp = double.tryParse(_tempCtrl.text);
+                                final spo2 = int.tryParse(_spo2Ctrl.text);
+                                final sugar = int.tryParse(_sugarCtrl.text);
+                                final weight = double.tryParse(_weightCtrl.text);
+                                final height = double.tryParse(_heightCtrl.text);
+
+                                setState(() => _isSavingVitals = true);
+                                final success = await controller.submitVitals(
+                                  visit.id,
+                                  {
+                                    'systolic_bp': sys,
+                                    'diastolic_bp': dia,
+                                    'pulse_rate': pulse,
+                                    'temperature': temp,
+                                    'spo2': spo2,
+                                    'blood_sugar': sugar,
+                                    'weight': weight,
+                                    'height': height,
+                                    'bypass_schedule': true,
+                                  },
+                                );
+                                setState(() => _isSavingVitals = false);
+
+                                if (success) {
+                                  _clearVitalsForm();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Patient vitals recorded successfully'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(controller.errorMessage ?? 'Failed to record vitals'),
+                                      backgroundColor: AppTheme.dangerColor,
+                                    ),
+                                  );
+                                }
+                              },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 32),
 
-          // Hourly Vitals History Log Table
-          _buildSectionHeader('Hourly Vitals History Log', Icons.history),
+          // Vitals History Log
+          _buildSectionHeader('Patient Vitals Entry History Log', Icons.history),
           const SizedBox(height: 16),
           _buildVitalsHistoryTable(visit.vitalsHistory),
         ],
       ),
-    );
-  }
-
-  // 9:00 AM to 6:00 PM Hourly Slots Cards List (Starting 9:30 AM)
-  Widget _buildHourlyVitalsCardsList(
-    HomeVisitModel visit,
-    HomeVisitController controller,
-  ) {
-    final now = DateTime.now();
-
-    final List<Map<String, dynamic>> hourlySlots = [
-      {'label': '9:30 AM', 'hour': 9, 'minute': 30},
-      {'label': '10:30 AM', 'hour': 10, 'minute': 30},
-      {'label': '11:30 AM', 'hour': 11, 'minute': 30},
-      {'label': '12:30 PM', 'hour': 12, 'minute': 30},
-      {'label': '1:30 PM', 'hour': 13, 'minute': 30},
-      {'label': '2:30 PM', 'hour': 14, 'minute': 30},
-      {'label': '3:30 PM', 'hour': 15, 'minute': 30},
-      {'label': '4:30 PM', 'hour': 16, 'minute': 30},
-      {'label': '5:30 PM', 'hour': 17, 'minute': 30},
-    ];
-
-    return Column(
-      children: List.generate(hourlySlots.length, (index) {
-        final slot = hourlySlots[index];
-        final String slotTime = slot['label'];
-        final int slotHour = slot['hour'];
-        final int slotMinute = slot['minute'];
-
-        final slotDateTime = DateTime(
-          now.year,
-          now.month,
-          now.day,
-          slotHour,
-          slotMinute,
-        );
-        final slotWindowStart = slotDateTime.subtract(
-          const Duration(minutes: 15),
-        );
-        final slotWindowEnd = slotDateTime.add(const Duration(minutes: 45));
-
-        // Match recorded vitals entry to this specific time window
-        HomeVisitVitals? recordedVital;
-        for (final v in visit.vitalsHistory) {
-          if (v.recordedAt != null && v.recordedAt!.isNotEmpty) {
-            try {
-              final formatted = v.recordedAt!.trim().replaceAll(' ', 'T');
-              final dt = DateTime.parse(formatted);
-              final recDate = dt.isUtc ? dt.toLocal() : dt;
-              final diffMins = recDate.difference(slotDateTime).inMinutes.abs();
-              if (diffMins <= 45 || (recDate.isAfter(slotWindowStart) && recDate.isBefore(slotWindowEnd))) {
-                recordedVital = v;
-                break;
-              }
-            } catch (_) {}
-          }
-        }
-
-        final bool isRecorded = recordedVital != null;
-        final bool isOpenNow =
-            now.isAfter(slotWindowStart) && now.isBefore(slotWindowEnd);
-        final bool isPastNotFilled = !isRecorded && now.isAfter(slotWindowEnd);
-
-        Color cardBorder = const Color(0xFFE2E8F0);
-        Color headerBg = const Color(0xFFF8FAFC);
-        Color badgeBg = Colors.grey.shade200;
-        Color badgeText = Colors.grey.shade700;
-        String badgeStatus = 'LOCKED';
-        IconData statusIcon = Icons.lock_clock;
-
-        if (isRecorded) {
-          cardBorder = const Color(0xFFBBF7D0);
-          headerBg = const Color(0xFFF0FDF4);
-          badgeBg = AppTheme.secondaryColor;
-          badgeText = Colors.white;
-          badgeStatus = 'RECORDED';
-          statusIcon = Icons.check_circle;
-        } else if (isOpenNow) {
-          cardBorder = AppTheme.primaryColor;
-          headerBg = AppTheme.primaryColor.withValues(alpha: 0.06);
-          badgeBg = Colors.orange;
-          badgeText = Colors.white;
-          badgeStatus = 'OPEN FOR ENTRY';
-          statusIcon = Icons.alarm_on;
-        } else if (isPastNotFilled) {
-          cardBorder = const Color(0xFFFED7AA);
-          headerBg = const Color(0xFFFFF7ED);
-          badgeBg = const Color(0xFFEA580C);
-          badgeText = Colors.white;
-          badgeStatus = 'NOT FILLED';
-          statusIcon = Icons.remove_circle_outline;
-        }
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: cardBorder,
-              width: isRecorded || isOpenNow ? 1.5 : 1.0,
-            ),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Card Header Bar
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: headerBg,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(11),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      statusIcon,
-                      color: isRecorded
-                          ? AppTheme.secondaryColor
-                          : (isOpenNow
-                                ? AppTheme.primaryColor
-                                : (isPastNotFilled
-                                      ? const Color(0xFFEA580C)
-                                      : Colors.grey)),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Hourly Vitals — $slotTime Slot',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: AppTheme.textPrimaryColor,
-                      ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: badgeBg,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        badgeStatus,
-                        style: TextStyle(
-                          color: badgeText,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Card Content Body
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: isRecorded
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            spacing: 16,
-                            runSpacing: 12,
-                            children: [
-                              _buildVitalChip(
-                                'Blood Pressure',
-                                '${recordedVital.systolicBp ?? "--"}/${recordedVital.diastolicBp ?? "--"} mmHg',
-                                Icons.speed,
-                              ),
-                              _buildVitalChip(
-                                'Pulse Rate',
-                                recordedVital.pulseRate != null
-                                    ? '${recordedVital.pulseRate} bpm'
-                                    : '--',
-                                Icons.favorite,
-                              ),
-                              _buildVitalChip(
-                                'Body Temp',
-                                recordedVital.temperature != null
-                                    ? '${recordedVital.temperature} °F'
-                                    : '--',
-                                Icons.thermostat,
-                              ),
-                              _buildVitalChip(
-                                'SpO₂ Level',
-                                recordedVital.spo2 != null
-                                    ? '${recordedVital.spo2}%'
-                                    : '--',
-                                Icons.air,
-                              ),
-                              _buildVitalChip(
-                                'Blood Sugar',
-                                recordedVital.bloodSugar != null
-                                    ? '${recordedVital.bloodSugar} mg/dL'
-                                    : '--',
-                                Icons.water_drop,
-                              ),
-                              if (recordedVital.weight != null ||
-                                  recordedVital.height != null)
-                                _buildVitalChip(
-                                  'Weight/Height',
-                                  '${recordedVital.weight ?? "--"} kg / ${recordedVital.height ?? "--"} cm',
-                                  Icons.monitor_weight,
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: OutlinedButton.icon(
-                              style: AppTheme.outlinedButton,
-                              icon: const Icon(Icons.edit, size: 14),
-                              label: Text('Update $slotTime Entry'),
-                              onPressed: () => _showRecordVitalsModal(
-                                context,
-                                visit,
-                                controller,
-                                slotTime,
-                                recordedVital,
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              isOpenNow
-                                  ? 'Active monitoring window open now. Click to record $slotTime vital signs.'
-                                  : (isPastNotFilled
-                                        ? 'Vitals entry window closed for $slotTime slot (Not recorded).'
-                                        : 'Locked. Scheduled for $slotTime slot.'),
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isOpenNow
-                                    ? AppTheme.primaryColor
-                                    : (isPastNotFilled
-                                          ? const Color(0xFFC2410C)
-                                          : Colors.grey.shade600),
-                                fontWeight: isOpenNow || isPastNotFilled
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                          if (isOpenNow)
-                            ElevatedButton.icon(
-                              style: AppTheme.primaryButton,
-                              icon: const Icon(Icons.add, size: 16),
-                              label: Text('Record $slotTime Vitals'),
-                              onPressed: () => _showRecordVitalsModal(
-                                context,
-                                visit,
-                                controller,
-                                slotTime,
-                                null,
-                              ),
-                            )
-                          else if (isPastNotFilled)
-                            OutlinedButton.icon(
-                              style: AppTheme.outlinedButton,
-                              icon: const Icon(Icons.schedule, size: 16),
-                              label: const Text('+ Record Missed Vitals'),
-                              onPressed: () => _showRecordVitalsModal(
-                                context,
-                                visit,
-                                controller,
-                                slotTime,
-                                null,
-                              ),
-                            )
-                          else
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey.shade200,
-                                foregroundColor: Colors.grey.shade600,
-                                elevation: 0,
-                              ),
-                              icon: const Icon(Icons.lock_clock, size: 16),
-                              label: Text('Locked Until $slotTime'),
-                              onPressed: null,
-                            ),
-                        ],
-                      ),
-              ),
-            ],
-          ),
-        );
-      }),
     );
   }
 
@@ -2944,6 +3361,513 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     );
   }
 
+  // 7. View Live Session Summary Tab (Live Real-Time Tracker for TODAY'S session entries ONLY)
+  Widget _buildLiveSessionSummaryTab(
+    HomeVisitModel visit,
+    HomeVisitController controller,
+  ) {
+    final now = DateTime.now();
+    final todayStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+    // Filter vitals for TODAY / current scheduled session date ONLY
+    final todayVitals = visit.vitalsHistory.where((v) {
+      if (v.recordedAt == null || v.recordedAt!.isEmpty) return true;
+      try {
+        final formatted = v.recordedAt!.trim().replaceAll(' ', 'T');
+        final dt = DateTime.parse(formatted);
+        final recDate = dt.isUtc ? dt.toLocal() : dt;
+        final dateStr = "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
+        return dateStr == todayStr || dateStr == visit.scheduledDate;
+      } catch (_) {
+        return true;
+      }
+    }).toList();
+
+    // Filter medicines for TODAY / current scheduled session date ONLY
+    final todayMedicines = visit.medicines.where((m) {
+      if (m.administeredAt == null || m.administeredAt!.isEmpty) return true;
+      try {
+        final formatted = m.administeredAt!.trim().replaceAll(' ', 'T');
+        final dt = DateTime.parse(formatted);
+        final recDate = dt.isUtc ? dt.toLocal() : dt;
+        final dateStr = "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
+        return dateStr == todayStr || dateStr == visit.scheduledDate;
+      } catch (_) {
+        return true;
+      }
+    }).toList();
+
+    // Filter consumables for TODAY / current scheduled session date ONLY
+    final todayConsumables = visit.consumables.where((c) {
+      if (c.createdAt == null || c.createdAt!.isEmpty) return true;
+      try {
+        final formatted = c.createdAt!.trim().replaceAll(' ', 'T');
+        final dt = DateTime.parse(formatted);
+        final recDate = dt.isUtc ? dt.toLocal() : dt;
+        final dateStr = "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
+        return dateStr == todayStr || dateStr == visit.scheduledDate;
+      } catch (_) {
+        return true;
+      }
+    }).toList();
+
+    // Filter photos for TODAY / current scheduled session date ONLY
+    final todayPhotos = visit.photos.where((p) {
+      if (p.capturedAt == null || p.capturedAt!.isEmpty) return true;
+      try {
+        final formatted = p.capturedAt!.trim().replaceAll(' ', 'T');
+        final dt = DateTime.parse(formatted);
+        final recDate = dt.isUtc ? dt.toLocal() : dt;
+        final dateStr = "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
+        return dateStr == todayStr || dateStr == visit.scheduledDate;
+      } catch (_) {
+        return true;
+      }
+    }).toList();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(
+            'Today\'s Session Summary & Real-Time Tracker',
+            Icons.analytics_outlined,
+          ),
+          const SizedBox(height: 16),
+
+          // Real-time Status Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.monitor_heart,
+                            color: AppTheme.primaryColor,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Patient: ${visit.patientName ?? "N/A"} (${visit.patientDisplayId ?? "N/A"})',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Today\'s Session: ${visit.scheduledDate} | Nurse: ${visit.nurseName ?? "N/A"}${visit.startTime != null && visit.startTime!.isNotEmpty ? " | Started: ${visit.startTime}" : ""}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: visit.status == 'Verified' || visit.status == 'Completed'
+                            ? Colors.green.shade50
+                            : AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: visit.status == 'Verified' || visit.status == 'Completed'
+                              ? Colors.green
+                              : AppTheme.primaryColor,
+                        ),
+                      ),
+                      child: Text(
+                        visit.status.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: visit.status == 'Verified' || visit.status == 'Completed'
+                              ? Colors.green
+                              : AppTheme.primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                const SizedBox(height: 16),
+
+                // Live Summary Counters Row (Today's Entries Only)
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 12,
+                  children: [
+                    _liveSummaryChip(
+                      Icons.devices,
+                      'Kit Devices',
+                      '${visit.carriedItems.length} Added',
+                      AppTheme.primaryColor,
+                    ),
+                    _liveSummaryChip(
+                      Icons.monitor_heart_outlined,
+                      'Vitals Log',
+                      '${todayVitals.length} Today Entries',
+                      Colors.purple,
+                    ),
+                    _liveSummaryChip(
+                      Icons.edit_note,
+                      'Care Notes',
+                      (visit.careActivities != null &&
+                              ((visit.careActivities!.nursingNotes?.isNotEmpty ?? false) ||
+                               (visit.careActivities!.dressingProcedures?.isNotEmpty ?? false)))
+                          ? 'Recorded Today'
+                          : 'Pending',
+                      Colors.orange,
+                    ),
+                    _liveSummaryChip(
+                      Icons.medication_liquid,
+                      'Meds & Consumables',
+                      '${todayMedicines.length} Meds / ${todayConsumables.length} Items Today',
+                      AppTheme.secondaryColor,
+                    ),
+                    _liveSummaryChip(
+                      Icons.camera_alt_outlined,
+                      'Photos',
+                      '${todayPhotos.length} Today Photos',
+                      Colors.teal,
+                    ),
+                    _liveSummaryChip(
+                      Icons.verified_user_outlined,
+                      'Attender Verification',
+                      visit.attenderName != null && visit.attenderName!.isNotEmpty
+                          ? 'Verified (${visit.attenderName})'
+                          : 'Pending',
+                      visit.attenderName != null && visit.attenderName!.isNotEmpty
+                          ? Colors.green
+                          : AppTheme.dangerColor,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Section 1: Kit Devices Added
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader('1. Carried & Used Kit Devices', Icons.devices),
+                const SizedBox(height: 12),
+                if (visit.carriedItems.isEmpty)
+                  const Text('No kit items or medical devices added yet in Kit & Devices tab.',
+                      style: TextStyle(color: Colors.grey, fontSize: 13))
+                else
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    children: [
+                      for (final item in visit.carriedItems)
+                        Chip(
+                          avatar: CircleAvatar(
+                            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                            child: Icon(
+                              item.itemType == 'Device' ? Icons.devices : Icons.medical_services,
+                              size: 14,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          label: Text('${item.itemName} (${item.itemType} • Qty: ${item.quantityCarried})'),
+                          backgroundColor: const Color(0xFFF1F5F9),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Section 2: Hourly Vitals Log (Today Only)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader('2. Today\'s Hourly Vitals Log', Icons.monitor_heart_outlined),
+                const SizedBox(height: 12),
+                if (todayVitals.isEmpty)
+                  const Text('No vitals logged today in Vitals tab.',
+                      style: TextStyle(color: Colors.grey, fontSize: 13))
+                else
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Table(
+                      border: TableBorder.all(color: const Color(0xFFE2E8F0)),
+                      children: [
+                        TableRow(
+                          decoration: const BoxDecoration(color: Color(0xFFF1F5F9)),
+                          children: [
+                            _tableHeader('Recorded At'),
+                            _tableHeader('BP (mmHg)'),
+                            _tableHeader('Pulse (bpm)'),
+                            _tableHeader('SpO2 (%)'),
+                            _tableHeader('Temp (°F)'),
+                            _tableHeader('Sugar (mg/dL)'),
+                          ],
+                        ),
+                        for (final v in todayVitals)
+                          TableRow(
+                            children: [
+                              _tableCell(v.recordedAt != null ? () {
+                                try {
+                                  final dt = DateTime.parse(v.recordedAt!).toLocal();
+                                  int h = dt.hour % 12;
+                                  if (h == 0) h = 12;
+                                  final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+                                  final m = dt.minute.toString().padLeft(2, '0');
+                                  return '$h:$m $ampm';
+                                } catch (_) {
+                                  return v.recordedAt!;
+                                }
+                              }() : 'N/A'),
+                              _tableCell('${v.systolicBp ?? "-"}/${v.diastolicBp ?? "-"}'),
+                              _tableCell('${v.pulseRate ?? "-"}'),
+                              _tableCell('${v.spo2 ?? "-"}'),
+                              _tableCell('${v.temperature ?? "-"}'),
+                              _tableCell('${v.bloodSugar ?? "-"}'),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Section 3: Nursing Care & Dressing Notes (Today Only)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader('3. Today\'s Nursing Care & Dressing Records', Icons.edit_note_outlined),
+                const SizedBox(height: 12),
+                if (visit.careActivities == null)
+                  const Text('No care activities recorded today in Nursing Care & Dressing tab.',
+                      style: TextStyle(color: Colors.grey, fontSize: 13))
+                else ...[
+                  if (visit.careActivities!.nursingNotes != null && visit.careActivities!.nursingNotes!.isNotEmpty)
+                    _detailRow('Nursing Notes', visit.careActivities!.nursingNotes!),
+                  if (visit.careActivities!.dressingProcedures != null && visit.careActivities!.dressingProcedures!.isNotEmpty)
+                    _detailRow('Dressing Procedure', visit.careActivities!.dressingProcedures!),
+                  _detailRow('Nail Trimming / Hygiene Care', visit.careActivities!.nailTrimmingDone ? 'Completed' : 'Not Performed'),
+                  if (visit.careActivities!.otherCareActivities != null && visit.careActivities!.otherCareActivities!.isNotEmpty)
+                    _detailRow('Other Care Activities', visit.careActivities!.otherCareActivities!),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Section 4: Medicines & Consumables (Today Only)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader('4. Today\'s Medicines & Consumables', Icons.medication_liquid_outlined),
+                const SizedBox(height: 12),
+                if (todayMedicines.isEmpty && todayConsumables.isEmpty)
+                  const Text('No medicines or consumables logged today in Meds & Consumables tab.',
+                      style: TextStyle(color: Colors.grey, fontSize: 13))
+                else ...[
+                  if (todayMedicines.isNotEmpty) ...[
+                    const Text('Medicines Administered Today:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor)),
+                    const SizedBox(height: 6),
+                    for (final m in todayMedicines)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4.0),
+                        child: Text('• ${m.medicineName} (${m.dosage}) - Qty: ${m.quantity} | ₹${(m.unitPrice * m.quantity).toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 13)),
+                      ),
+                    const SizedBox(height: 10),
+                  ],
+                  if (todayConsumables.isNotEmpty) ...[
+                    const Text('Consumables Used Today:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor)),
+                    const SizedBox(height: 6),
+                    for (final c in todayConsumables)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4.0),
+                        child: Text('• ${c.itemName} - Qty: ${c.quantityUsed} | ₹${(c.unitPrice * c.quantityUsed).toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 13)),
+                      ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Section 5: Today's Photo Evidence Gallery
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader('5. Today\'s Photo Evidence', Icons.insert_photo_outlined),
+                const SizedBox(height: 12),
+                if (todayPhotos.isEmpty)
+                  const Text('No photo evidence uploaded today in Photo Evidence tab.',
+                      style: TextStyle(color: Colors.grey, fontSize: 13))
+                else
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      childAspectRatio: 1.2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: todayPhotos.length,
+                    itemBuilder: (context, index) {
+                      final p = todayPhotos[index];
+                      return Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.photo, color: AppTheme.primaryColor, size: 28),
+                            const SizedBox(height: 4),
+                            Text(p.category ?? 'Evidence',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Section 6: Attender Signature Verification
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader('6. Patient Attender Verification & Signature', Icons.draw_outlined),
+                const SizedBox(height: 12),
+                if (visit.attenderName == null || visit.attenderName!.isEmpty)
+                  const Text('Attender verification & digital signature not yet submitted.',
+                      style: TextStyle(color: Colors.grey, fontSize: 13))
+                else ...[
+                  _detailRow('Attender Name', visit.attenderName!),
+                  _detailRow('Relationship', visit.attenderRelation ?? 'Attender'),
+                  _detailRow('Verification Date', visit.signedAt ?? 'Recorded'),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _liveSummaryChip(IconData icon, String title, String subtitle, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+              Text(subtitle, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showFullImagePreviewDialog(
     BuildContext context,
     HomeVisitPhotoEvidence photo,
@@ -3816,7 +4740,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           ],
 
           // Nursing Care Activities Summary
-          if (visit.careActivities != null) ...[
+          if (visit.careActivitiesHistory.isNotEmpty || visit.careActivities != null) ...[
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -3833,30 +4757,28 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     Icons.edit_note_outlined,
                   ),
                   const SizedBox(height: 16),
-                  if (visit.careActivities!.nursingNotes != null &&
-                      visit.careActivities!.nursingNotes!.isNotEmpty)
+                  for (final care in (visit.careActivitiesHistory.isNotEmpty ? visit.careActivitiesHistory : [visit.careActivities!])) ...[
+                    if (care.nursingNotes != null && care.nursingNotes!.isNotEmpty)
+                      _detailRow(
+                        'Nursing Notes',
+                        care.nursingNotes!,
+                      ),
+                    if (care.dressingProcedures != null && care.dressingProcedures!.isNotEmpty)
+                      _detailRow(
+                        'Dressing Procedure',
+                        care.dressingProcedures!,
+                      ),
                     _detailRow(
-                      'Nursing Notes',
-                      visit.careActivities!.nursingNotes!,
+                      'Nail Trimming / Hygiene Care',
+                      care.nailTrimmingDone ? 'Completed' : 'Not Performed',
                     ),
-                  if (visit.careActivities!.dressingProcedures != null &&
-                      visit.careActivities!.dressingProcedures!.isNotEmpty)
-                    _detailRow(
-                      'Dressing Procedure',
-                      visit.careActivities!.dressingProcedures!,
-                    ),
-                  _detailRow(
-                    'Nail Trimming / Hygiene Care',
-                    visit.careActivities!.nailTrimmingDone
-                        ? 'Completed'
-                        : 'Not Performed',
-                  ),
-                  if (visit.careActivities!.otherCareActivities != null &&
-                      visit.careActivities!.otherCareActivities!.isNotEmpty)
-                    _detailRow(
-                      'Other Care Activities',
-                      visit.careActivities!.otherCareActivities!,
-                    ),
+                    if (care.otherCareActivities != null && care.otherCareActivities!.isNotEmpty)
+                      _detailRow(
+                        'Other Care Activities',
+                        care.otherCareActivities!,
+                      ),
+                    const Divider(height: 16),
+                  ],
                 ],
               ),
             ),
@@ -3895,7 +4817,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6.0),
                         child: Text(
-                          '• ${m.medicineName} (${m.dosage}) - Qty: ${m.quantity} | ₹${m.unitPrice * m.quantity}',
+                          '• ${m.medicineName} (${m.dosage}) - Qty: ${m.quantity} | ₹${(m.unitPrice * m.quantity).toStringAsFixed(2)}${(m.administeredAt != null && m.administeredAt!.isNotEmpty) ? " (${m.administeredAt!.split("T")[0]})" : ""}',
                           style: const TextStyle(fontSize: 13),
                         ),
                       ),
@@ -3915,7 +4837,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6.0),
                         child: Text(
-                          '• ${c.itemName} - Qty: ${c.quantityUsed} | ₹${c.unitPrice * c.quantityUsed}',
+                          '• ${c.itemName} - Qty: ${c.quantityUsed} | ₹${(c.unitPrice * c.quantityUsed).toStringAsFixed(2)}${(c.createdAt != null && c.createdAt!.isNotEmpty) ? " (${c.createdAt!.split("T")[0]})" : ""}',
                           style: const TextStyle(fontSize: 13),
                         ),
                       ),

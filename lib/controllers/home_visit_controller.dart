@@ -105,6 +105,32 @@ class HomeVisitController with ChangeNotifier {
     }
   }
 
+  // Record Carried Kit Item / Device
+  Future<bool> submitCarriedItem(int visitId, Map<String, dynamic> itemData) async {
+    try {
+      await _service.recordCarriedItem(visitId, itemData);
+      await fetchVisitDetails(visitId);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Remove Carried Kit Item / Device
+  Future<bool> removeCarriedItem(int visitId, int itemId) async {
+    try {
+      await _service.deleteCarriedItem(visitId, itemId);
+      await fetchVisitDetails(visitId);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
   // Record Consumable
   Future<bool> submitConsumable(int visitId, Map<String, dynamic> consData) async {
     try {

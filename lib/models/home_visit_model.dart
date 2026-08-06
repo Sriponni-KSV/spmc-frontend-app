@@ -234,6 +234,8 @@ class HomeVisitModel {
   final String? nurseName;
   final String scheduledDate;
   final String? scheduledTime;
+  final String? startTime;
+  final String? startNurseName;
   final String status; // Scheduled, In-Progress, Completed, Verified, Cancelled
   final String? visitAddress;
   final String? attenderName;
@@ -246,6 +248,7 @@ class HomeVisitModel {
   final List<HomeVisitVitals> vitalsHistory;
   final VitalsScheduleStatusModel? vitalsScheduleStatus;
   final HomeVisitCareActivities? careActivities;
+  final List<HomeVisitCareActivities> careActivitiesHistory;
   final List<HomeVisitMedicine> medicines;
   final List<HomeVisitConsumable> consumables;
   final List<HomeVisitPhotoEvidence> photos;
@@ -264,6 +267,8 @@ class HomeVisitModel {
     this.nurseName,
     required this.scheduledDate,
     this.scheduledTime,
+    this.startTime,
+    this.startNurseName,
     required this.status,
     this.visitAddress,
     this.attenderName,
@@ -276,6 +281,7 @@ class HomeVisitModel {
     this.vitalsHistory = const [],
     this.vitalsScheduleStatus,
     this.careActivities,
+    this.careActivitiesHistory = const [],
     this.medicines = const [],
     this.consumables = const [],
     this.photos = const [],
@@ -307,6 +313,8 @@ class HomeVisitModel {
       nurseName: json['nurse_name'],
       scheduledDate: json['scheduled_date'] != null ? json['scheduled_date'].toString().split('T')[0] : '',
       scheduledTime: json['scheduled_time'],
+      startTime: json['start_time'],
+      startNurseName: json['start_nurse_name'],
       status: json['status'] ?? 'Scheduled',
       visitAddress: json['visit_address'],
       attenderName: json['attender_name'],
@@ -328,6 +336,9 @@ class HomeVisitModel {
       careActivities: json['care_activities'] != null
           ? HomeVisitCareActivities.fromJson(json['care_activities'])
           : null,
+      careActivitiesHistory: (json['care_activities_history'] as List<dynamic>?) != null && (json['care_activities_history'] as List<dynamic>).isNotEmpty
+          ? (json['care_activities_history'] as List<dynamic>).map((c) => HomeVisitCareActivities.fromJson(c)).toList()
+          : (json['care_activities'] != null ? [HomeVisitCareActivities.fromJson(json['care_activities'])] : []),
       medicines: (json['medicines'] as List<dynamic>?)
               ?.map((m) => HomeVisitMedicine.fromJson(m))
               .toList() ??
