@@ -5,11 +5,13 @@ import '../models/home_visit_model.dart';
 class HomeVisitInvoiceDialog extends StatelessWidget {
   final Map<String, dynamic> invoiceData;
   final HomeVisitModel visit;
+  final VoidCallback? onCloseAndComplete;
 
   const HomeVisitInvoiceDialog({
     super.key,
     required this.invoiceData,
     required this.visit,
+    this.onCloseAndComplete,
   });
 
   @override
@@ -98,55 +100,56 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Column(
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _infoColumn('Patient Name', visit.patientName ?? 'N/A'),
-                      _infoColumn('Patient Phone', visit.patientPhone ?? 'N/A'),
-                      _infoColumn('Visit Number', visit.visitNumber),
+                      Expanded(child: _infoColumn('Patient Name', visit.patientName ?? 'N/A')),
+                      Expanded(child: _infoColumn('Patient ID', visit.patientDisplayId ?? 'N/A')),
+                      Expanded(child: _infoColumn('Scheduled Date', visit.scheduledDate)),
                     ],
                   ),
                   const SizedBox(height: 12),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _infoColumn('Verified Attender', visit.attenderName ?? 'N/A'),
-                      _infoColumn('Attender Relation', visit.attenderRelation ?? 'Attender'),
-                      _infoColumn('Date', visit.scheduledDate),
+                      Expanded(child: _infoColumn('Verified Attender', visit.attenderName ?? 'Attender')),
+                      Expanded(child: _infoColumn('Attender Relation', visit.attenderRelation ?? 'Attender')),
+                      Expanded(child: _infoColumn('Assigned Nurse', visit.nurseName ?? 'Nurse')),
                     ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             const Text(
-              'Itemized Charges Breakdown',
+              'Itemized Service & Care Charges:',
               style: TextStyle(
-                fontSize: 15,
                 fontWeight: FontWeight.bold,
-                fontFamily: 'Inter',
+                fontSize: 14,
+                color: AppTheme.primaryColor,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
-            // Items List
+            // Itemized Items Table
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
-                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   children: [
                     Container(
-                      color: const Color(0xFFF1F5F9),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEDF2F7),
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
+                      ),
                       child: const Row(
                         children: [
                           Expanded(flex: 3, child: Text('Service / Item Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
@@ -254,7 +257,12 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
               height: 52,
               child: ElevatedButton(
                 style: AppTheme.primaryButton,
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  if (onCloseAndComplete != null) {
+                    onCloseAndComplete!();
+                  }
+                },
                 child: const Text('Close & Complete', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),

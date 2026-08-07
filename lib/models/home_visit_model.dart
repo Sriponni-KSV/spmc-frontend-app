@@ -88,6 +88,7 @@ class HomeVisitCareActivities {
   final String? dressingProcedures;
   final bool nailTrimmingDone;
   final String? otherCareActivities;
+  final String? createdAt;
 
   HomeVisitCareActivities({
     this.id,
@@ -95,6 +96,7 @@ class HomeVisitCareActivities {
     this.dressingProcedures,
     this.nailTrimmingDone = false,
     this.otherCareActivities,
+    this.createdAt,
   });
 
   factory HomeVisitCareActivities.fromJson(Map<String, dynamic> json) {
@@ -104,6 +106,7 @@ class HomeVisitCareActivities {
       dressingProcedures: json['dressing_procedures'],
       nailTrimmingDone: json['nail_trimming_done'] == true || json['nail_trimming_done'] == 1,
       otherCareActivities: json['other_care_activities'],
+      createdAt: json['created_at'] != null ? json['created_at'].toString() : json['createdAt']?.toString(),
     );
   }
 
@@ -112,6 +115,7 @@ class HomeVisitCareActivities {
         'dressing_procedures': dressingProcedures,
         'nail_trimming_done': nailTrimmingDone,
         'other_care_activities': otherCareActivities,
+        'created_at': createdAt,
       };
 }
 

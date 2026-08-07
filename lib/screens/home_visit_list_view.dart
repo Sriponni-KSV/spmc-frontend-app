@@ -58,9 +58,15 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       builder: (context, controller, child) {
         List<HomeVisitModel> visits = controller.visits;
         if (_selectedStatusFilter != 'All') {
-          visits = visits
-              .where((v) => v.status.toLowerCase() == _selectedStatusFilter.toLowerCase())
-              .toList();
+          if (_selectedStatusFilter == 'Completed') {
+            visits = visits
+                .where((v) => v.status.toLowerCase() == 'completed' || v.status.toLowerCase() == 'verified')
+                .toList();
+          } else {
+            visits = visits
+                .where((v) => v.status.toLowerCase() == _selectedStatusFilter.toLowerCase())
+                .toList();
+          }
         }
 
         return Container(
@@ -217,7 +223,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: ['All', 'Scheduled', 'In-Progress', 'Verified', 'Cancelled'].map((status) {
+                  children: ['All', 'Scheduled', 'In-Progress', 'Completed', 'Cancelled'].map((status) {
                     final isSelected = _selectedStatusFilter == status;
                     return Padding(
                       padding: const EdgeInsets.only(right: 8.0),
@@ -303,7 +309,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
   Widget _buildVisitCard(BuildContext context, HomeVisitModel visit) {
     final bool canExecute = _isExecuteButtonEnabled(visit);
 
-    String effectiveStatus = visit.status;
+    String effectiveStatus = visit.status == 'Verified' ? 'Completed' : visit.status;
     if (canExecute && (visit.status == 'Verified' || visit.status == 'Completed')) {
       effectiveStatus = 'Scheduled';
     }
@@ -864,93 +870,45 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
 
 
 
-  bool _isExecuteButtonEnabled(HomeVisitModel visit) {
-    final now = DateTime.now();
-    final todayDate = DateTime(now.year, now.month, now.day);
-    bool isPastDate = false;
-    bool isToday = false;
-
-    if (visit.scheduledDate.isNotEmpty) {
-      final dateParts = visit.scheduledDate.split('-');
-      if (dateParts.length == 3) {
-        int y, m, d;
-        if (dateParts[0].length == 4) {
-          y = int.parse(dateParts[0]);
-          m = int.parse(dateParts[1]);
-          d = int.parse(dateParts[2]);
-        } else {
-          d = int.parse(dateParts[0]);
-          m = int.parse(dateParts[1]);
-          y = int.parse(dateParts[2]);
-        }
-        final vDate = DateTime(y, m, d);
-        if (vDate.isBefore(todayDate)) {
-          isPastDate = true;
-        } else if (vDate.isAtSameMomentAs(todayDate)) {
-          isToday = true;
-        }
+  String _formatDateDDMMYYYY(String? dateStr) {
+    if (dateStr == null || dateStr.trim().isEmpty) return 'N/A';
+    final clean = dateStr.trim().split('T')[0].split(' ')[0];
+    final parts = clean.split('-');
+    if (parts.length == 3) {
+      if (parts[0].length == 4) {
+        return "${parts[2].padLeft(2, '0')}-${parts[1].padLeft(2, '0')}-${parts[0]}";
+      } else {
+        return "${parts[0].padLeft(2, '0')}-${parts[1].padLeft(2, '0')}-${parts[2]}";
       }
     }
+    return dateStr;
+  }
 
+  bool _isExecuteButtonEnabled(HomeVisitModel visit) {
     if (visit.status == 'Verified' || visit.status == 'Completed') {
-      if (isToday) {
-        return false;
-      }
-      if (isPastDate) {
-        final unlockTime = DateTime(now.year, now.month, now.day, 8, 50);
-        return now.isAfter(unlockTime) || now.isAtSameMomentAs(unlockTime);
-      }
       return false;
     }
     try {
-      if (visit.scheduledDate.isEmpty) return true;
-
-      DateTime? scheduledDateTime;
-      final dateParts = visit.scheduledDate.split('-');
-      if (dateParts.length == 3) {
-        if (dateParts[0].length == 4) {
-          final year = int.parse(dateParts[0]);
-          final month = int.parse(dateParts[1]);
-          final day = int.parse(dateParts[2]);
-          scheduledDateTime = DateTime(year, month, day, 9, 0);
-        } else if (dateParts[2].length == 4) {
-          final day = int.parse(dateParts[0]);
-          final month = int.parse(dateParts[1]);
-          final year = int.parse(dateParts[2]);
-          scheduledDateTime = DateTime(year, month, day, 9, 0);
-        }
-      }
-
-      if (scheduledDateTime != null) {
-        String timeStr = (visit.scheduledTime != null && visit.scheduledTime!.isNotEmpty)
-            ? visit.scheduledTime!.trim()
-            : '9:00 AM';
-        if (timeStr == '10:00 AM') {
-          timeStr = '9:00 AM';
-        }
-        final isPm = timeStr.toUpperCase().contains('PM');
-        final isAm = timeStr.toUpperCase().contains('AM');
-        final cleanTime = timeStr.replaceAll(RegExp(r'[^\d:]'), '');
-        final timeParts = cleanTime.split(':');
-        if (timeParts.length >= 2) {
-          int hour = int.tryParse(timeParts[0]) ?? 9;
-          int minute = int.tryParse(timeParts[1]) ?? 0;
-          if (isPm && hour < 12) hour += 12;
-          if (isAm && hour == 12) hour = 0;
-          scheduledDateTime = DateTime(
-            scheduledDateTime.year,
-            scheduledDateTime.month,
-            scheduledDateTime.day,
-            hour,
-            minute,
-          );
-        }
-      }
-
-      if (scheduledDateTime == null) return true;
-
       final now = DateTime.now();
-      final unlockTime = scheduledDateTime.subtract(const Duration(minutes: 10));
+      DateTime unlockTime = DateTime(now.year, now.month, now.day, 7, 0);
+
+      if (visit.scheduledDate.isNotEmpty) {
+        final dateParts = visit.scheduledDate.split('-');
+        if (dateParts.length == 3) {
+          int y, m, d;
+          if (dateParts[0].length == 4) {
+            y = int.parse(dateParts[0]);
+            m = int.parse(dateParts[1]);
+            d = int.parse(dateParts[2]);
+          } else {
+            d = int.parse(dateParts[0]);
+            m = int.parse(dateParts[1]);
+            y = int.parse(dateParts[2]);
+          }
+          unlockTime = DateTime(y, m, d, 7, 0);
+        }
+      }
+
       return now.isAfter(unlockTime) || now.isAtSameMomentAs(unlockTime);
     } catch (e) {
       return true;
