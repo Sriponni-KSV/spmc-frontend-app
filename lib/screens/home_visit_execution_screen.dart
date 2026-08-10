@@ -61,6 +61,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   final TextEditingController _medRouteCtrl = TextEditingController();
   final TextEditingController _medQtyCtrl = TextEditingController(text: '1');
   final TextEditingController _medPriceCtrl = TextEditingController();
+  String _medType = 'Regular';
+  final TextEditingController _medFrequencyCtrl = TextEditingController(
+    text: '1-0-1',
+  );
+  final TextEditingController _medDurationCtrl = TextEditingController(
+    text: '5 days',
+  );
+  final TextEditingController _medGivenTimeCtrl = TextEditingController();
 
   // Consumable Form Controllers
   final TextEditingController _consNameCtrl = TextEditingController();
@@ -105,6 +113,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   }
 
   int _vitalsPage = 1;
+  int _vitalsPageSize = 25;
   int _medsPage = 1;
   int _consPage = 1;
   int _carePage = 1;
@@ -182,6 +191,147 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     'Alcohol Swab',
   ];
 
+  final List<ProcedureMasterModel> _defaultProcedures = [
+    ProcedureMasterModel(
+      id: 1,
+      name: 'Diaper Change',
+      procedureCharge: 100.0,
+      status: 'Active',
+      mappedConsumables: [
+        ProcedureConsumableMappingModel(
+          consumableId: 1,
+          consumableName: 'Diaper',
+          unit: 'Pc',
+          unitPrice: 40.0,
+          qtyPerProcedure: 1,
+        ),
+        ProcedureConsumableMappingModel(
+          consumableId: 2,
+          consumableName: 'Gloves',
+          unit: 'Pair',
+          unitPrice: 15.0,
+          qtyPerProcedure: 1,
+        ),
+        ProcedureConsumableMappingModel(
+          consumableId: 3,
+          consumableName: 'Disposable Sheet',
+          unit: 'Pc',
+          unitPrice: 35.0,
+          qtyPerProcedure: 1,
+        ),
+      ],
+    ),
+    ProcedureMasterModel(
+      id: 2,
+      name: 'Wound Dressing',
+      procedureCharge: 250.0,
+      status: 'Active',
+      mappedConsumables: [
+        ProcedureConsumableMappingModel(
+          consumableId: 2,
+          consumableName: 'Gloves',
+          unit: 'Pair',
+          unitPrice: 15.0,
+          qtyPerProcedure: 1,
+        ),
+        ProcedureConsumableMappingModel(
+          consumableId: 4,
+          consumableName: 'Gauze',
+          unit: 'Pc',
+          unitPrice: 10.0,
+          qtyPerProcedure: 2,
+        ),
+        ProcedureConsumableMappingModel(
+          consumableId: 5,
+          consumableName: 'Dressing Pad',
+          unit: 'Pc',
+          unitPrice: 25.0,
+          qtyPerProcedure: 1,
+        ),
+      ],
+    ),
+    ProcedureMasterModel(
+      id: 3,
+      name: 'Injection',
+      procedureCharge: 80.0,
+      status: 'Active',
+      mappedConsumables: [
+        ProcedureConsumableMappingModel(
+          consumableId: 6,
+          consumableName: 'Syringe 5ml',
+          unit: 'Pc',
+          unitPrice: 15.0,
+          qtyPerProcedure: 1,
+        ),
+        ProcedureConsumableMappingModel(
+          consumableId: 7,
+          consumableName: 'Alcohol Swab',
+          unit: 'Pc',
+          unitPrice: 5.0,
+          qtyPerProcedure: 1,
+        ),
+      ],
+    ),
+    ProcedureMasterModel(
+      id: 4,
+      name: 'Catheter Care',
+      procedureCharge: 150.0,
+      status: 'Active',
+      mappedConsumables: [
+        ProcedureConsumableMappingModel(
+          consumableId: 2,
+          consumableName: 'Gloves',
+          unit: 'Pair',
+          unitPrice: 15.0,
+          qtyPerProcedure: 1,
+        ),
+        ProcedureConsumableMappingModel(
+          consumableId: 8,
+          consumableName: 'Antiseptic Solution 100ml',
+          unit: 'Pc',
+          unitPrice: 50.0,
+          qtyPerProcedure: 1,
+        ),
+        ProcedureConsumableMappingModel(
+          consumableId: 9,
+          consumableName: 'Sterile Bandage',
+          unit: 'Pc',
+          unitPrice: 20.0,
+          qtyPerProcedure: 1,
+        ),
+      ],
+    ),
+    ProcedureMasterModel(
+      id: 5,
+      name: 'IV Fluid Administration',
+      procedureCharge: 200.0,
+      status: 'Active',
+      mappedConsumables: [
+        ProcedureConsumableMappingModel(
+          consumableId: 10,
+          consumableName: 'IV Cannula 20G',
+          unit: 'Pc',
+          unitPrice: 65.0,
+          qtyPerProcedure: 1,
+        ),
+        ProcedureConsumableMappingModel(
+          consumableId: 11,
+          consumableName: 'Adhesive Tape',
+          unit: 'Pc',
+          unitPrice: 15.0,
+          qtyPerProcedure: 1,
+        ),
+        ProcedureConsumableMappingModel(
+          consumableId: 7,
+          consumableName: 'Alcohol Swab',
+          unit: 'Pc',
+          unitPrice: 5.0,
+          qtyPerProcedure: 1,
+        ),
+      ],
+    ),
+  ];
+
   // Photo Evidence Form
   final TextEditingController _photoUrlCtrl = TextEditingController();
   final TextEditingController _photoCaptionCtrl = TextEditingController();
@@ -237,12 +387,82 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     setState(() => _nailTrimmingDone = false);
   }
 
+  String _getCurrentFormattedTime() {
+    final now = DateTime.now();
+    final hour = now.hour % 12 == 0 ? 12 : now.hour % 12;
+    final minute = now.minute.toString().padLeft(2, '0');
+    final ampm = now.hour >= 12 ? 'PM' : 'AM';
+    return '${hour.toString().padLeft(2, '0')}:$minute $ampm';
+  }
+
+  Future<void> _selectGivenTime(BuildContext context) async {
+    TimeOfDay initialTime = TimeOfDay.now();
+    if (_medGivenTimeCtrl.text.isNotEmpty) {
+      try {
+        final parts = _medGivenTimeCtrl.text.trim().split(' ');
+        final timeParts = parts[0].split(':');
+        int hour = int.parse(timeParts[0]);
+        int minute = int.parse(timeParts[1]);
+        if (parts.length > 1 && parts[1].toUpperCase() == 'PM' && hour < 12) {
+          hour += 12;
+        } else if (parts.length > 1 &&
+            parts[1].toUpperCase() == 'AM' &&
+            hour == 12) {
+          hour = 0;
+        }
+        initialTime = TimeOfDay(hour: hour, minute: minute);
+      } catch (_) {}
+    }
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
+    if (picked != null) {
+      final hour = picked.hourOfPeriod == 0 ? 12 : picked.hourOfPeriod;
+      final minute = picked.minute.toString().padLeft(2, '0');
+      final period = picked.period == DayPeriod.am ? 'AM' : 'PM';
+      setState(() {
+        _medGivenTimeCtrl.text =
+            '${hour.toString().padLeft(2, '0')}:$minute $period';
+      });
+    }
+  }
+
+  Widget _buildQuickPill(String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF475569),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _clearMedForm() {
     _medNameCtrl.clear();
     _medDosageCtrl.clear();
     _medRouteCtrl.clear();
     _medQtyCtrl.text = '1';
     _medPriceCtrl.clear();
+    setState(() {
+      _medType = 'Regular';
+      _medFrequencyCtrl.text = '1-0-1';
+      _medDurationCtrl.text = '5 days';
+      _medGivenTimeCtrl.text = _getCurrentFormattedTime();
+    });
   }
 
   void _clearConsForm() {
@@ -251,24 +471,1731 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     _consPriceCtrl.clear();
   }
 
+  int _parseDurationDays(String? durationStr) {
+    if (durationStr == null || durationStr.trim().isEmpty) return 5;
+    final lower = durationStr.toLowerCase().trim();
+    final match = RegExp(r'(\d+)').firstMatch(lower);
+    if (match != null) {
+      final num = int.tryParse(match.group(1)!);
+      if (num != null && num > 0) {
+        if (lower.contains('month')) return num * 30;
+        if (lower.contains('week')) return num * 7;
+        return num;
+      }
+    }
+    if (lower.contains('month')) return 30;
+    if (lower.contains('week')) return 7;
+    return 5;
+  }
+
+  Widget _buildDailyDoseChecklist({
+    required HomeVisitMedicine medicine,
+    required HomeVisitModel visit,
+    required HomeVisitController controller,
+    int? currentDayNumber,
+  }) {
+    if (medicine.medicineType == 'STAT') {
+      return Container(
+        margin: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEEBC8),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFFFBD38D)),
+        ),
+        child: const Text(
+          'STAT - Given Immediately (Single Dose)',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFFC05621),
+          ),
+        ),
+      );
+    }
+
+    final totalDays = _parseDurationDays(medicine.duration);
+
+    // Calculate medication start date (Day 1) from medicine.administeredAt
+    DateTime startDt = DateTime.now();
+    if (medicine.administeredAt != null &&
+        medicine.administeredAt!.isNotEmpty) {
+      try {
+        final formatted = medicine.administeredAt!.trim().replaceAll(' ', 'T');
+        final parsed = DateTime.parse(formatted);
+        startDt = parsed.isUtc ? parsed.toLocal() : parsed;
+      } catch (_) {}
+    } else if (visit.scheduledDate.isNotEmpty) {
+      try {
+        startDt = DateTime.parse(visit.scheduledDate);
+      } catch (_) {}
+    }
+    final medStartDate = DateTime(startDt.year, startDt.month, startDt.day);
+
+    // Calculate current visit date
+    DateTime currentVisitDt = DateTime.now();
+    if (visit.scheduledDate.isNotEmpty) {
+      try {
+        currentVisitDt = DateTime.parse(visit.scheduledDate);
+      } catch (_) {}
+    }
+    final currentVisitDate = DateTime(
+      currentVisitDt.year,
+      currentVisitDt.month,
+      currentVisitDt.day,
+    );
+
+    final dayDiff = currentVisitDate.difference(medStartDate).inDays;
+    final activeDayNumber =
+        currentDayNumber ?? (dayDiff >= 0 ? dayDiff + 1 : 1);
+    final startDateStr =
+        "${medStartDate.day.toString().padLeft(2, '0')}/${medStartDate.month.toString().padLeft(2, '0')}/${medStartDate.year}";
+
+    return StatefulBuilder(
+      builder: (context, setLocalChecklistState) {
+        final daysMap = Map<String, bool>.from(medicine.administeredDays);
+
+        return Container(
+          margin: const EdgeInsets.only(top: 6),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.playlist_add_check,
+                    size: 14,
+                    color: AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Daily Tablet Administration Checklist:',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '($totalDays Days Plan | Prescribed/Added: $startDateStr | Current Visit: Day $activeDayNumber)',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF64748B),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (int dayIdx = 1; dayIdx <= totalDays; dayIdx++) ...[
+                    () {
+                      final dayKey = '$dayIdx';
+                      final isChecked = daysMap[dayKey] == true;
+                      final isToday = dayIdx == activeDayNumber;
+                      final isPast = dayIdx < activeDayNumber;
+                      final isFuture = dayIdx > activeDayNumber;
+
+                      // Compute date for this day
+                      final dayDate = medStartDate.add(
+                        Duration(days: dayIdx - 1),
+                      );
+                      final dayDateStr =
+                          "${dayDate.day.toString().padLeft(2, '0')}/${dayDate.month.toString().padLeft(2, '0')}";
+
+                      return MouseRegion(
+                        cursor: isToday && !isChecked
+                            ? SystemMouseCursors.click
+                            : (isFuture
+                                  ? SystemMouseCursors.forbidden
+                                  : SystemMouseCursors.basic),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () async {
+                            if (isFuture) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Day $dayIdx ($dayDateStr) is scheduled for a future visit and cannot be executed today.',
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                              return;
+                            }
+                            if (isPast && !isChecked) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Day $dayIdx ($dayDateStr) was scheduled for a past visit.',
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                              return;
+                            }
+                            if (isChecked) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Dose for this day is already recorded and cannot be unticked.',
+                                  ),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                              return;
+                            }
+                            setLocalChecklistState(() {
+                              daysMap[dayKey] = true;
+                              medicine.administeredDays[dayKey] = true;
+                            });
+                            if (medicine.id != null) {
+                              await controller.toggleMedicineDay(
+                                visit.id,
+                                medicine.id!,
+                                daysMap,
+                              );
+                            }
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isChecked
+                                  ? AppTheme.secondaryColor.withOpacity(0.15)
+                                  : (isToday
+                                        ? AppTheme.primaryColor.withOpacity(0.1)
+                                        : (isFuture
+                                              ? const Color(0xFFF1F5F9)
+                                              : const Color(0xFFF8FAFC))),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isChecked
+                                    ? AppTheme.secondaryColor
+                                    : (isToday
+                                          ? AppTheme.primaryColor
+                                          : (isFuture
+                                                ? const Color(0xFFE2E8F0)
+                                                : const Color(0xFFCBD5E1))),
+                                width: isToday ? 1.8 : 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isChecked
+                                      ? Icons.check_box
+                                      : (isFuture
+                                            ? Icons.lock_clock_outlined
+                                            : Icons.check_box_outline_blank),
+                                  size: 17,
+                                  color: isChecked
+                                      ? AppTheme.secondaryColor
+                                      : (isToday
+                                            ? AppTheme.primaryColor
+                                            : (isFuture
+                                                  ? const Color(0xFF94A3B8)
+                                                  : const Color(0xFF64748B))),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'Day $dayIdx ($dayDateStr)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: isToday || isChecked
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                    color: isChecked
+                                        ? AppTheme.secondaryColor
+                                        : (isToday
+                                              ? AppTheme.primaryColor
+                                              : (isFuture
+                                                    ? const Color(0xFF94A3B8)
+                                                    : const Color(0xFF334155))),
+                                  ),
+                                ),
+                                if (isToday) ...[
+                                  const SizedBox(width: 5),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'TODAY',
+                                      style: TextStyle(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ] else if (isFuture) ...[
+                                  const SizedBox(width: 5),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFCBD5E1),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'LOCKED',
+                                      style: TextStyle(
+                                        fontSize: 7,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }(),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showRecordMedicineModal(
+    BuildContext context,
+    HomeVisitModel visit,
+    HomeVisitController controller,
+  ) {
+    String localType = _medType;
+    final nameCtrl = TextEditingController(text: _medNameCtrl.text);
+    final dosageCtrl = TextEditingController(text: _medDosageCtrl.text);
+    final qtyCtrl = TextEditingController(text: _medQtyCtrl.text);
+    final freqCtrl = TextEditingController(
+      text: _medFrequencyCtrl.text.isNotEmpty
+          ? _medFrequencyCtrl.text
+          : '1-0-1',
+    );
+    final durCtrl = TextEditingController(
+      text: _medDurationCtrl.text.isNotEmpty ? _medDurationCtrl.text : '5 days',
+    );
+    final givenTimeCtrl = TextEditingController(
+      text: _medGivenTimeCtrl.text.isNotEmpty
+          ? _medGivenTimeCtrl.text
+          : _getCurrentFormattedTime(),
+    );
+
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dCtx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setModalState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.medication_liquid,
+                        color: AppTheme.primaryColor,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Record Medicine Item',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(dCtx),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: SizedBox(
+                  width: 500,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Medicine Type'),
+                      Row(
+                        children: [
+                          ChoiceChip(
+                            label: const Text('Regular'),
+                            selected: localType == 'Regular',
+                            selectedColor: AppTheme.primaryColor,
+                            labelStyle: TextStyle(
+                              color: localType == 'Regular'
+                                  ? Colors.white
+                                  : Colors.black87,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            onSelected: (selected) {
+                              if (selected) {
+                                setModalState(() {
+                                  localType = 'Regular';
+                                  if (freqCtrl.text == 'STAT')
+                                    freqCtrl.text = '1-0-1';
+                                  if (durCtrl.text == 'STAT - Single Dose')
+                                    durCtrl.text = '5 days';
+                                });
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text('STAT'),
+                            selected: localType == 'STAT',
+                            selectedColor: const Color(0xFFDD6B20),
+                            labelStyle: TextStyle(
+                              color: localType == 'STAT'
+                                  ? Colors.white
+                                  : Colors.black87,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            onSelected: (selected) {
+                              if (selected) {
+                                setModalState(() {
+                                  localType = 'STAT';
+                                  freqCtrl.text = 'STAT';
+                                  durCtrl.text = 'STAT - Single Dose';
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildLabel('Medicine Name'),
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: 'Select or type medicine (e.g. Paracetamol)',
+                        dropdownItems: _dbMedicines.isNotEmpty
+                            ? _dbMedicines
+                            : _defaultMedicines,
+                        value: nameCtrl.text.isNotEmpty ? nameCtrl.text : null,
+                        allowFreeText: true,
+                        onChanged: (val) {
+                          setModalState(() {
+                            nameCtrl.text = val ?? '';
+                            if (val != null && val.trim().isNotEmpty) {
+                              final match = RegExp(
+                                r'\b(\d+(?:\.\d+)?\s*(?:mg|g|mcg|ml|iu|mEq|mg/ml|%))\b',
+                                caseSensitive: false,
+                              ).firstMatch(val);
+                              if (match != null && match.group(1) != null) {
+                                dosageCtrl.text = match.group(1)!;
+                              }
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Dosage'),
+                                TextFormField(
+                                  controller: dosageCtrl,
+                                  decoration: AppTheme.standardInputDecoration(
+                                    hintText: 'e.g. 500mg',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Qty'),
+                                TextFormField(
+                                  controller: qtyCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: AppTheme.standardInputDecoration(
+                                    hintText: 'Qty',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel(
+                                  localType == 'STAT'
+                                      ? 'Frequency'
+                                      : 'Frequency (e.g. 1-0-1)',
+                                ),
+                                TextFormField(
+                                  controller: freqCtrl,
+                                  decoration: AppTheme.standardInputDecoration(
+                                    hintText: localType == 'STAT'
+                                        ? 'STAT'
+                                        : '1-0-1 / BD / OD',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Duration'),
+                                TextFormField(
+                                  controller: durCtrl,
+                                  decoration: AppTheme.standardInputDecoration(
+                                    hintText: 'e.g. 5 days',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (localType == 'STAT') ...[
+                        const SizedBox(height: 12),
+                        _buildLabel('Given Time'),
+                        TextFormField(
+                          controller: givenTimeCtrl,
+                          decoration:
+                              AppTheme.standardInputDecoration(
+                                hintText: 'e.g. 09:30 AM',
+                              ).copyWith(
+                                suffixIcon: IconButton(
+                                  icon: const Icon(
+                                    Icons.access_time,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                  onPressed: () async {
+                                    final picked = await showTimePicker(
+                                      context: context,
+                                      initialTime: TimeOfDay.now(),
+                                    );
+                                    if (picked != null) {
+                                      final hour = picked.hourOfPeriod == 0
+                                          ? 12
+                                          : picked.hourOfPeriod;
+                                      final minute = picked.minute
+                                          .toString()
+                                          .padLeft(2, '0');
+                                      final period =
+                                          picked.period == DayPeriod.am
+                                          ? 'AM'
+                                          : 'PM';
+                                      setModalState(() {
+                                        givenTimeCtrl.text =
+                                            '${hour.toString().padLeft(2, '0')}:$minute $period';
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  style: AppTheme.cancelButton,
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dCtx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  style: AppTheme.primaryButton,
+                  icon: isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_circle_outline, size: 18),
+                  label: Text(
+                    isSubmitting ? 'Saving...' : 'Save Medicine Item',
+                  ),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          if (nameCtrl.text.trim().isEmpty) return;
+                          setModalState(() => isSubmitting = true);
+                          final success = await controller.submitMedicine(
+                            visit.id,
+                            {
+                              'medicine_name': nameCtrl.text.trim(),
+                              'dosage': dosageCtrl.text.trim(),
+                              'route': 'Oral',
+                              'quantity': int.tryParse(qtyCtrl.text) ?? 1,
+                              'unit_price': 0.0,
+                              'medicine_type': localType,
+                              'frequency': freqCtrl.text.trim(),
+                              'duration': durCtrl.text.trim(),
+                              'given_time': givenTimeCtrl.text.trim(),
+                              'administered_days': {"1": true},
+                            },
+                          );
+                          if (context.mounted && dCtx.mounted) {
+                            Navigator.pop(dCtx);
+                          }
+                        },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showRecordConsumableModal(
+    BuildContext context,
+    HomeVisitModel visit,
+    HomeVisitController controller,
+  ) {
+    final nameCtrl = TextEditingController(text: _consNameCtrl.text);
+    final qtyCtrl = TextEditingController(text: _consQtyCtrl.text);
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dCtx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setModalState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.inventory_2_outlined,
+                        color: AppTheme.primaryColor,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Record Consumable Item',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(dCtx),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 450,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLabel('Consumable Item Name'),
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: 'Select consumable item (e.g. Sterile Bandage)',
+                      dropdownItems: _dbConsumables.isNotEmpty
+                          ? _dbConsumables
+                          : _defaultConsumables,
+                      value: nameCtrl.text.isNotEmpty ? nameCtrl.text : null,
+                      allowFreeText: true,
+                      onChanged: (val) {
+                        setModalState(() {
+                          nameCtrl.text = val ?? '';
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    _buildLabel('Quantity Used'),
+                    TextFormField(
+                      controller: qtyCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: AppTheme.standardInputDecoration(
+                        hintText: 'Quantity (e.g. 1)',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  style: AppTheme.cancelButton,
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dCtx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  style: AppTheme.primaryButton,
+                  icon: isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_circle_outline, size: 18),
+                  label: Text(
+                    isSubmitting ? 'Saving...' : 'Save Consumable Item',
+                  ),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          if (nameCtrl.text.trim().isEmpty) return;
+                          setModalState(() => isSubmitting = true);
+                          final success = await controller.submitConsumable(
+                            visit.id,
+                            {
+                              'item_name': nameCtrl.text.trim(),
+                              'quantity_used': int.tryParse(qtyCtrl.text) ?? 1,
+                              'unit_price': 0.0,
+                            },
+                          );
+                          if (context.mounted && dCtx.mounted) {
+                            Navigator.pop(dCtx);
+                          }
+                        },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildTableHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.primaryColor,
+        ),
+      ),
+    );
+  }
+
+  void _showAddManualConsumableDialog(
+    BuildContext context,
+    Function(ProcedureConsumableMappingModel) onAdd,
+  ) {
+    final nameCtrl = TextEditingController();
+    final priceCtrl = TextEditingController(text: '20');
+    final qtyCtrl = TextEditingController(text: '1');
+    final unitCtrl = TextEditingController(text: 'Pc');
+
+    const defaultConsumables = [
+      'Diaper',
+      'Gloves',
+      'Disposable Sheet',
+      'Gauze',
+      'Dressing Pad',
+      'Syringe 5ml',
+      'Alcohol Swab',
+      'Antiseptic Solution 100ml',
+      'Sterile Bandage',
+      'IV Cannula 20G',
+      'Adhesive Tape',
+    ];
+
+    const defaultPriceMap = {
+      'Diaper': 40.0,
+      'Gloves': 15.0,
+      'Disposable Sheet': 35.0,
+      'Gauze': 10.0,
+      'Dressing Pad': 25.0,
+      'Syringe 5ml': 15.0,
+      'Alcohol Swab': 5.0,
+      'Antiseptic Solution 100ml': 50.0,
+      'Sterile Bandage': 20.0,
+      'IV Cannula 20G': 65.0,
+      'Adhesive Tape': 15.0,
+    };
+
+    showDialog(
+      context: context,
+      builder: (dCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDlgState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                'Add Consumable Item',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLabel('Consumable Name'),
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: 'Select or type consumable name',
+                      dropdownItems: defaultConsumables,
+                      allowFreeText: true,
+                      onChanged: (val) {
+                        setDlgState(() {
+                          nameCtrl.text = val ?? '';
+                          if (defaultPriceMap.containsKey(nameCtrl.text)) {
+                            priceCtrl.text = defaultPriceMap[nameCtrl.text]!
+                                .toStringAsFixed(0);
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildLabel('Unit Price (₹)'),
+                              TextFormField(
+                                controller: priceCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: AppTheme.standardInputDecoration(
+                                  hintText: 'Price',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildLabel('Quantity'),
+                              TextFormField(
+                                controller: qtyCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: AppTheme.standardInputDecoration(
+                                  hintText: 'Qty',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  style: AppTheme.cancelButton,
+                  onPressed: () => Navigator.pop(dCtx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: AppTheme.primaryButton,
+                  onPressed: () {
+                    final cName = nameCtrl.text.trim();
+                    if (cName.isEmpty) return;
+                    final price =
+                        double.tryParse(priceCtrl.text.trim()) ?? 20.0;
+                    final qty = int.tryParse(qtyCtrl.text.trim()) ?? 1;
+                    final unit = unitCtrl.text.trim().isNotEmpty
+                        ? unitCtrl.text.trim()
+                        : 'Pc';
+
+                    final item = ProcedureConsumableMappingModel(
+                      consumableId: 0,
+                      consumableName: cName,
+                      unit: unit,
+                      unitPrice: price,
+                      qtyPerProcedure: qty,
+                    );
+                    onAdd(item);
+                    Navigator.pop(dCtx);
+                  },
+                  child: const Text('Add Consumable'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showRecordProcedureModal(
+    BuildContext context,
+    HomeVisitModel visit,
+    HomeVisitController controller,
+  ) {
+    if (controller.proceduresMaster.isEmpty) {
+      controller.fetchProceduresMaster();
+    }
+
+    String selectedProcName = '';
+    ProcedureMasterModel? selectedProc;
+    final chargeCtrl = TextEditingController(text: '0');
+    String selectedFreq = 'Once Daily';
+    int freqMultiplier = 1;
+    bool isSubmitting = false;
+    final List<ProcedureConsumableMappingModel> manualConsumables = [];
+
+    final Map<String, TextEditingController> itemQtyCtrls = {};
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dCtx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setModalState) {
+            final procs = controller.proceduresMaster.isNotEmpty
+                ? controller.proceduresMaster
+                : _defaultProcedures;
+            final procNames = procs.map((p) => p.name).toList();
+
+            void updateCalculatedItems() {
+              if (selectedProc == null) return;
+              for (var m in selectedProc!.mappedConsumables) {
+                final calculatedTotal = m.qtyPerProcedure * freqMultiplier;
+                if (!itemQtyCtrls.containsKey(m.consumableName)) {
+                  itemQtyCtrls[m.consumableName] = TextEditingController(
+                    text: calculatedTotal.toString(),
+                  );
+                } else {
+                  itemQtyCtrls[m.consumableName]!.text = calculatedTotal
+                      .toString();
+                }
+              }
+            }
+
+            final chargePerProc =
+                double.tryParse(chargeCtrl.text.trim()) ??
+                (selectedProc?.procedureCharge ?? 0.0);
+            final totalProcCharge = chargePerProc * freqMultiplier;
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.medical_services_outlined,
+                        color: AppTheme.primaryColor,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Record Procedure Item',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(dCtx),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: SizedBox(
+                  width: 650,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Procedure Name'),
+                      CustomDropdownSearch(
+                        label: '',
+                        hint:
+                            'Select or type procedure (e.g. Diaper Change, Wound Dressing)',
+                        dropdownItems: procNames,
+                        value: selectedProcName.isNotEmpty
+                            ? selectedProcName
+                            : null,
+                        allowFreeText: true,
+                        onChanged: (val) {
+                          setModalState(() {
+                            selectedProcName = val ?? '';
+                            if (selectedProcName.trim().isNotEmpty) {
+                              final match = procs.firstWhere(
+                                (p) =>
+                                    p.name.toLowerCase() ==
+                                    selectedProcName.trim().toLowerCase(),
+                                orElse: () => ProcedureMasterModel(
+                                  id: 0,
+                                  name: selectedProcName.trim(),
+                                  procedureCharge: 0.0,
+                                  status: 'Active',
+                                  mappedConsumables: [],
+                                ),
+                              );
+                              selectedProc = match;
+                              if (match.id != 0) {
+                                chargeCtrl.text = match.procedureCharge
+                                    .toStringAsFixed(0);
+                              } else {
+                                chargeCtrl.text = '0';
+                              }
+                            } else {
+                              selectedProc = null;
+                              chargeCtrl.text = '0';
+                            }
+                            itemQtyCtrls.clear();
+                            updateCalculatedItems();
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Procedure Charge (₹)'),
+                                TextFormField(
+                                  controller: chargeCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: AppTheme.standardInputDecoration(
+                                    hintText: 'Charge per procedure',
+                                  ),
+                                  onChanged: (val) {
+                                    setModalState(() {});
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Frequency'),
+                                CustomDropdownSearch(
+                                  label: '',
+                                  hint: 'Select or type frequency',
+                                  dropdownItems: const [
+                                    'Once Daily (1x/day)',
+                                    '2 Times/Day (2x/day)',
+                                    '3 Times/Day (3x/day)',
+                                    'Every 4 Hours (6x/day)',
+                                  ],
+                                  value: selectedFreq.isNotEmpty
+                                      ? selectedFreq
+                                      : null,
+                                  allowFreeText: true,
+                                  onChanged: (val) {
+                                    if (val != null && val.trim().isNotEmpty) {
+                                      setModalState(() {
+                                        selectedFreq = val.trim();
+                                        if (selectedFreq.contains(
+                                              'Once Daily',
+                                            ) ||
+                                            selectedFreq.contains('1x')) {
+                                          freqMultiplier = 1;
+                                        } else if (selectedFreq.contains(
+                                              '2 Times',
+                                            ) ||
+                                            selectedFreq.contains('2x')) {
+                                          freqMultiplier = 2;
+                                        } else if (selectedFreq.contains(
+                                              '3 Times',
+                                            ) ||
+                                            selectedFreq.contains('3x')) {
+                                          freqMultiplier = 3;
+                                        } else if (selectedFreq.contains(
+                                              'Every 4 Hours',
+                                            ) ||
+                                            selectedFreq.contains('6x')) {
+                                          freqMultiplier = 6;
+                                        } else {
+                                          final numMatch = RegExp(
+                                            r'(\d+)',
+                                          ).firstMatch(selectedFreq);
+                                          if (numMatch != null) {
+                                            freqMultiplier =
+                                                int.tryParse(
+                                                  numMatch.group(1)!,
+                                                ) ??
+                                                1;
+                                          } else {
+                                            freqMultiplier = 1;
+                                          }
+                                        }
+                                        updateCalculatedItems();
+                                      });
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      if (selectedProcName.trim().isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Procedure Charge Breakdown:',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '₹${chargePerProc.toStringAsFixed(0)} per procedure × $selectedFreq',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  const Text(
+                                    'Total Procedure Charge',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                  Text(
+                                    '₹${totalProcCharge.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildLabel('Procedure Consumables'),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppTheme.primaryColor,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.add_circle_outline,
+                                size: 16,
+                              ),
+                              label: const Text(
+                                'Add Consumable Manually',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              onPressed: () {
+                                _showAddManualConsumableDialog(
+                                  context,
+                                  (newConsumable) {
+                                    setModalState(() {
+                                      manualConsumables.add(newConsumable);
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        () {
+                          final allConsumables = [
+                            if (selectedProc != null)
+                              ...selectedProc!.mappedConsumables,
+                            ...manualConsumables,
+                          ];
+
+                          if (allConsumables.isEmpty) {
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                                horizontal: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    size: 18,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'No pre-mapped consumables for this procedure. Click "+ Add Consumable Manually" above to add items.',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: Table(
+                              columnWidths: const {
+                                0: FlexColumnWidth(2.2),
+                                1: FlexColumnWidth(1.2),
+                                2: FlexColumnWidth(1.4),
+                                3: FlexColumnWidth(1.5),
+                                4: FlexColumnWidth(1.5),
+                                5: FlexColumnWidth(0.6),
+                              },
+                              children: [
+                                TableRow(
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFF8FAFC),
+                                  ),
+                                  children: [
+                                    _buildTableHeader('Consumable Item'),
+                                    _buildTableHeader('Qty / Proc'),
+                                    _buildTableHeader('Unit Price'),
+                                    _buildTableHeader('Required Qty'),
+                                    _buildTableHeader('Total (₹)'),
+                                    _buildTableHeader(''),
+                                  ],
+                                ),
+                                for (var m in allConsumables) ...[
+                                  () {
+                                    final totalQty =
+                                        m.qtyPerProcedure * freqMultiplier;
+                                    if (!itemQtyCtrls.containsKey(
+                                      m.consumableName,
+                                    )) {
+                                      itemQtyCtrls[m.consumableName] =
+                                          TextEditingController(
+                                            text: totalQty.toString(),
+                                          );
+                                    }
+
+                                    final currentQtyStr =
+                                        itemQtyCtrls[m.consumableName]
+                                                ?.text
+                                                .trim() ??
+                                            '';
+                                    final currentQty =
+                                        int.tryParse(currentQtyStr) ?? totalQty;
+
+                                    double unitPrice = m.unitPrice;
+                                    if (unitPrice <= 0) {
+                                      const defaultPriceMap = {
+                                        'Diaper': 40.0,
+                                        'Gloves': 15.0,
+                                        'Disposable Sheet': 35.0,
+                                        'Gauze': 10.0,
+                                        'Dressing Pad': 25.0,
+                                        'Syringe 5ml': 15.0,
+                                        'Alcohol Swab': 5.0,
+                                        'Antiseptic Solution 100ml': 50.0,
+                                        'Sterile Bandage': 20.0,
+                                        'IV Cannula 20G': 65.0,
+                                        'Adhesive Tape': 15.0,
+                                      };
+                                      unitPrice =
+                                          defaultPriceMap[m.consumableName] ??
+                                              20.0;
+                                    }
+                                    final lineTotal = currentQty * unitPrice;
+
+                                    return TableRow(
+                                      children: [
+                                        TableCell(
+                                          verticalAlignment:
+                                              TableCellVerticalAlignment.middle,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
+                                            child: Text(
+                                              m.consumableName,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        TableCell(
+                                          verticalAlignment:
+                                              TableCellVerticalAlignment.middle,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 8,
+                                            ),
+                                            child: Text(
+                                              '${m.qtyPerProcedure} ${m.unit}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        TableCell(
+                                          verticalAlignment:
+                                              TableCellVerticalAlignment.middle,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 8,
+                                            ),
+                                            child: Text(
+                                              '₹${unitPrice.toStringAsFixed(2)}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF475569),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        TableCell(
+                                          verticalAlignment:
+                                              TableCellVerticalAlignment.middle,
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(4),
+                                            child: SizedBox(
+                                              height: 34,
+                                              child: TextFormField(
+                                                controller:
+                                                    itemQtyCtrls[m
+                                                        .consumableName],
+                                                keyboardType:
+                                                    TextInputType.number,
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                                decoration:
+                                                    AppTheme.standardInputDecoration(
+                                                      hintText: 'Qty',
+                                                    ).copyWith(
+                                                      contentPadding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 6,
+                                                            vertical: 4,
+                                                          ),
+                                                    ),
+                                                onChanged: (val) {
+                                                  setModalState(() {});
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        TableCell(
+                                          verticalAlignment:
+                                              TableCellVerticalAlignment.middle,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 8,
+                                            ),
+                                            child: Text(
+                                              '₹${lineTotal.toStringAsFixed(2)}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.primaryColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        TableCell(
+                                          verticalAlignment:
+                                              TableCellVerticalAlignment.middle,
+                                          child: IconButton(
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                              size: 18,
+                                              color: AppTheme.dangerColor,
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            onPressed: () {
+                                              setModalState(() {
+                                                manualConsumables.remove(m);
+                                                if (selectedProc != null) {
+                                                  selectedProc!.mappedConsumables
+                                                      .remove(m);
+                                                }
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }(),
+                                ],
+                              ],
+                            ),
+                          );
+                        }(),
+                        const SizedBox(height: 12),
+                        () {
+                          final allConsumables = [
+                            if (selectedProc != null)
+                              ...selectedProc!.mappedConsumables,
+                            ...manualConsumables,
+                          ];
+                          double totalConsumablesCost = 0.0;
+                          for (var m in allConsumables) {
+                            final qtyStr =
+                                itemQtyCtrls[m.consumableName]?.text.trim() ??
+                                '';
+                            final qty =
+                                int.tryParse(qtyStr) ??
+                                (m.qtyPerProcedure * freqMultiplier);
+
+                            double uPrice = m.unitPrice;
+                            if (uPrice <= 0) {
+                              const defaultPriceMap = {
+                                'Diaper': 40.0,
+                                'Gloves': 15.0,
+                                'Disposable Sheet': 35.0,
+                                'Gauze': 10.0,
+                                'Dressing Pad': 25.0,
+                                'Syringe 5ml': 15.0,
+                                'Alcohol Swab': 5.0,
+                                'Antiseptic Solution 100ml': 50.0,
+                                'Sterile Bandage': 20.0,
+                                'IV Cannula 20G': 65.0,
+                                'Adhesive Tape': 15.0,
+                              };
+                              uPrice = defaultPriceMap[m.consumableName] ?? 20.0;
+                            }
+                            totalConsumablesCost += (qty * uPrice);
+                          }
+                          final grandTotal =
+                              totalProcCharge + totalConsumablesCost;
+
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Procedure Base Charge:',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                    Text(
+                                      '₹${totalProcCharge.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF334155),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Total Consumables Cost:',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                    Text(
+                                      '₹${totalConsumablesCost.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF334155),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 6),
+                                  child: Divider(
+                                    height: 1,
+                                    color: Color(0xFFCBD5E1),
+                                  ),
+                                ),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Grand Total Price:',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    ),
+                                    Text(
+                                      '₹${grandTotal.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppTheme.secondaryColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }(),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  style: AppTheme.cancelButton,
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dCtx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  style: AppTheme.primaryButton,
+                  icon: isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_circle_outline, size: 18),
+                  label: Text(
+                    isSubmitting ? 'Saving...' : 'Save Procedure Item',
+                  ),
+                  onPressed: (isSubmitting || selectedProcName.trim().isEmpty)
+                      ? null
+                      : () async {
+                          setModalState(() => isSubmitting = true);
+
+                          final allConsumables = [
+                            if (selectedProc != null)
+                              ...selectedProc!.mappedConsumables,
+                            ...manualConsumables,
+                          ];
+                          final itemsPayload = allConsumables.map((m) {
+                            final customTotal =
+                                int.tryParse(
+                                  itemQtyCtrls[m.consumableName]?.text ?? '',
+                                ) ??
+                                (m.qtyPerProcedure * freqMultiplier);
+                            double uPrice = m.unitPrice;
+                            if (uPrice <= 0) {
+                              const defaultPriceMap = {
+                                'Diaper': 40.0,
+                                'Gloves': 15.0,
+                                'Disposable Sheet': 35.0,
+                                'Gauze': 10.0,
+                                'Dressing Pad': 25.0,
+                                'Syringe 5ml': 15.0,
+                                'Alcohol Swab': 5.0,
+                                'Antiseptic Solution 100ml': 50.0,
+                                'Sterile Bandage': 20.0,
+                                'IV Cannula 20G': 65.0,
+                                'Adhesive Tape': 15.0,
+                              };
+                              uPrice = defaultPriceMap[m.consumableName] ?? 20.0;
+                            }
+
+                            return {
+                              'consumable_name': m.consumableName,
+                              'qty_per_procedure': m.qtyPerProcedure,
+                              'unit': m.unit,
+                              'unit_price': uPrice,
+                              'frequency_multiplier': freqMultiplier,
+                              'duration_days': 1,
+                              'total_qty': customTotal,
+                            };
+                          }).toList();
+
+                          final success = await controller
+                              .recordProcedure(visit.id, {
+                                'procedure_id':
+                                    (selectedProc != null &&
+                                        selectedProc!.id != 0)
+                                    ? selectedProc!.id
+                                    : null,
+                                'procedure_name': selectedProcName.trim(),
+                                'charge_per_procedure': chargePerProc,
+                                'frequency': selectedFreq,
+                                'frequency_multiplier': freqMultiplier,
+                                'duration_days': 1,
+                                'items': itemsPayload,
+                              });
+
+                          if (context.mounted && dCtx.mounted) {
+                            Navigator.pop(dCtx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  success
+                                      ? 'Procedure recorded successfully'
+                                      : (controller.errorMessage ??
+                                            'Failed to record procedure'),
+                                ),
+                                backgroundColor: success
+                                    ? AppTheme.secondaryColor
+                                    : AppTheme.dangerColor,
+                              ),
+                            );
+                          }
+                        },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   bool _isAllowedImageFormat(String filename) {
     if (!filename.contains('.')) return false;
     final ext = filename.split('.').last.toLowerCase();
-    const allowed = {
-      'jpg',
-      'jpeg',
-      'png',
-      'webp',
-      'heic',
-      'heif',
-      'bmp',
-      'gif',
-      'tiff',
-      'tif',
-      'svg',
-      'raw',
-      'dng',
-    };
+    const allowed = {'jpg', 'jpeg', 'png'};
     return allowed.contains(ext);
   }
 
@@ -276,21 +2203,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: [
-          'jpg',
-          'jpeg',
-          'png',
-          'webp',
-          'heic',
-          'heif',
-          'bmp',
-          'gif',
-          'tiff',
-          'tif',
-          'svg',
-          'raw',
-          'dng',
-        ],
+        allowedExtensions: ['jpg', 'jpeg', 'png'],
         withData: true,
       );
 
@@ -301,13 +2214,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             _selectedPhotoName = null;
             _selectedPhotoBytes = null;
             _photoFormatError =
-                'Invalid File Format! "${file.name}" is not a supported image format. Allowed: JPG, PNG, WEBP, HEIC, BMP, GIF, SVG, TIFF.';
+                'Invalid File Format! "${file.name}" is not a supported image format. Allowed: JPG, JPEG, PNG.';
           });
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'Invalid File Format! "${file.name}" is not a supported image file format.',
+                  'Invalid File Format! "${file.name}" is not supported. Allowed formats: JPG, JPEG, PNG.',
                 ),
                 backgroundColor: AppTheme.dangerColor,
                 duration: const Duration(seconds: 4),
@@ -458,7 +2371,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
         for (var item in list) {
           final name = item['name']?.toString() ?? '';
-          if (name.isNotEmpty) {
+          final category = item['category']?.toString().toLowerCase() ?? '';
+          final isMedicine =
+              RegExp(
+                r'\b(\d+mg|\d+mcg|tablet|capsule|syrup|paracetamol|amoxicillin|ibuprofen|metformin|amlodipine)\b',
+                caseSensitive: false,
+              ).hasMatch(name) ||
+              category.contains('pharmacy');
+
+          if (name.isNotEmpty && !isMedicine) {
             consNames.add(name);
             final p = double.tryParse(item['price']?.toString() ?? '');
             if (p != null && p > 0) {
@@ -746,6 +2667,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     _medRouteCtrl.dispose();
     _medQtyCtrl.dispose();
     _medPriceCtrl.dispose();
+    _medFrequencyCtrl.dispose();
+    _medDurationCtrl.dispose();
+    _medGivenTimeCtrl.dispose();
     _consNameCtrl.dispose();
     _consQtyCtrl.dispose();
     _consPriceCtrl.dispose();
@@ -1052,17 +2976,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         );
                         return;
                       }
-                      final success = await controller.submitCarriedItem(visit.id, {
-                        'item_type': _kitItemType,
-                        'item_name': name,
-                        'quantity_carried':
-                            int.tryParse(_kitItemQtyCtrl.text) ?? 1,
-                      });
+                      final success = await controller
+                          .submitCarriedItem(visit.id, {
+                            'item_type': _kitItemType,
+                            'item_name': name,
+                            'quantity_carried':
+                                int.tryParse(_kitItemQtyCtrl.text) ?? 1,
+                          });
                       if (success) {
                         _clearKitForm();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Kit item / device added successfully'),
+                            content: Text(
+                              'Kit item / device added successfully',
+                            ),
                             backgroundColor: Colors.green,
                           ),
                         );
@@ -1070,7 +2997,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              controller.errorMessage ?? 'Failed to add kit item',
+                              controller.errorMessage ??
+                                  'Failed to add kit item',
                             ),
                             backgroundColor: AppTheme.dangerColor,
                           ),
@@ -1095,12 +3023,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               });
                             },
                           ),
-                          if (_selectedKitDropdown == 'Other (Type Custom Kit Item...)') ...[
+                          if (_selectedKitDropdown ==
+                              'Other (Type Custom Kit Item...)') ...[
                             const SizedBox(height: 10),
                             TextFormField(
                               controller: _customKitNameCtrl,
                               decoration: AppTheme.standardInputDecoration(
-                                hintText: 'Enter Custom Kit Item / Device Name *',
+                                hintText:
+                                    'Enter Custom Kit Item / Device Name *',
                                 prefixIcon: Icons.edit_note,
                               ),
                             ),
@@ -1117,15 +3047,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             },
                             value: _kitItemType,
                             onChanged: (val) {
-                              if (val != null) setState(() => _kitItemType = val);
+                              if (val != null)
+                                setState(() => _kitItemType = val);
                             },
                           ),
                           const SizedBox(height: 10),
                           TextFormField(
                             controller: _kitItemQtyCtrl,
                             keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: AppTheme.standardInputDecoration(hintText: 'Quantity'),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: AppTheme.standardInputDecoration(
+                              hintText: 'Quantity',
+                            ),
                           ),
                           const SizedBox(height: 10),
                           SizedBox(
@@ -1159,14 +3094,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               },
                             ),
                           ),
-                          if (_selectedKitDropdown == 'Other (Type Custom Kit Item...)') ...[
+                          if (_selectedKitDropdown ==
+                              'Other (Type Custom Kit Item...)') ...[
                             const SizedBox(width: 10),
                             Expanded(
                               flex: 3,
                               child: TextFormField(
                                 controller: _customKitNameCtrl,
                                 decoration: AppTheme.standardInputDecoration(
-                                  hintText: 'Enter Custom Kit Item / Device Name *',
+                                  hintText:
+                                      'Enter Custom Kit Item / Device Name *',
                                   prefixIcon: Icons.edit_note,
                                 ),
                               ),
@@ -1186,7 +3123,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               },
                               value: _kitItemType,
                               onChanged: (val) {
-                                if (val != null) setState(() => _kitItemType = val);
+                                if (val != null)
+                                  setState(() => _kitItemType = val);
                               },
                             ),
                           ),
@@ -1195,8 +3133,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: TextFormField(
                               controller: _kitItemQtyCtrl,
                               keyboardType: TextInputType.number,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              decoration: AppTheme.standardInputDecoration(hintText: 'Qty'),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: AppTheme.standardInputDecoration(
+                                hintText: 'Qty',
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -1497,7 +3439,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Pulse Rate (bpm)'),
+                                _buildLabel('Pulse Rate (bpm) *'),
                                 TextFormField(
                                   controller: _pulseCtrl,
                                   keyboardType: TextInputType.number,
@@ -1512,6 +3454,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       size: 18,
                                     ),
                                   ),
+                                  validator: (val) {
+                                    if (val == null || val.trim().isEmpty) {
+                                      return 'Mandatory';
+                                    }
+                                    final n = int.tryParse(val.trim());
+                                    if (n == null || n < 30 || n > 250) {
+                                      return '30-250 bpm';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ],
                             ),
@@ -1564,7 +3516,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('SpO2 (%)'),
+                                _buildLabel('SpO2 (%) *'),
                                 TextFormField(
                                   controller: _spo2Ctrl,
                                   keyboardType: TextInputType.number,
@@ -1579,6 +3531,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       size: 18,
                                     ),
                                   ),
+                                  validator: (val) {
+                                    if (val == null || val.trim().isEmpty) {
+                                      return 'Mandatory';
+                                    }
+                                    final n = int.tryParse(val.trim());
+                                    if (n == null || n < 50 || n > 100) {
+                                      return '50-100 %';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ],
                             ),
@@ -2208,17 +4170,24 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       ),
     );
 
-    final totalVitals = visit.vitalsHistory.length;
+    final sortedVitals = List<HomeVisitVitals>.from(visit.vitalsHistory);
+    sortedVitals.sort((a, b) {
+      if (a.recordedAt == null) return 1;
+      if (b.recordedAt == null) return -1;
+      return b.recordedAt!.compareTo(a.recordedAt!);
+    });
+
+    final totalVitals = sortedVitals.length;
     final totalVitalsPages = (totalVitals == 0)
         ? 1
-        : ((totalVitals - 1) ~/ _pageSize) + 1;
+        : ((totalVitals - 1) ~/ _vitalsPageSize) + 1;
     final currentVitalsPage = _vitalsPage.clamp(1, totalVitalsPages);
-    final vitalsStartIdx = (currentVitalsPage - 1) * _pageSize;
-    final vitalsEndIdx = (vitalsStartIdx + _pageSize < totalVitals)
-        ? vitalsStartIdx + _pageSize
+    final vitalsStartIdx = (currentVitalsPage - 1) * _vitalsPageSize;
+    final vitalsEndIdx = (vitalsStartIdx + _vitalsPageSize < totalVitals)
+        ? vitalsStartIdx + _vitalsPageSize
         : totalVitals;
     final pageVitals = (vitalsStartIdx < totalVitals)
-        ? visit.vitalsHistory.sublist(vitalsStartIdx, vitalsEndIdx)
+        ? sortedVitals.sublist(vitalsStartIdx, vitalsEndIdx)
         : <HomeVisitVitals>[];
 
     final vitalsTableCard = Container(
@@ -2288,272 +4257,349 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 700),
-                    child: Table(
-                      defaultColumnWidth: const FlexColumnWidth(),
-                      defaultVerticalAlignment:
-                          TableCellVerticalAlignment.middle,
-                      children: [
-                        TableRow(
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEDF2F7),
-                            border: Border(
-                              bottom: BorderSide(color: Color(0xFFE2E8F0)),
-                            ),
-                          ),
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'Date & Time Recorded',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                              child: Text(
-                                'BP (mmHg)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                              child: Text(
-                                'Pulse (bpm)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                              child: Text(
-                                'Temp (°F)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                              child: Text(
-                                'SpO₂ (%)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                              child: Text(
-                                'Sugar (mg/dL)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                              child: Text(
-                                'Weight (kg)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                              child: Text(
-                                'Height (cm)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                          ],
+                child: LayoutBuilder(
+                  builder: (context, tableConstraints) {
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: tableConstraints.maxWidth > 0
+                              ? tableConstraints.maxWidth
+                              : 700,
                         ),
-                        for (int idx = 0; idx < pageVitals.length; idx++) ...[
-                          () {
-                            final v = pageVitals[idx];
-                            return TableRow(
-                              decoration: BoxDecoration(
-                                color: idx.isEven
-                                    ? Colors.white
-                                    : const Color(0xFFF8FAFC),
-                                border: idx < pageVitals.length - 1
-                                    ? const Border(
-                                        bottom: BorderSide(
-                                          color: Color(0xFFEDF2F7),
-                                        ),
-                                      )
-                                    : null,
+                        child: Table(
+                          defaultColumnWidth: const FlexColumnWidth(),
+                          defaultVerticalAlignment:
+                              TableCellVerticalAlignment.middle,
+
+                          children: [
+                            TableRow(
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFEDF2F7),
+                                border: Border(
+                                  bottom: BorderSide(color: Color(0xFFE2E8F0)),
+                                ),
                               ),
                               children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                    vertical: 6,
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 10,
                                   ),
-                                  child: Center(
-                                    child: _buildTimestampBadge(
-                                      v.recordedAt,
+                                  child: Text(
+                                    'Date & Time Recorded',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
                                       color: AppTheme.primaryColor,
                                     ),
                                   ),
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 10,
                                     vertical: 10,
                                   ),
                                   child: Text(
-                                    '${v.systolicBp ?? "--"} / ${v.diastolicBp ?? "--"}',
-                                    style: const TextStyle(
+                                    'Time Gap / Duration',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.primaryColor,
                                     ),
                                   ),
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 10,
                                     vertical: 10,
                                   ),
                                   child: Text(
-                                    v.pulseRate != null
-                                        ? '${v.pulseRate} bpm'
-                                        : '--',
-                                    style: const TextStyle(
+                                    'BP (mmHg)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: Colors.black87,
+                                      color: AppTheme.primaryColor,
                                     ),
                                   ),
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 10,
                                     vertical: 10,
                                   ),
                                   child: Text(
-                                    v.temperature != null
-                                        ? '${v.temperature} °F'
-                                        : '--',
-                                    style: const TextStyle(
+                                    'Pulse (bpm)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: Colors.black87,
+                                      color: AppTheme.primaryColor,
                                     ),
                                   ),
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 10,
                                     vertical: 10,
                                   ),
                                   child: Text(
-                                    v.spo2 != null ? '${v.spo2}%' : '--',
-                                    style: const TextStyle(
+                                    'Temp (°F)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: Colors.black87,
+                                      color: AppTheme.primaryColor,
                                     ),
                                   ),
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 10,
                                     vertical: 10,
                                   ),
                                   child: Text(
-                                    v.bloodSugar != null
-                                        ? '${v.bloodSugar} mg/dL'
-                                        : '--',
-                                    style: const TextStyle(
+                                    'SpO₂ (%)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: Colors.black87,
+                                      color: AppTheme.primaryColor,
                                     ),
                                   ),
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 10,
                                     vertical: 10,
                                   ),
                                   child: Text(
-                                    v.weight != null ? '${v.weight} kg' : '--',
-                                    style: const TextStyle(
+                                    'Sugar (mg/dL)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: Colors.black87,
+                                      color: AppTheme.primaryColor,
                                     ),
                                   ),
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 10,
                                     vertical: 10,
                                   ),
                                   child: Text(
-                                    v.height != null ? '${v.height} cm' : '--',
-                                    style: const TextStyle(
+                                    'Weight (kg)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: Colors.black87,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 10,
+                                  ),
+                                  child: Text(
+                                    'Height (cm)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: AppTheme.primaryColor,
                                     ),
                                   ),
                                 ),
                               ],
-                            );
-                          }(),
-                        ],
-                      ],
-                    ),
-                  ),
+                            ),
+                            for (
+                              int idx = 0;
+                              idx < pageVitals.length;
+                              idx++
+                            ) ...[
+                              () {
+                                final v = pageVitals[idx];
+                                return TableRow(
+                                  decoration: BoxDecoration(
+                                    color: idx.isEven
+                                        ? Colors.white
+                                        : const Color(0xFFF8FAFC),
+                                    border: idx < pageVitals.length - 1
+                                        ? const Border(
+                                            bottom: BorderSide(
+                                              color: Color(0xFFEDF2F7),
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                  children: [
+                                    () {
+                                      final gapStr = _formatTimeGap(
+                                        v,
+                                        sortedVitals,
+                                      );
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 10,
+                                        ),
+                                        child: _buildTimestampBadge(
+                                          v.recordedAt,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      );
+                                    }(),
+                                    () {
+                                      final gapStr = _formatTimeGap(
+                                        v,
+                                        sortedVitals,
+                                      );
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 10,
+                                        ),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: gapStr == 'Initial Entry'
+                                                ? AppTheme.primaryColor
+                                                      .withOpacity(0.08)
+                                                : const Color(0xFFFFF7ED),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                            border: Border.all(
+                                              color: gapStr == 'Initial Entry'
+                                                  ? AppTheme.primaryColor
+                                                        .withOpacity(0.3)
+                                                  : const Color(0xFFFDBA74),
+                                              width: 0.8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            gapStr,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: gapStr == 'Initial Entry'
+                                                  ? AppTheme.primaryColor
+                                                  : const Color(0xFFC2410C),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }(),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
+                                      child: Text(
+                                        '${v.systolicBp ?? "--"} / ${v.diastolicBp ?? "--"}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
+                                      child: Text(
+                                        v.pulseRate != null
+                                            ? '${v.pulseRate} bpm'
+                                            : '--',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
+                                      child: Text(
+                                        v.temperature != null
+                                            ? '${v.temperature} °F'
+                                            : '--',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
+                                      child: Text(
+                                        v.spo2 != null ? '${v.spo2}%' : '--',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
+                                      child: Text(
+                                        v.bloodSugar != null
+                                            ? '${v.bloodSugar} mg/dL'
+                                            : '--',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
+                                      child: Text(
+                                        v.weight != null
+                                            ? '${v.weight} kg'
+                                            : '--',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
+                                      child: Text(
+                                        v.height != null
+                                            ? '${v.height} cm'
+                                            : '--',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }(),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -2561,7 +4607,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             Wrap(
               alignment: WrapAlignment.spaceBetween,
               crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
+              spacing: 12,
               runSpacing: 8,
               children: [
                 Text(
@@ -2638,7 +4684,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ],
             ),
-
           ],
         ],
       ),
@@ -3173,6 +5218,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               DataColumn(
                 label: Text(
+                  'Time Gap / Duration',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              DataColumn(
+                label: Text(
                   'BP (mmHg)',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
@@ -3226,6 +5277,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 }
               }
 
+              final gapStr = _formatTimeGap(v, history);
               return DataRow(
                 cells: [
                   DataCell(
@@ -3234,6 +5286,36 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: gapStr == 'Initial Entry'
+                            ? AppTheme.primaryColor.withOpacity(0.08)
+                            : const Color(0xFFFFF7ED),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: gapStr == 'Initial Entry'
+                              ? AppTheme.primaryColor.withOpacity(0.3)
+                              : const Color(0xFFFDBA74),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        gapStr,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: gapStr == 'Initial Entry'
+                              ? AppTheme.primaryColor
+                              : const Color(0xFFC2410C),
+                        ),
                       ),
                     ),
                   ),
@@ -3892,7 +5974,46 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final todayStr =
         "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
 
+    final patientVisits =
+        controller.visits.where((v) => v.patientId == visit.patientId).toList()
+          ..sort((a, b) => a.scheduledDate.compareTo(b.scheduledDate));
+    int currentDayNumber =
+        patientVisits.indexWhere((v) => v.id == visit.id) + 1;
+    if (currentDayNumber <= 0) currentDayNumber = 1;
+
     final activeMedicines = visit.medicines.where((m) {
+      final isStat =
+          m.medicineType == 'STAT' ||
+          m.frequency == 'STAT' ||
+          (m.duration != null && m.duration!.contains('STAT'));
+
+      if (isStat) {
+        if (m.administeredAt != null && m.administeredAt!.isNotEmpty) {
+          try {
+            final formatted = m.administeredAt!.trim().replaceAll(' ', 'T');
+            final dt = DateTime.parse(formatted);
+            final recDate = dt.isUtc ? dt.toLocal() : dt;
+            final medDateStr =
+                "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
+            if (medDateStr != todayStr && medDateStr != visit.scheduledDate) {
+              return false;
+            }
+          } catch (_) {}
+        }
+        if (currentDayNumber > 1) {
+          bool administeredOnEarlierDay = false;
+          m.administeredDays.forEach((dayKey, isDone) {
+            final dayInt = int.tryParse(dayKey) ?? 1;
+            if (dayInt < currentDayNumber && isDone) {
+              administeredOnEarlierDay = true;
+            }
+          });
+          if (administeredOnEarlierDay) {
+            return false;
+          }
+        }
+      }
+
       if (m.administeredAt == null || m.administeredAt!.isEmpty) return true;
       try {
         final formatted = m.administeredAt!.trim().replaceAll(' ', 'T');
@@ -3920,219 +6041,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       }
     }).toList();
 
-    final medicinesFormCard = Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Add Medicines Administered',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _buildLabel('Medicine Name'),
-          CustomDropdownSearch(
-            label: '',
-            hint: 'Select or type medicine (e.g. Paracetamol)',
-            dropdownItems: _dbMedicines.isNotEmpty
-                ? _dbMedicines
-                : _defaultMedicines,
-            value: _medNameCtrl.text.isNotEmpty ? _medNameCtrl.text : null,
-            allowFreeText: true,
-            onChanged: (val) {
-              setState(() {
-                _medNameCtrl.text = val ?? '';
-                _updateMedicinePrice(val);
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLabel('Dosage'),
-                    TextFormField(
-                      controller: _medDosageCtrl,
-                      decoration: AppTheme.standardInputDecoration(
-                        hintText: 'Dosage (500mg)',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLabel('Qty'),
-                    TextFormField(
-                      controller: _medQtyCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: AppTheme.standardInputDecoration(
-                        hintText: 'Qty',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLabel('Unit Price ₹'),
-                    TextFormField(
-                      controller: _medPriceCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: AppTheme.standardInputDecoration(
-                        hintText: 'Price ₹',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: AppTheme.secondaryButton,
-              icon: const Icon(Icons.add_circle_outline, size: 18),
-              label: const Text('Add Medicine Item'),
-              onPressed: () async {
-                if (_medNameCtrl.text.trim().isEmpty) return;
-                final success = await controller.submitMedicine(visit.id, {
-                  'medicine_name': _medNameCtrl.text.trim(),
-                  'dosage': _medDosageCtrl.text.trim(),
-                  'route': 'Oral',
-                  'quantity': int.tryParse(_medQtyCtrl.text) ?? 1,
-                  'unit_price': double.tryParse(_medPriceCtrl.text) ?? 0.0,
-                });
-                if (success) {
-                  _clearMedForm();
-                }
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-
-    final consumablesFormCard = Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Add Consumables Used',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _buildLabel('Consumable Item'),
-          CustomDropdownSearch(
-            label: '',
-            hint: 'Select or type consumable (e.g. Sterile Bandage)',
-            dropdownItems: _dbConsumables.isNotEmpty
-                ? _dbConsumables
-                : _defaultConsumables,
-            value: _consNameCtrl.text.isNotEmpty ? _consNameCtrl.text : null,
-            allowFreeText: true,
-            onChanged: (val) {
-              setState(() {
-                _consNameCtrl.text = val ?? '';
-                _updateConsumablePrice(val);
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLabel('Qty Used'),
-                    TextFormField(
-                      controller: _consQtyCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: AppTheme.standardInputDecoration(
-                        hintText: 'Qty',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLabel('Unit Price ₹'),
-                    TextFormField(
-                      controller: _consPriceCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: AppTheme.standardInputDecoration(
-                        hintText: 'Price ₹',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: AppTheme.secondaryButton,
-              icon: const Icon(Icons.add_circle_outline, size: 18),
-              label: const Text('Add Consumable Item'),
-              onPressed: () async {
-                if (_consNameCtrl.text.trim().isEmpty) return;
-                final success = await controller.submitConsumable(visit.id, {
-                  'item_name': _consNameCtrl.text.trim(),
-                  'quantity_used': int.tryParse(_consQtyCtrl.text) ?? 1,
-                  'unit_price': double.tryParse(_consPriceCtrl.text) ?? 0.0,
-                });
-                if (success) {
-                  _clearConsForm();
-                }
-              },
-            ),
-          ),
-        ],
-      ),
-    );
+    if (_medGivenTimeCtrl.text.isEmpty) {
+      _medGivenTimeCtrl.text = _getCurrentFormattedTime();
+    }
 
     final totalMeds = activeMedicines.length;
     final totalMedsPages = (totalMeds == 0)
@@ -4171,8 +6082,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               const Text(
                 'Recorded Medicines History',
@@ -4182,23 +6096,53 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   color: AppTheme.primaryColor,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '$totalMeds Item(s)',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add, size: 15),
+                    label: const Text(
+                      'Add Medicine',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: () =>
+                        _showRecordMedicineModal(context, visit, controller),
                   ),
-                ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$totalMeds Item(s)',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -4214,282 +6158,230 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
             )
           else ...[
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Table(
-                    columnWidths: const {
-                      0: FlexColumnWidth(3.5),
-                      1: FlexColumnWidth(2.5),
-                      2: FlexColumnWidth(3.5),
-                      3: FlexColumnWidth(2.0),
-                    },
-                    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+            for (int idx = 0; idx < pageMedicines.length; idx++) ...[
+              () {
+                final m = pageMedicines[idx];
+                final isStat = m.medicineType == 'STAT';
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: idx.isEven ? Colors.white : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TableRow(
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFEDF2F7),
-                          border: Border(
-                            bottom: BorderSide(color: Color(0xFFE2E8F0)),
-                          ),
-                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            child: Text(
-                              'Medicine & Dosage',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
+                          Icon(
+                            isStat ? Icons.flash_on : Icons.medication,
+                            size: 20,
+                            color: isStat
+                                ? const Color(0xFFDD6B20)
+                                : AppTheme.primaryColor,
                           ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 8,
-                            ),
-                            child: Text(
-                              'Qty & Price',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 8,
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Recorded Date & Time',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                'Subtotal',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      for (int idx = 0; idx < pageMedicines.length; idx++) ...[
-                        () {
-                          final m = pageMedicines[idx];
-                          final dosageStr =
-                              (m.dosage != null && m.dosage!.isNotEmpty)
-                              ? ' (${m.dosage})'
-                              : '';
-                          return TableRow(
-                            decoration: BoxDecoration(
-                              color: idx.isEven
-                                  ? Colors.white
-                                  : const Color(0xFFF8FAFC),
-                              border: idx < pageMedicines.length - 1
-                                  ? const Border(
-                                      bottom: BorderSide(
-                                        color: Color(0xFFEDF2F7),
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                child: Row(
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
                                   children: [
-                                    const Icon(
-                                      Icons.medication,
-                                      size: 16,
-                                      color: AppTheme.primaryColor,
+                                    Text(
+                                      m.medicineName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
                                     ),
                                     const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        '${m.medicineName}$dosageStr',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13,
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isStat
+                                            ? const Color(0xFFFEEBC8)
+                                            : const Color(0xFFEBF8FF),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: isStat
+                                              ? const Color(0xFFFBD38D)
+                                              : const Color(0xFFBEE3F8),
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      child: Text(
+                                        m.medicineType,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: isStat
+                                              ? const Color(0xFFC05621)
+                                              : AppTheme.primaryColor,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 10,
-                                ),
-                                child: Text(
-                                  '${m.quantity} × ₹${m.unitPrice.toStringAsFixed(2)}',
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Dosage: ${m.dosage != null && m.dosage!.isNotEmpty ? m.dosage! : "Standard"} | Qty: ${m.quantity} | Freq: ${m.frequency != null && m.frequency!.isNotEmpty ? m.frequency! : "N/A"} | Duration: ${m.duration != null && m.duration!.isNotEmpty ? m.duration! : "N/A"}',
                                   style: const TextStyle(
                                     fontSize: 12,
-                                    color: Colors.black87,
+                                    color: Color(0xFF475569),
                                   ),
                                 ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 6,
-                                ),
-                                child: Center(
-                                  child: _buildTimestampBadge(
-                                    m.administeredAt,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text(
-                                    '₹${(m.quantity * m.unitPrice).toStringAsFixed(2)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: AppTheme.primaryColor,
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (m.givenTime != null &&
+                                  m.givenTime!.isNotEmpty)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.access_time,
+                                      size: 13,
+                                      color: AppTheme.secondaryColor,
                                     ),
-                                  ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      m.givenTime!,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.secondaryColor,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                              const SizedBox(height: 2),
+                              _buildTimestampBadge(
+                                m.administeredAt,
+                                color: AppTheme.primaryColor,
                               ),
                             ],
-                          );
-                        }(),
-                      ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _buildDailyDoseChecklist(
+                        medicine: m,
+                        visit: visit,
+                        controller: controller,
+                      ),
                     ],
                   ),
+                );
+              }(),
+            ],
+          ],
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Showing ${totalMeds == 0 ? 0 : medsStartIdx + 1}-$medsEndIdx of $totalMeds entries',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Showing ${totalMeds == 0 ? 0 : medsStartIdx + 1}-$medsEndIdx of $totalMeds entries',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        minimumSize: const Size(0, 32),
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: currentMedsPage > 1
-                          ? () => setState(() => _medsPage--)
-                          : null,
-                      icon: const Icon(Icons.chevron_left, size: 16),
-                      label: const Text(
-                        'Previous',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
-                        vertical: 4,
+                        vertical: 6,
                       ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Page $currentMedsPage of $totalMedsPages',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
-                        ),
+                      minimumSize: const Size(0, 32),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        minimumSize: const Size(0, 32),
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: currentMedsPage < totalMedsPages
-                          ? () => setState(() => _medsPage++)
-                          : null,
-                      icon: const Icon(Icons.chevron_right, size: 16),
-                      label: const Text('Next', style: TextStyle(fontSize: 12)),
+                    onPressed: currentMedsPage > 1
+                        ? () => setState(() => _medsPage--)
+                        : null,
+                    icon: const Icon(Icons.chevron_left, size: 16),
+                    label: const Text(
+                      'Previous',
+                      style: TextStyle(fontSize: 12),
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ],
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Page $currentMedsPage of $totalMedsPages',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      minimumSize: const Size(0, 32),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: currentMedsPage < totalMedsPages
+                        ? () => setState(() => _medsPage++)
+                        : null,
+                    icon: const Icon(Icons.chevron_right, size: 16),
+                    label: const Text('Next', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ],
       ),
     );
 
-    final consumablesTableCard = Container(
+    final displayProcedures =
+        List<HomeVisitProcedureModel>.from(visit.procedures)
+          ..sort((a, b) {
+            if (a.id != null && b.id != null && a.id != b.id) {
+              return b.id!.compareTo(a.id!);
+            }
+            if (a.createdAt != null && b.createdAt != null) {
+              return b.createdAt!.compareTo(a.createdAt!);
+            }
+            return 0;
+          });
+
+    final proceduresTableCard = Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -4499,41 +6391,75 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Recorded Consumables History',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '$totalCons Item(s)',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.secondaryColor,
+              const Row(
+                children: [
+                  Icon(
+                    Icons.history_edu_outlined,
+                    color: AppTheme.primaryColor,
+                    size: 20,
                   ),
-                ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Recorded Procedures History',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    style: AppTheme.primaryButton.copyWith(
+                      padding: WidgetStateProperty.all(
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      shape: WidgetStateProperty.all(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.medical_services_outlined, size: 16),
+                    label: const Text(
+                      'Add Procedure',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    onPressed: () =>
+                        _showRecordProcedureModal(context, visit, controller),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${displayProcedures.length} Procedure(s)',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          if (activeConsumables.isEmpty)
+          const SizedBox(height: 14),
+          if (displayProcedures.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(
                 child: Text(
-                  'No consumable items recorded yet.',
+                  'No procedure items recorded yet.',
                   style: TextStyle(color: Colors.grey, fontSize: 13),
                 ),
               ),
@@ -4553,8 +6479,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     columnWidths: const {
                       0: FlexColumnWidth(3.5),
                       1: FlexColumnWidth(2.5),
-                      2: FlexColumnWidth(3.5),
-                      3: FlexColumnWidth(2.0),
+                      2: FlexColumnWidth(2.2),
+                      3: FlexColumnWidth(2.5),
                     },
                     defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                     children: [
@@ -4572,7 +6498,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               vertical: 8,
                             ),
                             child: Text(
-                              'Consumable Item',
+                              'Procedure Name',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
@@ -4586,7 +6512,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               vertical: 8,
                             ),
                             child: Text(
-                              'Qty Used & Price',
+                              'Frequency',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
@@ -4599,14 +6525,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               horizontal: 8,
                               vertical: 8,
                             ),
-                            child: Center(
-                              child: Text(
-                                'Recorded Date & Time',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
+                            child: Text(
+                              'Charge/Proc',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: AppTheme.primaryColor,
                               ),
                             ),
                           ),
@@ -4618,7 +6542,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Align(
                               alignment: Alignment.centerRight,
                               child: Text(
-                                'Subtotal',
+                                'Total Charge',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -4631,17 +6555,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                       for (
                         int idx = 0;
-                        idx < pageConsumables.length;
+                        idx < displayProcedures.length;
                         idx++
                       ) ...[
                         () {
-                          final c = pageConsumables[idx];
+                          final p = displayProcedures[idx];
                           return TableRow(
                             decoration: BoxDecoration(
                               color: idx.isEven
                                   ? Colors.white
                                   : const Color(0xFFF8FAFC),
-                              border: idx < pageConsumables.length - 1
+                              border: idx < displayProcedures.length - 1
                                   ? const Border(
                                       bottom: BorderSide(
                                         color: Color(0xFFEDF2F7),
@@ -4658,14 +6582,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 child: Row(
                                   children: [
                                     const Icon(
-                                      Icons.clean_hands,
+                                      Icons.medical_services_outlined,
                                       size: 16,
-                                      color: AppTheme.secondaryColor,
+                                      color: AppTheme.primaryColor,
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        c.itemName,
+                                        p.procedureName,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w600,
                                           fontSize: 13,
@@ -4683,7 +6607,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   vertical: 10,
                                 ),
                                 child: Text(
-                                  '${c.quantityUsed} × ₹${c.unitPrice.toStringAsFixed(2)}',
+                                  p.frequency,
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Colors.black87,
@@ -4692,13 +6616,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               ),
                               Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 6,
+                                  horizontal: 8,
+                                  vertical: 10,
                                 ),
-                                child: Center(
-                                  child: _buildTimestampBadge(
-                                    c.createdAt,
-                                    color: AppTheme.secondaryColor,
+                                child: Text(
+                                  '₹${p.chargePerProcedure.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black87,
                                   ),
                                 ),
                               ),
@@ -4710,7 +6635,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 child: Align(
                                   alignment: Alignment.centerRight,
                                   child: Text(
-                                    '₹${(c.quantityUsed * c.unitPrice).toStringAsFixed(2)}',
+                                    '₹${p.totalProcedureCharge.toStringAsFixed(2)}',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
@@ -4728,83 +6653,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Showing ${totalCons == 0 ? 0 : consStartIdx + 1}-$consEndIdx of $totalCons entries',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        minimumSize: const Size(0, 32),
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: currentConsPage > 1
-                          ? () => setState(() => _consPage--)
-                          : null,
-                      icon: const Icon(Icons.chevron_left, size: 16),
-                      label: const Text(
-                        'Previous',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.secondaryColor.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Page $currentConsPage of $totalConsPages',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.secondaryColor,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        minimumSize: const Size(0, 32),
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: currentConsPage < totalConsPages
-                          ? () => setState(() => _consPage++)
-                          : null,
-                      icon: const Icon(Icons.chevron_right, size: 16),
-                      label: const Text('Next', style: TextStyle(fontSize: 12)),
-                    ),
-                  ],
-                ),
-              ],
-            ),
           ],
         ],
       ),
@@ -4815,9 +6663,69 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader(
-            'Log Administered Medicines & Used Consumables',
-            Icons.medication_liquid_outlined,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _buildSectionHeader(
+                'Log Administered Medicines & Procedures',
+                Icons.medication_liquid_outlined,
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text(
+                      'Add Medicine',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: () =>
+                        _showRecordMedicineModal(context, visit, controller),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.secondaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.medical_services_outlined, size: 18),
+                    label: const Text(
+                      'Add Procedure',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: () =>
+                        _showRecordProcedureModal(context, visit, controller),
+                  ),
+                ],
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           LayoutBuilder(
@@ -4827,43 +6735,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // LEFT SIDE: Input Forms (Increased width)
-                    Expanded(
-                      flex: 6,
-                      child: Column(
-                        children: [
-                          medicinesFormCard,
-                          const SizedBox(height: 20),
-                          consumablesFormCard,
-                        ],
-                      ),
-                    ),
+                    Expanded(child: medicinesTableCard),
                     const SizedBox(width: 20),
-                    // RIGHT SIDE: Entered History Tables (Reduced width)
-                    Expanded(
-                      flex: 6,
-                      child: Column(
-                        children: [
-                          medicinesTableCard,
-                          const SizedBox(height: 20),
-                          consumablesTableCard,
-                        ],
-                      ),
-                    ),
+                    Expanded(child: proceduresTableCard),
                   ],
                 );
               }
 
-              // Fallback for narrow screen widths
               return Column(
                 children: [
-                  medicinesFormCard,
-                  const SizedBox(height: 16),
                   medicinesTableCard,
-                  const SizedBox(height: 24),
-                  consumablesFormCard,
-                  const SizedBox(height: 16),
-                  consumablesTableCard,
+                  const SizedBox(height: 20),
+                  proceduresTableCard,
                 ],
               );
             },
@@ -4918,7 +6801,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           label: '',
                           hint: 'Select Photo Category',
                           dropdownMap: const {
-                            'Dressing Pre-Procedure': 'Pre-Dressing Wound Photo',
+                            'Dressing Pre-Procedure':
+                                'Pre-Dressing Wound Photo',
                             'Dressing Post-Procedure': 'Post-Dressing Photo',
                             'Care Activity': 'Care Activity Evidence',
                             'General Care': 'General Visit Photo',
@@ -4979,7 +6863,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   child: Text(
                                     _selectedPhotoName != null
                                         ? 'Selected: $_selectedPhotoName'
-                                        : 'Click to Browse & Upload Image (JPG, PNG, WEBP, HEIC)',
+                                        : 'Click to Browse & Upload Image (JPG, JPEG, PNG)',
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: _selectedPhotoName != null
@@ -5073,9 +6957,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         _buildLabel('Photo Notes / Caption (Optional)'),
                         TextFormField(
                           controller: _photoCaptionCtrl,
+                          maxLength: 250,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(250),
+                          ],
                           decoration: AppTheme.standardInputDecoration(
                             hintText:
-                                'e.g. Wound cleaned, dressing applied intact...',
+                                'e.g. Wound cleaned, dressing applied intact... (Max 250 chars)',
                           ),
                         ),
                       ],
@@ -5096,7 +6984,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               )
                             : const Icon(Icons.add_a_photo),
                         label: Text(
-                          _isUploadingPhoto ? 'Uploading...' : 'Upload Photo Evidence',
+                          _isUploadingPhoto
+                              ? 'Uploading...'
+                              : 'Upload Photo Evidence',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         onPressed: _isUploadingPhoto
@@ -5123,9 +7013,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         await MediaService.uploadToCloudinary(
                                           fileBytes: _selectedPhotoBytes!,
                                           fileName:
-                                              _selectedPhotoName ??
-                                              'photo.jpg',
-                                          folder: 'home_visits',
+                                              _selectedPhotoName ?? 'photo.jpg',
+                                          folder: 'Home Visit',
                                         );
                                   } catch (err) {
                                     debugPrint(
@@ -5154,8 +7043,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       content: Text(
                                         'Photo evidence uploaded to Cloudinary successfully!',
                                       ),
-                                      backgroundColor:
-                                          AppTheme.secondaryColor,
+                                      backgroundColor: AppTheme.secondaryColor,
                                     ),
                                   );
                                 }
@@ -5197,237 +7085,253 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   const SizedBox(height: 12),
                   LayoutBuilder(
                     builder: (context, gridConstraints) {
-                      final crossCount = gridConstraints.maxWidth < 400 ? 2
-                          : gridConstraints.maxWidth < 600 ? 3
+                      final crossCount = gridConstraints.maxWidth < 400
+                          ? 2
+                          : gridConstraints.maxWidth < 600
+                          ? 3
                           : 5;
                       return GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossCount,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 1.0,
-                            ),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossCount,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 1.0,
+                        ),
                         itemCount: visit.photos.length,
                         itemBuilder: (context, idx) {
+                          final p = visit.photos[idx];
+                          String timeStr = 'Just now';
+                          if (p.capturedAt != null) {
+                            try {
+                              final dt = DateTime.parse(
+                                p.capturedAt!,
+                              ).toLocal();
+                              int h = dt.hour % 12;
+                              if (h == 0) h = 12;
+                              final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+                              final m = dt.minute.toString().padLeft(2, '0');
+                              final day = dt.day.toString().padLeft(2, '0');
+                              final month = dt.month.toString().padLeft(2, '0');
+                              final year = dt.year;
+                              timeStr = '$day-$month-$year • $h:$m $ampm';
+                            } catch (_) {
+                              timeStr = p.capturedAt!;
+                            }
+                          }
 
-                      final p = visit.photos[idx];
-                      String timeStr = 'Just now';
-                      if (p.capturedAt != null) {
-                        try {
-                          final dt = DateTime.parse(p.capturedAt!).toLocal();
-                          int h = dt.hour % 12;
-                          if (h == 0) h = 12;
-                          final ampm = dt.hour >= 12 ? 'PM' : 'AM';
-                          final m = dt.minute.toString().padLeft(2, '0');
-                          final day = dt.day.toString().padLeft(2, '0');
-                          final month = dt.month.toString().padLeft(2, '0');
-                          final year = dt.year;
-                          timeStr = '$day-$month-$year • $h:$m $ampm';
-                        } catch (_) {
-                          timeStr = p.capturedAt!;
-                        }
-                      }
+                          final bool isNetworkImage =
+                              p.photoUrl.startsWith('http://') ||
+                              p.photoUrl.startsWith('https://');
 
-                      final bool isNetworkImage =
-                          p.photoUrl.startsWith('http://') ||
-                          p.photoUrl.startsWith('https://');
-
-                      return InkWell(
-                        onTap: () => _showFullImagePreviewDialog(context, p),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
+                          return InkWell(
+                            onTap: () =>
+                                _showFullImagePreviewDialog(context, p),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                            boxShadow: AppTheme.cardShadow,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Photo Thumbnail Image
-                              Expanded(
-                                child: ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(12),
-                                  ),
-                                  child: Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      if (isNetworkImage)
-                                        Image.network(
-                                          p.photoUrl,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (
-                                                context,
-                                                error,
-                                                stackTrace,
-                                              ) => Container(
-                                                color: const Color(0xFFF1F5F9),
-                                                child: const Column(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(
-                                                      Icons
-                                                          .broken_image_outlined,
-                                                      color: Colors.grey,
-                                                      size: 36,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                                boxShadow: AppTheme.cardShadow,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Photo Thumbnail Image
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(12),
+                                      ),
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          if (isNetworkImage)
+                                            Image.network(
+                                              p.photoUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (
+                                                    context,
+                                                    error,
+                                                    stackTrace,
+                                                  ) => Container(
+                                                    color: const Color(
+                                                      0xFFF1F5F9,
                                                     ),
-                                                    SizedBox(height: 4),
-                                                    Text(
-                                                      'Image unavailable',
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        color: Colors.grey,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                          loadingBuilder:
-                                              (
-                                                context,
-                                                child,
-                                                loadingProgress,
-                                              ) {
-                                                if (loadingProgress == null)
-                                                  return child;
-                                                return Container(
-                                                  color: const Color(
-                                                    0xFFF8FAFC,
-                                                  ),
-                                                  child: const Center(
-                                                    child: SizedBox(
-                                                      width: 20,
-                                                      height: 20,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                            strokeWidth: 2,
-                                                            color: AppTheme
-                                                                .primaryColor,
+                                                    child: const Column(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        Icon(
+                                                          Icons
+                                                              .broken_image_outlined,
+                                                          color: Colors.grey,
+                                                          size: 36,
+                                                        ),
+                                                        SizedBox(height: 4),
+                                                        Text(
+                                                          'Image unavailable',
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            color: Colors.grey,
                                                           ),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
-                                                );
-                                              },
-                                        )
-                                      else
-                                        Container(
-                                          color: const Color(0xFFF1F5F9),
-                                          child: const Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.photo_library_outlined,
-                                                color: AppTheme.primaryColor,
-                                                size: 36,
+                                              loadingBuilder:
+                                                  (
+                                                    context,
+                                                    child,
+                                                    loadingProgress,
+                                                  ) {
+                                                    if (loadingProgress == null)
+                                                      return child;
+                                                    return Container(
+                                                      color: const Color(
+                                                        0xFFF8FAFC,
+                                                      ),
+                                                      child: const Center(
+                                                        child: SizedBox(
+                                                          width: 20,
+                                                          height: 20,
+                                                          child:
+                                                              CircularProgressIndicator(
+                                                                strokeWidth: 2,
+                                                                color: AppTheme
+                                                                    .primaryColor,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                            )
+                                          else
+                                            Container(
+                                              color: const Color(0xFFF1F5F9),
+                                              child: const Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons
+                                                        .photo_library_outlined,
+                                                    color:
+                                                        AppTheme.primaryColor,
+                                                    size: 36,
+                                                  ),
+                                                  SizedBox(height: 4),
+                                                  Text(
+                                                    'Uploaded Evidence',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color:
+                                                          AppTheme.primaryColor,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                              SizedBox(height: 4),
-                                              Text(
-                                                'Uploaded Evidence',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppTheme.primaryColor,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-
-                                      // Zoom Icon Badge Overlay
-                                      Positioned(
-                                        bottom: 8,
-                                        right: 8,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black.withValues(
-                                              alpha: 0.5,
                                             ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.fullscreen,
-                                            color: Colors.white,
-                                            size: 18,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
 
-                              // Card Details Footer
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      p.category ?? 'Photo Evidence',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                        color: AppTheme.primaryColor,
+                                          // Zoom Icon Badge Overlay
+                                          Positioned(
+                                            bottom: 8,
+                                            right: 8,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.5,
+                                                ),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.fullscreen,
+                                                color: Colors.white,
+                                                size: 18,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      timeStr,
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                  ),
+
+                                  // Card Details Footer
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
                                     ),
-                                    if (p.caption != null &&
-                                        p.caption!.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        p.caption!,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontStyle: FontStyle.italic,
-                                          color: Colors.black87,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          p.category ?? 'Photo Evidence',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ],
-                                ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          timeStr,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.grey,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        if (p.caption != null &&
+                                            p.caption!.isNotEmpty) ...[
+                                          const SizedBox(height: 4),
+                                          Tooltip(
+                                            message: p.caption!,
+                                            child: Text(
+                                              p.caption!,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontStyle: FontStyle.italic,
+                                                color: Colors.black87,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
-              ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   // 6. Patient Attender Verification & Digital Signature Tab
   Widget _buildSignatureTab(
@@ -5968,6 +7872,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final todayStr =
         "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
 
+    final patientVisits =
+        controller.visits.where((v) => v.patientId == visit.patientId).toList()
+          ..sort((a, b) => a.scheduledDate.compareTo(b.scheduledDate));
+    int currentDayNumber =
+        patientVisits.indexWhere((v) => v.id == visit.id) + 1;
+    if (currentDayNumber <= 0) currentDayNumber = 1;
+
     // Filter vitals for TODAY / current scheduled session date ONLY
     final todayVitals = visit.vitalsHistory.where((v) {
       if (v.recordedAt == null || v.recordedAt!.isEmpty) return true;
@@ -5985,6 +7896,38 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
     // Filter medicines for TODAY / current scheduled session date ONLY
     final todayMedicines = visit.medicines.where((m) {
+      final isStat =
+          m.medicineType == 'STAT' ||
+          m.frequency == 'STAT' ||
+          (m.duration != null && m.duration!.contains('STAT'));
+
+      if (isStat) {
+        if (m.administeredAt != null && m.administeredAt!.isNotEmpty) {
+          try {
+            final formatted = m.administeredAt!.trim().replaceAll(' ', 'T');
+            final dt = DateTime.parse(formatted);
+            final recDate = dt.isUtc ? dt.toLocal() : dt;
+            final medDateStr =
+                "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
+            if (medDateStr != todayStr && medDateStr != visit.scheduledDate) {
+              return false;
+            }
+          } catch (_) {}
+        }
+        if (currentDayNumber > 1) {
+          bool administeredOnEarlierDay = false;
+          m.administeredDays.forEach((dayKey, isDone) {
+            final dayInt = int.tryParse(dayKey) ?? 1;
+            if (dayInt < currentDayNumber && isDone) {
+              administeredOnEarlierDay = true;
+            }
+          });
+          if (administeredOnEarlierDay) {
+            return false;
+          }
+        }
+      }
+
       if (m.administeredAt == null || m.administeredAt!.isEmpty) return true;
       try {
         final formatted = m.administeredAt!.trim().replaceAll(' ', 'T');
@@ -6255,8 +8198,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ),
                     _liveSummaryChip(
                       Icons.medication_liquid,
-                      'Meds & Consumables',
-                      '${todayMedicines.length} Meds / ${todayConsumables.length} Items Today',
+                      'Meds & Procedures',
+                      '${todayMedicines.length} Meds / ${visit.procedures.length} Procedures',
                       AppTheme.secondaryColor,
                     ),
                     _liveSummaryChip(
@@ -6521,19 +8464,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionHeader(
-                  '4. Today\'s Medicines & Consumables',
+                  '4. Today\'s Medicines & Recorded Procedures',
                   Icons.medication_liquid_outlined,
                 ),
                 const SizedBox(height: 12),
-                if (todayMedicines.isEmpty && todayConsumables.isEmpty)
+                if (todayMedicines.isEmpty && visit.procedures.isEmpty && todayConsumables.isEmpty)
                   const Text(
-                    'No medicines or consumables logged today in Meds & Consumables tab.',
+                    'No medicines or procedures logged today in Meds & Consumables tab.',
                     style: TextStyle(color: Colors.grey, fontSize: 13),
                   )
                 else ...[
                   if (todayMedicines.isNotEmpty) ...[
                     const Text(
-                      'Medicines Administered Today:',
+                      'Medicines Administered Today (No Billing Fee):',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
@@ -6545,15 +8488,36 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4.0),
                         child: Text(
-                          '• ${m.medicineName} (${m.dosage}) - Qty: ${m.quantity} | ₹${(m.unitPrice * m.quantity).toStringAsFixed(2)}',
+                          '• ${m.medicineName} (${m.dosage}) - Qty: ${m.quantity}',
                           style: const TextStyle(fontSize: 13),
                         ),
                       ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                   ],
-                  if (todayConsumables.isNotEmpty) ...[
+                  if (visit.procedures.isNotEmpty) ...[
                     const Text(
-                      'Consumables Used Today:',
+                      'Recorded Procedures & Consumables:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    for (final p in List<HomeVisitProcedureModel>.from(visit.procedures)
+                      ..sort((a, b) => (b.id != null && a.id != null && a.id != b.id)
+                          ? b.id!.compareTo(a.id!)
+                          : 0))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6.0),
+                        child: Text(
+                          '• ${p.procedureName} (${p.frequency}) - Charge: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                  ] else if (todayConsumables.isNotEmpty) ...[
+                    const Text(
+                      'Consumables Recorded Today:',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
@@ -7775,10 +9739,71 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     const SizedBox(height: 8),
                     for (final m in sessionMedicines)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 6.0),
-                        child: Text(
-                          '• ${m.medicineName} (${m.dosage}) - Qty: ${m.quantity} | ₹${(m.unitPrice * m.quantity).toStringAsFixed(2)}${(m.administeredAt != null && m.administeredAt!.isNotEmpty) ? " (${m.administeredAt!.split("T")[0]})" : ""}',
-                          style: const TextStyle(fontSize: 13),
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: m.medicineType == 'STAT'
+                                      ? const Color(0xFFFEEBC8)
+                                      : const Color(0xFFEBF8FF),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  m.medicineType,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: m.medicineType == 'STAT'
+                                        ? const Color(0xFFC05621)
+                                        : AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${m.medicineName}${m.dosage != null && m.dosage!.isNotEmpty ? " (${m.dosage})" : ""} - Qty: ${m.quantity}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Freq: ${m.frequency ?? "N/A"} | Duration: ${m.duration ?? "N/A"}${m.givenTime != null && m.givenTime!.isNotEmpty ? " | Given Time: ${m.givenTime}" : ""}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF475569),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    _buildDailyDoseChecklist(
+                                      medicine: m,
+                                      currentDayNumber: dayNumber,
+                                      visit: visit,
+                                      controller: controller,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     const SizedBox(height: 12),
@@ -8137,6 +10162,52 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     }
   }
 
+  String _formatTimeGap(
+    HomeVisitVitals current,
+    List<HomeVisitVitals> allVitals,
+  ) {
+    if (current.recordedAt == null || current.recordedAt!.isEmpty) return '--';
+    try {
+      final dtCurrent = DateTime.parse(current.recordedAt!).toLocal();
+
+      DateTime? dtPrevious;
+      for (var v in allVitals) {
+        if (v.recordedAt != null && v.recordedAt!.isNotEmpty) {
+          try {
+            final dt = DateTime.parse(v.recordedAt!).toLocal();
+            if (dt.isBefore(dtCurrent)) {
+              if (dtPrevious == null || dt.isAfter(dtPrevious)) {
+                dtPrevious = dt;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (dtPrevious == null) {
+        return 'Initial Entry';
+      }
+
+      final diff = dtCurrent.difference(dtPrevious);
+      if (diff.isNegative) return '--';
+
+      final hours = diff.inHours;
+      final minutes = diff.inMinutes % 60;
+
+      if (hours > 0 && minutes > 0) {
+        return '+$hours hr ${minutes} mins';
+      } else if (hours > 0) {
+        return '+$hours hr${hours > 1 ? "s" : ""}';
+      } else if (minutes > 0) {
+        return '+$minutes min${minutes > 1 ? "s" : ""}';
+      } else {
+        return '< 1 min';
+      }
+    } catch (_) {
+      return '--';
+    }
+  }
+
   Widget _buildTimestampBadge(
     String? rawDate, {
     Color color = AppTheme.primaryColor,
@@ -8155,44 +10226,37 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       timeStr = DateFormat('hh:mm a').format(dt);
     } catch (_) {}
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            dateStr,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          dateStr,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: color,
           ),
-          if (timeStr.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.access_time, size: 10, color: color),
-                const SizedBox(width: 3),
-                Text(
-                  timeStr,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
+        ),
+        if (timeStr.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.access_time, size: 11, color: Colors.grey.shade600),
+              const SizedBox(width: 3),
+              Text(
+                timeStr,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade700,
                 ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ],
-      ),
+      ],
     );
   }
 

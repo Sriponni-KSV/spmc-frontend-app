@@ -98,6 +98,22 @@ class HomeVisitService {
     }
   }
 
+  // Update medicine daily administration days checklist
+  Future<void> updateMedicineAdministeredDays(int visitId, int medId, Map<String, bool> days) async {
+    try {
+      final response = await ApiService.put(
+        '$baseUrl/home-visits/$visitId/medicines/$medId/administered-days',
+        {'administered_days': days},
+      );
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to update daily administration status');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
   // Record Carried Item
   Future<void> recordCarriedItem(int visitId, Map<String, dynamic> itemData) async {
     try {
@@ -221,6 +237,35 @@ class HomeVisitService {
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to discontinue home visit care');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Fetch Procedure Master Catalog List
+  Future<List<ProcedureMasterModel>> fetchProceduresMaster() async {
+    try {
+      final response = await ApiService.get('$baseUrl/home-visits/procedures-master');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true && body['data'] is List) {
+        return (body['data'] as List)
+            .map((item) => ProcedureMasterModel.fromJson(item))
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // Record Procedure Item
+  Future<void> recordProcedure(int visitId, Map<String, dynamic> procedureData) async {
+    try {
+      final response = await ApiService.post('$baseUrl/home-visits/$visitId/procedures', procedureData);
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to record procedure');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
