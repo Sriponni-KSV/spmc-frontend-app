@@ -337,9 +337,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _loadRbacData() {
-    setState(() {
-      _rbacFuture = _adminController.fetchRbacData();
-    });
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user?.role == 'Super Admin') {
+      setState(() {
+        _rbacFuture = _adminController.fetchRbacData();
+      });
+    }
   }
 
   void _showAddUserDialog(BuildContext context) {

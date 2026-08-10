@@ -17,7 +17,6 @@ import 'nurse_profile_view.dart';
 import 'opd_management.dart';
 import 'ipd_management.dart';
 import 'ot_management.dart';
-import 'mocdoc_appointments_view.dart';
 import 'home_visit_list_view.dart';
 import 'home_visit_execution_screen.dart';
 import '../controllers/home_visit_controller.dart';
@@ -488,7 +487,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 7:
         return OTManagementScreen(isMobile: isMobile);
       case 8:
-        return MocDocAppointmentsView();
+        return const AppointmentsView(initialViewMode: 'Doctor');
       case 9:
         if (_selectedHomeVisitId != null) {
           return HomeVisitExecutionScreen(
@@ -646,12 +645,6 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         _buildSidebarItem(
                           2,
                           Icons.calendar_today_outlined,
-                          'Appointments',
-                        ),
-                      if (user?.hasPermission('book_appointment') ?? false)
-                        _buildSidebarItem(
-                          8,
-                          Icons.edit_calendar_outlined,
                           'Appointments',
                         ),
                       _buildSidebarItem(

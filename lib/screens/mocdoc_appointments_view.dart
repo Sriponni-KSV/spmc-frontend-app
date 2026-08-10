@@ -12,7 +12,16 @@ import '../widgets/custom_dropdown_search.dart';
 import '../widgets/appointment_details_dialog.dart';
 
 class MocDocAppointmentsView extends StatefulWidget {
-  const MocDocAppointmentsView({Key? key}) : super(key: key);
+  final String? initialViewMode;
+  final ValueChanged<String>? onViewModeChanged;
+  final bool hideHeader;
+
+  const MocDocAppointmentsView({
+    Key? key,
+    this.initialViewMode,
+    this.onViewModeChanged,
+    this.hideHeader = false,
+  }) : super(key: key);
 
   @override
   State<MocDocAppointmentsView> createState() => _MocDocAppointmentsViewState();
@@ -67,7 +76,21 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialViewMode != null) {
+      _currentViewMode = widget.initialViewMode!;
+    }
     _fetchData();
+  }
+
+  @override
+  void didUpdateWidget(covariant MocDocAppointmentsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialViewMode != null &&
+        widget.initialViewMode != oldWidget.initialViewMode) {
+      setState(() {
+        _currentViewMode = widget.initialViewMode!;
+      });
+    }
   }
 
   @override
@@ -950,27 +973,28 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   @override
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!widget.hideHeader) _buildTopHeader(isMobile),
+        _buildFiltersRow(isMobile),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _errorMessage != null
+                  ? _buildErrorView()
+                  : _buildSelectedView(isMobile),
+        ),
+      ],
+    );
+
+    if (widget.hideHeader) {
+      return content;
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Top Header
-          _buildTopHeader(isMobile),
-
-          // Search & Mode Switcher Row
-          _buildFiltersRow(isMobile),
-
-          // Active View Content
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _errorMessage != null
-                ? _buildErrorView()
-                : _buildSelectedView(isMobile),
-          ),
-        ],
-      ),
+      body: content,
     );
   }
 
@@ -1047,6 +1071,13 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   }
 
   Widget _buildFiltersRow(bool isMobile) {
+    final modes = [
+      {'key': 'Table', 'label': 'Table View'},
+      {'key': 'Hospital View', 'label': 'Hospital View'},
+      {'key': 'Doctor View', 'label': 'Doctor View'},
+      {'key': 'Combo View', 'label': 'Both View'},
+    ];
+
     final switcherWidget = Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -1055,10 +1086,15 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: ['Doctor View', 'Hospital View', 'Combo View'].map((mode) {
-          final isSel = _currentViewMode == mode;
+        children: modes.map((m) {
+          final isSel = _currentViewMode == m['key'];
           return InkWell(
-            onTap: () => setState(() => _currentViewMode = mode),
+            onTap: () {
+              if (widget.onViewModeChanged != null) {
+                widget.onViewModeChanged!(m['key']!);
+              }
+              setState(() => _currentViewMode = m['key']!);
+            },
             borderRadius: BorderRadius.circular(8),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
@@ -1080,7 +1116,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                     : [],
               ),
               child: Text(
-                mode,
+                m['label']!,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -1143,6 +1179,24 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
         ],
       ),
     );
+
+    if (widget.hideHeader) {
+      if (isMobile) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: searchWidget,
+        );
+      }
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+        child: Row(
+          children: [
+            const Spacer(),
+            searchWidget,
+          ],
+        ),
+      );
+    }
 
     if (isMobile) {
       return Container(
