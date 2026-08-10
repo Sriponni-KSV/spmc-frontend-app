@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class HomeVisitCarriedItem {
   final int? id;
   final int? visitId;
@@ -126,6 +128,11 @@ class HomeVisitMedicine {
   final String? route;
   final int quantity;
   final double unitPrice;
+  final String medicineType;
+  final String? frequency;
+  final String? duration;
+  final String? givenTime;
+  final Map<String, bool> administeredDays;
   final String? administeredAt;
 
   HomeVisitMedicine({
@@ -135,17 +142,61 @@ class HomeVisitMedicine {
     this.route,
     this.quantity = 1,
     this.unitPrice = 0.0,
+    this.medicineType = 'Regular',
+    this.frequency,
+    this.duration,
+    this.givenTime,
+    this.administeredDays = const {},
     this.administeredAt,
   });
 
   factory HomeVisitMedicine.fromJson(Map<String, dynamic> json) {
+    Map<String, bool> parsedDays = {};
+    if (json['administered_days'] != null) {
+      try {
+        var raw = json['administered_days'];
+        if (raw is Map) {
+          raw.forEach((k, v) {
+            parsedDays[k.toString()] = v == true || v.toString() == 'true';
+          });
+        } else if (raw is String && raw.trim().isNotEmpty) {
+          String cleaned = raw.trim();
+          if (cleaned.startsWith("'") || cleaned.contains("'")) {
+            cleaned = cleaned.replaceAll("'", '"');
+          }
+          dynamic decoded = jsonDecode(cleaned);
+          if (decoded is String) {
+            decoded = jsonDecode(decoded);
+          }
+          if (decoded is Map) {
+            decoded.forEach((k, v) {
+              parsedDays[k.toString()] = v == true || v.toString() == 'true';
+            });
+          }
+        }
+      } catch (_) {
+        final matches = RegExp(r'''['"]?(\d+)['"]?\s*:\s*(true|1)''', caseSensitive: false)
+            .allMatches(json['administered_days'].toString());
+        for (final m in matches) {
+          if (m.group(1) != null) {
+            parsedDays[m.group(1)!] = true;
+          }
+        }
+      }
+    }
+
     return HomeVisitMedicine(
-      id: json['id'],
+      id: json['id'] != null ? int.tryParse(json['id'].toString()) : null,
       medicineName: json['medicine_name'] ?? '',
       dosage: json['dosage'],
       route: json['route'],
       quantity: json['quantity'] != null ? int.tryParse(json['quantity'].toString()) ?? 1 : 1,
       unitPrice: json['unit_price'] != null ? double.tryParse(json['unit_price'].toString()) ?? 0.0 : 0.0,
+      medicineType: json['medicine_type'] ?? 'Regular',
+      frequency: json['frequency'],
+      duration: json['duration'],
+      givenTime: json['given_time'],
+      administeredDays: parsedDays,
       administeredAt: json['administered_at'],
     );
   }
@@ -156,6 +207,11 @@ class HomeVisitMedicine {
         'route': route,
         'quantity': quantity,
         'unit_price': unitPrice,
+        'medicine_type': medicineType,
+        'frequency': frequency,
+        'duration': duration,
+        'given_time': givenTime,
+        'administered_days': administeredDays,
         'administered_at': administeredAt,
       };
 }
@@ -255,6 +311,7 @@ class HomeVisitModel {
   final List<HomeVisitCareActivities> careActivitiesHistory;
   final List<HomeVisitMedicine> medicines;
   final List<HomeVisitConsumable> consumables;
+  final List<HomeVisitProcedureModel> procedures;
   final List<HomeVisitPhotoEvidence> photos;
   final Map<String, dynamic>? invoice;
 
@@ -288,9 +345,80 @@ class HomeVisitModel {
     this.careActivitiesHistory = const [],
     this.medicines = const [],
     this.consumables = const [],
+    this.procedures = const [],
     this.photos = const [],
     this.invoice,
   });
+
+  HomeVisitModel copyWith({
+    int? id,
+    String? visitNumber,
+    int? patientId,
+    String? patientName,
+    String? patientDisplayId,
+    String? patientPhone,
+    int? patientAge,
+    String? patientGender,
+    int? nurseId,
+    String? nurseName,
+    String? scheduledDate,
+    String? scheduledTime,
+    String? startTime,
+    String? startNurseName,
+    String? status,
+    String? visitAddress,
+    String? attenderName,
+    String? attenderRelation,
+    String? attenderSignatureUrl,
+    String? signedAt,
+    String? notes,
+    List<HomeVisitCarriedItem>? carriedItems,
+    HomeVisitVitals? vitals,
+    List<HomeVisitVitals>? vitalsHistory,
+    VitalsScheduleStatusModel? vitalsScheduleStatus,
+    HomeVisitCareActivities? careActivities,
+    List<HomeVisitCareActivities>? careActivitiesHistory,
+    List<HomeVisitMedicine>? medicines,
+    List<HomeVisitConsumable>? consumables,
+    List<HomeVisitProcedureModel>? procedures,
+    List<HomeVisitPhotoEvidence>? photos,
+    Map<String, dynamic>? invoice,
+  }) {
+    return HomeVisitModel(
+      id: id ?? this.id,
+      visitNumber: visitNumber ?? this.visitNumber,
+      patientId: patientId ?? this.patientId,
+      patientName: patientName ?? this.patientName,
+      patientDisplayId: patientDisplayId ?? this.patientDisplayId,
+      patientPhone: patientPhone ?? this.patientPhone,
+      patientAge: patientAge ?? this.patientAge,
+      patientGender: patientGender ?? this.patientGender,
+      nurseId: nurseId ?? this.nurseId,
+      nurseName: nurseName ?? this.nurseName,
+      scheduledDate: scheduledDate ?? this.scheduledDate,
+      scheduledTime: scheduledTime ?? this.scheduledTime,
+      startTime: startTime ?? this.startTime,
+      startNurseName: startNurseName ?? this.startNurseName,
+      status: status ?? this.status,
+      visitAddress: visitAddress ?? this.visitAddress,
+      attenderName: attenderName ?? this.attenderName,
+      attenderRelation: attenderRelation ?? this.attenderRelation,
+      attenderSignatureUrl: attenderSignatureUrl ?? this.attenderSignatureUrl,
+      signedAt: signedAt ?? this.signedAt,
+      notes: notes ?? this.notes,
+      carriedItems: carriedItems ?? this.carriedItems,
+      vitals: vitals ?? this.vitals,
+      vitalsHistory: vitalsHistory ?? this.vitalsHistory,
+      vitalsScheduleStatus: vitalsScheduleStatus ?? this.vitalsScheduleStatus,
+      careActivities: careActivities ?? this.careActivities,
+      careActivitiesHistory: careActivitiesHistory ?? this.careActivitiesHistory,
+      medicines: medicines ?? this.medicines,
+      consumables: consumables ?? this.consumables,
+      procedures: procedures ?? this.procedures,
+      photos: photos ?? this.photos,
+      invoice: invoice ?? this.invoice,
+    );
+  }
 
   String get formattedScheduledDate {
     if (scheduledDate.isEmpty) return '';
@@ -351,6 +479,10 @@ class HomeVisitModel {
               ?.map((c) => HomeVisitConsumable.fromJson(c))
               .toList() ??
           [],
+      procedures: (json['procedures'] as List<dynamic>?)
+              ?.map((p) => HomeVisitProcedureModel.fromJson(p))
+              .toList() ??
+          [],
       photos: (json['photos'] as List<dynamic>?)
               ?.map((p) => HomeVisitPhotoEvidence.fromJson(p))
               .toList() ??
@@ -365,6 +497,116 @@ class HomeVisitModel {
                   'payment_status': json['invoice_payment_status'],
                 }
               : null),
+    );
+  }
+}
+
+class ProcedureConsumableMappingModel {
+  final int consumableId;
+  final String consumableName;
+  final String unit;
+  final double unitPrice;
+  final int qtyPerProcedure;
+
+  ProcedureConsumableMappingModel({
+    required this.consumableId,
+    required this.consumableName,
+    required this.unit,
+    this.unitPrice = 0.0,
+    required this.qtyPerProcedure,
+  });
+
+  factory ProcedureConsumableMappingModel.fromJson(Map<String, dynamic> json) {
+    return ProcedureConsumableMappingModel(
+      consumableId: json['consumable_id'] ?? 0,
+      consumableName: json['consumable_name'] ?? '',
+      unit: json['unit'] ?? 'Pc',
+      unitPrice: json['unit_price'] != null
+          ? double.tryParse(json['unit_price'].toString()) ?? 0.0
+          : 0.0,
+      qtyPerProcedure: json['qty_per_procedure'] != null
+          ? int.tryParse(json['qty_per_procedure'].toString()) ?? 1
+          : 1,
+    );
+  }
+}
+
+class ProcedureMasterModel {
+  final int id;
+  final String name;
+  final double procedureCharge;
+  final String status;
+  final List<ProcedureConsumableMappingModel> mappedConsumables;
+
+  ProcedureMasterModel({
+    required this.id,
+    required this.name,
+    required this.procedureCharge,
+    required this.status,
+    required this.mappedConsumables,
+  });
+
+  factory ProcedureMasterModel.fromJson(Map<String, dynamic> json) {
+    return ProcedureMasterModel(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      procedureCharge: json['procedure_charge'] != null
+          ? double.tryParse(json['procedure_charge'].toString()) ?? 0.0
+          : 0.0,
+      status: json['status'] ?? 'Active',
+      mappedConsumables: (json['mapped_consumables'] as List<dynamic>?)
+              ?.map((c) => ProcedureConsumableMappingModel.fromJson(c))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+class HomeVisitProcedureModel {
+  final int? id;
+  final int visitId;
+  final int? procedureId;
+  final String procedureName;
+  final double chargePerProcedure;
+  final String frequency;
+  final int frequencyMultiplier;
+  final int durationDays;
+  final double totalProcedureCharge;
+  final String? createdAt;
+
+  HomeVisitProcedureModel({
+    this.id,
+    required this.visitId,
+    this.procedureId,
+    required this.procedureName,
+    required this.chargePerProcedure,
+    required this.frequency,
+    required this.frequencyMultiplier,
+    required this.durationDays,
+    required this.totalProcedureCharge,
+    this.createdAt,
+  });
+
+  factory HomeVisitProcedureModel.fromJson(Map<String, dynamic> json) {
+    return HomeVisitProcedureModel(
+      id: json['id'] != null ? int.tryParse(json['id'].toString()) : null,
+      visitId: json['visit_id'] != null ? int.tryParse(json['visit_id'].toString()) ?? 0 : 0,
+      procedureId: json['procedure_id'] != null ? int.tryParse(json['procedure_id'].toString()) : null,
+      procedureName: json['procedure_name'] ?? '',
+      chargePerProcedure: json['charge_per_procedure'] != null
+          ? double.tryParse(json['charge_per_procedure'].toString()) ?? 0.0
+          : 0.0,
+      frequency: json['frequency'] ?? 'Once Daily',
+      frequencyMultiplier: json['frequency_multiplier'] != null
+          ? int.tryParse(json['frequency_multiplier'].toString()) ?? 1
+          : 1,
+      durationDays: json['duration_days'] != null
+          ? int.tryParse(json['duration_days'].toString()) ?? 1
+          : 1,
+      totalProcedureCharge: json['total_procedure_charge'] != null
+          ? double.tryParse(json['total_procedure_charge'].toString()) ?? 0.0
+          : 0.0,
+      createdAt: json['created_at'],
     );
   }
 }
