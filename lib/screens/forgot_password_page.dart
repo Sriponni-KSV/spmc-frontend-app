@@ -39,6 +39,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   int _currentStep = 0;
   bool _isLoading = false;
+  String? _emailErrorMessage;
   String? _otpErrorMessage;
 
   final AuthController _authController = AuthController();
@@ -64,7 +65,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     focusOut();
     if (_currentStep == 0) {
       if (_emailFormKey.currentState!.validate()) {
-        setState(() => _isLoading = true);
+        setState(() {
+          _isLoading = true;
+          _emailErrorMessage = null;
+        });
         try {
           await _authController.forgotPassword(_emailController.text.trim());
           if (!mounted) return;
@@ -85,13 +89,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           );
         } catch (e) {
           if (!mounted) return;
-          setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString().replaceAll('Exception: ', '')),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
+          final errorText = e.toString().replaceAll('Exception: ', '');
+          setState(() {
+            _isLoading = false;
+            _emailErrorMessage = errorText;
+          });
         }
       }
     } else if (_currentStep == 1) {
@@ -138,7 +140,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          context.go(AppRoutes.dashboard);
         } catch (e) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -392,6 +393,44 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               prefixIcon: Icon(Icons.email_outlined),
             ),
           ),
+          if (_emailErrorMessage != null) ...[
+            const SizedBox(height: 16),
+            Builder(
+              builder: (context) {
+                final isWarning = _emailErrorMessage!.toLowerCase().contains('inactive');
+                final alertColor = isWarning ? Colors.orange : Colors.red;
+                final bgColor = isWarning ? Colors.orange.shade50 : Colors.red.shade50;
+                final borderColor = isWarning ? Colors.orange.shade200 : Colors.red.shade200;
+                final icon = isWarning ? Icons.info_outline : Icons.error_outline;
+
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(icon, color: alertColor, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _emailErrorMessage!,
+                          style: TextStyle(
+                            color: alertColor.withOpacity(0.9),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
           const SizedBox(height: 32),
           ElevatedButton(
             onPressed: _isLoading ? null : _nextStep,

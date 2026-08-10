@@ -49,13 +49,8 @@ class AppRouter {
           return null; // Stay on public screen
         }
 
-        // 2. Authenticated Users attempting to access public routes: Redirect to Dashboard
-        if (goingToPublic) {
-          return AppRoutes.dashboard;
-        }
-
-        // 3. Central common route: Redirect to role-specific dashboard
-        if (state.matchedLocation == AppRoutes.dashboard) {
+        // 2. Authenticated Users attempting to access public routes or generic /dashboard: Redirect directly to role dashboard
+        if (goingToPublic || state.matchedLocation == AppRoutes.dashboard) {
           final role = authProvider.user!.role;
           if (role == 'Nurse' || role == 'Head Nurse') {
             return AppRoutes.nurseDashboard;
@@ -72,7 +67,7 @@ class AppRouter {
           } else if (role == 'Pharmacy') {
             return AppRoutes.pharmacyDashboard;
           } else {
-            return AppRoutes.doctorDashboard; // Default to Doctor dashboard
+            return AppRoutes.doctorDashboard;
           }
         }
 
