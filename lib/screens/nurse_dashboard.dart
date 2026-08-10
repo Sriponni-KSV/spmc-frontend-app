@@ -17,7 +17,6 @@ import 'nurse_profile_view.dart';
 import 'opd_management.dart';
 import 'ipd_management.dart';
 import 'ot_management.dart';
-import 'mocdoc_appointments_view.dart';
 import 'home_visit_list_view.dart';
 import 'home_visit_execution_screen.dart';
 import '../controllers/home_visit_controller.dart';
@@ -36,6 +35,8 @@ class NurseDashboardScreen extends StatefulWidget {
   final PatientModel? existingPatient;
   final PatientModel? viewPatient;
   final bool isEditingProfile;
+  final int? selectedHomeVisitId;
+  final bool isReadOnlyHomeVisit;
   const NurseDashboardScreen({
     Key? key,
     this.initialIndex = 0,
@@ -44,6 +45,8 @@ class NurseDashboardScreen extends StatefulWidget {
     this.existingPatient,
     this.viewPatient,
     this.isEditingProfile = false,
+    this.selectedHomeVisitId,
+    this.isReadOnlyHomeVisit = false,
   }) : super(key: key);
 
   @override
@@ -53,6 +56,7 @@ class NurseDashboardScreen extends StatefulWidget {
 class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   int _selectedIndex = 0;
   int? _selectedHomeVisitId;
+  bool _isReadOnlyHomeVisit = false;
   bool _isRegisteringPatient = false;
   PatientModel? _patientToComplete;
   PatientModel? _viewPatient;
@@ -84,6 +88,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    _selectedHomeVisitId = widget.selectedHomeVisitId;
+    _isReadOnlyHomeVisit = widget.isReadOnlyHomeVisit;
     _isRegisteringPatient = widget.isRegisteringPatient;
     _patientToComplete = widget.existingPatient;
     _viewPatient = widget.viewPatient;
@@ -98,9 +104,13 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
         widget.forceBooking != oldWidget.forceBooking ||
         widget.existingPatient != oldWidget.existingPatient ||
-        widget.viewPatient != oldWidget.viewPatient) {
+        widget.viewPatient != oldWidget.viewPatient ||
+        widget.selectedHomeVisitId != oldWidget.selectedHomeVisitId ||
+        widget.isReadOnlyHomeVisit != oldWidget.isReadOnlyHomeVisit) {
       setState(() {
         _selectedIndex = widget.initialIndex;
+        _selectedHomeVisitId = widget.selectedHomeVisitId;
+        _isReadOnlyHomeVisit = widget.isReadOnlyHomeVisit;
         _isRegisteringPatient = widget.isRegisteringPatient;
         _patientToComplete = widget.existingPatient;
         _viewPatient = widget.viewPatient;
@@ -477,15 +487,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 7:
         return OTManagementScreen(isMobile: isMobile);
       case 8:
-        return MocDocAppointmentsView();
+        return const AppointmentsView(initialViewMode: 'Doctor');
       case 9:
         if (_selectedHomeVisitId != null) {
           return HomeVisitExecutionScreen(
             visitId: _selectedHomeVisitId!,
+            isReadOnlyView: _isReadOnlyHomeVisit,
             onBack: () {
               setState(() {
                 _selectedHomeVisitId = null;
+                _isReadOnlyHomeVisit = false;
               });
+              context.go(AppRoutes.nurseHomeVisits);
             },
           );
         }
@@ -493,7 +506,16 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           onExecuteVisit: (visitId) {
             setState(() {
               _selectedHomeVisitId = visitId;
+              _isReadOnlyHomeVisit = false;
             });
+            context.go('/nurse/home-visits/execute/$visitId');
+          },
+          onViewSummary: (visitId) {
+            setState(() {
+              _selectedHomeVisitId = visitId;
+              _isReadOnlyHomeVisit = true;
+            });
+            context.go('/nurse/home-visits/summary/$visitId');
           },
         );
       default:
@@ -623,12 +645,6 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         _buildSidebarItem(
                           2,
                           Icons.calendar_today_outlined,
-                          'Appointments',
-                        ),
-                      if (user?.hasPermission('book_appointment') ?? false)
-                        _buildSidebarItem(
-                          8,
-                          Icons.edit_calendar_outlined,
                           'Appointments',
                         ),
                       _buildSidebarItem(
@@ -807,73 +823,66 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
 
-        Expanded(
-          child: InkWell(
-            onTap: _showSearchOverlay,
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const ClipRect(
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.search,
-                      size: 18,
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Search anything...',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textSecondaryColor,
+        // Search — full bar on desktop, icon-only on mobile
+        if (!isMobile)
+          Expanded(
+            child: InkWell(
+              onTap: _showSearchOverlay,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const ClipRect(
+                  child: Row(
+                    children: [
+                      Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Search anything...',
+                          style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
 
-        const SizedBox(width: 16),
+        if (isMobile) const Spacer(),
+
+        if (isMobile)
+          IconButton(
+            icon: const Icon(Icons.search, color: Color(0xFF4A5568), size: 22),
+            tooltip: 'Search',
+            onPressed: _showSearchOverlay,
+          ),
+
+        SizedBox(width: isMobile ? 0 : 16),
         Stack(
           clipBehavior: Clip.none,
           children: [
-            const Icon(
-              Icons.notifications_none_outlined,
-              color: Color(0xFF4A5568),
-              size: 22,
-            ),
+            const Icon(Icons.notifications_none_outlined, color: Color(0xFF4A5568), size: 22),
             Positioned(
               right: -2,
               top: -2,
               child: Container(
                 padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE53E3E),
-                  shape: BoxShape.circle,
-                ),
+                decoration: const BoxDecoration(color: Color(0xFFE53E3E), shape: BoxShape.circle),
                 constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
                 child: const Text(
                   '3',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
               ),

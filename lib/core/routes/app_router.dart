@@ -49,13 +49,8 @@ class AppRouter {
           return null; // Stay on public screen
         }
 
-        // 2. Authenticated Users attempting to access public routes: Redirect to Dashboard
-        if (goingToPublic) {
-          return AppRoutes.dashboard;
-        }
-
-        // 3. Central common route: Redirect to role-specific dashboard
-        if (state.matchedLocation == AppRoutes.dashboard) {
+        // 2. Authenticated Users attempting to access public routes or generic /dashboard: Redirect directly to role dashboard
+        if (goingToPublic || state.matchedLocation == AppRoutes.dashboard) {
           final role = authProvider.user!.role;
           if (role == 'Nurse' || role == 'Head Nurse') {
             return AppRoutes.nurseDashboard;
@@ -72,7 +67,7 @@ class AppRouter {
           } else if (role == 'Pharmacy') {
             return AppRoutes.pharmacyDashboard;
           } else {
-            return AppRoutes.doctorDashboard; // Default to Doctor dashboard
+            return AppRoutes.doctorDashboard;
           }
         }
 
@@ -427,6 +422,34 @@ class AppRouter {
             key: ValueKey('nurse_dashboard'),
             child: NurseDashboardScreen(initialIndex: 9),
           ),
+        ),
+        GoRoute(
+          path: AppRoutes.nurseHomeVisitExecute,
+          pageBuilder: (context, state) {
+            final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+            return NoTransitionPage(
+              key: ValueKey('nurse_home_visit_execute_$id'),
+              child: NurseDashboardScreen(
+                initialIndex: 9,
+                selectedHomeVisitId: id,
+                isReadOnlyHomeVisit: false,
+              ),
+            );
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.nurseHomeVisitSummary,
+          pageBuilder: (context, state) {
+            final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+            return NoTransitionPage(
+              key: ValueKey('nurse_home_visit_summary_$id'),
+              child: NurseDashboardScreen(
+                initialIndex: 9,
+                selectedHomeVisitId: id,
+                isReadOnlyHomeVisit: true,
+              ),
+            );
+          },
         ),
 
         // --- Lab Protected Routes ---

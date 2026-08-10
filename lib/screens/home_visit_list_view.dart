@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../models/home_visit_model.dart';
 import '../models/patient_model.dart';
 import '../controllers/home_visit_controller.dart';
 import '../controllers/patient_controller.dart';
+import '../services/api_service.dart';
+import '../widgets/custom_dropdown_search.dart';
 import 'home_visit_execution_screen.dart';
 
 class HomeVisitListView extends StatefulWidget {
   final Function(int visitId)? onExecuteVisit;
+  final Function(int visitId)? onViewSummary;
 
-  const HomeVisitListView({super.key, this.onExecuteVisit});
+  const HomeVisitListView({super.key, this.onExecuteVisit, this.onViewSummary});
 
   @override
   State<HomeVisitListView> createState() => _HomeVisitListViewState();
@@ -51,9 +58,15 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       builder: (context, controller, child) {
         List<HomeVisitModel> visits = controller.visits;
         if (_selectedStatusFilter != 'All') {
-          visits = visits
-              .where((v) => v.status.toLowerCase() == _selectedStatusFilter.toLowerCase())
-              .toList();
+          if (_selectedStatusFilter == 'Completed') {
+            visits = visits
+                .where((v) => v.status.toLowerCase() == 'completed' || v.status.toLowerCase() == 'verified')
+                .toList();
+          } else {
+            visits = visits
+                .where((v) => v.status.toLowerCase() == _selectedStatusFilter.toLowerCase())
+                .toList();
+          }
         }
 
         return Container(
@@ -62,61 +75,147 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Page Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.home_work_outlined, color: AppTheme.primaryColor, size: 28),
-                      ),
-                      const SizedBox(width: 14),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Home Visit Care & Services',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimaryColor,
-                              fontFamily: 'Inter',
+              // Page Header — responsive
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 600;
+                  if (isNarrow) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.home_work_outlined, color: AppTheme.primaryColor, size: 24),
                             ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Home Visit Care & Services',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textPrimaryColor,
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                  Text(
+                                    'Manage patient home care & billing',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey, fontFamily: 'Inter'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                              tooltip: 'Refresh visits',
+                              onPressed: () {
+                                Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
+                                _fetchPatients();
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              height: 36,
+                              child: ElevatedButton.icon(
+                                style: AppTheme.dangerButton,
+                                icon: const Icon(Icons.add, color: Colors.white, size: 15),
+                                label: const Text(
+                                  'Schedule Home Visit',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                ),
+                                onPressed: () => _showScheduleVisitDialog(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.home_work_outlined, color: AppTheme.primaryColor, size: 28),
+                            ),
+                            const SizedBox(width: 14),
+                            const Flexible(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Home Visit Care & Services',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textPrimaryColor,
+                                      fontFamily: 'Inter',
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    'Manage patient home care, vitals, dressing & attender billing',
+                                    style: TextStyle(fontSize: 13, color: Colors.grey, fontFamily: 'Inter'),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                            tooltip: 'Refresh visits',
+                            onPressed: () {
+                              Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
+                              _fetchPatients();
+                            },
                           ),
-                          Text(
-                            'Manage patient home care, vitals, dressing procedures, kit items & attender billing',
-                            style: TextStyle(fontSize: 13, color: Colors.grey, fontFamily: 'Inter'),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: 36,
+                            child: ElevatedButton.icon(
+                              style: AppTheme.dangerButton,
+                              icon: const Icon(Icons.add, color: Colors.white, size: 15),
+                              label: const Text(
+                                'Schedule Home Visit',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                              ),
+                              onPressed: () => _showScheduleVisitDialog(context),
+                            ),
                           ),
                         ],
                       ),
                     ],
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
-                        tooltip: 'Refresh visits',
-                        onPressed: () {
-                          Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
-                          _fetchPatients();
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        style: AppTheme.primaryButton,
-                        icon: const Icon(Icons.add, color: Colors.white),
-                        label: const Text('Schedule Home Visit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        onPressed: () => _showScheduleVisitDialog(context),
-                      ),
-                    ],
-                  ),
-                ],
+                  );
+                },
               ),
               const SizedBox(height: 24),
 
@@ -124,7 +223,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: ['All', 'Scheduled', 'In-Progress', 'Verified'].map((status) {
+                  children: ['All', 'Scheduled', 'In-Progress', 'Completed', 'Cancelled'].map((status) {
                     final isSelected = _selectedStatusFilter == status;
                     return Padding(
                       padding: const EdgeInsets.only(right: 8.0),
@@ -208,111 +307,386 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
   }
 
   Widget _buildVisitCard(BuildContext context, HomeVisitModel visit) {
+    final bool canExecute = _isExecuteButtonEnabled(visit);
+
+    String effectiveStatus = visit.status == 'Verified' ? 'Completed' : visit.status;
+    if (canExecute && (visit.status == 'Verified' || visit.status == 'Completed')) {
+      effectiveStatus = 'Scheduled';
+    }
+
+    final now = DateTime.now();
+    final todayFormatted = "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}";
+    final String displayDate = (effectiveStatus == 'Scheduled' && canExecute) ? todayFormatted : visit.formattedScheduledDate;
+
     Color badgeBg = const Color(0xFFDBEAFE);
     Color badgeText = const Color(0xFF1E40AF);
 
-    if (visit.status == 'In-Progress') {
+    if (effectiveStatus == 'In-Progress') {
       badgeBg = const Color(0xFFFEF3C7);
       badgeText = const Color(0xFF92400E);
-    } else if (visit.status == 'Verified' || visit.status == 'Completed') {
+    } else if (effectiveStatus == 'Verified' || effectiveStatus == 'Completed') {
       badgeBg = const Color(0xFFDCFCE7);
       badgeText = const Color(0xFF166534);
+    } else if (effectiveStatus == 'Cancelled') {
+      badgeBg = const Color(0xFFFEE2E2);
+      badgeText = const Color(0xFF991B1B);
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: AppTheme.cardShadow,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-            child: const Icon(Icons.person, color: AppTheme.primaryColor, size: 28),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 560;
+
+          // Reusable execute button builder
+          Widget buildExecuteBtn({bool expanded = false}) => Builder(
+            builder: (context) {
+              final bool canExecute = _isExecuteButtonEnabled(visit);
+              final btn = ElevatedButton.icon(
+                style: canExecute
+                    ? AppTheme.dangerButton
+                    : ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFCBD5E1),
+                        foregroundColor: const Color(0xFF64748B),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                icon: Icon(canExecute ? Icons.medical_services_outlined : Icons.lock_clock_outlined, size: 15),
+                label: Text(
+                  'Execute Visit',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: canExecute ? Colors.white : const Color(0xFF64748B)),
+                ),
+                onPressed: canExecute
+                    ? () => _onExecuteVisitPressed(context, visit)
+                    : () {
+                        final String displayTime = (visit.scheduledTime == null || visit.scheduledTime == "10:00 AM") ? "9:00 AM" : visit.scheduledTime!;
+                        final String msg = (visit.status == 'Verified' || visit.status == 'Completed')
+                            ? 'This visit has already been ${visit.status.toLowerCase()}.'
+                            : 'Duty time has not started yet. Execute Visit unlocks at 8:50 AM (10 mins before $displayTime).';
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(msg), backgroundColor: AppTheme.primaryColor),
+                        );
+                      },
+              );
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(height: 36, child: expanded ? SizedBox(width: double.infinity, child: btn) : btn),
+                  if (!canExecute && visit.status != 'Verified' && visit.status != 'Completed')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text(
+                        'Unlocks 10m before ${(visit.scheduledTime == null || visit.scheduledTime == "10:00 AM") ? "9:00 AM" : visit.scheduledTime}',
+                        style: const TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                ],
+              );
+            },
+          );
+
+          // Wide-mode buttons (compact, natural size)
+          final wideButtons = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (visit.status != 'Cancelled') ...[
+                IconButton(
+                  icon: const Icon(Icons.do_not_disturb_on_outlined, color: AppTheme.dangerColor, size: 22),
+                  tooltip: 'Stop / Discontinue Care',
+                  onPressed: () => _showDiscontinueDialog(context, visit),
+                ),
+                const SizedBox(width: 4),
+              ],
+              SizedBox(
+                height: 36,
+                child: ElevatedButton.icon(
+                  style: AppTheme.primaryButton,
+                  icon: const Icon(Icons.visibility_outlined, size: 15),
+                  label: const Text('View Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  onPressed: () {
+                    if (widget.onViewSummary != null) {
+                      widget.onViewSummary!(visit.id);
+                    } else {
+                      context.go('/nurse/home-visits/summary/${visit.id}');
+                    }
+                  },
+                ),
+              ),
+              if (visit.status != 'Cancelled') ...[
+                const SizedBox(width: 8),
+                buildExecuteBtn(),
+              ],
+            ],
+          );
+
+          final String pIdStr = (visit.patientDisplayId != null && visit.patientDisplayId!.trim().isNotEmpty)
+              ? visit.patientDisplayId!
+              : 'ID: ${visit.patientId}';
+
+          // Patient info widget (shared)
+          Widget buildPatientInfo(double maxW) => Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                child: const Icon(Icons.person, color: AppTheme.primaryColor, size: 26),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          '${visit.patientName ?? "Patient"} ($pIdStr)',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(12)),
+                          child: Text(effectiveStatus, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: badgeText)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
                     Text(
-                      visit.patientName ?? 'Patient #${visit.patientId}',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                      'Visit #: ${visit.visitNumber} • Date: $displayDate (${(visit.scheduledTime == null || visit.scheduledTime == "10:00 AM") ? "9:00 AM" : visit.scheduledTime})',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(12)),
-                      child: Text(visit.status, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: badgeText)),
-                    ),
+                    if (visit.visitAddress != null && visit.visitAddress!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              visit.visitAddress!,
+                              style: const TextStyle(fontSize: 12, color: Colors.black87),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Visit #: ${visit.visitNumber} • Date: ${visit.scheduledDate} (${visit.scheduledTime ?? "10:00 AM"})',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                if (visit.visitAddress != null && visit.visitAddress!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
+              ),
+            ],
+          );
+
+          if (isNarrow) {
+            final bool canExecute = _isExecuteButtonEnabled(visit);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                buildPatientInfo(constraints.maxWidth),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    if (visit.status != 'Cancelled') ...[
+                      IconButton(
+                        icon: const Icon(Icons.do_not_disturb_on_outlined, color: AppTheme.dangerColor, size: 20),
+                        tooltip: 'Stop / Discontinue Care',
+                        onPressed: () => _showDiscontinueDialog(context, visit),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 40),
+                      ),
                       const SizedBox(width: 4),
+                    ],
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: AppTheme.primaryButton.copyWith(
+                          minimumSize: WidgetStateProperty.all(const Size(0, 40)),
+                          padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
+                        ),
+                        icon: const Icon(Icons.visibility_outlined, size: 14),
+                        label: const Text('View Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis),
+                        onPressed: () {
+                          if (widget.onViewSummary != null) {
+                            widget.onViewSummary!(visit.id);
+                          } else {
+                            context.go('/nurse/home-visits/summary/${visit.id}');
+                          }
+                        },
+                      ),
+                    ),
+                    if (visit.status != 'Cancelled') ...[
+                      const SizedBox(width: 6),
                       Expanded(
-                        child: Text(
-                          visit.visitAddress!,
-                          style: const TextStyle(fontSize: 12, color: Colors.black87),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        child: ElevatedButton.icon(
+                          style: (canExecute ? AppTheme.dangerButton : ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFCBD5E1),
+                            foregroundColor: const Color(0xFF64748B),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          )).copyWith(
+                            minimumSize: WidgetStateProperty.all(const Size(0, 40)),
+                            padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
+                          ),
+                          icon: Icon(canExecute ? Icons.medical_services_outlined : Icons.lock_clock_outlined, size: 14),
+                          label: Text(
+                            'Execute Visit',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: canExecute ? Colors.white : const Color(0xFF64748B)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onPressed: canExecute
+                              ? () => _onExecuteVisitPressed(context, visit)
+                              : () {
+                                  final String displayTime = (visit.scheduledTime == null || visit.scheduledTime == "10:00 AM") ? "9:00 AM" : visit.scheduledTime!;
+                                  final String msg = (visit.status == 'Verified' || visit.status == 'Completed')
+                                      ? 'This visit has already been ${visit.status.toLowerCase()}.'
+                                      : 'Duty time has not started yet. Unlocks at 8:50 AM (10 mins before $displayTime).';
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(msg), backgroundColor: AppTheme.primaryColor),
+                                  );
+                                },
                         ),
                       ),
                     ],
-                  ),
-                ],
+                  ],
+                ),
               ],
-            ),
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: buildPatientInfo(constraints.maxWidth)),
+              const SizedBox(width: 12),
+              wideButtons,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showDiscontinueDialog(BuildContext context, HomeVisitModel visit) {
+    String selectedReason = 'Patient Cured / Fully Recovered';
+    final notesCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.do_not_disturb_on_outlined, color: AppTheme.dangerColor, size: 26),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Stop / Discontinue Home Visit Care',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          SizedBox(
-            height: 46,
-            child: ElevatedButton.icon(
-              style: AppTheme.primaryButton,
-              icon: const Icon(Icons.medical_services_outlined, size: 18),
-              label: Text(visit.status == 'Verified' ? 'View Details' : 'Execute Visit'),
-              onPressed: () {
-                if (widget.onExecuteVisit != null) {
-                  widget.onExecuteVisit!(visit.id);
-                } else {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => HomeVisitExecutionScreen(visitId: visit.id),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Are you sure you want to stop/discontinue home visit care for ${visit.patientName ?? "Patient #${visit.patientId}"}?',
+                style: const TextStyle(fontSize: 13, color: Colors.black87),
+              ),
+              const SizedBox(height: 16),
+              const Text('Select Discontinuation Reason:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 6),
+              CustomDropdownSearch(
+                label: '',
+                hint: 'Select Reason',
+                dropdownMap: const {
+                  'Patient Cured / Fully Recovered': 'Patient Cured / Fully Recovered',
+                  'Patient / Attender Requested Discontinuation': 'Patient / Attender Requested Discontinuation',
+                  'Admitted to Hospital / IPD Care': 'Admitted to Hospital / IPD Care',
+                  'Doctor Advice / Care Plan Ended': 'Doctor Advice / Care Plan Ended',
+                  'Other Reason': 'Other Reason',
+                },
+                value: selectedReason,
+                onChanged: (val) {
+                  if (val != null) {
+                    setDialogState(() => selectedReason = val);
+                  }
+                },
+              ),
+              const SizedBox(height: 14),
+              const Text('Additional Notes / Remarks (Optional):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: notesCtrl,
+                maxLines: 2,
+                decoration: AppTheme.standardInputDecoration(hintText: 'Enter reason notes (e.g. Cured and recovered)...'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton.icon(
+              style: AppTheme.dangerButton,
+              icon: const Icon(Icons.check_circle_outline, size: 18),
+              label: const Text('Stop Care'),
+              onPressed: () async {
+                final homeVisitCtrl = Provider.of<HomeVisitController>(context, listen: false);
+                final success = await homeVisitCtrl.cancelVisit(visit.id, selectedReason, notesCtrl.text);
+                if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+
+                if (success && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Home visit care for ${visit.patientName ?? "Patient"} stopped/discontinued successfully.'),
+                      backgroundColor: AppTheme.secondaryColor,
                     ),
                   );
                 }
               },
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   void _showScheduleVisitDialog(BuildContext context) {
-    PatientModel? selectedPatient = _patientsList.isNotEmpty ? _patientsList.first : null;
+    final homeVisitCtrl = Provider.of<HomeVisitController>(context, listen: false);
+
+    final scheduledPatientIds = homeVisitCtrl.visits
+        .where((v) => v.status != 'Cancelled')
+        .map((v) => v.patientId)
+        .toSet();
+
+    final availablePatients = _patientsList
+        .where((p) => p.id != null && !scheduledPatientIds.contains(p.id))
+        .toList();
+
+    PatientModel? selectedPatient = availablePatients.isNotEmpty ? availablePatients.first : null;
     final addressCtrl = TextEditingController(
       text: selectedPatient != null && selectedPatient.fullAddress.isNotEmpty
           ? selectedPatient.fullAddress
           : (selectedPatient?.address ?? 'No. 12, Home Street, City'),
     );
-    final dateCtrl = TextEditingController(text: DateTime.now().toString().split(' ')[0]);
+    final now = DateTime.now();
+    final formattedNow = "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}";
+    final dateCtrl = TextEditingController(text: formattedNow);
 
     showDialog(
       context: context,
@@ -323,7 +697,12 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             children: [
               Icon(Icons.home_work, color: AppTheme.primaryColor),
               SizedBox(width: 10),
-              Text('Schedule New Home Visit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              Expanded(
+                child: Text(
+                  'Schedule New Home Visit',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
             ],
           ),
           content: Column(
@@ -343,34 +722,39 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     ],
                   ),
                 )
-              else if (_patientsList.isEmpty)
-                TextFormField(
-                  initialValue: '1',
-                  decoration: AppTheme.standardInputDecoration(hintText: 'Enter Patient ID'),
+              else if (availablePatients.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'All patients already have active home visits scheduled.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
                 )
               else
-                DropdownButtonFormField<PatientModel>(
-                  initialValue: selectedPatient,
-                  isExpanded: true,
-                  decoration: AppTheme.standardInputDecoration(),
-                  items: _patientsList.map((p) {
-                    final displayId = (p.patientId != null && p.patientId!.isNotEmpty) ? p.patientId! : 'ID: ${p.id}';
-                    return DropdownMenuItem<PatientModel>(
-                      value: p,
-                      child: Text(
-                        '${p.name} ($displayId)',
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                      ),
-                    );
-                  }).toList(),
+                CustomDropdownSearch(
+                  label: '',
+                  hint: 'Select Patient (Name & ID)',
+                  dropdownMap: {
+                    for (var p in availablePatients)
+                      p.id.toString(): '${p.name} (${(p.patientId != null && p.patientId!.isNotEmpty) ? p.patientId! : "ID: ${p.id}"})'
+                  },
+                  value: selectedPatient?.id.toString(),
                   onChanged: (val) {
-                    setDialogState(() {
-                      selectedPatient = val;
-                      if (val != null) {
-                        addressCtrl.text = val.fullAddress.isNotEmpty ? val.fullAddress : val.address;
-                      }
-                    });
+                    if (val != null) {
+                      final pId = int.tryParse(val);
+                      final found = availablePatients.firstWhere(
+                        (p) => p.id == pId,
+                        orElse: () => availablePatients.first,
+                      );
+                      setDialogState(() {
+                        selectedPatient = found;
+                        addressCtrl.text = found.fullAddress.isNotEmpty ? found.fullAddress : found.address;
+                      });
+                    }
                   },
                 ),
               const SizedBox(height: 16),
@@ -398,7 +782,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   );
                   if (picked != null) {
                     setDialogState(() {
-                      dateCtrl.text = picked.toString().split(' ')[0];
+                      dateCtrl.text = "${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}";
                     });
                   }
                 },
@@ -411,7 +795,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
-              style: AppTheme.primaryButton,
+              style: AppTheme.dangerButton,
               onPressed: () async {
                 final targetPatient = selectedPatient ?? (_patientsList.isNotEmpty ? _patientsList.first : null);
                 if (targetPatient == null || targetPatient.id == null) {
@@ -424,18 +808,35 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   return;
                 }
 
+                String apiDateStr = dateCtrl.text;
+                final dateParts = dateCtrl.text.split('-');
+                if (dateParts.length == 3 && dateParts[2].length == 4) {
+                  apiDateStr = "${dateParts[2]}-${dateParts[1]}-${dateParts[0]}";
+                }
+
                 final homeVisitCtrl = Provider.of<HomeVisitController>(context, listen: false);
+
+                // Prevent scheduling duplicate visit for same patient on same date
+                final bool existingSameDay = homeVisitCtrl.visits.any(
+                  (v) => v.patientId == targetPatient.id && v.scheduledDate == apiDateStr && v.status != 'Cancelled',
+                );
+
+                if (existingSameDay) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('⚠️ A home visit is already scheduled for ${targetPatient.name} on ${dateCtrl.text}. Only 1 visit per patient per day is allowed.'),
+                      backgroundColor: AppTheme.dangerColor,
+                      duration: const Duration(seconds: 4),
+                    ),
+                  );
+                  return;
+                }
                 final newVisit = await homeVisitCtrl.createVisit({
                   'patient_id': targetPatient.id,
-                  'scheduled_date': dateCtrl.text,
-                  'scheduled_time': '10:00 AM',
+                  'scheduled_date': apiDateStr,
+                  'scheduled_time': '9:00 AM',
                   'visit_address': addressCtrl.text,
-                  'carried_items': [
-                    {'item_type': 'Device', 'item_name': 'Digital BP Monitor', 'quantity_carried': 1},
-                    {'item_type': 'Device', 'item_name': 'Glucometer Kit', 'quantity_carried': 1},
-                    {'item_type': 'Medicine', 'item_name': 'Paracetamol 500mg', 'quantity_carried': 10},
-                    {'item_type': 'Consumable', 'item_name': 'Sterile Dressing Bandage', 'quantity_carried': 5},
-                  ],
+                  'carried_items': [],
                 });
 
                 if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
@@ -460,6 +861,253 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 }
               },
               child: const Text('Schedule Visit'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+
+  String _formatDateDDMMYYYY(String? dateStr) {
+    if (dateStr == null || dateStr.trim().isEmpty) return 'N/A';
+    final clean = dateStr.trim().split('T')[0].split(' ')[0];
+    final parts = clean.split('-');
+    if (parts.length == 3) {
+      if (parts[0].length == 4) {
+        return "${parts[2].padLeft(2, '0')}-${parts[1].padLeft(2, '0')}-${parts[0]}";
+      } else {
+        return "${parts[0].padLeft(2, '0')}-${parts[1].padLeft(2, '0')}-${parts[2]}";
+      }
+    }
+    return dateStr;
+  }
+
+  bool _isExecuteButtonEnabled(HomeVisitModel visit) {
+    if (visit.status == 'Verified' || visit.status == 'Completed') {
+      return false;
+    }
+    try {
+      final now = DateTime.now();
+      DateTime unlockTime = DateTime(now.year, now.month, now.day, 7, 0);
+
+      if (visit.scheduledDate.isNotEmpty) {
+        final dateParts = visit.scheduledDate.split('-');
+        if (dateParts.length == 3) {
+          int y, m, d;
+          if (dateParts[0].length == 4) {
+            y = int.parse(dateParts[0]);
+            m = int.parse(dateParts[1]);
+            d = int.parse(dateParts[2]);
+          } else {
+            d = int.parse(dateParts[0]);
+            m = int.parse(dateParts[1]);
+            y = int.parse(dateParts[2]);
+          }
+          unlockTime = DateTime(y, m, d, 7, 0);
+        }
+      }
+
+      return now.isAfter(unlockTime) || now.isAtSameMomentAs(unlockTime);
+    } catch (e) {
+      return true;
+    }
+  }
+
+  Widget _buildLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textPrimaryColor,
+        ),
+      ),
+    );
+  }
+
+  void _onExecuteVisitPressed(BuildContext context, HomeVisitModel visit) {
+    if (visit.startTime != null && visit.startTime!.trim().isNotEmpty) {
+      _navigateToExecuteScreen(context, visit.id);
+    } else {
+      _showStartHomeVisitDialog(context, visit);
+    }
+  }
+
+  void _navigateToExecuteScreen(BuildContext context, int visitId) {
+    if (widget.onExecuteVisit != null) {
+      widget.onExecuteVisit!(visitId);
+    } else {
+      context.go('/nurse/home-visits/execute/$visitId');
+    }
+  }
+
+  void _showStartHomeVisitDialog(BuildContext context, HomeVisitModel visit) {
+    final formKey = GlobalKey<FormState>();
+    final now = DateTime.now();
+    final defaultTime = DateFormat('hh:mm a').format(now);
+
+    final nurseCtrl = TextEditingController(text: visit.startNurseName ?? visit.nurseName ?? '');
+    final timeCtrl = TextEditingController(text: defaultTime);
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.play_circle_fill_outlined, color: AppTheme.primaryColor, size: 26),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Start Home Visit Session',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Record visit start time and executing nurse name before accessing patient vitals.',
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildLabel('Executing Nurse Name'),
+                    TextFormField(
+                      controller: nurseCtrl,
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(30),
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                      ],
+                      decoration: AppTheme.standardInputDecoration(
+                        hintText: 'Enter Nurse Full Name',
+                        prefixIcon: Icons.person_outline,
+                      ),
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) return 'Nurse name is required';
+                        if (val.trim().length < 3) return 'Nurse name must be at least 3 characters';
+                        if (val.trim().length > 30) return 'Nurse name cannot exceed 30 characters';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    _buildLabel('Visit Start Time'),
+                    TextFormField(
+                      controller: timeCtrl,
+                      readOnly: true,
+                      onTap: () async {
+                        final TimeOfDay? picked = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.now(),
+                        );
+                        if (picked != null) {
+                          final dt = DateTime(now.year, now.month, now.day, picked.hour, picked.minute);
+                          setDialogState(() {
+                            timeCtrl.text = DateFormat('hh:mm a').format(dt);
+                          });
+                        }
+                      },
+                      decoration: AppTheme.standardInputDecoration(
+                        hintText: 'Select Start Time',
+                        prefixIcon: Icons.access_time,
+                        suffixIcon: const Icon(Icons.arrow_drop_down, color: AppTheme.primaryColor),
+                      ),
+                      validator: (val) => (val == null || val.trim().isEmpty) ? 'Start time is required' : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            SizedBox(
+              height: 44,
+              child: OutlinedButton(
+                style: AppTheme.cancelButton,
+                onPressed: isSubmitting ? null : () => Navigator.of(dialogCtx).pop(),
+                child: const Text('Cancel'),
+              ),
+            ),
+            SizedBox(
+              height: 44,
+              child: ElevatedButton.icon(
+                style: AppTheme.primaryButton,
+                icon: isSubmitting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.arrow_forward, size: 16),
+                label: Text(isSubmitting ? 'Starting...' : 'Submit & Start Visit'),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        if (formKey.currentState?.validate() == true) {
+                          setDialogState(() => isSubmitting = true);
+                          try {
+                            final baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3001/api';
+                            final payload = {
+                              'start_time': timeCtrl.text.trim(),
+                              'nurse_name': nurseCtrl.text.trim(),
+                            };
+                            var res = await ApiService.put('$baseUrl/home-visits/${visit.id}/start', payload);
+                            var body = ApiService.decodeJsonResponse(res);
+                            if (body['success'] != true) {
+                              res = await ApiService.post('$baseUrl/home-visits/${visit.id}/start', payload);
+                              body = ApiService.decodeJsonResponse(res);
+                            }
+                            if (body['success'] != true) {
+                              res = await ApiService.post('$baseUrl/home-visits/${visit.id}/vitals', {
+                                'is_start_only': true,
+                                'start_time': timeCtrl.text.trim(),
+                                'nurse_name': nurseCtrl.text.trim(),
+                                'bypass_schedule': true,
+                              });
+                              body = ApiService.decodeJsonResponse(res);
+                            }
+                            if (body['success'] == true) {
+                              if (mounted) {
+                                Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
+                                Navigator.of(dialogCtx).pop();
+                                _navigateToExecuteScreen(context, visit.id);
+                              }
+                            } else {
+                              setDialogState(() => isSubmitting = false);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(body['message'] ?? 'Failed to record start time'),
+                                    backgroundColor: AppTheme.dangerColor,
+                                  ),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            setDialogState(() => isSubmitting = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error starting visit: $e'),
+                                  backgroundColor: AppTheme.dangerColor,
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
+              ),
             ),
           ],
         ),

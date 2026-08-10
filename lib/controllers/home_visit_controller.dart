@@ -105,6 +105,54 @@ class HomeVisitController with ChangeNotifier {
     }
   }
 
+  // Toggle Medicine Daily Dose Checklist Day
+  Future<bool> toggleMedicineDay(int visitId, int medId, Map<String, bool> days) async {
+    try {
+      if (_selectedVisit != null) {
+        for (var med in _selectedVisit!.medicines) {
+          if (med.id == medId) {
+            med.administeredDays.addAll(days);
+            break;
+          }
+        }
+        notifyListeners();
+      }
+      await _service.updateMedicineAdministeredDays(visitId, medId, days);
+      await fetchVisitDetails(visitId);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Record Carried Kit Item / Device
+  Future<bool> submitCarriedItem(int visitId, Map<String, dynamic> itemData) async {
+    try {
+      await _service.recordCarriedItem(visitId, itemData);
+      await fetchVisitDetails(visitId);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Remove Carried Kit Item / Device
+  Future<bool> removeCarriedItem(int visitId, int itemId) async {
+    try {
+      await _service.deleteCarriedItem(visitId, itemId);
+      await fetchVisitDetails(visitId);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
   // Record Consumable
   Future<bool> submitConsumable(int visitId, Map<String, dynamic> consData) async {
     try {
@@ -150,4 +198,84 @@ class HomeVisitController with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // Update Vitals Schedule Config
+  Future<bool> updateVitalsConfig(String startTime, String endTime, int intervalMinutes) async {
+    try {
+      await _service.updateVitalsConfig(startTime, endTime, intervalMinutes);
+      if (_selectedVisit != null) {
+        await fetchVisitDetails(_selectedVisit!.id);
+      }
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
+  List<ProcedureMasterModel> _proceduresMaster = [];
+  List<ProcedureMasterModel> get proceduresMaster => _proceduresMaster;
+
+  // Fetch Procedure Master List
+  Future<void> fetchProceduresMaster() async {
+    try {
+      _proceduresMaster = await _service.fetchProceduresMaster();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  // Record Procedure Item
+  Future<bool> recordProcedure(int visitId, Map<String, dynamic> procedureData) async {
+    try {
+      await _service.recordProcedure(visitId, procedureData);
+
+      if (_selectedVisit != null && _selectedVisit!.id == visitId) {
+        final charge = double.tryParse(procedureData['charge_per_procedure']?.toString() ?? '0') ?? 0.0;
+        final mult = int.tryParse(procedureData['frequency_multiplier']?.toString() ?? '1') ?? 1;
+        final newProc = HomeVisitProcedureModel(
+          visitId: visitId,
+          procedureId: procedureData['procedure_id'] != null ? int.tryParse(procedureData['procedure_id'].toString()) : null,
+          procedureName: procedureData['procedure_name'] ?? '',
+          chargePerProcedure: charge,
+          frequency: procedureData['frequency'] ?? 'Once Daily',
+          frequencyMultiplier: mult,
+          durationDays: int.tryParse(procedureData['duration_days']?.toString() ?? '1') ?? 1,
+          totalProcedureCharge: charge * mult,
+          createdAt: DateTime.now().toIso8601String(),
+        );
+
+        final updatedProcedures = List<HomeVisitProcedureModel>.from(_selectedVisit!.procedures)..insert(0, newProc);
+        _selectedVisit = _selectedVisit!.copyWith(procedures: updatedProcedures);
+        notifyListeners();
+      }
+
+      await fetchVisitDetails(visitId);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Cancel / Discontinue visit
+  Future<bool> cancelVisit(int visitId, String reason, String notes) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _service.cancelHomeVisit(visitId, reason, notes);
+      await fetchVisits();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }
+

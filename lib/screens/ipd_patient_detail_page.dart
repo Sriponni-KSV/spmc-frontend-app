@@ -883,12 +883,13 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                       AppRoutes.adminPatients,
                       false,
                     ),
-                    _buildSidebarItem(
-                      Icons.settings_suggest_outlined,
-                      'RBAC Settings',
-                      AppRoutes.adminSettings,
-                      false,
-                    ),
+                    if (_userRole == 'Super Admin')
+                      _buildSidebarItem(
+                        Icons.settings_suggest_outlined,
+                        'RBAC Settings',
+                        AppRoutes.adminSettings,
+                        false,
+                      ),
                     _buildSidebarItem(
                       Icons.calendar_today_outlined,
                       'Appointments',

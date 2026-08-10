@@ -50,8 +50,6 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Welcome back, ${user.fullname}!'), backgroundColor: AppTheme.primaryColor),
         );
-        
-        context.go(AppRoutes.dashboard);
       }
     } on RequiresPasswordChangeException catch (e) {
       if (mounted) {

@@ -39,6 +39,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
   String _catalogSearch = '';
   String _invoiceSearch = '';
   String _ipSearch = '';
+  String _homeCareStatusFilter = 'All';
 
   // For Pharmacy Billing
   String? _selectedPharmacyMedId;
@@ -64,7 +65,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     final role = user?.role;
     if (role != _currentRole) {
       _currentRole = role;
-      int tabLength = 4;
+      int tabLength = 5;
       if (role == 'Pharmacy') {
         tabLength = 3;
       } else if (role == 'Lab') {
@@ -133,6 +134,8 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
       } else if (tabIndex == 2) {
         _loadIpAdmissions();
       } else if (tabIndex == 3) {
+        _loadInvoices();
+      } else if (tabIndex == 4) {
         _loadCatalog();
       }
     }
@@ -258,12 +261,14 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
         Tab(icon: Icon(Icons.receipt_outlined), text: 'Quick Bill (OP)'),
         Tab(icon: Icon(Icons.history_outlined), text: 'OP Invoices'),
         Tab(icon: Icon(Icons.hotel_outlined), text: 'IP Billing'),
+        Tab(icon: Icon(Icons.home_work_outlined), text: 'Home Care'),
         Tab(icon: Icon(Icons.settings_outlined), text: 'Services Catalog'),
       ];
       tabViews = [
         _buildQuickBillTab(isMobile),
         _buildInvoicesTab(isMobile),
         _buildIpBillingTab(isMobile),
+        _buildHomeCareBillingTab(isMobile),
         _buildCatalogTab(isMobile),
       ];
     }
@@ -2178,6 +2183,227 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
       child: Text(
         status,
         style: TextStyle(color: text, fontWeight: FontWeight.bold, fontSize: 10),
+      ),
+    );
+  }
+
+  // Home Care Billing Tab for Front Desk & Billing Executives
+  Widget _buildHomeCareBillingTab(bool isMobile) {
+    final filtered = _invoices.where((inv) {
+      if (inv['admission_type'] != 'HomeVisit') return false;
+      final q = _invoiceSearch.toLowerCase();
+      final matchQuery = (inv['invoice_number'] ?? '').toString().toLowerCase().contains(q) ||
+          (inv['patient_name'] ?? '').toString().toLowerCase().contains(q) ||
+          (inv['patient_display_id'] ?? '').toString().toLowerCase().contains(q);
+
+      if (!matchQuery) return false;
+
+      if (_homeCareStatusFilter == 'Unpaid') {
+        return inv['payment_status'] == 'Unpaid' || inv['payment_status'] == 'Pending';
+      } else if (_homeCareStatusFilter == 'Paid') {
+        return inv['payment_status'] == 'Paid' || inv['payment_status'] == 'Settled';
+      }
+      return true;
+    }).toList();
+
+    double totalBilled = filtered.fold(0.0, (sum, inv) => sum + (double.tryParse(inv['net_amount'].toString()) ?? 0.0));
+    double totalPaid = filtered.fold(0.0, (sum, inv) => sum + (double.tryParse(inv['paid_amount'].toString()) ?? 0.0));
+    int unpaidCount = filtered.where((inv) => inv['payment_status'] != 'Paid' && inv['payment_status'] != 'Settled').length;
+
+    return Padding(
+      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Stat Cards Row
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildStatCard('Home Care Invoices', '${filtered.length}', Icons.receipt_long, AppTheme.primaryColor, isMobile),
+                const SizedBox(width: 12),
+                _buildStatCard('Total Billed Amount', '₹${totalBilled.toStringAsFixed(2)}', Icons.payments_outlined, AppTheme.secondaryColor, isMobile),
+                const SizedBox(width: 12),
+                _buildStatCard('Total Collected', '₹${totalPaid.toStringAsFixed(2)}', Icons.check_circle_outline, Colors.teal, isMobile),
+                const SizedBox(width: 12),
+                _buildStatCard('Pending Payment Bills', '$unpaidCount', Icons.pending_actions, AppTheme.dangerColor, isMobile),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Search & Filter Bar
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  onChanged: (val) => setState(() => _invoiceSearch = val),
+                  decoration: const InputDecoration(
+                    hintText: 'Search Home Care Invoices by Invoice #, Patient Name, or ID...',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _homeCareStatusFilter,
+                    items: ['All', 'Unpaid', 'Paid'].map((st) => DropdownMenuItem(value: st, child: Text('Status: $st', style: const TextStyle(fontSize: 13)))).toList(),
+                    onChanged: (val) {
+                      if (val != null) setState(() => _homeCareStatusFilter = val);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                onPressed: _loadInvoices,
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Invoices List
+          Expanded(
+            child: _isLoadingInvoices
+                ? const Center(child: CircularProgressIndicator())
+                : filtered.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.home_work_outlined, size: 48, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            Text('No Home Care daily verified invoices found.', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final inv = filtered[index];
+                          final double net = double.tryParse(inv['net_amount'].toString()) ?? 0.0;
+                          final double paid = double.tryParse(inv['paid_amount'].toString()) ?? 0.0;
+                          final String pStatus = inv['payment_status'] ?? 'Unpaid';
+                          final bool isPaid = pStatus == 'Paid' || pStatus == 'Settled';
+
+                          return Card(
+                            elevation: 0,
+                            color: Colors.white,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: const BorderSide(color: AppTheme.borderColor),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(Icons.home_work_rounded, color: AppTheme.primaryColor, size: 24),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(inv['invoice_number'] ?? 'INV-HV', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
+                                            const SizedBox(width: 10),
+                                            _buildPaymentStatusBadge(pStatus),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          'Patient: ${inv['patient_name'] ?? "N/A"} (${inv['patient_display_id'] ?? ""})',
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Service Date: ${inv['created_at'] != null ? DateFormat('dd-MMM-yyyy hh:mm a').format(DateTime.parse(inv['created_at']).toLocal()) : "Today"}',
+                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text('₹${net.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor)),
+                                      Text('Paid: ₹${paid.toStringAsFixed(2)}', style: TextStyle(color: isPaid ? Colors.green : Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          OutlinedButton.icon(
+                                            style: AppTheme.outlinedButton,
+                                            icon: const Icon(Icons.receipt_long, size: 14),
+                                            label: const Text('View Bill & Items', style: TextStyle(fontSize: 12)),
+                                            onPressed: () => _showInvoiceReceiptDialog(inv['id']),
+                                          ),
+                                          if (!isPaid) ...[
+                                            const SizedBox(width: 8),
+                                            ElevatedButton.icon(
+                                              style: AppTheme.primaryButton,
+                                              icon: const Icon(Icons.payments, size: 14),
+                                              label: const Text('Collect Payment', style: TextStyle(fontSize: 12)),
+                                              onPressed: () => _showInvoiceReceiptDialog(inv['id']),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String label, String value, IconData icon, Color color, bool isMobile) {
+    return Container(
+      width: isMobile ? 160 : 200,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 20, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+        ],
       ),
     );
   }

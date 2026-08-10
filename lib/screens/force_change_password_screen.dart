@@ -6,9 +6,9 @@ import '../core/routes/route_constants.dart';
 import '../utils/app_theme.dart';
 import '../utils/password_policy.dart';
 import '../controllers/auth_controller.dart';
-
 import '../providers/auth_provider.dart';
 import 'package:provider/provider.dart';
+import '../widgets/otp_input_widget.dart';
 
 class ForceChangePasswordScreen extends StatefulWidget {
   final String email;
@@ -28,15 +28,9 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
   int _currentStep = 0;
   bool _isLoading = false;
 
-  // OTP Fields
-  final List<TextEditingController> _otpControllers = List.generate(
-    6,
-    (index) => TextEditingController(),
-  );
-  final List<FocusNode> _otpFocusNodes = List.generate(
-    6,
-    (index) => FocusNode(),
-  );
+  // OTP
+  final GlobalKey<OtpInputWidgetState> _otpKey =
+      GlobalKey<OtpInputWidgetState>();
   String? _otpErrorMessage;
 
   // Resend Timer
@@ -77,12 +71,6 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
     _pageController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
-    for (var c in _otpControllers) {
-      c.dispose();
-    }
-    for (var f in _otpFocusNodes) {
-      f.dispose();
-    }
     super.dispose();
   }
 
@@ -122,7 +110,7 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
     focusOut();
 
     if (_currentStep == 0) {
-      String fullOtp = _otpControllers.map((c) => c.text).join();
+      String fullOtp = _otpKey.currentState?.otp ?? '';
       if (fullOtp.length < 6) {
         setState(() => _otpErrorMessage = 'Please enter all 6 digits.');
         return;
@@ -165,7 +153,6 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          context.go(AppRoutes.dashboard);
         } catch (e) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -213,70 +200,19 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
             ),
           ),
           const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(
-              6,
-              (index) => SizedBox(
-                width: 50,
-                height: 56,
-                child: TextFormField(
-                  controller: _otpControllers[index],
-                  focusNode: _otpFocusNodes[index],
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  maxLength: 1,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  decoration: InputDecoration(
-                    counterText: '',
-                    contentPadding: EdgeInsets.zero,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: AppTheme.primaryColor,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  onChanged: (value) {
-                    if (value.isNotEmpty) {
-                      if (index < 5) {
-                        _otpFocusNodes[index + 1].requestFocus();
-                      } else {
-                        focusOut();
-                        // Automatically verify OTP
-                        String fullOtp = _otpControllers.map((c) => c.text).join();
-                        if (fullOtp.length == 6) {
-                          _nextStep();
-                        }
-                      }
-                    } else if (value.isEmpty && index > 0) {
-                      _otpFocusNodes[index - 1].requestFocus();
-                    }
-                  },
-                ),
-              ),
-            ),
+          OtpInputWidget(
+            key: _otpKey,
+            errorMessage: _otpErrorMessage,
+            onChanged: () {
+              if (_otpErrorMessage != null) {
+                setState(() => _otpErrorMessage = null);
+              }
+            },
+            onCompleted: (_) {
+              // Auto-verify when all 6 digits entered.
+              _nextStep();
+            },
           ),
-          if (_otpErrorMessage != null) ...[
-            const SizedBox(height: 16),
-            Text(
-              _otpErrorMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.redAccent,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
           const SizedBox(height: 32),
           ElevatedButton(
             onPressed: _isLoading ? null : _nextStep,

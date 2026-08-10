@@ -337,9 +337,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _loadRbacData() {
-    setState(() {
-      _rbacFuture = _adminController.fetchRbacData();
-    });
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user?.role == 'Super Admin') {
+      setState(() {
+        _rbacFuture = _adminController.fetchRbacData();
+      });
+    }
   }
 
   void _showAddUserDialog(BuildContext context) {
@@ -959,7 +962,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 3:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.role == 'Super Admin') {
           return RbacManagementWidget(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
@@ -2232,11 +2235,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Icons.sick_outlined,
                     'Patients',
                   ),
-                  _buildSidebarItem(
-                    3,
-                    Icons.security_outlined,
-                    'Access Control (RBAC)',
-                  ),
+                  if (user?.role == 'Super Admin')
+                    _buildSidebarItem(
+                      3,
+                      Icons.security_outlined,
+                      'Access Control (RBAC)',
+                    ),
                   _buildSidebarItem(
                     4,
                     Icons.calendar_month_outlined,
@@ -2633,7 +2637,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       Icons.security_outlined,
       securityColor,
       isMobile,
-      () => context.go(AppRoutes.adminSettings),
+      () {
+        final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+        if (currentUser?.role == 'Super Admin') {
+          context.go(AppRoutes.adminSettings);
+        }
+      },
     );
 
     if (isMobile) {

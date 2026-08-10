@@ -98,13 +98,12 @@ class AuthProvider extends ChangeNotifier {
           _errorMessage = 'Invalid email or password.';
           break;
         case 'inactive':
-          _errorMessage = 'Your account is currently inactive. Please contact the administrator to regain access.';
+          _errorMessage = 'Your account is currently inactive. For further assistance, please contact the administrator.';
           break;
         case 'suspended':
-          _errorMessage = 'Your account has been suspended due to policy or security reasons. Please contact support for assistance.';
-          break;
+        case 'user_not_found':
         case 'deleted':
-          _errorMessage = 'This account is no longer available. Please contact the administrator if you believe this is an error.';
+          _errorMessage = 'User not found.';
           break;
         default:
           _errorMessage = err.isNotEmpty ? err : 'An unexpected error occurred. Please try again.';

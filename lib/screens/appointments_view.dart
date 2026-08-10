@@ -12,16 +12,20 @@ import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../controllers/appointment_controller.dart';
 import '../widgets/appointment_details_dialog.dart';
+import 'mocdoc_appointments_view.dart';
 
 class AppointmentsView extends StatefulWidget {
   final bool startWithBookingForm;
   final PatientModel? initialPatient;
   final UserModel? initialDoctor;
+  final String? initialViewMode;
+
   const AppointmentsView({
     super.key,
     this.startWithBookingForm = false,
     this.initialPatient,
     this.initialDoctor,
+    this.initialViewMode,
   });
 
   @override
@@ -29,6 +33,7 @@ class AppointmentsView extends StatefulWidget {
 }
 
 class _AppointmentsViewState extends State<AppointmentsView> {
+  String _currentViewMode = 'Table';
   String _selectedStatus = 'All Status';
   int _currentPage = 0;
   final int _itemsPerPage = 10;
@@ -76,6 +81,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialViewMode != null) {
+      _currentViewMode = _normalizeViewMode(widget.initialViewMode!);
+    }
     if (widget.startWithBookingForm) {
       _isBookingAppointment = true;
     }
@@ -83,6 +91,13 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     _reasonController.addListener(() {
       setState(() {});
     });
+  }
+
+  String _normalizeViewMode(String mode) {
+    if (mode.contains('Hospital')) return 'Hospital';
+    if (mode.contains('Doctor')) return 'Doctor';
+    if (mode.contains('Both') || mode.contains('Combo')) return 'Both';
+    return 'Table';
   }
 
   @override
@@ -475,6 +490,39 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
     if (_isBookingAppointment) {
       return _buildBookingForm(isMobile);
+    }
+
+    if (_currentViewMode != 'Table') {
+      final mocdocMode = _currentViewMode == 'Hospital'
+          ? 'Hospital View'
+          : (_currentViewMode == 'Doctor' ? 'Doctor View' : 'Combo View');
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              isMobile ? 16.0 : 24.0,
+              isMobile ? 16.0 : 24.0,
+              isMobile ? 16.0 : 24.0,
+              0,
+            ),
+            child: _buildHeader(isMobile),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: MocDocAppointmentsView(
+              initialViewMode: mocdocMode,
+              hideHeader: true,
+              onViewModeChanged: (mode) {
+                setState(() {
+                  _currentViewMode = _normalizeViewMode(mode);
+                });
+              },
+            ),
+          ),
+        ],
+      );
     }
 
     return SingleChildScrollView(
@@ -2295,6 +2343,62 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     );
   }
 
+  Widget _buildViewSwitcher() {
+    final modes = [
+      {'key': 'Table', 'label': 'Table View'},
+      {'key': 'Hospital', 'label': 'Hospital View'},
+      {'key': 'Doctor', 'label': 'Doctor View'},
+      {'key': 'Both', 'label': 'Both View'},
+    ];
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: modes.map((m) {
+          final isSel = _currentViewMode == m['key'];
+          return InkWell(
+            onTap: () => setState(() => _currentViewMode = m['key']!),
+            borderRadius: BorderRadius.circular(8),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: isSel ? Colors.white : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: isSel
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : [],
+              ),
+              child: Text(
+                m['label']!,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isSel
+                      ? AppTheme.primaryColor
+                      : AppTheme.textSecondaryColor,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildHeader(bool isMobile) {
     if (isMobile) {
       return Column(
@@ -2313,7 +2417,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             'Manage and schedule patient appointments',
             style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: _buildViewSwitcher(),
+          ),
+          const SizedBox(height: 12),
           ElevatedButton.icon(
             onPressed: () {
               final path = GoRouterState.of(context).matchedLocation;
@@ -2326,11 +2435,11 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               }
             },
             icon: const Icon(Icons.add, size: 20),
-            label: const Text('Books Appointment'),
+            label: const Text('Book Appointment'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 48),
+              minimumSize: const Size(double.infinity, 44),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -2341,53 +2450,60 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       );
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Appointments',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimaryColor,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Appointments',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Manage and schedule patient appointments',
+                  style: TextStyle(
+                    color: AppTheme.textSecondaryColor,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Manage and schedule patient appointments',
-              style: TextStyle(
-                color: AppTheme.textSecondaryColor,
-                fontSize: 14,
+            ElevatedButton.icon(
+              onPressed: () {
+                final path = GoRouterState.of(context).matchedLocation;
+                if (path.startsWith('/nurse')) {
+                  context.go(AppRoutes.nurseBookAppointment);
+                } else if (path.startsWith('/reception')) {
+                  context.go(AppRoutes.frontDeskBookAppointment);
+                } else {
+                  setState(() => _isBookingAppointment = true);
+                }
+              },
+              icon: const Icon(Icons.add, size: 20),
+              label: const Text('Book Appointment'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(180, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
               ),
             ),
           ],
         ),
-        ElevatedButton.icon(
-          onPressed: () {
-            final path = GoRouterState.of(context).matchedLocation;
-            if (path.startsWith('/nurse')) {
-              context.go(AppRoutes.nurseBookAppointment);
-            } else if (path.startsWith('/reception')) {
-              context.go(AppRoutes.frontDeskBookAppointment);
-            } else {
-              setState(() => _isBookingAppointment = true);
-            }
-          },
-          icon: const Icon(Icons.add, size: 20),
-          label: const Text('Book Appointment'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(180, 48),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            elevation: 0,
-          ),
-        ),
+        const SizedBox(height: 16),
+        _buildViewSwitcher(),
       ],
     );
   }

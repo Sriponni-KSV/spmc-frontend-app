@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../core/routes/route_constants.dart';
 import '../utils/password_policy.dart';
 import 'package:flutter/services.dart';
+import '../widgets/otp_input_widget.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);
@@ -23,22 +24,23 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _passwordFormKey = GlobalKey<FormState>();
 
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _otpController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
-  final List<TextEditingController> _otpControllers = List.generate(
-    6,
-    (_) => TextEditingController(),
-  );
-  final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
+  /// GlobalKey to access the OTP widget's state (read digits, clear, etc.)
+  final GlobalKey<OtpInputWidgetState> _otpKey =
+      GlobalKey<OtpInputWidgetState>();
 
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
 
+  /// Focus node to move cursor from new password to confirm password on Enter.
+  final FocusNode _confirmPasswordFocus = FocusNode();
+
   int _currentStep = 0;
   bool _isLoading = false;
+  String? _emailErrorMessage;
   String? _otpErrorMessage;
 
   final AuthController _authController = AuthController();
@@ -47,15 +49,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   void dispose() {
     _pageController.dispose();
     _emailController.dispose();
-    _otpController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
-    for (var c in _otpControllers) {
-      c.dispose();
-    }
-    for (var f in _otpFocusNodes) {
-      f.dispose();
-    }
+    _confirmPasswordFocus.dispose();
     super.dispose();
   }
 
@@ -64,7 +60,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     focusOut();
     if (_currentStep == 0) {
       if (_emailFormKey.currentState!.validate()) {
-        setState(() => _isLoading = true);
+        setState(() {
+          _isLoading = true;
+          _emailErrorMessage = null;
+        });
         try {
           await _authController.forgotPassword(_emailController.text.trim());
           if (!mounted) return;
@@ -85,17 +84,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           );
         } catch (e) {
           if (!mounted) return;
-          setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString().replaceAll('Exception: ', '')),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
+          final errorText = e.toString().replaceAll('Exception: ', '');
+          setState(() {
+            _isLoading = false;
+            _emailErrorMessage = errorText;
+          });
         }
       }
     } else if (_currentStep == 1) {
-      String fullOtp = _otpControllers.map((c) => c.text).join();
+      String fullOtp = _otpKey.currentState?.otp ?? '';
       if (fullOtp.length < 6) {
         setState(() => _otpErrorMessage = 'Please enter all 6 digits.');
         return;
@@ -138,7 +135,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          context.go(AppRoutes.dashboard);
         } catch (e) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -392,6 +388,44 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               prefixIcon: Icon(Icons.email_outlined),
             ),
           ),
+          if (_emailErrorMessage != null) ...[
+            const SizedBox(height: 16),
+            Builder(
+              builder: (context) {
+                final isWarning = _emailErrorMessage!.toLowerCase().contains('inactive');
+                final alertColor = isWarning ? Colors.orange : Colors.red;
+                final bgColor = isWarning ? Colors.orange.shade50 : Colors.red.shade50;
+                final borderColor = isWarning ? Colors.orange.shade200 : Colors.red.shade200;
+                final icon = isWarning ? Icons.info_outline : Icons.error_outline;
+
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(icon, color: alertColor, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _emailErrorMessage!,
+                          style: TextStyle(
+                            color: alertColor.withOpacity(0.9),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
           const SizedBox(height: 32),
           ElevatedButton(
             onPressed: _isLoading ? null : _nextStep,
@@ -467,75 +501,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           ),
           const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(6, (index) {
-              return SizedBox(
-                width: 48,
-                height: 56,
-                child: TextFormField(
-                  controller: _otpControllers[index],
-                  focusNode: _otpFocusNodes[index],
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  maxLength: 1,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  decoration: InputDecoration(
-                    counterText: '',
-                    contentPadding: EdgeInsets.zero,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: _otpErrorMessage != null
-                            ? Colors.redAccent
-                            : Colors.grey.shade400,
-                        width: _otpErrorMessage != null ? 2 : 1,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: _otpErrorMessage != null
-                            ? Colors.redAccent
-                            : AppTheme.primaryColor,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  onChanged: (value) {
-                    if (_otpErrorMessage != null) {
-                      setState(() => _otpErrorMessage = null);
-                    }
-                    if (value.isNotEmpty && index < 5) {
-                      _otpFocusNodes[index + 1].requestFocus();
-                    }
-                    if (value.isEmpty && index > 0) {
-                      _otpFocusNodes[index - 1].requestFocus();
-                    }
-                  },
-                  onFieldSubmitted: index == 5 ? (_) => _nextStep() : null,
-                ),
-              );
-            }),
+          OtpInputWidget(
+            key: _otpKey,
+            errorMessage: _otpErrorMessage,
+            onChanged: () {
+              if (_otpErrorMessage != null) {
+                setState(() => _otpErrorMessage = null);
+              }
+            },
+            onCompleted: (_) => _nextStep(),
           ),
-          if (_otpErrorMessage != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _otpErrorMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.redAccent,
-                fontSize: 13,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
           const SizedBox(height: 32),
           ElevatedButton(
             onPressed: _isLoading ? null : _nextStep,
@@ -552,6 +527,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                   )
                 : const Text('Verify OTP'),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => context.go(AppRoutes.login),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.textSecondaryColor,
+              overlayColor: Colors.transparent,
+              textStyle: const TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            child: const Text('Back to Login'),
           ),
         ],
       ),
@@ -614,6 +603,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             controller: _newPasswordController,
             obscureText: _obscureNewPassword,
             autovalidateMode: AutovalidateMode.onUserInteraction,
+            textInputAction: TextInputAction.next,
             style: const TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 14,
@@ -621,7 +611,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             validator: PasswordPolicy.validatePassword,
             maxLength: 16,
             inputFormatters: [LengthLimitingTextInputFormatter(16)],
-            onFieldSubmitted: (_) => _nextStep(),
+            onFieldSubmitted: (_) =>
+                FocusScope.of(context).requestFocus(_confirmPasswordFocus),
             decoration: InputDecoration(
               counterText: '',
               hintText: 'Enter New Password',
@@ -660,8 +651,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           const SizedBox(height: 8),
           TextFormField(
             controller: _confirmPasswordController,
+            focusNode: _confirmPasswordFocus,
             obscureText: _obscureConfirmPassword,
             autovalidateMode: AutovalidateMode.onUserInteraction,
+            textInputAction: TextInputAction.done,
             style: const TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 14,

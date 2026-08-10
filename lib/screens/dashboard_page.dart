@@ -137,6 +137,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _selectedIndex = widget.initialIndex;
     _isEditingProfile = widget.isEditingProfile;
     _activeAppointment = widget.activeAppointment;
+
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final hasTimings = user?.role != 'Doctor' || (
+        user?.doctorProfile?.slotStartTime != null &&
+        user!.doctorProfile!.slotStartTime!.isNotEmpty &&
+        user.doctorProfile?.slotEndTime != null &&
+        user.doctorProfile!.slotEndTime!.isNotEmpty &&
+        user.doctorProfile?.slotDuration != null &&
+        user.doctorProfile!.slotDuration!.isNotEmpty &&
+        user.doctorProfile?.availableDays != null &&
+        user.doctorProfile!.availableDays!.isNotEmpty
+    );
+    if (!hasTimings && widget.initialIndex == 0) {
+      _selectedIndex = 2;
+      _isEditingProfile = true;
+    }
+
     _initControllers();
     _fetchDoctorData();
     _fetchLabReports();
@@ -692,21 +709,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
     final user = Provider.of<AuthProvider>(context).user;
-
-    final hasTimings = user?.role != 'Doctor' || (
-        user?.doctorProfile?.slotStartTime != null &&
-        user!.doctorProfile!.slotStartTime!.isNotEmpty &&
-        user.doctorProfile?.slotEndTime != null &&
-        user.doctorProfile!.slotEndTime!.isNotEmpty &&
-        user.doctorProfile?.slotDuration != null &&
-        user.doctorProfile!.slotDuration!.isNotEmpty &&
-        user.doctorProfile?.availableDays != null &&
-        user.doctorProfile!.availableDays!.isNotEmpty
-    );
-    if (!hasTimings) {
-      _selectedIndex = 2;
-      _isEditingProfile = true;
-    }
 
     return Focus(
       focusNode: _mainFocusNode,
@@ -4664,124 +4666,128 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: isMobile ? 850 : null,
-              child: Column(
-                children: [
-                  // Table Rows Header
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    color: const Color(0xFFF7FAFC),
-                    child: Row(
-                      children: [
-                        Expanded(flex: 2, child: _buildTableHeaderText('TIME')),
-                        Expanded(flex: 2, child: _buildTableHeaderText('DATE')),
-                        Expanded(flex: 3, child: _buildTableHeaderText('PATIENT')),
-                        Expanded(flex: 2, child: _buildTableHeaderText('TYPE')),
-                        Expanded(flex: 3, child: _buildTableHeaderText('REASON')),
-                        Expanded(flex: 2, child: _buildTableHeaderText('STATUS')),
-                        Expanded(
-                          flex: 2,
-                          child: Align(
-                            alignment: Alignment.center,
-                            child: _buildTableHeaderText('ACTION'),
-                          ),
-                        ), // Action column for alignment
-                      ],
-                    ),
-                  ),
-
-                  if (_isLoading)
-                    const Padding(
-                      padding: EdgeInsets.all(32.0),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (filteredAppts.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(48.0),
-                      child: Center(
-                        child: Column(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final tableWidth = isMobile ? 850.0 : constraints.maxWidth;
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: tableWidth,
+                  child: Column(
+                    children: [
+                      // Table Rows Header
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        color: const Color(0xFFF7FAFC),
+                        child: Row(
                           children: [
-                            Icon(
-                              Icons.event_busy,
-                              size: 48,
-                              color: Colors.grey.withOpacity(0.3),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _selectedDate == null
-                                  ? 'No records found'
-                                  : 'No appointments for this date',
-                              style: const TextStyle(
-                                color: AppTheme.textSecondaryColor,
-                                fontSize: 14,
+                            Expanded(flex: 2, child: _buildTableHeaderText('TIME')),
+                            Expanded(flex: 2, child: _buildTableHeaderText('DATE')),
+                            Expanded(flex: 3, child: _buildTableHeaderText('PATIENT')),
+                            Expanded(flex: 2, child: _buildTableHeaderText('TYPE')),
+                            Expanded(flex: 3, child: _buildTableHeaderText('REASON')),
+                            Expanded(flex: 2, child: _buildTableHeaderText('STATUS')),
+                            Expanded(
+                              flex: 2,
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: _buildTableHeaderText('ACTION'),
                               ),
                             ),
-                            if (_selectedDate != null)
-                              TextButton(
-                                onPressed: () => setState(() => _selectedDate = null),
-                                child: const Text('View All Records'),
-                              ),
                           ],
                         ),
                       ),
-                    )
-                  else
-                    ...paginatedAppts.map((appt) {
-                      return Column(
-                        children: [
-                          _buildPatientTableRow(appt),
-                          const Divider(height: 1),
-                        ],
-                      );
-                    }).toList(),
-                ],
-              ),
-            ),
-          ),
 
-          if (totalPages > 1)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Showing ${startIndex + 1} to $endIndex of $totalItems entries',
-                    style: const TextStyle(
-                      color: AppTheme.textSecondaryColor,
-                      fontSize: 13,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.chevron_left),
-                        onPressed: _appointmentsCurrentPage > 0
-                            ? () => setState(() => _appointmentsCurrentPage--)
-                            : null,
-                      ),
-                      Text(
-                        'Page ${_appointmentsCurrentPage + 1} of $totalPages',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                      if (_isLoading)
+                        const Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (filteredAppts.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(48.0),
+                          child: Center(
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.event_busy,
+                                  size: 48,
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  _selectedDate == null
+                                      ? 'No records found'
+                                      : 'No appointments for this date',
+                                  style: const TextStyle(
+                                    color: AppTheme.textSecondaryColor,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                if (_selectedDate != null)
+                                  TextButton(
+                                    onPressed: () => setState(() => _selectedDate = null),
+                                    child: const Text('View All Records'),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        ...paginatedAppts.map((appt) {
+                          return Column(
+                            children: [
+                              _buildPatientTableRow(appt),
+                              const Divider(height: 1),
+                            ],
+                          );
+                        }).toList(),
+
+                      if (totalPages > 1)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Showing ${startIndex + 1} to $endIndex of $totalItems entries',
+                                style: const TextStyle(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_left),
+                                    onPressed: _appointmentsCurrentPage > 0
+                                        ? () => setState(() => _appointmentsCurrentPage--)
+                                        : null,
+                                  ),
+                                  Text(
+                                    'Page ${_appointmentsCurrentPage + 1} of $totalPages',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_right),
+                                    onPressed: _appointmentsCurrentPage < totalPages - 1
+                                        ? () => setState(() => _appointmentsCurrentPage++)
+                                        : null,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.chevron_right),
-                        onPressed: _appointmentsCurrentPage < totalPages - 1
-                            ? () => setState(() => _appointmentsCurrentPage++)
-                            : null,
-                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );

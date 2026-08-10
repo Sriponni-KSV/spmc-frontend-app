@@ -4,7 +4,7 @@ import 'api_service.dart';
 
 class HomeVisitService {
   String get baseUrl {
-    final url = dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api';
+    final url = dotenv.env['BASE_URL'] ?? 'http://localhost:3001/api';
     return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
   }
 
@@ -98,6 +98,55 @@ class HomeVisitService {
     }
   }
 
+  // Update medicine daily administration days checklist
+  Future<void> updateMedicineAdministeredDays(int visitId, int medId, Map<String, bool> days) async {
+    try {
+      final response = await ApiService.put(
+        '$baseUrl/home-visits/$visitId/medicines/$medId/administered-days',
+        {'administered_days': days},
+      );
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to update daily administration status');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Record Carried Item
+  Future<void> recordCarriedItem(int visitId, Map<String, dynamic> itemData) async {
+    try {
+      var response = await ApiService.post('$baseUrl/home-visits/$visitId/carried-items', itemData);
+      var body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        response = await ApiService.post('$baseUrl/home-visits/$visitId/care-activities', {
+          'is_carried_item': true,
+          'carried_item': itemData,
+        });
+        body = ApiService.decodeJsonResponse(response);
+      }
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to add kit item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Delete Carried Item
+  Future<void> deleteCarriedItem(int visitId, int itemId) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/home-visits/$visitId/carried-items/$itemId');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to delete kit item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
   // Record consumable item used
   Future<void> recordConsumable(int visitId, Map<String, dynamic> consData) async {
     try {
@@ -146,4 +195,81 @@ class HomeVisitService {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
     }
   }
+
+  // Update vitals schedule config
+  Future<void> updateVitalsConfig(String startTime, String endTime, int intervalMinutes) async {
+    try {
+      final response = await ApiService.put('$baseUrl/home-visits/vitals-config', {
+        'start_time': startTime,
+        'end_time': endTime,
+        'interval_minutes': intervalMinutes,
+      });
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to update vitals schedule configuration');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Get vitals status for a visit
+  Future<VitalsScheduleStatusModel> getVitalsScheduleStatus(int visitId) async {
+    try {
+      final response = await ApiService.get('$baseUrl/home-visits/$visitId/vitals-status');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true && body['data'] != null) {
+        return VitalsScheduleStatusModel.fromJson(body['data']);
+      }
+      throw Exception(body['message'] ?? 'Failed to fetch vitals status');
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Cancel / Discontinue home visit care
+  Future<void> cancelHomeVisit(int visitId, String reason, String notes) async {
+    try {
+      final response = await ApiService.put('$baseUrl/home-visits/$visitId/cancel', {
+        'reason': reason,
+        'notes': notes,
+      });
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to discontinue home visit care');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Fetch Procedure Master Catalog List
+  Future<List<ProcedureMasterModel>> fetchProceduresMaster() async {
+    try {
+      final response = await ApiService.get('$baseUrl/home-visits/procedures-master');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true && body['data'] is List) {
+        return (body['data'] as List)
+            .map((item) => ProcedureMasterModel.fromJson(item))
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // Record Procedure Item
+  Future<void> recordProcedure(int visitId, Map<String, dynamic> procedureData) async {
+    try {
+      final response = await ApiService.post('$baseUrl/home-visits/$visitId/procedures', procedureData);
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to record procedure');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
 }
+
