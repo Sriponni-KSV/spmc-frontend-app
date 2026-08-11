@@ -271,5 +271,126 @@ class HomeVisitService {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
     }
   }
+
+  // Fetch Consumables Master List
+  Future<List<Map<String, dynamic>>> fetchConsumablesMaster() async {
+    try {
+      final response = await ApiService.get('$baseUrl/home-visits/consumables-master');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true && body['data'] is List) {
+        return List<Map<String, dynamic>>.from(body['data']);
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // Create Procedure Master with Mapped Consumable Items
+  Future<void> createProcedureMaster(Map<String, dynamic> procedureData) async {
+    try {
+      final response = await ApiService.post('$baseUrl/home-visits/procedures-master', procedureData);
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to save procedure');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Add/Map Consumable Item to Existing Procedure
+  Future<void> addConsumableToProcedure(int procedureId, Map<String, dynamic> itemData) async {
+    try {
+      final response = await ApiService.post('$baseUrl/home-visits/procedures-master/$procedureId/consumables', itemData);
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to map consumable item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Delete/Deactivate Procedure Master
+  Future<void> deleteProcedureMaster(int procedureId) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/home-visits/procedures-master/$procedureId');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to deactivate procedure');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Remove Consumable Mapping from Procedure
+  Future<void> removeConsumableMapping(int procedureId, int mappingId) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/home-visits/procedures-master/$procedureId/consumables/$mappingId');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to remove consumable item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Create Consumable Item Master Directly
+  Future<void> createConsumableMaster(Map<String, dynamic> itemData) async {
+    try {
+      final response = await ApiService.post('$baseUrl/home-visits/consumables-master', itemData);
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to save consumable item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Fetch Master Carried Kit Items
+  Future<List<Map<String, dynamic>>> fetchKitItemsMaster() async {
+    try {
+      final response = await ApiService.get('$baseUrl/home-visits/kit-items-master');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true && body['data'] is List) {
+        return List<Map<String, dynamic>>.from(body['data']);
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // Create or Update Master Carried Kit Item
+  Future<void> createKitItemMaster(Map<String, dynamic> itemData) async {
+    try {
+      final response = await ApiService.post('$baseUrl/home-visits/kit-items-master', itemData);
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to save kit item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Soft Delete / Deactivate Master Carried Kit Item
+  Future<void> deleteKitItemMaster(int id) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/home-visits/kit-items-master/$id');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to deactivate kit item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
 }
+
+
 
