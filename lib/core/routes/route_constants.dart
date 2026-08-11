@@ -26,6 +26,7 @@ class AppRoutes {
   static const String adminPharmacy = '/admin/pharmacy';
   static const String adminInventory = '/admin/inventory-management';
   static const String adminBilling = '/admin/billing';
+  static const String adminHomeVisits = '/admin/home-visits';
 
   // Nurse Routes
   static const String nurseDashboard = '/nurse/dashboard';

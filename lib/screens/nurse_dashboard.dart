@@ -503,6 +503,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           );
         }
         return HomeVisitListView(
+          showScheduleButton: false,
           onExecuteVisit: (visitId) {
             setState(() {
               _selectedHomeVisitId = visitId;

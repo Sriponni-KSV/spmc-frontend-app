@@ -16,8 +16,14 @@ import 'home_visit_execution_screen.dart';
 class HomeVisitListView extends StatefulWidget {
   final Function(int visitId)? onExecuteVisit;
   final Function(int visitId)? onViewSummary;
+  final bool showScheduleButton;
 
-  const HomeVisitListView({super.key, this.onExecuteVisit, this.onViewSummary});
+  const HomeVisitListView({
+    super.key,
+    this.onExecuteVisit,
+    this.onViewSummary,
+    this.showScheduleButton = true,
+  });
 
   @override
   State<HomeVisitListView> createState() => _HomeVisitListViewState();
@@ -128,19 +134,21 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                 _fetchPatients();
                               },
                             ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              height: 36,
-                              child: ElevatedButton.icon(
-                                style: AppTheme.dangerButton,
-                                icon: const Icon(Icons.add, color: Colors.white, size: 15),
-                                label: const Text(
-                                  'Schedule Home Visit',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                            if (widget.showScheduleButton) ...[
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                height: 36,
+                                child: ElevatedButton.icon(
+                                  style: AppTheme.dangerButton,
+                                  icon: const Icon(Icons.add, color: Colors.white, size: 15),
+                                  label: const Text(
+                                    'Schedule Home Visit',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                  ),
+                                  onPressed: () => _showScheduleVisitDialog(context),
                                 ),
-                                onPressed: () => _showScheduleVisitDialog(context),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ],
@@ -198,19 +206,21 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                               _fetchPatients();
                             },
                           ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            height: 36,
-                            child: ElevatedButton.icon(
-                              style: AppTheme.dangerButton,
-                              icon: const Icon(Icons.add, color: Colors.white, size: 15),
-                              label: const Text(
-                                'Schedule Home Visit',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                          if (widget.showScheduleButton) ...[
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              height: 36,
+                              child: ElevatedButton.icon(
+                                style: AppTheme.dangerButton,
+                                icon: const Icon(Icons.add, color: Colors.white, size: 15),
+                                label: const Text(
+                                  'Schedule Home Visit',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                ),
+                                onPressed: () => _showScheduleVisitDialog(context),
                               ),
-                              onPressed: () => _showScheduleVisitDialog(context),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ],
@@ -678,12 +688,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
         .where((p) => p.id != null && !scheduledPatientIds.contains(p.id))
         .toList();
 
-    PatientModel? selectedPatient = availablePatients.isNotEmpty ? availablePatients.first : null;
-    final addressCtrl = TextEditingController(
-      text: selectedPatient != null && selectedPatient.fullAddress.isNotEmpty
-          ? selectedPatient.fullAddress
-          : (selectedPatient?.address ?? 'No. 12, Home Street, City'),
-    );
+    PatientModel? selectedPatient;
+    final addressCtrl = TextEditingController(text: '');
     final now = DateTime.now();
     final formattedNow = "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}";
     final dateCtrl = TextEditingController(text: formattedNow);
@@ -757,12 +763,29 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     }
                   },
                 ),
-              const SizedBox(height: 16),
-              const Text('Visit Address:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               const SizedBox(height: 6),
-              TextField(
-                controller: addressCtrl,
-                decoration: AppTheme.standardInputDecoration(hintText: 'Enter home visit address'),
+              // Single small gray line for Visit Address directly below patient field
+              Padding(
+                padding: const EdgeInsets.only(left: 2.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined, color: Colors.grey, size: 14),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        selectedPatient != null
+                            ? 'Visit Address: ${addressCtrl.text.isNotEmpty ? addressCtrl.text : "No address recorded"}'
+                            : 'Visit Address: Select a patient to view address',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               const Text('Scheduled Date:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),

@@ -32,6 +32,8 @@ import '../controllers/nurse_shift_controller.dart';
 import 'icu_management_view.dart';
 import 'inventory_management_view.dart';
 import 'billing_management_view.dart';
+import '../controllers/home_visit_controller.dart';
+import 'home_visit_list_view.dart';
 
 
 
@@ -1004,6 +1006,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 11:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return InventoryManagementView(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 12:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return _buildAdminHomeVisitCare(isMobile);
         }
         return const AccessDeniedWidget();
 
@@ -2269,6 +2276,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Icons.inventory_2_outlined,
                     'Inventory Management',
                   ),
+                  _buildSidebarItem(
+                    12,
+                    Icons.home_work_outlined,
+                    'Home Visit Care',
+                  ),
                 ],
               ),
             ),
@@ -2399,6 +2411,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             break;
           case 11:
             context.go(AppRoutes.adminInventory);
+            break;
+          case 12:
+            context.go(AppRoutes.adminHomeVisits);
             break;
 
           default:
@@ -5072,6 +5087,400 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  // --- Home Visit Care Section (Admin Only Schedule) ---
+
+  Widget _buildAdminHomeVisitCare(bool isMobile) {
+    return Container(
+      color: AppTheme.backgroundColor,
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(isMobile ? 16 : 24),
+            color: Colors.white,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.home_work_outlined,
+                          color: AppTheme.primaryColor,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      const Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Home Visit Care & Scheduling',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimaryColor,
+                                fontFamily: 'Inter',
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'Schedule home care visits by assigning nurses & patients',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey,
+                                fontFamily: 'Inter',
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  height: 42,
+                  child: ElevatedButton.icon(
+                    style: AppTheme.dangerButton,
+                    icon: const Icon(Icons.add, color: Colors.white, size: 18),
+                    label: const Text(
+                      'Schedule Home Visit',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.white,
+                      ),
+                    ),
+                    onPressed: () => _showAdminScheduleVisitDialog(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: HomeVisitListView(
+              showScheduleButton: false,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAdminScheduleVisitDialog(BuildContext context) async {
+    List<UserModel> availableNurses = _nurses;
+    if (availableNurses.isEmpty) {
+      try {
+        availableNurses = await _adminController.fetchStaff(role: 'Nurse');
+      } catch (_) {}
+    }
+
+    List<PatientModel> availablePatients = _dbPatients;
+    if (availablePatients.isEmpty) {
+      try {
+        availablePatients = await _patientController.fetchPatients();
+      } catch (_) {}
+    }
+
+    UserModel? selectedNurse;
+    PatientModel? selectedPatient;
+
+    final now = DateTime.now();
+    final dateCtrl = TextEditingController(
+      text: "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}",
+    );
+    final addressCtrl = TextEditingController(text: '');
+    final timeCtrl = TextEditingController(text: '9:00 AM');
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final homeVisitCtrl = Provider.of<HomeVisitController>(context, listen: false);
+
+          String apiDateStr = dateCtrl.text;
+          final dateParts = dateCtrl.text.split('-');
+          if (dateParts.length == 3 && dateParts[2].length == 4) {
+            apiDateStr = "${dateParts[2]}-${dateParts[1]}-${dateParts[0]}";
+          }
+
+          // Validation Check: "Once already chosen nurse patient on selected date cannot chosen again."
+          final bool isDuplicateNursePatient = selectedNurse != null &&
+              selectedPatient != null &&
+              homeVisitCtrl.visits.any(
+                (v) =>
+                    v.nurseId == selectedNurse!.id &&
+                    v.patientId == selectedPatient!.id &&
+                    v.scheduledDate == apiDateStr &&
+                    v.status != 'Cancelled',
+              );
+
+          final bool isDuplicatePatientDate = selectedPatient != null &&
+              homeVisitCtrl.visits.any(
+                (v) =>
+                    v.patientId == selectedPatient!.id &&
+                    v.scheduledDate == apiDateStr &&
+                    v.status != 'Cancelled',
+              );
+
+          final bool hasValidationError = isDuplicateNursePatient || isDuplicatePatientDate;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.home_work_outlined, color: AppTheme.primaryColor, size: 26),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Schedule Home Visit',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: 480,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Assign a nurse and select a patient to schedule a home care visit.',
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 1. Choose Nurse
+                    const Text('Select Nurse:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: 'Select Nurse',
+                      dropdownItems: availableNurses.map((n) {
+                        final uid = n.staffUniqueId ?? '';
+                        final idStr = uid.isNotEmpty ? ' ($uid)' : '';
+                        return '${n.fullname}$idStr';
+                      }).toList(),
+                      value: selectedNurse != null
+                          ? '${selectedNurse!.fullname}${(selectedNurse!.staffUniqueId != null && selectedNurse!.staffUniqueId!.isNotEmpty) ? ' (${selectedNurse!.staffUniqueId})' : ''}'
+                          : null,
+                      onChanged: (val) {
+                        if (val != null) {
+                          final found = availableNurses.firstWhere(
+                            (n) {
+                              final uid = n.staffUniqueId ?? '';
+                              final idStr = uid.isNotEmpty ? ' ($uid)' : '';
+                              return '${n.fullname}$idStr' == val;
+                            },
+                            orElse: () => availableNurses.first,
+                          );
+                          setDialogState(() {
+                            selectedNurse = found;
+                          });
+                        }
+                      },
+                      height: 48,
+                      borderColor: const Color(0xFFE2E8F0),
+                      focusedBorderColor: AppTheme.primaryColor,
+                      fillColor: AppTheme.backgroundColor,
+                      popupBgColor: Colors.white,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 2. Choose Patient
+                    const Text('Select Patient:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: 'Search/Select Patient',
+                      dropdownItems: availablePatients.map((p) => "${p.name} (${p.patientId ?? 'N/A'})").toList(),
+                      value: selectedPatient != null ? "${selectedPatient!.name} (${selectedPatient!.patientId ?? 'N/A'})" : null,
+                      onChanged: (val) {
+                        if (val != null) {
+                          final found = availablePatients.firstWhere(
+                            (p) => "${p.name} (${p.patientId ?? 'N/A'})" == val,
+                            orElse: () => availablePatients.first,
+                          );
+                          setDialogState(() {
+                            selectedPatient = found;
+                            addressCtrl.text = found.fullAddress.isNotEmpty ? found.fullAddress : found.address;
+                          });
+                        }
+                      },
+                      height: 48,
+                      borderColor: const Color(0xFFE2E8F0),
+                      focusedBorderColor: AppTheme.primaryColor,
+                      fillColor: AppTheme.backgroundColor,
+                      popupBgColor: Colors.white,
+                    ),
+                    const SizedBox(height: 6),
+                    // Single small gray line for Visit Address directly below patient field
+                    Padding(
+                      padding: const EdgeInsets.only(left: 2.0),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on_outlined, color: Colors.grey, size: 14),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              selectedPatient != null
+                                  ? 'Visit Address: ${addressCtrl.text.isNotEmpty ? addressCtrl.text : "No address recorded"}'
+                                  : 'Visit Address: Select a patient to view address',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 4. Scheduled Date
+                    const Text('Scheduled Date:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: dateCtrl,
+                      readOnly: true,
+                      decoration: AppTheme.standardInputDecoration(
+                        suffixIcon: const Icon(Icons.calendar_today, size: 18, color: AppTheme.primaryColor),
+                      ),
+                      onTap: () async {
+                        final DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) {
+                          setDialogState(() {
+                            dateCtrl.text = "${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}";
+                          });
+                        }
+                      },
+                    ),
+
+                    // Validation Warning Box
+                    if (isDuplicateNursePatient) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '⚠️ Nurse "${selectedNurse?.fullname}" is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text}. Once chosen, this nurse & patient combination on this date cannot be scheduled again.',
+                                style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else if (isDuplicatePatientDate) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '⚠️ A home visit is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text}. Only 1 visit per patient per day is allowed.',
+                                style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.of(dialogCtx).pop(),
+                child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: AppTheme.dangerButton,
+                onPressed: (isSubmitting || hasValidationError || selectedNurse == null || selectedPatient == null)
+                    ? null
+                    : () async {
+                        setDialogState(() => isSubmitting = true);
+                        final homeVisitCtrl = Provider.of<HomeVisitController>(context, listen: false);
+
+                        final newVisit = await homeVisitCtrl.createVisit({
+                          'nurse_id': selectedNurse!.id,
+                          'patient_id': selectedPatient!.id,
+                          'scheduled_date': apiDateStr,
+                          'scheduled_time': timeCtrl.text,
+                          'visit_address': addressCtrl.text,
+                          'carried_items': [],
+                        });
+
+                        if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+
+                        if (newVisit != null) {
+                          await homeVisitCtrl.fetchVisits();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Home visit ${newVisit.visitNumber} scheduled for ${selectedPatient!.name} with Nurse ${selectedNurse!.fullname}!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } else if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(homeVisitCtrl.errorMessage ?? 'Failed to schedule home visit.'),
+                              backgroundColor: AppTheme.dangerColor,
+                            ),
+                          );
+                        }
+                      },
+                child: Text(isSubmitting ? 'Scheduling...' : 'Schedule Visit'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
