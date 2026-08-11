@@ -120,6 +120,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         });
       }
     } else if (_currentStep == 2) {
+      if (_confirmPasswordController.text.trim().isEmpty) {
+        FocusScope.of(context).requestFocus(_confirmPasswordFocus);
+      }
       if (_passwordFormKey.currentState!.validate()) {
         setState(() => _isLoading = true);
         try {
@@ -145,6 +148,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           );
         } finally {
           if (mounted) setState(() => _isLoading = false);
+        }
+      } else {
+        if (_confirmPasswordController.text.trim().isEmpty ||
+            _confirmPasswordController.text != _newPasswordController.text) {
+          FocusScope.of(context).requestFocus(_confirmPasswordFocus);
         }
       }
     }
