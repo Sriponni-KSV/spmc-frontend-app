@@ -104,12 +104,82 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   ];
 
   void _clearKitForm() {
-    _selectedKitDropdown = null;
-    _customKitNameCtrl.clear();
-    _kitItemNameCtrl.clear();
-    _kitItemQtyCtrl.text = '1';
-    _kitItemType = 'Device';
-    setState(() {});
+    setState(() {
+      _selectedKitDropdown = null;
+      _customKitNameCtrl.clear();
+      _kitItemNameCtrl.clear();
+      _kitItemQtyCtrl.text = '1';
+      _kitItemType = 'Device';
+    });
+  }
+
+  Widget _buildQtyStepperField({
+    required TextEditingController controller,
+    int min = 1,
+    int max = 999,
+  }) {
+    void updateQty(int delta) {
+      int current = int.tryParse(controller.text) ?? min;
+      int updated = (current + delta).clamp(min, max);
+      setState(() {
+        controller.text = updated.toString();
+      });
+    }
+
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: AppTheme.backgroundColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(3),
+              ],
+              onChanged: (val) {
+                if (val.isNotEmpty) {
+                  int? parsed = int.tryParse(val);
+                  if (parsed != null) {
+                    if (parsed < min) controller.text = min.toString();
+                    if (parsed > max) controller.text = max.toString();
+                  }
+                }
+              },
+              decoration: const InputDecoration(
+                hintText: 'Qty',
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
+                isDense: true,
+              ),
+            ),
+          ),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              InkWell(
+                onTap: () => updateQty(1),
+                child: const Icon(Icons.keyboard_arrow_up, size: 18, color: AppTheme.primaryColor),
+              ),
+              InkWell(
+                onTap: () => updateQty(-1),
+                child: const Icon(Icons.keyboard_arrow_down, size: 18, color: AppTheme.primaryColor),
+              ),
+            ],
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+    );
   }
 
   int _vitalsPage = 1;
@@ -3084,16 +3154,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             },
                           ),
                           const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _kitItemQtyCtrl,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            decoration: AppTheme.standardInputDecoration(
-                              hintText: 'Quantity',
-                            ),
-                          ),
+                          _buildQtyStepperField(controller: _kitItemQtyCtrl, min: 1, max: 999),
                           const SizedBox(height: 10),
                           SizedBox(
                             width: double.infinity,
@@ -3162,16 +3223,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: TextFormField(
-                              controller: _kitItemQtyCtrl,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              decoration: AppTheme.standardInputDecoration(
-                                hintText: 'Qty',
-                              ),
-                            ),
+                            child: _buildQtyStepperField(controller: _kitItemQtyCtrl, min: 1, max: 999),
                           ),
                           const SizedBox(width: 10),
                           ElevatedButton.icon(
@@ -3326,6 +3378,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   ) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return Dialog(
@@ -3407,6 +3460,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   keyboardType: TextInputType.number,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(3),
                                   ],
                                   decoration: AppTheme.standardInputDecoration(
                                     hintText: 'e.g. 120',
@@ -3417,11 +3471,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     ),
                                   ),
                                   validator: (val) {
-                                    if (val == null || val.trim().isEmpty)
-                                      return 'Mandatory';
+                                    if (val == null || val.trim().isEmpty) {
+                                      return 'Please enter Systolic BP';
+                                    }
                                     final n = int.tryParse(val.trim());
-                                    if (n == null || n < 90 || n > 300)
-                                      return '90-300 mmHg';
+                                    if (n == null || n < 70 || n > 250) {
+                                      return 'Please enter Systolic BP between 70-250 mmHg';
+                                    }
                                     return null;
                                   },
                                 ),
@@ -3439,6 +3495,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   keyboardType: TextInputType.number,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(3),
                                   ],
                                   decoration: AppTheme.standardInputDecoration(
                                     hintText: 'e.g. 80',
@@ -3449,11 +3506,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     ),
                                   ),
                                   validator: (val) {
-                                    if (val == null || val.trim().isEmpty)
-                                      return 'Mandatory';
+                                    if (val == null || val.trim().isEmpty) {
+                                      return 'Please enter Diastolic BP';
+                                    }
                                     final n = int.tryParse(val.trim());
-                                    if (n == null || n < 50 || n > 180)
-                                      return '50-180 mmHg';
+                                    if (n == null || n < 40 || n > 150) {
+                                      return 'Please enter Diastolic BP between 40-150 mmHg';
+                                    }
                                     return null;
                                   },
                                 ),
@@ -3477,6 +3536,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   keyboardType: TextInputType.number,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(3),
                                   ],
                                   decoration: AppTheme.standardInputDecoration(
                                     hintText: 'e.g. 72',
@@ -3488,11 +3548,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                   validator: (val) {
                                     if (val == null || val.trim().isEmpty) {
-                                      return 'Mandatory';
+                                      return 'Please enter Pulse Rate';
                                     }
                                     final n = int.tryParse(val.trim());
                                     if (n == null || n < 30 || n > 250) {
-                                      return '30-250 bpm';
+                                      return 'Please enter Pulse Rate between 30-250 bpm';
                                     }
                                     return null;
                                   },
@@ -3516,6 +3576,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     FilteringTextInputFormatter.allow(
                                       RegExp(r'^\d*\.?\d*'),
                                     ),
+                                    LengthLimitingTextInputFormatter(5),
                                   ],
                                   decoration: AppTheme.standardInputDecoration(
                                     hintText: 'e.g. 98.6',
@@ -3526,11 +3587,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     ),
                                   ),
                                   validator: (val) {
-                                    if (val == null || val.trim().isEmpty)
-                                      return 'Mandatory';
+                                    if (val == null || val.trim().isEmpty) {
+                                      return 'Please enter Temperature';
+                                    }
                                     final n = double.tryParse(val.trim());
-                                    if (n == null || n < 90 || n > 115)
-                                      return '90-115 °F';
+                                    if (n == null || n < 90.0 || n > 115.0) {
+                                      return 'Please enter Temperature between 90-115 °F';
+                                    }
                                     return null;
                                   },
                                 ),
@@ -3554,6 +3617,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   keyboardType: TextInputType.number,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(3),
                                   ],
                                   decoration: AppTheme.standardInputDecoration(
                                     hintText: 'e.g. 98',
@@ -3565,11 +3629,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                   validator: (val) {
                                     if (val == null || val.trim().isEmpty) {
-                                      return 'Mandatory';
+                                      return 'Please enter SpO2';
                                     }
                                     final n = int.tryParse(val.trim());
                                     if (n == null || n < 50 || n > 100) {
-                                      return '50-100 %';
+                                      return 'Please enter SpO2 between 50-100%';
                                     }
                                     return null;
                                   },
@@ -3588,6 +3652,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   keyboardType: TextInputType.number,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(3),
                                   ],
                                   decoration: AppTheme.standardInputDecoration(
                                     hintText: 'e.g. 110',
@@ -3600,8 +3665,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   validator: (val) {
                                     if (val != null && val.trim().isNotEmpty) {
                                       final n = int.tryParse(val.trim());
-                                      if (n == null || n < 30 || n > 600)
-                                        return '30-600 mg/dL';
+                                      if (n == null || n < 30 || n > 600) {
+                                        return 'Please enter Blood Sugar between 30-600 mg/dL';
+                                      }
                                     }
                                     return null;
                                   },
@@ -3631,6 +3697,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     FilteringTextInputFormatter.allow(
                                       RegExp(r'^\d*\.?\d*'),
                                     ),
+                                    LengthLimitingTextInputFormatter(5),
                                   ],
                                   decoration: AppTheme.standardInputDecoration(
                                     hintText: 'e.g. 65.5',
@@ -3643,8 +3710,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   validator: (val) {
                                     if (val != null && val.trim().isNotEmpty) {
                                       final n = double.tryParse(val.trim());
-                                      if (n == null || n <= 0)
-                                        return 'Must be > 0 kg';
+                                      if (n == null || n < 1.0 || n > 300.0) {
+                                        return 'Please enter Weight between 1 to 300 kg';
+                                      }
                                     }
                                     return null;
                                   },
@@ -3668,6 +3736,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     FilteringTextInputFormatter.allow(
                                       RegExp(r'^\d*\.?\d*'),
                                     ),
+                                    LengthLimitingTextInputFormatter(5),
                                   ],
                                   decoration: AppTheme.standardInputDecoration(
                                     hintText: 'e.g. 170',
@@ -3680,8 +3749,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   validator: (val) {
                                     if (val != null && val.trim().isNotEmpty) {
                                       final n = double.tryParse(val.trim());
-                                      if (n == null || n <= 0)
-                                        return 'Must be > 0 cm';
+                                      if (n == null || n < 30.0 || n > 250.0) {
+                                        return 'Please enter Height between 30 to 250 cm';
+                                      }
                                     }
                                     return null;
                                   },
@@ -4726,26 +4796,29 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 12,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildSectionHeader(
-                'Record Patient Vitals Entry',
-                Icons.monitor_heart_outlined,
-              ),
-              ElevatedButton.icon(
-                style: AppTheme.primaryButton,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text(
-                  'Add Vitals Entry',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              Flexible(
+                child: _buildSectionHeader(
+                  'Record Patient Vitals Entry',
+                  Icons.monitor_heart_outlined,
                 ),
-                onPressed: () =>
-                    _showAddVitalsModalDialog(context, visit, controller),
               ),
+              if (!widget.isReadOnlyView) ...[
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  style: AppTheme.primaryButton,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text(
+                    'Add Vitals Entry',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  onPressed: () =>
+                      _showAddVitalsModalDialog(context, visit, controller),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 20),
