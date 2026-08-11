@@ -831,6 +831,10 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
           Widget buildExecuteBtn({bool expanded = false}) => Builder(
             builder: (context) {
               final bool canExecute = _isExecuteButtonEnabled(visit);
+              final bool isInProgress = visit.status.toLowerCase() == 'in-progress' || effectiveStatus.toLowerCase() == 'in-progress';
+              final String btnText = isInProgress ? 'Resume Visit' : 'Execute Visit';
+              final IconData btnIcon = isInProgress ? Icons.play_arrow_outlined : (canExecute ? Icons.medical_services_outlined : Icons.lock_clock_outlined);
+
               final btn = ElevatedButton.icon(
                 style: canExecute
                     ? AppTheme.dangerButton
@@ -840,9 +844,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                icon: Icon(canExecute ? Icons.medical_services_outlined : Icons.lock_clock_outlined, size: 15),
+                icon: Icon(btnIcon, size: 15),
                 label: Text(
-                  'Execute Visit',
+                  btnText,
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: canExecute ? Colors.white : const Color(0xFF64748B)),
                 ),
                 onPressed: canExecute
@@ -1033,9 +1037,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                             minimumSize: WidgetStateProperty.all(const Size(0, 40)),
                             padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
                           ),
-                          icon: Icon(canExecute ? Icons.medical_services_outlined : Icons.lock_clock_outlined, size: 14),
+                          icon: Icon(visit.status.toLowerCase() == 'in-progress' || effectiveStatus.toLowerCase() == 'in-progress' ? Icons.play_arrow_outlined : (canExecute ? Icons.medical_services_outlined : Icons.lock_clock_outlined), size: 14),
                           label: Text(
-                            'Execute Visit',
+                            (visit.status.toLowerCase() == 'in-progress' || effectiveStatus.toLowerCase() == 'in-progress') ? 'Resume Visit' : 'Execute Visit',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: canExecute ? Colors.white : const Color(0xFF64748B)),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1458,9 +1462,31 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     final now = DateTime.now();
     final defaultTime = DateFormat('hh:mm a').format(now);
 
-    final nurseCtrl = TextEditingController(text: visit.startNurseName ?? visit.nurseName ?? '');
+    final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final String rawNurseName = (visit.startNurseName != null && visit.startNurseName!.isNotEmpty)
+        ? visit.startNurseName!
+        : ((visit.nurseName != null && visit.nurseName!.isNotEmpty)
+            ? visit.nurseName!
+            : (authUser?.fullname ?? 'Nurse'));
+    final String nurseStaffId = (authUser != null && authUser.staffUniqueId != null && authUser.staffUniqueId!.isNotEmpty)
+        ? authUser.staffUniqueId!
+        : '';
+    final String nurseDisplayWithId = nurseStaffId.isNotEmpty
+        ? '$rawNurseName ($nurseStaffId)'
+        : rawNurseName;
+
+    final String rawPatientName = visit.patientName ?? 'Patient';
+    final String patientDisplayId = (visit.patientDisplayId != null && visit.patientDisplayId!.trim().isNotEmpty)
+        ? visit.patientDisplayId!
+        : 'ID: ${visit.patientId}';
+    final String patientDisplayWithId = '$rawPatientName ($patientDisplayId)';
+
+    final nurseCtrl = TextEditingController(text: rawNurseName);
     final timeCtrl = TextEditingController(text: defaultTime);
     bool isSubmitting = false;
+
+    final bool isInProgress = visit.status.toLowerCase() == 'in-progress';
+    final String dialogTitle = isInProgress ? 'Resume Home Visit Session' : 'Start Home Visit Session';
 
     showDialog(
       context: context,
@@ -1468,14 +1494,14 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.play_circle_fill_outlined, color: AppTheme.primaryColor, size: 26),
-              SizedBox(width: 10),
+              const Icon(Icons.play_circle_fill_outlined, color: AppTheme.primaryColor, size: 26),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Start Home Visit Session',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor),
+                  dialogTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor),
                 ),
               ),
             ],
@@ -1490,31 +1516,72 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Record visit start time and executing nurse name before accessing patient vitals.',
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    Text(
+                      isInProgress
+                          ? 'Confirm visit resume time before managing patient vitals & care.'
+                          : 'Record visit start time before accessing patient vitals.',
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                     const SizedBox(height: 16),
-                    _buildLabel('Executing Nurse Name'),
-                    TextFormField(
-                      controller: nurseCtrl,
-                      inputFormatters: [
-                        LengthLimitingTextInputFormatter(30),
-                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
-                      ],
-                      decoration: AppTheme.standardInputDecoration(
-                        hintText: 'Enter Nurse Full Name',
-                        prefixIcon: Icons.person_outline,
+
+                    // Patient & Nurse Info Box (Read-Only Styled Card)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) return 'Nurse name is required';
-                        if (val.trim().length < 3) return 'Nurse name must be at least 3 characters';
-                        if (val.trim().length > 30) return 'Nurse name cannot exceed 30 characters';
-                        return null;
-                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Patient Details (Small text)
+                          Row(
+                            children: [
+                              const Icon(Icons.person_outline, size: 15, color: AppTheme.primaryColor),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Patient: $patientDisplayWithId',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // Executing Nurse Details (Non-editable, distinct blue badge style)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.badge_outlined, size: 15, color: Color(0xFF1D4ED8)),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Executing Nurse: $nurseDisplayWithId',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Icon(Icons.lock_outline, size: 13, color: Color(0xFF93C5FD)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 14),
-                    _buildLabel('Visit Start Time'),
+                    const SizedBox(height: 16),
+
+                    // ONLY EDITABLE FIELD: Visit Start Time
+                    _buildLabel(isInProgress ? 'Visit Resume Time' : 'Visit Start Time'),
                     TextFormField(
                       controller: timeCtrl,
                       readOnly: true,
@@ -1558,7 +1625,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 icon: isSubmitting
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.arrow_forward, size: 16),
-                label: Text(isSubmitting ? 'Starting...' : 'Submit & Start Visit'),
+                label: Text(isSubmitting ? 'Saving...' : (isInProgress ? 'Submit & Resume Visit' : 'Submit & Start Visit')),
                 onPressed: isSubmitting
                     ? null
                     : () async {
