@@ -33,7 +33,13 @@ import 'icu_management_view.dart';
 import 'inventory_management_view.dart';
 import 'billing_management_view.dart';
 import '../controllers/home_visit_controller.dart';
+import '../services/home_visit_service.dart';
+import '../models/home_visit_model.dart';
 import 'home_visit_list_view.dart';
+import '../services/api_service.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
+
 
 
 
@@ -59,6 +65,7 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
+  bool _isCatalogMenuExpanded = true;
   String _selectedRoleFilter = 'All';
   final AdminController _adminController = AdminController();
 
@@ -193,8 +200,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _shiftAllocHorizontalScrollController.dispose();
     _mainFocusNode.dispose();
     _staffSearchController.dispose();
+    _medSearchController.dispose();
+    _hvSearchController.dispose();
     super.dispose();
   }
+
 
   @override
   void initState() {
@@ -1013,7 +1023,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           return _buildAdminHomeVisitCare(isMobile);
         }
         return const AccessDeniedWidget();
-
+      case 13:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return _buildMedicationCatalog(isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 14:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return _buildHomeVisitConsumablesCatalog(isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 15:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return _buildCarriedKitItemsCatalog(isMobile);
+        }
+        return const AccessDeniedWidget();
 
       default:
         return _buildControlPanel(isMobile);
@@ -2281,6 +2305,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Icons.home_work_outlined,
                     'Home Visit Care',
                   ),
+                  _buildCatalogParentMenu(),
                 ],
               ),
             ),
@@ -2370,7 +2395,81 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildSidebarItem(int index, IconData icon, String label) {
+  Widget _buildCatalogParentMenu() {
+    bool isChildSelected = _selectedIndex == 13 || _selectedIndex == 14 || _selectedIndex == 15;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () {
+            setState(() {
+              _isCatalogMenuExpanded = !_isCatalogMenuExpanded;
+            });
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: isChildSelected ? AppTheme.primaryColor.withOpacity(0.08) : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.menu_book_outlined,
+                  color: isChildSelected ? AppTheme.primaryColor : const Color(0xFF4A5568),
+                  size: 20,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    'Catalog',
+                    style: TextStyle(
+                      color: isChildSelected ? AppTheme.primaryColor : const Color(0xFF4A5568),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                Icon(
+                  _isCatalogMenuExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  color: isChildSelected ? AppTheme.primaryColor : const Color(0xFF718096),
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_isCatalogMenuExpanded)
+          Column(
+            children: [
+              _buildSidebarItem(
+                13,
+                Icons.medication_outlined,
+                'Medication Catalog',
+                isSubItem: true,
+              ),
+              _buildSidebarItem(
+                14,
+                Icons.home_repair_service_outlined,
+                'Home Visit Consumables',
+                isSubItem: true,
+              ),
+              _buildSidebarItem(
+                15,
+                Icons.inventory_outlined,
+                'Carried Kit Items',
+                isSubItem: true,
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSidebarItem(int index, IconData icon, String label, {bool isSubItem = false}) {
     bool isSelected = (_selectedIndex == index && !_isRegisteringPatient) ||
                       (_isRegisteringPatient && index == 2);
     return InkWell(
@@ -2415,6 +2514,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           case 12:
             context.go(AppRoutes.adminHomeVisits);
             break;
+          case 13:
+            context.go(AppRoutes.adminMedicationCatalog);
+            break;
+          case 14:
+            context.go(AppRoutes.adminHomeVisitConsumables);
+            break;
+          case 15:
+            context.go(AppRoutes.adminCarriedKitItems);
+            break;
 
           default:
             context.go(AppRoutes.adminDashboard);
@@ -2423,8 +2531,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        margin: EdgeInsets.only(
+          left: isSubItem ? 28 : 12,
+          right: 12,
+          top: 2,
+          bottom: 2,
+        ),
+        padding: EdgeInsets.symmetric(
+          horizontal: isSubItem ? 12 : 14,
+          vertical: isSubItem ? 9 : 11,
+        ),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.primaryColor : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
@@ -2434,15 +2550,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Icon(
               icon,
               color: isSelected ? Colors.white : const Color(0xFF4A5568),
-              size: 20,
+              size: isSubItem ? 18 : 20,
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
                   color: isSelected ? Colors.white : const Color(0xFF4A5568),
-                  fontWeight: FontWeight.bold,
+                  fontWeight: isSelected ? FontWeight.bold : (isSubItem ? FontWeight.w600 : FontWeight.bold),
+                  fontSize: isSubItem ? 13 : 14,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -5733,6 +5850,2917 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MEDICATION CATALOG MANAGEMENT
+  // ─────────────────────────────────────────────────────────────────────────
+
+  final List<Map<String, dynamic>> _medicationCatalog = [];
+  bool _isMedCatalogLoading = false;
+  String? _medCatalogError;
+  String _medCatalogSearch = '';
+  final TextEditingController _medSearchController = TextEditingController();
+
+  String get _medBaseUrl => ApiEndpoints.baseUrl;
+
+  Future<void> _loadMedicationCatalog() async {
+    if (!mounted) return;
+    setState(() {
+      _isMedCatalogLoading = true;
+      _medCatalogError = null;
+    });
+    try {
+      final search = _medCatalogSearch.trim();
+      final url = search.isEmpty
+          ? '$_medBaseUrl/inventory/medicine-catalog'
+          : '$_medBaseUrl/inventory/medicine-catalog?search=${Uri.encodeComponent(search)}';
+      final resp = await ApiService.get(url);
+      final body = ApiService.decodeJsonResponse(resp);
+      if (mounted) {
+        setState(() {
+          _medicationCatalog.clear();
+          _medicationCatalog.addAll(
+            List<Map<String, dynamic>>.from(body['data'] ?? []),
+          );
+          _isMedCatalogLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _medCatalogError = e.toString().replaceFirst('Exception: ', '');
+          _isMedCatalogLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _showAddMedicationDialog(bool isMobile) async {
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController();
+    final unitCtrl = TextEditingController(text: 'tabs');
+    String selectedCategory = 'Medicine';
+    bool isControlled = false;
+    bool isSaving = false;
+
+    final categories = ['Medicine', 'ICU Consumable', 'Surgical Item'];
+    final defaultUnits = ['tabs', 'caps', 'vials', 'bags', 'pcs', 'pairs', 'ml', 'mg', 'strips'];
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setD) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.medication_outlined, color: AppTheme.primaryColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Add New Medication',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: isMobile ? double.infinity : 440,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Medication Name
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Medication Name ',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                color: Colors.grey.shade700,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const TextSpan(
+                              text: '*',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: nameCtrl,
+                        keyboardType: TextInputType.text,
+                        maxLength: 255,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: null,
+                          prefixIcon: Icons.medication,
+                          hintText: 'e.g. Aspirin 75mg',
+                        ).copyWith(counterText: ''),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Medication name is required';
+                          if (v.trim().length < 3) return 'Must be at least 3 characters';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Category
+                      CustomDropdownSearch(
+                        label: 'Category',
+                        requiredMark: true,
+                        hint: 'Select category',
+                        value: selectedCategory,
+                        dropdownItems: categories,
+                        onChanged: (val) {
+                          if (val != null) setD(() => selectedCategory = val);
+                        },
+                        validator: (v) => v == null || v.isEmpty ? 'Please select a category' : null,
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Default Unit
+                      CustomDropdownSearch(
+                        label: 'Default Unit',
+                        requiredMark: true,
+                        hint: 'Select unit',
+                        value: unitCtrl.text,
+                        dropdownItems: defaultUnits,
+                        onChanged: (val) {
+                          if (val != null) setD(() => unitCtrl.text = val);
+                        },
+                        validator: (v) => v == null || v.isEmpty ? 'Please select a unit' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Controlled Substance Switch
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.lock_outline,
+                              size: 18,
+                              color: isControlled ? AppTheme.logoRed : AppTheme.textSecondaryColor,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Controlled Substance',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                      color: AppTheme.textPrimaryColor,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Requires special prescription & dispensing log',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: isControlled,
+                              onChanged: (v) => setD(() => isControlled = v),
+                              activeColor: AppTheme.logoRed,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                style: AppTheme.cancelButton,
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setD(() => isSaving = true);
+                        try {
+                          final resp = await ApiService.post(
+                            '$_medBaseUrl/inventory/medicine-catalog',
+                            {
+                              'name': nameCtrl.text.trim(),
+                              'category': selectedCategory,
+                              'default_unit': unitCtrl.text,
+                              'is_controlled': isControlled,
+                            },
+                          );
+                          final respBody = ApiService.decodeJsonResponse(resp);
+                          if (resp.statusCode == 201 && respBody['success'] == true) {
+                            if (mounted) Navigator.pop(ctx, true);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(respBody['message'] ?? 'Medication added successfully'),
+                                  backgroundColor: Colors.green.shade600,
+                                ),
+                              );
+                            }
+                          } else {
+                            throw Exception(respBody['message'] ?? 'Failed to add medication');
+                          }
+                        } catch (e) {
+                          setD(() => isSaving = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString().replaceFirst('Exception: ', '')),
+                                backgroundColor: AppTheme.dangerColor,
+                              ),
+                            );
+                          }
+                        }
+                      },
+
+                style: AppTheme.primaryButton,
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Add Medication'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (result == true) _loadMedicationCatalog();
+  }
+
+  Future<void> _deleteMedication(Map<String, dynamic> med) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Remove Medication', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: RichText(
+          text: TextSpan(
+            style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14, height: 1.5),
+            children: [
+              const TextSpan(text: 'Are you sure you want to remove '),
+              TextSpan(
+                text: '"${med['name']}"',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const TextSpan(text: ' from the medication catalog? This cannot be undone.'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: AppTheme.cancelButton,
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: AppTheme.dangerButton,
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ApiService.delete('$_medBaseUrl/inventory/medicine-catalog/${med['id']}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${med['name']}" removed from catalog.'),
+            backgroundColor: Colors.green.shade600,
+          ),
+        );
+        _loadMedicationCatalog();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildMedicationCatalog(bool isMobile) {
+    // Load on first access
+    if (_medicationCatalog.isEmpty && !_isMedCatalogLoading && _medCatalogError == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadMedicationCatalog());
+    }
+
+    final filtered = _medCatalogSearch.trim().isEmpty
+        ? _medicationCatalog
+        : _medicationCatalog.where((m) =>
+            (m['name'] as String).toLowerCase().contains(_medCatalogSearch.toLowerCase()) ||
+            (m['category'] as String).toLowerCase().contains(_medCatalogSearch.toLowerCase()),
+          ).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Header Bar ──────────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+          decoration: const BoxDecoration(
+            color: Colors.transparent,
+          ),
+          child: isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMedCatalogHeaderTitle(),
+                    const SizedBox(height: 12),
+                    _buildMedCatalogSearchBar(),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showAddMedicationDialog(isMobile),
+                        style: AppTheme.primaryButton,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Add Medication'),
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    _buildMedCatalogHeaderTitle(),
+                    const Spacer(),
+                    SizedBox(
+                      width: 280,
+                      child: _buildMedCatalogSearchBar(),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _showAddMedicationDialog(isMobile),
+                      style: AppTheme.primaryButton,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Medication'),
+                    ),
+                  ],
+                ),
+        ),
+
+        // ── Stats Row ────────────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _buildMedStatChip(
+                Icons.medication_outlined,
+                AppTheme.primaryColor,
+                'Total',
+                '${_medicationCatalog.length}',
+              ),
+              _buildMedStatChip(
+                Icons.science_outlined,
+                AppTheme.secondaryColor,
+                'Medicine',
+                '${_medicationCatalog.where((m) => m['category'] == 'Medicine').length}',
+              ),
+              _buildMedStatChip(
+                Icons.local_hospital_outlined,
+                const Color(0xFF7C3AED),
+                'ICU Consumable',
+                '${_medicationCatalog.where((m) => m['category'] == 'ICU Consumable').length}',
+              ),
+              _buildMedStatChip(
+                Icons.content_cut_outlined,
+                const Color(0xFFF59E0B),
+                'Surgical Item',
+                '${_medicationCatalog.where((m) => m['category'] == 'Surgical Item').length}',
+              ),
+              _buildMedStatChip(
+                Icons.lock_outline,
+                AppTheme.dangerColor,
+                'Controlled',
+                '${_medicationCatalog.where((m) => m['is_controlled'] == true).length}',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ── Content ──────────────────────────────────────────────────────────
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _isMedCatalogLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _medCatalogError != null
+                    ? _buildMedCatalogError()
+                    : filtered.isEmpty
+                        ? _buildMedCatalogEmpty()
+                        : isMobile
+                            ? _buildMedCatalogMobileList(filtered)
+                            : _buildMedCatalogDesktopTable(filtered),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMedCatalogHeaderTitle() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.medication_outlined, color: AppTheme.primaryColor, size: 20),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Medication Catalog',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Manage the master list of medications used across the system',
+          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMedCatalogSearchBar() {
+    return TextField(
+      controller: _medSearchController,
+      decoration: AppTheme.standardInputDecoration(
+        label: null,
+        prefixIcon: Icons.search,
+        hintText: 'Search medications...',
+      ).copyWith(
+        suffixIcon: _medCatalogSearch.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: () {
+                  _medSearchController.clear();
+                  setState(() => _medCatalogSearch = '');
+                  _loadMedicationCatalog();
+                },
+              )
+            : null,
+      ),
+      onChanged: (v) {
+        setState(() => _medCatalogSearch = v);
+      },
+      onSubmitted: (_) => _loadMedicationCatalog(),
+    );
+  }
+
+  Widget _buildMedStatChip(IconData icon, Color color, String label, String count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              count,
+              style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMedCatalogError() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 48, color: AppTheme.dangerColor.withOpacity(0.6)),
+          const SizedBox(height: 12),
+          Text(
+            _medCatalogError ?? 'An error occurred',
+            style: const TextStyle(color: AppTheme.textSecondaryColor),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _loadMedicationCatalog,
+            style: AppTheme.primaryButton,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMedCatalogEmpty() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.medication_outlined, size: 56, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          Text(
+            _medCatalogSearch.isNotEmpty
+                ? 'No medications match "$_medCatalogSearch"'
+                : 'No medications in catalog yet',
+            style: TextStyle(fontSize: 15, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Click "Add Medication" to add a new entry',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMedCatalogDesktopTable(List<Map<String, dynamic>> items) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: AppTheme.borderColor),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            // Table Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFC),
+                border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+              ),
+              child: const Row(
+                children: [
+                  Expanded(flex: 3, child: Text('#  Medication Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                  Expanded(flex: 2, child: Text('Category', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                  Expanded(flex: 1, child: Text('Unit', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                  Expanded(flex: 1, child: Text('Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                  SizedBox(width: 48),
+                ],
+              ),
+            ),
+            // Table Rows
+            Expanded(
+              child: ListView.separated(
+                separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.borderColor),
+                itemCount: items.length,
+                itemBuilder: (ctx, i) {
+                  final med = items[i];
+                  final isControlled = med['is_controlled'] == true;
+                  final category = med['category'] as String? ?? 'Medicine';
+                  final catColor = category == 'Medicine'
+                      ? AppTheme.primaryColor
+                      : category == 'ICU Consumable'
+                          ? const Color(0xFF7C3AED)
+                          : const Color(0xFFF59E0B);
+                  return Container(
+                    color: i.isEven ? Colors.white : const Color(0xFFFAFBFC),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Row(
+                            children: [
+                              Text(
+                                '${i + 1}. ',
+                                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  med['name'] as String? ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimaryColor,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: catColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              category,
+                              style: TextStyle(fontSize: 11, color: catColor, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: Text(
+                            med['default_unit'] as String? ?? '-',
+                            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: isControlled
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.dangerColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.lock_outline, size: 12, color: AppTheme.dangerColor),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Controlled',
+                                        style: TextStyle(fontSize: 11, color: AppTheme.dangerColor, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.secondaryColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'Standard',
+                                    style: TextStyle(fontSize: 11, color: AppTheme.secondaryColor, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                        ),
+                        SizedBox(
+                          width: 48,
+                          child: IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerColor),
+                            tooltip: 'Remove from catalog',
+                            onPressed: () => _deleteMedication(med),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMedCatalogMobileList(List<Map<String, dynamic>> items) {
+    return ListView.separated(
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemCount: items.length,
+      itemBuilder: (ctx, i) {
+        final med = items[i];
+        final isControlled = med['is_controlled'] == true;
+        final category = med['category'] as String? ?? 'Medicine';
+        final catColor = category == 'Medicine'
+            ? AppTheme.primaryColor
+            : category == 'ICU Consumable'
+                ? const Color(0xFF7C3AED)
+                : const Color(0xFFF59E0B);
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppTheme.borderColor),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${i + 1}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primaryColor),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      med['name'] as String? ?? '',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textPrimaryColor),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: catColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(category, style: TextStyle(fontSize: 11, color: catColor, fontWeight: FontWeight.w600)),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            med['default_unit'] as String? ?? '-',
+                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        if (isControlled)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.dangerColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.lock_outline, size: 11, color: AppTheme.dangerColor),
+                                const SizedBox(width: 3),
+                                Text('Controlled', style: TextStyle(fontSize: 11, color: AppTheme.dangerColor, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerColor),
+                tooltip: 'Remove',
+                onPressed: () => _deleteMedication(med),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // HOME VISIT PROCEDURES & CONSUMABLES MANAGEMENT
+  // ─────────────────────────────────────────────────────────────────────────
+
+  List<ProcedureMasterModel> _hvProceduresMaster = [];
+  List<Map<String, dynamic>> _hvConsumablesMasterList = [];
+  bool _isHVConsumableLoading = false;
+  String? _hvConsumableError;
+  String _hvConsumableSearch = '';
+  int _hvCatalogSelectedTab = 0;
+  final TextEditingController _hvSearchController = TextEditingController();
+
+  List<Map<String, dynamic>> _hvKitItemsMasterList = [];
+  bool _isHVKitItemsLoading = false;
+  String? _hvKitItemsError;
+  String _hvKitItemsSearch = '';
+  final TextEditingController _hvKitItemsSearchController = TextEditingController();
+
+  Future<void> _loadHomeVisitKitItemsCatalog() async {
+    if (!mounted) return;
+    setState(() {
+      _isHVKitItemsLoading = true;
+      _hvKitItemsError = null;
+    });
+    try {
+      final service = HomeVisitService();
+      final items = await service.fetchKitItemsMaster();
+      items.sort((a, b) => (int.tryParse(b['id']?.toString() ?? '0') ?? 0)
+          .compareTo(int.tryParse(a['id']?.toString() ?? '0') ?? 0));
+
+      if (mounted) {
+        setState(() {
+          _hvKitItemsMasterList = items;
+          _isHVKitItemsLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hvKitItemsError = e.toString().replaceFirst('Exception: ', '');
+          _isHVKitItemsLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadHomeVisitConsumablesCatalog() async {
+    if (!mounted) return;
+    setState(() {
+      _isHVConsumableLoading = true;
+      _hvConsumableError = null;
+    });
+    try {
+      final service = HomeVisitService();
+      final procedures = await service.fetchProceduresMaster();
+      final consumables = await service.fetchConsumablesMaster();
+
+      procedures.sort((a, b) => b.id.compareTo(a.id));
+
+      if (mounted) {
+        setState(() {
+          _hvProceduresMaster = procedures;
+          _hvConsumablesMasterList = consumables;
+          _isHVConsumableLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hvConsumableError = e.toString().replaceFirst('Exception: ', '');
+          _isHVConsumableLoading = false;
+        });
+      }
+    }
+  }
+
+  // Modal Dialog: Add New Procedure with Mapped Consumable Items
+  Future<void> _showAddProcedureDialog(bool isMobile) async {
+    if (_hvConsumablesMasterList.isEmpty) {
+      try {
+        final list = await HomeVisitService().fetchConsumablesMaster();
+        if (mounted) setState(() => _hvConsumablesMasterList = list);
+      } catch (_) {}
+    }
+
+    final formKey = GlobalKey<FormState>();
+    final procNameCtrl = TextEditingController();
+    final procChargeCtrl = TextEditingController(text: '0.00');
+
+    // Dynamic list of consumables to attach
+    final List<Map<String, dynamic>> itemsList = [];
+    bool isSaving = false;
+
+    void addConsumableRow(StateSetter setD) {
+      setD(() {
+        itemsList.add({
+          'name_ctrl': TextEditingController(),
+          'unit': 'Pc',
+          'price_ctrl': TextEditingController(text: '0.00'),
+          'qty_ctrl': TextEditingController(text: '1'),
+        });
+      });
+    }
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setD) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.medical_services_outlined, color: AppTheme.primaryColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Add Procedure & Mapped Consumables',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.textPrimaryColor),
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: isMobile ? double.infinity : 580,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Section 1: Procedure Details
+                      const Text(
+                        'PROCEDURE DETAILS',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor, letterSpacing: 0.8),
+                      ),
+                      const SizedBox(height: 10),
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Procedure Name ',
+                              style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700),
+                            ),
+                            const TextSpan(text: '*', style: TextStyle(color: AppTheme.logoRed, fontSize: 14, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: procNameCtrl,
+                        maxLength: 150,
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s\-\(\)]'))],
+                        decoration: AppTheme.standardInputDecoration(
+                          label: null,
+                          prefixIcon: Icons.healing_outlined,
+                          hintText: 'e.g. Tracheostomy Care, Wound Dressing',
+                        ).copyWith(counterText: ''),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Procedure name is required';
+                          if (v.trim().length < 3) return 'Min 3 characters required';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Procedure Service Charge (₹) ',
+                              style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700),
+                            ),
+                            const TextSpan(text: '*', style: TextStyle(color: AppTheme.logoRed, fontSize: 14, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: procChargeCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: AppTheme.standardInputDecoration(
+                          label: null,
+                          prefixIcon: Icons.currency_rupee,
+                          hintText: '0.00',
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Charge is required';
+                          final val = double.tryParse(v.trim());
+                          if (val == null || val < 0) return 'Enter a valid amount';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Section 2: Consumables Mapped to Procedure
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'MAPPED CONSUMABLE ITEMS',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryColor, letterSpacing: 0.8),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => addConsumableRow(setD),
+                            icon: const Icon(Icons.add_circle_outline, size: 16, color: AppTheme.secondaryColor),
+                            label: const Text('Add Consumable', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.secondaryColor)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Define items automatically required & deducted per procedure execution:',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                      const SizedBox(height: 10),
+
+                      if (itemsList.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppTheme.borderColor),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, size: 18, color: Colors.grey.shade500),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'No consumables mapped yet. Click "Add Consumable" above to attach items.',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: itemsList.length,
+                          itemBuilder: (rowCtx, idx) {
+                            final row = itemsList[idx];
+                            final nameCtrl = row['name_ctrl'] as TextEditingController;
+                            final priceCtrl = row['price_ctrl'] as TextEditingController;
+                            final qtyCtrl = row['qty_ctrl'] as TextEditingController;
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppTheme.borderColor),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Item #${idx + 1}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor),
+                                      ),
+                                      const Spacer(),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.logoRed),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () {
+                                          setD(() => itemsList.removeAt(idx));
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  // Consumable Item Name Dropdown / Searchable Input
+                                  CustomDropdownSearch(
+                                    label: 'Consumable Item',
+                                    requiredMark: true,
+                                    hint: 'Select or type consumable item name',
+                                    value: nameCtrl.text.isEmpty ? null : nameCtrl.text,
+                                    dropdownItems: _hvConsumablesMasterList
+                                        .map((c) => c['name']?.toString() ?? '')
+                                        .where((n) => n.isNotEmpty)
+                                        .toSet()
+                                        .toList(),
+                                    allowFreeText: true,
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setD(() {
+                                          nameCtrl.text = val;
+                                          // Auto-fill unit & unit_price if item matches master list
+                                          final matched = _hvConsumablesMasterList.firstWhere(
+                                            (c) => (c['name']?.toString().toLowerCase() ?? '') == val.toLowerCase(),
+                                            orElse: () => {},
+                                          );
+                                          if (matched.isNotEmpty) {
+                                            row['unit'] = matched['unit']?.toString() ?? 'Pc';
+                                            priceCtrl.text = (double.tryParse(matched['unit_price']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2);
+                                          }
+                                        });
+                                      }
+                                    },
+                                    validator: (v) => v == null || v.trim().isEmpty ? 'Item name required' : null,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      // Unit Dropdown
+                                      Expanded(
+                                        flex: 2,
+                                        child: CustomDropdownSearch(
+                                          label: 'Unit',
+                                          requiredMark: true,
+                                          hint: 'Unit',
+                                          value: row['unit'] as String,
+                                          dropdownItems: const ['Pc', 'Pair', 'Pack', 'Roll', 'Vial', 'Box', 'Strip', 'ml'],
+                                          onChanged: (v) {
+                                            if (v != null) setD(() => row['unit'] = v);
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // Price
+                                      Expanded(
+                                        flex: 2,
+                                        child: TextFormField(
+                                          controller: priceCtrl,
+                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                          decoration: AppTheme.standardInputDecoration(
+                                            label: null,
+                                            prefixIcon: Icons.currency_rupee,
+                                            hintText: 'Unit Price',
+                                          ),
+                                          validator: (v) {
+                                            if (v == null || v.trim().isEmpty) return 'Req';
+                                            return null;
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // Qty per procedure
+                                      Expanded(
+                                        flex: 2,
+                                        child: TextFormField(
+                                          controller: qtyCtrl,
+                                          keyboardType: TextInputType.number,
+                                          decoration: AppTheme.standardInputDecoration(
+                                            label: null,
+                                            prefixIcon: Icons.numbers,
+                                            hintText: 'Qty/Proc',
+                                          ),
+                                          validator: (v) {
+                                            if (v == null || v.trim().isEmpty) return 'Req';
+                                            final val = int.tryParse(v.trim());
+                                            if (val == null || val <= 0) return '>0';
+                                            return null;
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                style: AppTheme.cancelButton,
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setD(() => isSaving = true);
+                        try {
+                          final mappedItems = itemsList.map((row) {
+                            return {
+                              'consumable_name': (row['name_ctrl'] as TextEditingController).text.trim(),
+                              'unit': row['unit'],
+                              'unit_price': double.tryParse((row['price_ctrl'] as TextEditingController).text.trim()) ?? 0.0,
+                              'qty_per_procedure': int.tryParse((row['qty_ctrl'] as TextEditingController).text.trim()) ?? 1,
+                            };
+                          }).toList();
+
+                          await HomeVisitService().createProcedureMaster({
+                            'name': procNameCtrl.text.trim(),
+                            'procedure_charge': double.tryParse(procChargeCtrl.text.trim()) ?? 0.0,
+                            'items': mappedItems,
+                          });
+
+                          if (mounted) Navigator.pop(ctx, true);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Procedure and mapped consumables saved successfully'),
+                                backgroundColor: Colors.green.shade600,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setD(() => isSaving = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString().replaceFirst('Exception: ', '')),
+                                backgroundColor: AppTheme.dangerColor,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                style: AppTheme.primaryButton,
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Save Procedure'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (result == true) _loadHomeVisitConsumablesCatalog();
+  }
+
+  // Modal Dialog: Add Consumable Item to Existing Procedure
+  Future<void> _showAddConsumableToProcedureDialog(ProcedureMasterModel proc, bool isMobile) async {
+    if (_hvConsumablesMasterList.isEmpty) {
+      try {
+        final list = await HomeVisitService().fetchConsumablesMaster();
+        if (mounted) setState(() => _hvConsumablesMasterList = list);
+      } catch (_) {}
+    }
+
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController();
+    final priceCtrl = TextEditingController(text: '0.00');
+    final qtyCtrl = TextEditingController(text: '1');
+    String selectedUnit = 'Pc';
+    bool isSaving = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setD) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondaryColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.add_shopping_cart, color: AppTheme.secondaryColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Add Consumable to "${proc.name}"',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: isMobile ? double.infinity : 440,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CustomDropdownSearch(
+                        label: 'Consumable Item Name',
+                        requiredMark: true,
+                        hint: 'Select or type consumable item name',
+                        value: nameCtrl.text.isEmpty ? null : nameCtrl.text,
+                        dropdownItems: _hvConsumablesMasterList
+                            .map((c) => c['name']?.toString() ?? '')
+                            .where((n) => n.isNotEmpty)
+                            .toSet()
+                            .toList(),
+                        allowFreeText: true,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setD(() {
+                              nameCtrl.text = val;
+                              final matched = _hvConsumablesMasterList.firstWhere(
+                                (c) => (c['name']?.toString().toLowerCase() ?? '') == val.toLowerCase(),
+                                orElse: () => {},
+                              );
+                              if (matched.isNotEmpty) {
+                                selectedUnit = matched['unit']?.toString() ?? 'Pc';
+                                priceCtrl.text = (double.tryParse(matched['unit_price']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2);
+                              }
+                            });
+                          }
+                        },
+                        validator: (v) => v == null || v.trim().isEmpty ? 'Consumable item name is required' : null,
+                      ),
+                      const SizedBox(height: 14),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CustomDropdownSearch(
+                              label: 'Unit',
+                              requiredMark: true,
+                              hint: 'Select Unit',
+                              value: selectedUnit,
+                              dropdownItems: const ['Pc', 'Pair', 'Pack', 'Roll', 'Vial', 'Box', 'Strip', 'ml'],
+                              onChanged: (v) {
+                                if (v != null) setD(() => selectedUnit = v);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'Unit Price (₹) ',
+                                        style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700),
+                                      ),
+                                      const TextSpan(text: '*', style: TextStyle(color: AppTheme.logoRed, fontSize: 14, fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: priceCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: AppTheme.standardInputDecoration(
+                                    label: null,
+                                    prefixIcon: Icons.currency_rupee,
+                                    hintText: '0.00',
+                                  ),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) return 'Required';
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Quantity per Procedure Execution ',
+                              style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700),
+                            ),
+                            const TextSpan(text: '*', style: TextStyle(color: AppTheme.logoRed, fontSize: 14, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: qtyCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: null,
+                          prefixIcon: Icons.numbers,
+                          hintText: 'e.g. 1',
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Qty is required';
+                          final val = int.tryParse(v.trim());
+                          if (val == null || val <= 0) return 'Must be > 0';
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                style: AppTheme.cancelButton,
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setD(() => isSaving = true);
+                        try {
+                          await HomeVisitService().addConsumableToProcedure(proc.id, {
+                            'consumable_name': nameCtrl.text.trim(),
+                            'unit': selectedUnit,
+                            'unit_price': double.tryParse(priceCtrl.text.trim()) ?? 0.0,
+                            'qty_per_procedure': int.tryParse(qtyCtrl.text.trim()) ?? 1,
+                          });
+
+                          if (mounted) Navigator.pop(ctx, true);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Consumable mapped to "${proc.name}" successfully'),
+                                backgroundColor: Colors.green.shade600,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setD(() => isSaving = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString().replaceFirst('Exception: ', '')),
+                                backgroundColor: AppTheme.dangerColor,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                style: AppTheme.primaryButton,
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Map Consumable'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (result == true) _loadHomeVisitConsumablesCatalog();
+  }
+
+  // Deactivate Procedure Master
+  Future<void> _deleteProcedureMaster(ProcedureMasterModel proc) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Deactivate Procedure', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: RichText(
+          text: TextSpan(
+            style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14, height: 1.5),
+            children: [
+              const TextSpan(text: 'Are you sure you want to deactivate '),
+              TextSpan(text: '"${proc.name}"', style: const TextStyle(fontWeight: FontWeight.bold)),
+              const TextSpan(text: '? It will no longer be selectable during home visits.'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: AppTheme.cancelButton,
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: AppTheme.dangerButton,
+            child: const Text('Deactivate'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    try {
+      await HomeVisitService().deleteProcedureMaster(proc.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Procedure "${proc.name}" deactivated'),
+            backgroundColor: Colors.green.shade600,
+          ),
+        );
+        _loadHomeVisitConsumablesCatalog();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+      }
+    }
+  }
+
+  // Remove Consumable Mapping from Procedure
+  Future<void> _removeConsumableMapping(ProcedureMasterModel proc, ProcedureConsumableMappingModel item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Remove Consumable Item', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: RichText(
+          text: TextSpan(
+            style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14, height: 1.5),
+            children: [
+              const TextSpan(text: 'Remove '),
+              TextSpan(text: '"${item.consumableName}"', style: const TextStyle(fontWeight: FontWeight.bold)),
+              TextSpan(text: ' from procedure "${proc.name}"?'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: AppTheme.cancelButton,
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: AppTheme.dangerButton,
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    try {
+      await HomeVisitService().removeConsumableMapping(proc.id, item.consumableId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${item.consumableName}" removed from "${proc.name}"'),
+            backgroundColor: Colors.green.shade600,
+          ),
+        );
+        _loadHomeVisitConsumablesCatalog();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+      }
+    }
+  }
+
+  // Modal Dialog: Add Standalone Consumable Item Master Directly
+  Future<void> _showAddStandaloneConsumableDialog(bool isMobile) async {
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController();
+    final priceCtrl = TextEditingController(text: '0.00');
+    String selectedUnit = 'Pc';
+    bool isSaving = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setD) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondaryColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.inventory_2_outlined, color: AppTheme.secondaryColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Add Standalone Consumable Item',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: isMobile ? double.infinity : 440,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Consumable Item Name ',
+                              style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700),
+                            ),
+                            const TextSpan(text: '*', style: TextStyle(color: AppTheme.logoRed, fontSize: 14, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: nameCtrl,
+                        maxLength: 150,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: null,
+                          prefixIcon: Icons.home_repair_service_outlined,
+                          hintText: 'e.g. Disposable Diaper L, Sterile Gauze Pack',
+                        ).copyWith(counterText: ''),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Consumable item name is required';
+                          if (v.trim().length < 2) return 'Min 2 characters required';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CustomDropdownSearch(
+                              label: 'Unit',
+                              requiredMark: true,
+                              hint: 'Select Unit',
+                              value: selectedUnit,
+                              dropdownItems: const ['Pc', 'Pair', 'Pack', 'Roll', 'Vial', 'Box', 'Strip', 'ml'],
+                              onChanged: (v) {
+                                if (v != null) setD(() => selectedUnit = v);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'Unit Price (₹) ',
+                                        style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700),
+                                      ),
+                                      const TextSpan(text: '*', style: TextStyle(color: AppTheme.logoRed, fontSize: 14, fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: priceCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: AppTheme.standardInputDecoration(
+                                    label: null,
+                                    prefixIcon: Icons.currency_rupee,
+                                    hintText: '0.00',
+                                  ),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) return 'Required';
+                                    final val = double.tryParse(v.trim());
+                                    if (val == null || val < 0) return 'Valid amount';
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                style: AppTheme.cancelButton,
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setD(() => isSaving = true);
+                        try {
+                          await HomeVisitService().createConsumableMaster({
+                            'name': nameCtrl.text.trim(),
+                            'unit': selectedUnit,
+                            'unit_price': double.tryParse(priceCtrl.text.trim()) ?? 0.0,
+                          });
+
+                          if (mounted) Navigator.pop(ctx, true);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Consumable "${nameCtrl.text.trim()}" saved successfully'),
+                                backgroundColor: Colors.green.shade600,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setD(() => isSaving = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString().replaceFirst('Exception: ', '')),
+                                backgroundColor: AppTheme.dangerColor,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                style: AppTheme.primaryButton,
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Save Consumable'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (result == true) _loadHomeVisitConsumablesCatalog();
+  }
+
+  Widget _buildHomeVisitConsumablesCatalog(bool isMobile) {
+    if (_hvProceduresMaster.isEmpty && !_isHVConsumableLoading && _hvConsumableError == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadHomeVisitConsumablesCatalog());
+    }
+
+    final query = _hvConsumableSearch.trim().toLowerCase();
+    final filteredProcedures = query.isEmpty
+        ? _hvProceduresMaster
+        : _hvProceduresMaster.where((p) {
+            final procMatch = p.name.toLowerCase().contains(query);
+            final itemMatch = p.mappedConsumables.any((c) => c.consumableName.toLowerCase().contains(query));
+            return procMatch || itemMatch;
+          }).toList();
+
+    final filteredConsumables = query.isEmpty
+        ? _hvConsumablesMasterList
+        : _hvConsumablesMasterList.where((item) {
+            final nameMatch = (item['name']?.toString() ?? '').toLowerCase().contains(query);
+            final unitMatch = (item['unit']?.toString() ?? '').toLowerCase().contains(query);
+            return nameMatch || unitMatch;
+          }).toList();
+
+    int totalMappingsCount = 0;
+    for (var p in _hvProceduresMaster) {
+      totalMappingsCount += p.mappedConsumables.length;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header Bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 12,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _buildHVConsumablesHeaderTitle(),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: isMobile ? double.infinity : 220,
+                    child: _buildHVConsumablesSearchBar(),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddProcedureDialog(isMobile),
+                    style: AppTheme.primaryButton,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Procedure'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _showAddStandaloneConsumableDialog(isMobile),
+                    style: AppTheme.outlinedButton,
+                    icon: const Icon(Icons.add_shopping_cart, size: 18, color: AppTheme.secondaryColor),
+                    label: const Text('Add Consumable', style: TextStyle(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // Stats Row
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _buildMedStatChip(
+                Icons.medical_services_outlined,
+                AppTheme.primaryColor,
+                'Total Procedures',
+                '${_hvProceduresMaster.length}',
+              ),
+              _buildMedStatChip(
+                Icons.home_repair_service_outlined,
+                AppTheme.secondaryColor,
+                'Master Consumable Items',
+                '${_hvConsumablesMasterList.length}',
+              ),
+              _buildMedStatChip(
+                Icons.alt_route_outlined,
+                const Color(0xFF8B5CF6),
+                'Active Item Mappings',
+                '$totalMappingsCount',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Sub-Tab Switcher Row
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              ChoiceChip(
+                label: Text('Procedures Catalog (${_hvProceduresMaster.length})'),
+                selected: _hvCatalogSelectedTab == 0,
+                onSelected: (val) {
+                  if (val) setState(() => _hvCatalogSelectedTab = 0);
+                },
+                selectedColor: AppTheme.primaryColor.withOpacity(0.15),
+                labelStyle: TextStyle(
+                  color: _hvCatalogSelectedTab == 0 ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+                  fontWeight: _hvCatalogSelectedTab == 0 ? FontWeight.bold : FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                label: Text('Master Consumable Items (${_hvConsumablesMasterList.length})'),
+                selected: _hvCatalogSelectedTab == 1,
+                onSelected: (val) {
+                  if (val) setState(() => _hvCatalogSelectedTab = 1);
+                },
+                selectedColor: AppTheme.secondaryColor.withOpacity(0.15),
+                labelStyle: TextStyle(
+                  color: _hvCatalogSelectedTab == 1 ? AppTheme.secondaryColor : AppTheme.textSecondaryColor,
+                  fontWeight: _hvCatalogSelectedTab == 1 ? FontWeight.bold : FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Catalog Content View
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _isHVConsumableLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _hvConsumableError != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error_outline, size: 48, color: AppTheme.dangerColor.withOpacity(0.6)),
+                            const SizedBox(height: 12),
+                            Text(_hvConsumableError!, style: const TextStyle(color: AppTheme.textSecondaryColor)),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: _loadHomeVisitConsumablesCatalog,
+                              style: AppTheme.primaryButton,
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _hvCatalogSelectedTab == 0
+                        ? (filteredProcedures.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.medical_services_outlined, size: 56, color: Colors.grey.shade300),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _hvConsumableSearch.isNotEmpty
+                                          ? 'No procedures match "$_hvConsumableSearch"'
+                                          : 'No Home Visit procedures registered yet',
+                                      style: TextStyle(fontSize: 15, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Click "Add Procedure & Consumables" to create your first procedure master',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : _buildProceduresCatalogList(filteredProcedures, isMobile))
+                        : _buildMasterConsumablesList(filteredConsumables, isMobile),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMasterConsumablesList(List<Map<String, dynamic>> items, bool isMobile) {
+    if (items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              _hvConsumableSearch.isNotEmpty
+                  ? 'No consumable items match "$_hvConsumableSearch"'
+                  : 'No master consumable items registered yet',
+              style: TextStyle(fontSize: 15, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Click "Add Consumable Item" to register new items',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppTheme.borderColor),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFC),
+                border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+              ),
+              child: const Row(
+                children: [
+                  Expanded(flex: 1, child: Text('#', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                  Expanded(flex: 4, child: Text('Consumable Item Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                  Expanded(flex: 2, child: Text('Unit', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                  Expanded(flex: 2, child: Text('Unit Price (₹)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                  Expanded(flex: 2, child: Text('Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.borderColor),
+                itemCount: items.length,
+                itemBuilder: (ctx, i) {
+                  final item = items[i];
+                  final price = double.tryParse(item['unit_price']?.toString() ?? '0') ?? 0.0;
+                  return Container(
+                    color: i.isEven ? Colors.white : const Color(0xFFFAFBFC),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.secondaryColor),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 4,
+                          child: Text(
+                            item['name']?.toString() ?? '',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryColor),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            item['unit']?.toString() ?? 'Pc',
+                            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            '₹${price.toStringAsFixed(2)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.secondaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              item['status']?.toString() ?? 'Active',
+                              style: const TextStyle(fontSize: 11, color: AppTheme.secondaryColor, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Modal Dialog: Add Carried Kit Item / Equipment Master
+  Future<void> _showAddCarriedKitItemDialog(bool isMobile) async {
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    String selectedType = 'Device';
+    bool isSaving = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setD) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.inventory_outlined, color: AppTheme.primaryColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Add Carried Kit Item / Equipment',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: isMobile ? double.infinity : 460,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Kit Item Name ',
+                              style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700),
+                            ),
+                            const TextSpan(text: '*', style: TextStyle(color: AppTheme.logoRed, fontSize: 14, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: nameCtrl,
+                        maxLength: 150,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: null,
+                          prefixIcon: Icons.medical_information_outlined,
+                          hintText: 'e.g. BP Apparatus Digital, Portable Oxygen Cylinder',
+                        ).copyWith(counterText: ''),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Kit item name is required';
+                          if (v.trim().length < 2) return 'Min 2 characters required';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      CustomDropdownSearch(
+                        label: 'Item Type',
+                        requiredMark: true,
+                        hint: 'Select Item Type',
+                        value: selectedType,
+                        dropdownItems: const ['Device', 'Equipment', 'Kit', 'Monitoring Tool', 'Accessories'],
+                        onChanged: (v) {
+                          if (v != null) setD(() => selectedType = v);
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Description / Specifications',
+                              style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: descCtrl,
+                        maxLines: 3,
+                        maxLength: 300,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: null,
+                          prefixIcon: Icons.notes_outlined,
+                          hintText: 'e.g. Digital blood pressure monitor with cuff for adult home visits...',
+                        ).copyWith(counterText: ''),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                style: AppTheme.cancelButton,
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setD(() => isSaving = true);
+                        try {
+                          await HomeVisitService().createKitItemMaster({
+                            'name': nameCtrl.text.trim(),
+                            'item_type': selectedType,
+                            'description': descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
+                          });
+
+                          if (mounted) Navigator.pop(ctx, true);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Carried Kit Item "${nameCtrl.text.trim()}" saved successfully'),
+                                backgroundColor: Colors.green.shade600,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setD(() => isSaving = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString().replaceFirst('Exception: ', '')),
+                                backgroundColor: AppTheme.dangerColor,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                style: AppTheme.primaryButton,
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Save Kit Item'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (result == true) _loadHomeVisitKitItemsCatalog();
+  }
+
+  Widget _buildCarriedKitItemsCatalog(bool isMobile) {
+    if (_hvKitItemsMasterList.isEmpty && !_isHVKitItemsLoading && _hvKitItemsError == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadHomeVisitKitItemsCatalog());
+    }
+
+    final query = _hvKitItemsSearch.trim().toLowerCase();
+    final filteredItems = query.isEmpty
+        ? _hvKitItemsMasterList
+        : _hvKitItemsMasterList.where((item) {
+            final nameMatch = (item['name']?.toString() ?? '').toLowerCase().contains(query);
+            final typeMatch = (item['item_type']?.toString() ?? '').toLowerCase().contains(query);
+            final descMatch = (item['description']?.toString() ?? '').toLowerCase().contains(query);
+            return nameMatch || typeMatch || descMatch;
+          }).toList();
+
+    int deviceCount = 0;
+    int equipmentCount = 0;
+    int kitCount = 0;
+    for (var item in _hvKitItemsMasterList) {
+      final type = item['item_type']?.toString() ?? '';
+      if (type == 'Device') deviceCount++;
+      else if (type == 'Equipment') equipmentCount++;
+      else kitCount++;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header Bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 12,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.inventory_outlined, color: AppTheme.primaryColor, size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Carried Kit Items & Equipment Catalog',
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Manage standard devices, medical equipment, and kits carried by nurses during home visits',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                  ),
+                ],
+              ),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: isMobile ? double.infinity : 240,
+                    child: TextField(
+                      controller: _hvKitItemsSearchController,
+                      decoration: AppTheme.standardInputDecoration(
+                        label: null,
+                        prefixIcon: Icons.search,
+                        hintText: 'Search kit items or equipment...',
+                      ).copyWith(
+                        suffixIcon: _hvKitItemsSearch.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  _hvKitItemsSearchController.clear();
+                                  setState(() => _hvKitItemsSearch = '');
+                                  _loadHomeVisitKitItemsCatalog();
+                                },
+                              )
+                            : null,
+                      ),
+                      onChanged: (v) => setState(() => _hvKitItemsSearch = v),
+                      onSubmitted: (_) => _loadHomeVisitKitItemsCatalog(),
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddCarriedKitItemDialog(isMobile),
+                    style: AppTheme.primaryButton,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Carried Kit Item'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // Summary Stats Row
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _buildMedStatChip(
+                Icons.inventory_outlined,
+                AppTheme.primaryColor,
+                'Total Master Items',
+                '${_hvKitItemsMasterList.length}',
+              ),
+              _buildMedStatChip(
+                Icons.medical_information_outlined,
+                AppTheme.secondaryColor,
+                'Medical Devices',
+                '$deviceCount',
+              ),
+              _buildMedStatChip(
+                Icons.precision_manufacturing_outlined,
+                const Color(0xFF8B5CF6),
+                'Equipment',
+                '$equipmentCount',
+              ),
+              _buildMedStatChip(
+                Icons.home_repair_service_outlined,
+                const Color(0xFFE53E3E),
+                'Kits & Accessories',
+                '$kitCount',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Catalog List View
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _isHVKitItemsLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _hvKitItemsError != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error_outline, size: 48, color: AppTheme.dangerColor.withOpacity(0.6)),
+                            const SizedBox(height: 12),
+                            Text(_hvKitItemsError!, style: const TextStyle(color: AppTheme.textSecondaryColor)),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: _loadHomeVisitKitItemsCatalog,
+                              style: AppTheme.primaryButton,
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : filteredItems.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.inventory_outlined, size: 56, color: Colors.grey.shade300),
+                                const SizedBox(height: 16),
+                                Text(
+                                  _hvKitItemsSearch.isNotEmpty
+                                      ? 'No kit items match "$_hvKitItemsSearch"'
+                                      : 'No master carried kit items registered yet',
+                                  style: TextStyle(fontSize: 15, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Click "Add Carried Kit Item" to add devices or equipment to the catalog',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(color: AppTheme.borderColor),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFF8FAFC),
+                                      border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        Expanded(flex: 1, child: Text('#', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                                        Expanded(flex: 4, child: Text('Kit Item Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                                        Expanded(flex: 2, child: Text('Type', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                                        Expanded(flex: 4, child: Text('Description / Specs', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                                        Expanded(flex: 2, child: Text('Actions', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: ListView.separated(
+                                      separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.borderColor),
+                                      itemCount: filteredItems.length,
+                                      itemBuilder: (ctx, i) {
+                                        final item = filteredItems[i];
+                                        final itemId = int.tryParse(item['id']?.toString() ?? '0') ?? 0;
+                                        final typeStr = item['item_type']?.toString() ?? 'Device';
+                                        return Container(
+                                          color: i.isEven ? Colors.white : const Color(0xFFFAFBFC),
+                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                flex: 1,
+                                                child: Text(
+                                                  '${i + 1}',
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primaryColor),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 4,
+                                                child: Text(
+                                                  item['name']?.toString() ?? '',
+                                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryColor),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.primaryColor.withOpacity(0.08),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                  ),
+                                                  child: Text(
+                                                    typeStr,
+                                                    style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.w600),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 4,
+                                                child: Text(
+                                                  item['description']?.toString() ?? '--',
+                                                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Align(
+                                                  alignment: Alignment.centerLeft,
+                                                  child: TextButton.icon(
+                                                    onPressed: () async {
+                                                      final confirm = await showDialog<bool>(
+                                                        context: context,
+                                                        builder: (c) => AlertDialog(
+                                                          title: const Text('Deactivate Kit Item'),
+                                                          content: Text('Are you sure you want to deactivate "${item['name']}"?'),
+                                                          actions: [
+                                                            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                                                            ElevatedButton(
+                                                              onPressed: () => Navigator.pop(c, true),
+                                                              style: AppTheme.dangerButton,
+                                                              child: const Text('Deactivate'),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                      if (confirm == true && itemId > 0) {
+                                                        try {
+                                                          await HomeVisitService().deleteKitItemMaster(itemId);
+                                                          _loadHomeVisitKitItemsCatalog();
+                                                        } catch (e) {
+                                                          if (mounted) {
+                                                            ScaffoldMessenger.of(context).showSnackBar(
+                                                              SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.dangerColor),
+                                                            );
+                                                          }
+                                                        }
+                                                      }
+                                                    },
+                                                    icon: const Icon(Icons.delete_outline, size: 16, color: AppTheme.logoRed),
+                                                    label: const Text('Remove', style: TextStyle(fontSize: 12, color: AppTheme.logoRed)),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHVConsumablesHeaderTitle() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.medical_services_outlined, color: AppTheme.primaryColor, size: 20),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Home Visit Procedures & Consumables Catalog',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Manage procedures, service charges, and consumable items mapped under each procedure',
+          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHVConsumablesSearchBar() {
+    return TextField(
+      controller: _hvSearchController,
+      decoration: AppTheme.standardInputDecoration(
+        label: null,
+        prefixIcon: Icons.search,
+        hintText: 'Search procedure or consumable item...',
+      ).copyWith(
+        suffixIcon: _hvConsumableSearch.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: () {
+                  _hvSearchController.clear();
+                  setState(() => _hvConsumableSearch = '');
+                  _loadHomeVisitConsumablesCatalog();
+                },
+              )
+            : null,
+      ),
+      onChanged: (v) {
+        setState(() => _hvConsumableSearch = v);
+      },
+      onSubmitted: (_) => _loadHomeVisitConsumablesCatalog(),
+    );
+  }
+
+  Widget _buildProceduresCatalogList(List<ProcedureMasterModel> procedures, bool isMobile) {
+    return ListView.separated(
+      padding: const EdgeInsets.only(bottom: 24),
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      itemCount: procedures.length,
+      itemBuilder: (ctx, i) {
+        final proc = procedures[i];
+        double totalConsumablesCost = 0.0;
+        for (var item in proc.mappedConsumables) {
+          totalConsumablesCost += (item.unitPrice * item.qtyPerProcedure);
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.borderColor),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Procedure Card Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+                  border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.healing_outlined, color: AppTheme.primaryColor, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            proc.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Status: ${proc.status}  •  ${proc.mappedConsumables.length} mapped consumable items',
+                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Charge Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.secondaryColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '₹${proc.procedureCharge.toStringAsFixed(2)} / procedure',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.secondaryColor),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Action Buttons
+                    IconButton(
+                      icon: const Icon(Icons.add_shopping_cart, size: 20, color: AppTheme.primaryColor),
+                      tooltip: 'Map Consumable Item',
+                      onPressed: () => _showAddConsumableToProcedureDialog(proc, isMobile),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.dangerColor),
+                      tooltip: 'Deactivate Procedure',
+                      onPressed: () => _deleteProcedureMaster(proc),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Procedure Mapped Consumables List
+              if (proc.mappedConsumables.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: Colors.grey.shade400),
+                      const SizedBox(width: 8),
+                      Text(
+                        'No consumable items mapped under this procedure.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: () => _showAddConsumableToProcedureDialog(proc, isMobile),
+                        icon: const Icon(Icons.add, size: 14, color: AppTheme.primaryColor),
+                        label: const Text('Add Consumable', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'MAPPED CONSUMABLES (AUTO-DEDUCTED):',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor, letterSpacing: 0.5),
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppTheme.borderColor),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Expanded(flex: 3, child: Text('Item Name', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                                  Expanded(flex: 2, child: Text('Unit Price', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                                  Expanded(flex: 2, child: Text('Qty / Procedure', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                                  Expanded(flex: 2, child: Text('Total Item Cost', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor))),
+                                  SizedBox(width: 36),
+                                ],
+                              ),
+                            ),
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.borderColor),
+                              itemCount: proc.mappedConsumables.length,
+                              itemBuilder: (cCtx, cIdx) {
+                                final item = proc.mappedConsumables[cIdx];
+                                final itemTotalCost = item.unitPrice * item.qtyPerProcedure;
+
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          '${cIdx + 1}.  ${item.consumableName}',
+                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryColor),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          '₹${item.unitPrice.toStringAsFixed(2)} / ${item.unit}',
+                                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          '${item.qtyPerProcedure} ${item.unit}',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          '₹${itemTotalCost.toStringAsFixed(2)}',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 36,
+                                        child: IconButton(
+                                          icon: const Icon(Icons.close, size: 16, color: AppTheme.dangerColor),
+                                          tooltip: 'Remove consumable mapping',
+                                          onPressed: () => _removeConsumableMapping(proc, item),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            'Estimated Consumables Total: ₹${totalConsumablesCost.toStringAsFixed(2)}  |  Total Procedure Billing: ₹${(proc.procedureCharge + totalConsumablesCost).toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
 }
 
 class AddUserDialog extends StatefulWidget {
@@ -6712,4 +9740,5 @@ class _AdminHeaderDateTimeCardState extends State<AdminHeaderDateTimeCard> {
       ),
     );
   }
+
 }
