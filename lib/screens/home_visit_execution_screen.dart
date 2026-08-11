@@ -2402,6 +2402,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     await ctrl.fetchVisitDetails(widget.visitId);
     await ctrl.fetchVisits();
     _fetchInventoryCatalogs();
+    if (!mounted || widget.isReadOnlyView) return;
     if (ctrl.selectedVisit != null &&
         (ctrl.selectedVisit!.startTime == null ||
             ctrl.selectedVisit!.startTime!.trim().isEmpty) &&
@@ -2413,6 +2414,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   }
 
   void _promptStartVisitDialog(HomeVisitModel visit) {
+    if (!mounted || widget.isReadOnlyView) return;
     final formKey = GlobalKey<FormState>();
     final now = DateTime.now();
     final defaultTime = DateFormat('hh:mm a').format(now);
