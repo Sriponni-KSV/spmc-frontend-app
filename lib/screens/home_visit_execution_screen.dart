@@ -117,13 +117,23 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     required TextEditingController controller,
     int min = 1,
     int max = 999,
+    ValueChanged<String>? onChanged,
+    StateSetter? setModalState,
+    String? suffix,
   }) {
     void updateQty(int delta) {
       int current = int.tryParse(controller.text) ?? min;
       int updated = (current + delta).clamp(min, max);
-      setState(() {
-        controller.text = updated.toString();
-      });
+      final newText = updated.toString();
+      controller.text = newText;
+      if (setModalState != null) {
+        setModalState(() {});
+      } else if (mounted) {
+        setState(() {});
+      }
+      if (onChanged != null) {
+        onChanged(newText);
+      }
     }
 
     return Container(
@@ -154,11 +164,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     if (parsed > max) controller.text = max.toString();
                   }
                 }
+                if (onChanged != null) {
+                  onChanged(controller.text);
+                }
+                if (setModalState != null) {
+                  setModalState(() {});
+                }
               },
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Qty',
+                suffixText: suffix,
+                suffixStyle: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.normal),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 isDense: true,
               ),
             ),
@@ -857,23 +875,115 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     );
   }
 
+  Widget _buildDigitInputSlot(
+    TextEditingController ctrl,
+    FocusNode currentFn,
+    FocusNode? nextFn,
+    String label,
+    VoidCallback onChanged,
+    StateSetter setModalState,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryColor,
+          ),
+        ),
+        const SizedBox(height: 2),
+        SizedBox(
+          width: 36,
+          height: 38,
+          child: TextFormField(
+            controller: ctrl,
+            focusNode: currentFn,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[01]')),
+              LengthLimitingTextInputFormatter(1),
+            ],
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+              ),
+            ),
+            onChanged: (val) {
+              setModalState(() {
+                onChanged();
+              });
+              if (val.length == 1 && nextFn != null) {
+                nextFn.requestFocus();
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   void _showRecordMedicineModal(
     BuildContext context,
     HomeVisitModel visit,
     HomeVisitController controller,
   ) {
     String localType = _medType;
+    String selectedFoodTiming = 'After Food';
     final nameCtrl = TextEditingController(text: _medNameCtrl.text);
-    final dosageCtrl = TextEditingController(text: _medDosageCtrl.text);
-    final qtyCtrl = TextEditingController(text: _medQtyCtrl.text);
+    final qtyCtrl = TextEditingController(
+      text: _medQtyCtrl.text.isNotEmpty ? _medQtyCtrl.text : '1',
+    );
+
+    // 4-Parameter Frequency Controllers (M - A - E - N)
+    final f1Ctrl = TextEditingController(text: '1');
+    final f2Ctrl = TextEditingController(text: '0');
+    final f3Ctrl = TextEditingController(text: '1');
+    final f4Ctrl = TextEditingController(text: '0');
+    final fn1 = FocusNode();
+    final fn2 = FocusNode();
+    final fn3 = FocusNode();
+    final fn4 = FocusNode();
+
+    if (_medFrequencyCtrl.text.isNotEmpty && _medFrequencyCtrl.text != 'STAT') {
+      final digits = _medFrequencyCtrl.text.replaceAll(RegExp(r'[^01]'), '');
+      if (digits.length >= 1) f1Ctrl.text = digits[0];
+      if (digits.length >= 2) f2Ctrl.text = digits[1];
+      if (digits.length >= 3) f3Ctrl.text = digits[2];
+      if (digits.length >= 4) f4Ctrl.text = digits[3];
+    }
+
     final freqCtrl = TextEditingController(
-      text: _medFrequencyCtrl.text.isNotEmpty
-          ? _medFrequencyCtrl.text
-          : '1-0-1',
+      text: localType == 'STAT'
+          ? 'STAT'
+          : '${f1Ctrl.text} - ${f2Ctrl.text} - ${f3Ctrl.text} - ${f4Ctrl.text}',
     );
+
+    // Duration Stepper Controller (Max 365 Days)
+    int initialDays = 5;
+    if (_medDurationCtrl.text.isNotEmpty) {
+      final match = RegExp(r'(\d+)').firstMatch(_medDurationCtrl.text);
+      if (match != null) {
+        initialDays = int.tryParse(match.group(1)!) ?? 5;
+      }
+    }
+    final durDaysCtrl = TextEditingController(text: initialDays.clamp(1, 365).toString());
     final durCtrl = TextEditingController(
-      text: _medDurationCtrl.text.isNotEmpty ? _medDurationCtrl.text : '5 days',
+      text: localType == 'STAT' ? 'STAT - Single Dose' : '${durDaysCtrl.text} Days',
     );
+
     final givenTimeCtrl = TextEditingController(
       text: _medGivenTimeCtrl.text.isNotEmpty
           ? _medGivenTimeCtrl.text
@@ -881,6 +991,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     );
 
     bool isSubmitting = false;
+    bool submitAttempted = false;
 
     showDialog(
       context: context,
@@ -888,6 +999,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       builder: (dCtx) {
         return StatefulBuilder(
           builder: (dialogCtx, setModalState) {
+            void updateFreqText() {
+              if (localType == 'STAT') {
+                freqCtrl.text = 'STAT';
+              } else {
+                freqCtrl.text =
+                    '${f1Ctrl.text.isEmpty ? "0" : f1Ctrl.text} - ${f2Ctrl.text.isEmpty ? "0" : f2Ctrl.text} - ${f3Ctrl.text.isEmpty ? "0" : f3Ctrl.text} - ${f4Ctrl.text.isEmpty ? "0" : f4Ctrl.text}';
+              }
+            }
+
             return AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -920,12 +1040,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               content: SingleChildScrollView(
                 child: SizedBox(
-                  width: 500,
+                  width: 520,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildLabel('Medicine Type'),
+                      _buildLabel('Medicine Type *'),
                       Row(
                         children: [
                           ChoiceChip(
@@ -942,10 +1062,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               if (selected) {
                                 setModalState(() {
                                   localType = 'Regular';
-                                  if (freqCtrl.text == 'STAT')
-                                    freqCtrl.text = '1-0-1';
-                                  if (durCtrl.text == 'STAT - Single Dose')
-                                    durCtrl.text = '5 days';
+                                  updateFreqText();
+                                  durCtrl.text = '${durDaysCtrl.text} Days';
                                 });
                               }
                             },
@@ -973,8 +1091,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      _buildLabel('Medicine Name'),
+                      const SizedBox(height: 14),
+                      _buildLabel('Medicine Name *'),
                       CustomDropdownSearch(
                         label: '',
                         hint: 'Select or type medicine (e.g. Paracetamol)',
@@ -986,132 +1104,222 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         onChanged: (val) {
                           setModalState(() {
                             nameCtrl.text = val ?? '';
-                            if (val != null && val.trim().isNotEmpty) {
-                              final match = RegExp(
-                                r'\b(\d+(?:\.\d+)?\s*(?:mg|g|mcg|ml|iu|mEq|mg/ml|%))\b',
-                                caseSensitive: false,
-                              ).firstMatch(val);
-                              if (match != null && match.group(1) != null) {
-                                dosageCtrl.text = match.group(1)!;
-                              }
-                            }
+                            submitAttempted = false;
                           });
                         },
                       ),
-                      const SizedBox(height: 12),
+                      if (submitAttempted && nameCtrl.text.trim().isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4, left: 4),
+                          child: Text(
+                            'Please select or enter medicine name',
+                            style: TextStyle(color: AppTheme.dangerColor, fontSize: 12),
+                          ),
+                        ),
+                      const SizedBox(height: 14),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            flex: 2,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Dosage'),
-                                TextFormField(
-                                  controller: dosageCtrl,
-                                  decoration: AppTheme.standardInputDecoration(
-                                    hintText: 'e.g. 500mg',
-                                  ),
+                                _buildLabel('Qty *'),
+                                _buildQtyStepperField(
+                                  controller: qtyCtrl,
+                                  min: 1,
+                                  max: 999,
+                                  setModalState: setModalState,
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Qty'),
-                                TextFormField(
-                                  controller: qtyCtrl,
-                                  keyboardType: TextInputType.number,
+                                _buildLabel('Food Relation'),
+                                DropdownButtonFormField<String>(
+                                  value: selectedFoodTiming,
                                   decoration: AppTheme.standardInputDecoration(
-                                    hintText: 'Qty',
+                                    hintText: 'Select Food Relation',
                                   ),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'After Food',
+                                      child: Text('After Food', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Before Food',
+                                      child: Text('Before Food', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'With Food',
+                                      child: Text('With Food', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                    ),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setModalState(() => selectedFoodTiming = val);
+                                    }
+                                  },
                                 ),
                               ],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
+                            flex: 5,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _buildLabel(
                                   localType == 'STAT'
                                       ? 'Frequency'
-                                      : 'Frequency (e.g. 1-0-1)',
+                                      : 'Frequency (1 - 0 - 1 - 0) *',
                                 ),
-                                TextFormField(
-                                  controller: freqCtrl,
-                                  decoration: AppTheme.standardInputDecoration(
-                                    hintText: localType == 'STAT'
-                                        ? 'STAT'
-                                        : '1-0-1 / BD / OD',
+                                if (localType == 'STAT')
+                                  Container(
+                                    height: 48,
+                                    alignment: Alignment.centerLeft,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEEBC8),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0xFFFBD38D)),
+                                    ),
+                                    child: const Text(
+                                      'STAT (Immediate Single Dose)',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFC05621),
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  )
+                                else ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        _buildDigitInputSlot(f1Ctrl, fn1, fn2, 'M', updateFreqText, setModalState),
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 4),
+                                          child: Text('-', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
+                                        ),
+                                        _buildDigitInputSlot(f2Ctrl, fn2, fn3, 'A', updateFreqText, setModalState),
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 4),
+                                          child: Text('-', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
+                                        ),
+                                        _buildDigitInputSlot(f3Ctrl, fn3, fn4, 'E', updateFreqText, setModalState),
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 4),
+                                          child: Text('-', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
+                                        ),
+                                        _buildDigitInputSlot(f4Ctrl, fn4, null, 'N', updateFreqText, setModalState),
+                                      ],
+                                    ),
                                   ),
-                                ),
+                                ],
                               ],
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 12),
                           Expanded(
+                            flex: 4,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Duration'),
-                                TextFormField(
-                                  controller: durCtrl,
-                                  decoration: AppTheme.standardInputDecoration(
-                                    hintText: 'e.g. 5 days',
-                                  ),
+                                _buildLabel(
+                                  localType == 'STAT' ? 'Duration' : 'Duration *',
                                 ),
+                                if (localType == 'STAT')
+                                  Container(
+                                    height: 48,
+                                    alignment: Alignment.centerLeft,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                    ),
+                                    child: const Text(
+                                      'STAT - Single Dose',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryColor,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  _buildQtyStepperField(
+                                    controller: durDaysCtrl,
+                                    min: 1,
+                                    max: 365,
+                                    suffix: 'Days',
+                                    setModalState: setModalState,
+                                    onChanged: (val) {
+                                      durCtrl.text = '$val Days';
+                                    },
+                                  ),
                               ],
                             ),
                           ),
                         ],
                       ),
                       if (localType == 'STAT') ...[
-                        const SizedBox(height: 12),
-                        _buildLabel('Given Time'),
+                        const SizedBox(height: 14),
+                        _buildLabel('Given Time *'),
                         TextFormField(
                           controller: givenTimeCtrl,
-                          decoration:
-                              AppTheme.standardInputDecoration(
-                                hintText: 'e.g. 09:30 AM',
-                              ).copyWith(
-                                suffixIcon: IconButton(
-                                  icon: const Icon(
-                                    Icons.access_time,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                  onPressed: () async {
-                                    final picked = await showTimePicker(
-                                      context: context,
-                                      initialTime: TimeOfDay.now(),
-                                    );
-                                    if (picked != null) {
-                                      final hour = picked.hourOfPeriod == 0
-                                          ? 12
-                                          : picked.hourOfPeriod;
-                                      final minute = picked.minute
-                                          .toString()
-                                          .padLeft(2, '0');
-                                      final period =
-                                          picked.period == DayPeriod.am
+                          readOnly: true,
+                          decoration: AppTheme.standardInputDecoration(
+                            hintText: 'e.g. 09:30 AM',
+                            prefixIcon: Icons.access_time,
+                          ).copyWith(
+                            suffixIcon: IconButton(
+                              icon: const Icon(
+                                Icons.access_time,
+                                color: AppTheme.primaryColor,
+                              ),
+                              onPressed: () async {
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: TimeOfDay.now(),
+                                );
+                                if (picked != null) {
+                                  final hour = picked.hourOfPeriod == 0
+                                      ? 12
+                                      : picked.hourOfPeriod;
+                                  final minute = picked.minute
+                                      .toString()
+                                      .padLeft(2, '0');
+                                  final period =
+                                      picked.period == DayPeriod.am
                                           ? 'AM'
                                           : 'PM';
-                                      setModalState(() {
-                                        givenTimeCtrl.text =
-                                            '${hour.toString().padLeft(2, '0')}:$minute $period';
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
+                                  setModalState(() {
+                                    givenTimeCtrl.text =
+                                        '${hour.toString().padLeft(2, '0')}:$minute $period';
+                                  });
+                                }
+                              },
+                            ),
+                          ),
                         ),
                       ],
                     ],
@@ -1142,14 +1350,24 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   onPressed: isSubmitting
                       ? null
                       : () async {
-                          if (nameCtrl.text.trim().isEmpty) return;
+                          if (nameCtrl.text.trim().isEmpty) {
+                            setModalState(() => submitAttempted = true);
+                            return;
+                          }
+
+                          updateFreqText();
+                          if (localType != 'STAT') {
+                            durCtrl.text = '${durDaysCtrl.text} Days';
+                          }
+
                           setModalState(() => isSubmitting = true);
                           final success = await controller.submitMedicine(
                             visit.id,
                             {
                               'medicine_name': nameCtrl.text.trim(),
-                              'dosage': dosageCtrl.text.trim(),
-                              'route': 'Oral',
+                              'dosage': '',
+                              'route': selectedFoodTiming,
+                              'food_timing': selectedFoodTiming,
                               'quantity': int.tryParse(qtyCtrl.text) ?? 1,
                               'unit_price': 0.0,
                               'medicine_type': localType,
@@ -1178,8 +1396,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     HomeVisitController controller,
   ) {
     final nameCtrl = TextEditingController(text: _consNameCtrl.text);
-    final qtyCtrl = TextEditingController(text: _consQtyCtrl.text);
+    final qtyCtrl = TextEditingController(
+      text: _consQtyCtrl.text.isNotEmpty ? _consQtyCtrl.text : '1',
+    );
     bool isSubmitting = false;
+    bool submitAttempted = false;
 
     showDialog(
       context: context,
@@ -1223,7 +1444,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildLabel('Consumable Item Name'),
+                    _buildLabel('Consumable Item Name *'),
                     CustomDropdownSearch(
                       label: '',
                       hint: 'Select consumable item (e.g. Sterile Bandage)',
@@ -1235,17 +1456,25 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       onChanged: (val) {
                         setModalState(() {
                           nameCtrl.text = val ?? '';
+                          submitAttempted = false;
                         });
                       },
                     ),
-                    const SizedBox(height: 14),
-                    _buildLabel('Quantity Used'),
-                    TextFormField(
-                      controller: qtyCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: AppTheme.standardInputDecoration(
-                        hintText: 'Quantity (e.g. 1)',
+                    if (submitAttempted && nameCtrl.text.trim().isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4, left: 4),
+                        child: Text(
+                          'Please select or enter consumable name',
+                          style: TextStyle(color: AppTheme.dangerColor, fontSize: 12),
+                        ),
                       ),
+                    const SizedBox(height: 14),
+                    _buildLabel('Quantity Used *'),
+                    _buildQtyStepperField(
+                      controller: qtyCtrl,
+                      min: 1,
+                      max: 999,
+                      setModalState: setModalState,
                     ),
                   ],
                 ),
@@ -1274,7 +1503,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   onPressed: isSubmitting
                       ? null
                       : () async {
-                          if (nameCtrl.text.trim().isEmpty) return;
+                          if (nameCtrl.text.trim().isEmpty) {
+                            setModalState(() => submitAttempted = true);
+                            return;
+                          }
                           setModalState(() => isSubmitting = true);
                           final success = await controller.submitConsumable(
                             visit.id,
@@ -1319,6 +1551,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final priceCtrl = TextEditingController(text: '20');
     final qtyCtrl = TextEditingController(text: '1');
     final unitCtrl = TextEditingController(text: 'Pc');
+    bool submitAttempted = false;
 
     const defaultConsumables = [
       'Diaper',
@@ -1350,6 +1583,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dCtx) {
         return StatefulBuilder(
           builder: (ctx, setDlgState) {
@@ -1366,12 +1600,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
               content: SizedBox(
-                width: 400,
+                width: 420,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildLabel('Consumable Name'),
+                    _buildLabel('Consumable Name *'),
                     CustomDropdownSearch(
                       label: '',
                       hint: 'Select or type consumable name',
@@ -1380,6 +1614,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       onChanged: (val) {
                         setDlgState(() {
                           nameCtrl.text = val ?? '';
+                          submitAttempted = false;
                           if (defaultPriceMap.containsKey(nameCtrl.text)) {
                             priceCtrl.text = defaultPriceMap[nameCtrl.text]!
                                 .toStringAsFixed(0);
@@ -1387,8 +1622,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         });
                       },
                     ),
-                    const SizedBox(height: 10),
+                    if (submitAttempted && nameCtrl.text.trim().isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4, left: 4),
+                        child: Text(
+                          'Please select or enter consumable name',
+                          style: TextStyle(color: AppTheme.dangerColor, fontSize: 12),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: Column(
@@ -1405,18 +1649,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             ],
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildLabel('Quantity'),
-                              TextFormField(
+                              _buildLabel('Quantity *'),
+                              _buildQtyStepperField(
                                 controller: qtyCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: AppTheme.standardInputDecoration(
-                                  hintText: 'Qty',
-                                ),
+                                min: 1,
+                                max: 999,
+                                setModalState: setDlgState,
                               ),
                             ],
                           ),
@@ -1436,7 +1679,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   style: AppTheme.primaryButton,
                   onPressed: () {
                     final cName = nameCtrl.text.trim();
-                    if (cName.isEmpty) return;
+                    if (cName.isEmpty) {
+                      setDlgState(() => submitAttempted = true);
+                      return;
+                    }
                     final price =
                         double.tryParse(priceCtrl.text.trim()) ?? 20.0;
                     final qty = int.tryParse(qtyCtrl.text.trim()) ?? 1;
@@ -1767,7 +2013,98 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   context,
                                   (newConsumable) {
                                     setModalState(() {
-                                      manualConsumables.add(newConsumable);
+                                      final existingManualIdx =
+                                          manualConsumables.indexWhere(
+                                            (c) =>
+                                                c.consumableName
+                                                    .trim()
+                                                    .toLowerCase() ==
+                                                newConsumable.consumableName
+                                                    .trim()
+                                                    .toLowerCase(),
+                                          );
+                                      if (existingManualIdx != -1) {
+                                        final existing =
+                                            manualConsumables[existingManualIdx];
+                                        final updatedQty =
+                                            existing.qtyPerProcedure +
+                                            newConsumable.qtyPerProcedure;
+                                        manualConsumables[existingManualIdx] =
+                                            ProcedureConsumableMappingModel(
+                                              consumableId:
+                                                  existing.consumableId,
+                                              consumableName:
+                                                  existing.consumableName,
+                                              unit: existing.unit,
+                                              unitPrice: existing.unitPrice,
+                                              qtyPerProcedure: updatedQty,
+                                            );
+                                        if (itemQtyCtrls.containsKey(
+                                          existing.consumableName,
+                                        )) {
+                                          final curVal =
+                                              int.tryParse(
+                                                itemQtyCtrls[existing
+                                                        .consumableName]!
+                                                    .text
+                                                    .trim(),
+                                              ) ??
+                                              (existing.qtyPerProcedure *
+                                                  freqMultiplier);
+                                          itemQtyCtrls[existing
+                                                  .consumableName]!
+                                              .text =
+                                              (curVal +
+                                                      (newConsumable
+                                                              .qtyPerProcedure *
+                                                          freqMultiplier))
+                                                  .toString();
+                                        }
+                                      } else if (selectedProc != null &&
+                                          selectedProc!.mappedConsumables.any(
+                                            (c) =>
+                                                c.consumableName
+                                                    .trim()
+                                                    .toLowerCase() ==
+                                                newConsumable.consumableName
+                                                    .trim()
+                                                    .toLowerCase(),
+                                          )) {
+                                        final mappedItem = selectedProc!
+                                            .mappedConsumables
+                                            .firstWhere(
+                                              (c) =>
+                                                  c.consumableName
+                                                      .trim()
+                                                      .toLowerCase() ==
+                                                  newConsumable.consumableName
+                                                      .trim()
+                                                      .toLowerCase(),
+                                            );
+                                        if (itemQtyCtrls.containsKey(
+                                          mappedItem.consumableName,
+                                        )) {
+                                          final curVal =
+                                              int.tryParse(
+                                                itemQtyCtrls[mappedItem
+                                                        .consumableName]!
+                                                    .text
+                                                    .trim(),
+                                              ) ??
+                                              (mappedItem.qtyPerProcedure *
+                                                  freqMultiplier);
+                                          itemQtyCtrls[mappedItem
+                                                  .consumableName]!
+                                              .text =
+                                              (curVal +
+                                                      (newConsumable
+                                                              .qtyPerProcedure *
+                                                          freqMultiplier))
+                                                  .toString();
+                                        }
+                                      } else {
+                                        manualConsumables.add(newConsumable);
+                                      }
                                     });
                                   },
                                 );
@@ -6187,11 +6524,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Text(
                 'Recorded Medicines History',
@@ -6201,53 +6536,23 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   color: AppTheme.primaryColor,
                 ),
               ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    icon: const Icon(Icons.add, size: 15),
-                    label: const Text(
-                      'Add Medicine',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onPressed: () =>
-                        _showRecordMedicineModal(context, visit, controller),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$totalMeds Item(s)',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '$totalMeds Item(s)',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -6335,7 +6640,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Dosage: ${m.dosage != null && m.dosage!.isNotEmpty ? m.dosage! : "Standard"} | Qty: ${m.quantity} | Freq: ${m.frequency != null && m.frequency!.isNotEmpty ? m.frequency! : "N/A"} | Duration: ${m.duration != null && m.duration!.isNotEmpty ? m.duration! : "N/A"}',
+                                  'Qty: ${m.quantity} | Food: ${m.foodTiming != null && m.foodTiming!.isNotEmpty ? m.foodTiming! : (m.route != null && m.route!.isNotEmpty ? m.route! : "After Food")} | Freq: ${m.frequency != null && m.frequency!.isNotEmpty ? m.frequency! : "N/A"} | Duration: ${m.duration != null && m.duration!.isNotEmpty ? m.duration! : "N/A"}',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Color(0xFF475569),
@@ -6516,26 +6821,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               Row(
                 children: [
-                  ElevatedButton.icon(
-                    style: AppTheme.primaryButton.copyWith(
-                      padding: WidgetStateProperty.all(
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                      shape: WidgetStateProperty.all(
-                        RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                    icon: const Icon(Icons.medical_services_outlined, size: 16),
-                    label: const Text(
-                      'Add Procedure',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                    onPressed: () =>
-                        _showRecordProcedureModal(context, visit, controller),
-                  ),
-                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -6768,68 +7053,71 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 12,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildSectionHeader(
-                'Log Administered Medicines & Procedures',
-                Icons.medication_liquid_outlined,
+              Flexible(
+                child: _buildSectionHeader(
+                  'Log Administered Medicines & Procedures',
+                  Icons.medication_liquid_outlined,
+                ),
               ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
+              if (!widget.isReadOnlyView) ...[
+                const SizedBox(width: 12),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text(
+                        'Add Medicine',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
+                      onPressed: () =>
+                          _showRecordMedicineModal(context, visit, controller),
                     ),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text(
-                      'Add Medicine',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF65A30D),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
+                      icon: const Icon(Icons.medical_services_outlined, size: 18),
+                      label: const Text(
+                        'Add Procedure',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onPressed: () =>
+                          _showRecordProcedureModal(context, visit, controller),
                     ),
-                    onPressed: () =>
-                        _showRecordMedicineModal(context, visit, controller),
-                  ),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.secondaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    icon: const Icon(Icons.medical_services_outlined, size: 18),
-                    label: const Text(
-                      'Add Procedure',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onPressed: () =>
-                        _showRecordProcedureModal(context, visit, controller),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 20),

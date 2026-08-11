@@ -126,6 +126,7 @@ class HomeVisitMedicine {
   final String medicineName;
   final String? dosage;
   final String? route;
+  final String? foodTiming;
   final int quantity;
   final double unitPrice;
   final String medicineType;
@@ -140,6 +141,7 @@ class HomeVisitMedicine {
     required this.medicineName,
     this.dosage,
     this.route,
+    this.foodTiming,
     this.quantity = 1,
     this.unitPrice = 0.0,
     this.medicineType = 'Regular',
@@ -190,6 +192,7 @@ class HomeVisitMedicine {
       medicineName: json['medicine_name'] ?? '',
       dosage: json['dosage'],
       route: json['route'],
+      foodTiming: json['food_timing'] ?? json['food_relation'] ?? json['route'],
       quantity: json['quantity'] != null ? int.tryParse(json['quantity'].toString()) ?? 1 : 1,
       unitPrice: json['unit_price'] != null ? double.tryParse(json['unit_price'].toString()) ?? 0.0 : 0.0,
       medicineType: json['medicine_type'] ?? 'Regular',
@@ -205,6 +208,7 @@ class HomeVisitMedicine {
         'medicine_name': medicineName,
         'dosage': dosage,
         'route': route,
+        'food_timing': foodTiming,
         'quantity': quantity,
         'unit_price': unitPrice,
         'medicine_type': medicineType,
