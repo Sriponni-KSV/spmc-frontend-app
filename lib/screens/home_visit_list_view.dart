@@ -9,6 +9,7 @@ import '../models/home_visit_model.dart';
 import '../models/patient_model.dart';
 import '../controllers/home_visit_controller.dart';
 import '../controllers/patient_controller.dart';
+import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'home_visit_execution_screen.dart';
@@ -17,12 +18,14 @@ class HomeVisitListView extends StatefulWidget {
   final Function(int visitId)? onExecuteVisit;
   final Function(int visitId)? onViewSummary;
   final bool showScheduleButton;
+  final bool showExecuteButton;
 
   const HomeVisitListView({
     super.key,
     this.onExecuteVisit,
     this.onViewSummary,
     this.showScheduleButton = true,
+    this.showExecuteButton = true,
   });
 
   @override
@@ -31,6 +34,12 @@ class HomeVisitListView extends StatefulWidget {
 
 class _HomeVisitListViewState extends State<HomeVisitListView> {
   String _selectedStatusFilter = 'All';
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  String _dateFilterType = 'All Dates';
+  DateTime? _selectedCustomDate;
+  int _currentPage = 1;
+  int _itemsPerPage = 10;
   List<PatientModel> _patientsList = [];
   bool _isLoadingPatients = false;
 
@@ -41,6 +50,12 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
       _fetchPatients();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchPatients() async {
@@ -58,11 +73,427 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     }
   }
 
+  String _normalizeDate(String dateStr) {
+    if (dateStr.isEmpty) return '';
+    final clean = dateStr.trim().split('T')[0].split(' ')[0];
+    final parts = clean.split('-');
+    if (parts.length == 3) {
+      if (parts[0].length == 4) return clean;
+      return "${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')}";
+    }
+    return dateStr;
+  }
+
+  Widget _buildSummaryCards(List<HomeVisitModel> allVisits) {
+    final totalCount = allVisits.length;
+    final scheduledCount = allVisits.where((v) => v.status.toLowerCase() == 'scheduled').length;
+    final inProgressCount = allVisits.where((v) => v.status.toLowerCase() == 'in-progress').length;
+    final completedCount = allVisits.where((v) => v.status.toLowerCase() == 'completed' || v.status.toLowerCase() == 'verified').length;
+
+    Widget buildStatCard(String title, int count, IconData icon, Color color) {
+      return Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$count',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 650;
+        if (isNarrow) {
+          return Column(
+            children: [
+              Row(
+                children: [
+                  buildStatCard('Total Visits', totalCount, Icons.home_work_outlined, AppTheme.primaryColor),
+                  const SizedBox(width: 10),
+                  buildStatCard('Scheduled', scheduledCount, Icons.calendar_today_outlined, Colors.orange),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  buildStatCard('In-Progress', inProgressCount, Icons.hourglass_top_outlined, Colors.blue),
+                  const SizedBox(width: 10),
+                  buildStatCard('Completed', completedCount, Icons.check_circle_outline, Colors.green),
+                ],
+              ),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            buildStatCard('Total Visits', totalCount, Icons.home_work_outlined, AppTheme.primaryColor),
+            const SizedBox(width: 12),
+            buildStatCard('Scheduled', scheduledCount, Icons.calendar_today_outlined, Colors.orange),
+            const SizedBox(width: 12),
+            buildStatCard('In-Progress', inProgressCount, Icons.hourglass_top_outlined, Colors.blue),
+            const SizedBox(width: 12),
+            buildStatCard('Completed', completedCount, Icons.check_circle_outline, Colors.green),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchAndDateFilterBar() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 700;
+        final searchField = SizedBox(
+          width: isMobile ? double.infinity : 340,
+          height: 42,
+          child: TextField(
+            controller: _searchController,
+            onChanged: (val) {
+              setState(() {
+                _searchQuery = val;
+                _currentPage = 1;
+              });
+            },
+            decoration: InputDecoration(
+              hintText: 'Search patient, nurse, visit #...',
+              hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+              prefixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 16, color: Colors.grey),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {
+                          _searchQuery = '';
+                          _currentPage = 1;
+                        });
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppTheme.primaryColor),
+              ),
+            ),
+          ),
+        );
+
+        final dateFilters = SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              ChoiceChip(
+                label: const Text('All Dates', style: TextStyle(fontSize: 12)),
+                selected: _dateFilterType == 'All Dates',
+                selectedColor: AppTheme.primaryColor.withOpacity(0.15),
+                labelStyle: TextStyle(
+                  color: _dateFilterType == 'All Dates' ? AppTheme.primaryColor : Colors.black87,
+                  fontWeight: _dateFilterType == 'All Dates' ? FontWeight.bold : FontWeight.normal,
+                ),
+                onSelected: (val) {
+                  if (val) {
+                    setState(() {
+                      _dateFilterType = 'All Dates';
+                      _selectedCustomDate = null;
+                      _currentPage = 1;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(width: 6),
+              ChoiceChip(
+                label: const Text('Today', style: TextStyle(fontSize: 12)),
+                selected: _dateFilterType == 'Today',
+                selectedColor: AppTheme.primaryColor.withOpacity(0.15),
+                labelStyle: TextStyle(
+                  color: _dateFilterType == 'Today' ? AppTheme.primaryColor : Colors.black87,
+                  fontWeight: _dateFilterType == 'Today' ? FontWeight.bold : FontWeight.normal,
+                ),
+                onSelected: (val) {
+                  if (val) {
+                    setState(() {
+                      _dateFilterType = 'Today';
+                      _selectedCustomDate = null;
+                      _currentPage = 1;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(width: 6),
+              ChoiceChip(
+                label: const Text('Tomorrow', style: TextStyle(fontSize: 12)),
+                selected: _dateFilterType == 'Tomorrow',
+                selectedColor: AppTheme.primaryColor.withOpacity(0.15),
+                labelStyle: TextStyle(
+                  color: _dateFilterType == 'Tomorrow' ? AppTheme.primaryColor : Colors.black87,
+                  fontWeight: _dateFilterType == 'Tomorrow' ? FontWeight.bold : FontWeight.normal,
+                ),
+                onSelected: (val) {
+                  if (val) {
+                    setState(() {
+                      _dateFilterType = 'Tomorrow';
+                      _selectedCustomDate = null;
+                      _currentPage = 1;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(width: 6),
+              ActionChip(
+                avatar: Icon(
+                  Icons.calendar_today,
+                  size: 14,
+                  color: _dateFilterType == 'Custom' ? AppTheme.primaryColor : Colors.grey,
+                ),
+                label: Text(
+                  _selectedCustomDate != null
+                      ? DateFormat('dd-MM-yyyy').format(_selectedCustomDate!)
+                      : 'Pick Date',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _dateFilterType == 'Custom' ? AppTheme.primaryColor : Colors.black87,
+                    fontWeight: _dateFilterType == 'Custom' ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+                backgroundColor: _dateFilterType == 'Custom'
+                    ? AppTheme.primaryColor.withOpacity(0.15)
+                    : Colors.white,
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _selectedCustomDate ?? DateTime.now(),
+                    firstDate: DateTime(2025),
+                    lastDate: DateTime(2030),
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      _dateFilterType = 'Custom';
+                      _selectedCustomDate = picked;
+                      _currentPage = 1;
+                    });
+                  }
+                },
+              ),
+              if (_dateFilterType != 'All Dates') ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.cancel, size: 18, color: Colors.grey),
+                  tooltip: 'Reset date filter',
+                  onPressed: () {
+                    setState(() {
+                      _dateFilterType = 'All Dates';
+                      _selectedCustomDate = null;
+                      _currentPage = 1;
+                    });
+                  },
+                ),
+              ],
+            ],
+          ),
+        );
+
+        if (isMobile) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              searchField,
+              const SizedBox(height: 10),
+              dateFilters,
+            ],
+          );
+        }
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            searchField,
+            dateFilters,
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPaginationBar(int totalVisits, int totalPages, int startIndex, int endIndex) {
+    if (totalVisits == 0) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 600;
+          if (isMobile) {
+            return Column(
+              children: [
+                Text(
+                  'Showing ${startIndex + 1} to $endIndex of $totalVisits visits',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left),
+                      onPressed: _currentPage > 1 ? () => setState(() => _currentPage--) : null,
+                    ),
+                    Text('Page $_currentPage of $totalPages', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right),
+                      onPressed: _currentPage < totalPages ? () => setState(() => _currentPage++) : null,
+                    ),
+                  ],
+                ),
+              ],
+            );
+          }
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Showing ${startIndex + 1} to $endIndex of $totalVisits visits',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
+              ),
+              Row(
+                children: [
+                  const Text('Rows per page: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  DropdownButton<int>(
+                    value: _itemsPerPage,
+                    underline: const SizedBox.shrink(),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold),
+                    items: [5, 10, 20, 50].map((int val) {
+                      return DropdownMenuItem<int>(
+                        value: val,
+                        child: Text('$val'),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _itemsPerPage = val;
+                          _currentPage = 1;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    onPressed: _currentPage > 1 ? () => setState(() => _currentPage--) : null,
+                  ),
+                  Text('Page $_currentPage of $totalPages', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: _currentPage < totalPages ? () => setState(() => _currentPage++) : null,
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<HomeVisitController>(
       builder: (context, controller, child) {
         List<HomeVisitModel> visits = controller.visits;
+
+        // 0. Filter by assigned Nurse if user is a Nurse
+        final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+        if (authUser != null && authUser.role == 'Nurse') {
+          visits = visits.where((v) {
+            final isNurseIdMatch = v.nurseId != null && v.nurseId == authUser.id;
+            final isNurseNameMatch = v.nurseName != null &&
+                v.nurseName!.toLowerCase().contains(authUser.fullname.toLowerCase());
+            final isStartNurseNameMatch = v.startNurseName != null &&
+                v.startNurseName!.toLowerCase().contains(authUser.fullname.toLowerCase());
+            return isNurseIdMatch || isNurseNameMatch || isStartNurseNameMatch;
+          }).toList();
+        }
+
+        final List<HomeVisitModel> allVisits = List.from(visits);
+
+        // 1. Search Query Filter
+        if (_searchQuery.trim().isNotEmpty) {
+          final query = _searchQuery.toLowerCase().trim();
+          visits = visits.where((v) {
+            final pName = (v.patientName ?? '').toLowerCase();
+            final pId = (v.patientDisplayId ?? '').toLowerCase();
+            final vNum = v.visitNumber.toLowerCase();
+            final nName = (v.nurseName ?? '').toLowerCase();
+            final addr = (v.visitAddress ?? '').toLowerCase();
+            return pName.contains(query) || pId.contains(query) || vNum.contains(query) || nName.contains(query) || addr.contains(query);
+          }).toList();
+        }
+
+        // 2. Status Filter
         if (_selectedStatusFilter != 'All') {
           if (_selectedStatusFilter == 'Completed') {
             visits = visits
@@ -74,6 +505,31 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 .toList();
           }
         }
+
+        // 3. Date Filter
+        final now = DateTime.now();
+        final todayStr = DateFormat('yyyy-MM-dd').format(now);
+        final tomorrowStr = DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 1)));
+
+        if (_dateFilterType == 'Today') {
+          visits = visits.where((v) => _normalizeDate(v.scheduledDate) == todayStr).toList();
+        } else if (_dateFilterType == 'Tomorrow') {
+          visits = visits.where((v) => _normalizeDate(v.scheduledDate) == tomorrowStr).toList();
+        } else if (_dateFilterType == 'Custom' && _selectedCustomDate != null) {
+          final customStr = DateFormat('yyyy-MM-dd').format(_selectedCustomDate!);
+          visits = visits.where((v) => _normalizeDate(v.scheduledDate) == customStr).toList();
+        }
+
+        // 4. Pagination
+        final int totalVisits = visits.length;
+        final int totalPages = totalVisits == 0 ? 1 : (totalVisits / _itemsPerPage).ceil();
+        final int validCurrentPage = _currentPage > totalPages ? totalPages : (_currentPage < 1 ? 1 : _currentPage);
+        final int startIndex = totalVisits == 0 ? 0 : (validCurrentPage - 1) * _itemsPerPage;
+        final int endIndex = (startIndex + _itemsPerPage) > totalVisits ? totalVisits : (startIndex + _itemsPerPage);
+
+        final List<HomeVisitModel> paginatedVisits = totalVisits == 0
+            ? []
+            : visits.sublist(startIndex, endIndex);
 
         return Container(
           color: AppTheme.backgroundColor,
@@ -227,9 +683,17 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   );
                 },
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-              // Filter Chips Row
+              // Summary Stat Cards
+              _buildSummaryCards(allVisits),
+              const SizedBox(height: 20),
+
+              // Search & Date Filter Bar
+              _buildSearchAndDateFilterBar(),
+              const SizedBox(height: 16),
+
+              // Filter Chips Row (Status)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -243,14 +707,19 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         selectedColor: AppTheme.primaryColor,
                         backgroundColor: Colors.white,
                         onSelected: (val) {
-                          if (val) setState(() => _selectedStatusFilter = status);
+                          if (val) {
+                            setState(() {
+                              _selectedStatusFilter = status;
+                              _currentPage = 1;
+                            });
+                          }
                         },
                       ),
                     );
                   }).toList(),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
               // Content Body
               Expanded(
@@ -280,7 +749,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                               ],
                             ),
                           )
-                        : visits.isEmpty
+                        : paginatedVisits.isEmpty
                             ? Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(40),
@@ -295,20 +764,23 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                     Icon(Icons.home_work, size: 48, color: Colors.grey),
                                     SizedBox(height: 12),
                                     Text(
-                                      'No home visits found matching filter.',
+                                      'No home visits found matching search or filter.',
                                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
                                     ),
                                   ],
                                 ),
                               )
                             : ListView.builder(
-                                itemCount: visits.length,
+                                itemCount: paginatedVisits.length,
                                 itemBuilder: (context, idx) {
-                                  final visit = visits[idx];
+                                  final visit = paginatedVisits[idx];
                                   return _buildVisitCard(context, visit);
                                 },
                               ),
               ),
+
+              // Pagination Controls
+              _buildPaginationBar(totalVisits, totalPages, startIndex, endIndex),
             ],
           ),
         );
@@ -430,7 +902,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   },
                 ),
               ),
-              if (visit.status != 'Cancelled') ...[
+              if (visit.status != 'Cancelled' && widget.showExecuteButton) ...[
                 const SizedBox(width: 8),
                 buildExecuteBtn(),
               ],
@@ -476,6 +948,19 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (visit.nurseName != null && visit.nurseName!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.person_pin_outlined, size: 14, color: AppTheme.primaryColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Nurse: ${visit.nurseName}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+                          ),
+                        ],
+                      ),
+                    ],
                     if (visit.visitAddress != null && visit.visitAddress!.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Row(
@@ -535,7 +1020,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         },
                       ),
                     ),
-                    if (visit.status != 'Cancelled') ...[
+                    if (visit.status != 'Cancelled' && widget.showExecuteButton) ...[
                       const SizedBox(width: 6),
                       Expanded(
                         child: ElevatedButton.icon(

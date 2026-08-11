@@ -5172,6 +5172,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Expanded(
             child: HomeVisitListView(
               showScheduleButton: false,
+              showExecuteButton: false,
             ),
           ),
         ],
