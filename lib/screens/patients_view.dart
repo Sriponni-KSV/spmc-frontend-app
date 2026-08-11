@@ -514,11 +514,10 @@ class _PatientsViewState extends State<PatientsView> {
                       Expanded(
                         child: TextField(
                           controller: _searchCtrl,
-                          onChanged: (val) =>
-                              setState(() {
-                                _searchQuery = val;
-                                _currentPage = 0;
-                              }),
+                          onChanged: (val) => setState(() {
+                            _searchQuery = val;
+                            _currentPage = 0;
+                          }),
                           decoration: const InputDecoration(
                             hintText:
                                 'Search by name, mobile number, department...',
@@ -635,8 +634,7 @@ class _PatientsViewState extends State<PatientsView> {
                       _currentPage = 0;
                     }),
                     decoration: const InputDecoration(
-                      hintText:
-                          'Search by name or mobile number...',
+                      hintText: 'Search by name or mobile number...',
                       hintStyle: TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 14,
@@ -890,9 +888,13 @@ class _PatientsViewState extends State<PatientsView> {
                   Expanded(child: _buildTableHeaderText('S.No')),
                   Expanded(flex: 3, child: _buildTableHeaderText('Patient')),
                   Expanded(child: _buildTableHeaderText('Age')),
-                  if (!isMobile) Expanded(child: _buildTableHeaderText('Gender')),
                   if (!isMobile)
-                    Expanded(flex: 2, child: _buildTableHeaderText('Mobile No')),
+                    Expanded(child: _buildTableHeaderText('Gender')),
+                  if (!isMobile)
+                    Expanded(
+                      flex: 2,
+                      child: _buildTableHeaderText('Mobile No'),
+                    ),
                   if (!isMobile)
                     Expanded(flex: 2, child: _buildTableHeaderText('Email')),
                   Expanded(child: _buildTableHeaderText('Status')),
@@ -956,7 +958,7 @@ class _PatientsViewState extends State<PatientsView> {
         ),
       ),
     );
-}
+  }
 
   Widget _buildPatientCardMobile(PatientModel patient) {
     final String name = patient.name;
@@ -1243,7 +1245,9 @@ class _PatientsViewState extends State<PatientsView> {
               serialNumber,
               style: TextStyle(
                 fontSize: 13,
-                color: isQuick ? const Color(0xFF553C9A) : const Color(0xFF4A5568),
+                color: isQuick
+                    ? const Color(0xFF553C9A)
+                    : const Color(0xFF4A5568),
                 fontWeight: isQuick ? FontWeight.w500 : FontWeight.normal,
               ),
             ),
@@ -1919,7 +1923,9 @@ class _PatientsViewState extends State<PatientsView> {
                                     if (val == null || val.trim().isEmpty) {
                                       return 'Please enter Email Address';
                                     }
-                                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                                    if (!RegExp(
+                                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                    ).hasMatch(val.trim())) {
                                       return 'Please enter a valid email address';
                                     }
                                     return null;
@@ -1941,7 +1947,9 @@ class _PatientsViewState extends State<PatientsView> {
                                               FilteringTextInputFormatter.allow(
                                                 RegExp(r'[a-zA-Z\s]'),
                                               ),
-                                              LengthLimitingTextInputFormatter(30),
+                                              LengthLimitingTextInputFormatter(
+                                                30,
+                                              ),
                                             ],
                                             validator: (val) =>
                                                 val == null || val.isEmpty
@@ -1966,10 +1974,13 @@ class _PatientsViewState extends State<PatientsView> {
                                             keyboardType:
                                                 TextInputType.emailAddress,
                                             validator: (val) {
-                                              if (val == null || val.trim().isEmpty) {
+                                              if (val == null ||
+                                                  val.trim().isEmpty) {
                                                 return 'Please enter Email Address';
                                               }
-                                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                                              if (!RegExp(
+                                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                              ).hasMatch(val.trim())) {
                                                 return 'Please enter a valid email address';
                                               }
                                               return null;
@@ -2022,7 +2033,8 @@ class _PatientsViewState extends State<PatientsView> {
                                   onChanged: (val) {
                                     setState(() {
                                       if (val.isEmpty) {
-                                        phoneError = 'Please enter Mobile Number';
+                                        phoneError =
+                                            'Please enter Mobile Number';
                                       } else if (val.length < 10) {
                                         phoneError =
                                             'Please enter a valid Mobile Number (${val.length}/10)';
@@ -2142,25 +2154,32 @@ class _PatientsViewState extends State<PatientsView> {
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         _buildQuickFieldLabel('Gender'),
                                         CustomDropdownSearch(
                                           label: '',
                                           hint: 'Select gender',
-                                          dropdownItems: const ['Male', 'Female', 'Other'],
+                                          dropdownItems: const [
+                                            'Male',
+                                            'Female',
+                                            'Other',
+                                          ],
                                           value: selectedGender,
                                           onChanged: (val) {
                                             setState(() {
                                               selectedGender = val;
                                             });
                                           },
-                                          validator: (val) => val == null || val.isEmpty
+                                          validator: (val) =>
+                                              val == null || val.isEmpty
                                               ? 'Please select gender'
                                               : null,
                                           height: 52,
                                           borderColor: const Color(0xFFE2E8F0),
-                                          focusedBorderColor: AppTheme.primaryColor,
+                                          focusedBorderColor:
+                                              AppTheme.primaryColor,
                                           fillColor: AppTheme.backgroundColor,
                                           popupBgColor: Colors.white,
                                         ),
@@ -2193,7 +2212,10 @@ class _PatientsViewState extends State<PatientsView> {
                                       child: OutlinedButton(
                                         onPressed: () => Navigator.pop(context),
                                         style: AppTheme.cancelButton.copyWith(
-                                          minimumSize: MaterialStateProperty.all(const Size(double.infinity, 48)),
+                                          minimumSize:
+                                              MaterialStateProperty.all(
+                                                const Size(double.infinity, 48),
+                                              ),
                                         ),
                                         child: const Text('Cancel'),
                                       ),
@@ -2208,7 +2230,8 @@ class _PatientsViewState extends State<PatientsView> {
                                             ? null
                                             : () async {
                                                 // Validate form fields
-                                                if (!_formKey.currentState!.validate()) {
+                                                if (!_formKey.currentState!
+                                                    .validate()) {
                                                   return;
                                                 }
 
@@ -2258,15 +2281,24 @@ class _PatientsViewState extends State<PatientsView> {
 
                                                   final newPatient =
                                                       PatientModel(
-                                                        name: nameCtrl.text.trim(),
-                                                        dob: dobCtrl.text.trim(),
+                                                        name: nameCtrl.text
+                                                            .trim(),
+                                                        dob: dobCtrl.text
+                                                            .trim(),
                                                         age: calculatedAge,
-                                                        gender: selectedGender ?? 'Other',
-                                                        phone: phoneCtrl.text.trim(),
-                                                        email: emailCtrl.text.trim(),
-                                                        emergencyContactName: 'N/A',
-                                                        emergencyContactRelation: 'N/A',
-                                                        emergencyContactPhone: 'N/A',
+                                                        gender:
+                                                            selectedGender ??
+                                                            'Other',
+                                                        phone: phoneCtrl.text
+                                                            .trim(),
+                                                        email: emailCtrl.text
+                                                            .trim(),
+                                                        emergencyContactName:
+                                                            'N/A',
+                                                        emergencyContactRelation:
+                                                            'N/A',
+                                                        emergencyContactPhone:
+                                                            'N/A',
                                                         address: '',
                                                         addressLine2: '',
                                                         district: '',
@@ -2279,8 +2311,11 @@ class _PatientsViewState extends State<PatientsView> {
                                                         temp: 0.0,
                                                         bloodGroup: 'N/A',
                                                         allergies: 'None',
-                                                        chronicConditions: 'None',
-                                                        complaints: reasonCtrl.text.trim(),
+                                                        chronicConditions:
+                                                            'None',
+                                                        complaints: reasonCtrl
+                                                            .text
+                                                            .trim(),
                                                         history: '',
                                                         smokingStatus: 'Never',
                                                         alcoholStatus: 'Never',
@@ -2519,8 +2554,9 @@ class _PatientsViewState extends State<PatientsView> {
     return Padding(
       padding: EdgeInsets.only(right: isMobile ? 0 : 80),
       child: Row(
-        mainAxisAlignment:
-            isMobile ? MainAxisAlignment.center : MainAxisAlignment.end,
+        mainAxisAlignment: isMobile
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.end,
         children: [
           Text(
             'Page ${_currentPage + 1} of $totalPages',
@@ -2614,7 +2650,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
   bool _isLoadingAppointments = false;
   bool _isShowingInsights = false;
   bool _isSavingInsights = false;
-  final GlobalKey<PatientInsightsFormState> _insightsFormKey = GlobalKey<PatientInsightsFormState>();
+  final GlobalKey<PatientInsightsFormState> _insightsFormKey =
+      GlobalKey<PatientInsightsFormState>();
 
   @override
   void initState() {
@@ -2708,11 +2745,19 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.arrow_back, size: 18, color: AppTheme.primaryColor),
+                      Icon(
+                        Icons.arrow_back,
+                        size: 18,
+                        color: AppTheme.primaryColor,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'Back to Profile',
-                        style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.w600, fontSize: 14),
+                        style: TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),
@@ -2727,42 +2772,65 @@ class _PatientDetailViewState extends State<PatientDetailView>
                     children: [
                       const Text(
                         'Patient Insights',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimaryColor,
+                        ),
                       ),
                       Text(
                         'Interview for ${p.name}',
-                        style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textSecondaryColor,
+                        ),
                       ),
                     ],
                   ),
                   ElevatedButton.icon(
-                    onPressed: _isSavingInsights 
-                      ? null 
-                      : () async {
-                          setState(() => _isSavingInsights = true);
-                          try {
-                            final success = await _insightsFormKey.currentState?.saveInsights();
-                            if (success == true) {
-                              setState(() {
-                                _isShowingInsights = false;
-                                _isSavingInsights = false;
-                              });
-                            } else {
+                    onPressed: _isSavingInsights
+                        ? null
+                        : () async {
+                            setState(() => _isSavingInsights = true);
+                            try {
+                              final success = await _insightsFormKey
+                                  .currentState
+                                  ?.saveInsights();
+                              if (success == true) {
+                                setState(() {
+                                  _isShowingInsights = false;
+                                  _isSavingInsights = false;
+                                });
+                              } else {
+                                setState(() => _isSavingInsights = false);
+                              }
+                            } catch (e) {
                               setState(() => _isSavingInsights = false);
                             }
-                          } catch (e) {
-                            setState(() => _isSavingInsights = false);
-                          }
-                        },
-                    icon: _isSavingInsights 
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.check, size: 18),
-                    label: Text(_isSavingInsights ? 'Saving...' : 'Save Insights'),
+                          },
+                    icon: _isSavingInsights
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.check, size: 18),
+                    label: Text(
+                      _isSavingInsights ? 'Saving...' : 'Save Insights',
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF38A169),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ],
@@ -2981,15 +3049,15 @@ class _PatientDetailViewState extends State<PatientDetailView>
             // Buttons
             Row(
               children: [
-                if (p.isQuickRegister) ...[
-                  _buildHeaderButton(
-                    Icons.edit_note_outlined,
-                    'Complete Profile',
-                    onTap: () => widget.onCompleteProfile(p),
-                    isPrimary: true,
-                  ),
-                  const SizedBox(width: 12),
-                ],
+                _buildHeaderButton(
+                  p.isQuickRegister
+                      ? Icons.edit_note_outlined
+                      : Icons.edit_outlined,
+                  p.isQuickRegister ? 'Complete Profile' : 'Edit Patient',
+                  onTap: () => widget.onCompleteProfile(p),
+                  isPrimary: true,
+                ),
+                const SizedBox(width: 12),
                 _buildHeaderButton(
                   Icons.calendar_today_outlined,
                   'Book Appointment',
@@ -3027,7 +3095,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
             Flexible(
               child: _buildContactIconItem(
                 Icons.location_on_outlined,
-                p.fullAddress.isNotEmpty ? p.fullAddress : 'No Address Provided',
+                p.fullAddress.isNotEmpty
+                    ? p.fullAddress
+                    : 'No Address Provided',
               ),
             ),
           ],
@@ -3110,17 +3180,17 @@ class _PatientDetailViewState extends State<PatientDetailView>
         const SizedBox(height: 16),
         Row(
           children: [
-            if (p.isQuickRegister) ...[
-              Expanded(
-                child: _buildHeaderButton(
-                  Icons.edit_note_outlined,
-                  'Complete Profile',
-                  onTap: () => widget.onCompleteProfile(p),
-                  isPrimary: true,
-                ),
+            Expanded(
+              child: _buildHeaderButton(
+                p.isQuickRegister
+                    ? Icons.edit_note_outlined
+                    : Icons.edit_outlined,
+                p.isQuickRegister ? 'Complete Profile' : 'Edit Patient',
+                onTap: () => widget.onCompleteProfile(p),
+                isPrimary: true,
               ),
-              const SizedBox(width: 8),
-            ],
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: _buildHeaderButton(
                 Icons.calendar_month_outlined,
@@ -3524,7 +3594,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
       if (symptoms != null && symptoms.isNotEmpty) {
         final date = _formatConsultationDateText(c);
         final rawDoc = c['doctor_name'] ?? 'Doctor';
-        final doctor = rawDoc.toString().toLowerCase().startsWith('dr') ? rawDoc : 'Dr. $rawDoc';
+        final doctor = rawDoc.toString().toLowerCase().startsWith('dr')
+            ? rawDoc
+            : 'Dr. $rawDoc';
         complaintItems.add(
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -3574,7 +3646,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
     for (final c in _consultations) {
       final date = _formatConsultationDateText(c);
       final rawDoc = c['doctor_name'] ?? 'Doctor';
-      final doctor = rawDoc.toString().toLowerCase().startsWith('dr') ? rawDoc : 'Dr. $rawDoc';
+      final doctor = rawDoc.toString().toLowerCase().startsWith('dr')
+          ? rawDoc
+          : 'Dr. $rawDoc';
 
       final diagnosis = c['diagnosis']?.toString().trim();
       if (diagnosis != null && diagnosis.isNotEmpty) {
@@ -4044,9 +4118,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Theme(
-                  data: Theme.of(context).copyWith(
-                    dividerColor: Colors.transparent,
-                  ),
+                  data: Theme.of(
+                    context,
+                  ).copyWith(dividerColor: Colors.transparent),
                   child: ExpansionTile(
                     backgroundColor: const Color(0xFFF7FAFC),
                     collapsedBackgroundColor: const Color(0xFFF7FAFC),
@@ -4054,8 +4128,12 @@ class _PatientDetailViewState extends State<PatientDetailView>
                     collapsedIconColor: AppTheme.primaryColor,
                     title: Builder(
                       builder: (context) {
-                        final docName = c['doctor_name'] ?? 'General Practitioner';
-                        final displayDoc = docName.toString().toLowerCase().startsWith('dr') ? docName : 'Dr. $docName';
+                        final docName =
+                            c['doctor_name'] ?? 'General Practitioner';
+                        final displayDoc =
+                            docName.toString().toLowerCase().startsWith('dr')
+                            ? docName
+                            : 'Dr. $docName';
                         final dept = c['department'] ?? 'General Medicine';
                         return Text(
                           '${_formatConsultationDateText(c)} / ${_formatConsultationTimeText(c)} - $displayDoc ($dept)',
@@ -4065,13 +4143,14 @@ class _PatientDetailViewState extends State<PatientDetailView>
                             fontSize: 13,
                           ),
                         );
-                      }
+                      },
                     ),
-                    childrenPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    childrenPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
                     expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildConsultationGrid(c),
-                    ],
+                    children: [_buildConsultationGrid(c)],
                   ),
                 ),
               );
@@ -4133,7 +4212,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: customValueWidget ??
+          child:
+              customValueWidget ??
               Text(
                 value ?? '',
                 style: TextStyle(
@@ -4200,13 +4280,11 @@ class _PatientDetailViewState extends State<PatientDetailView>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (c['symptoms'] != null && c['symptoms'].toString().isNotEmpty) ...[
-            _buildGridRow(
-              'Problem',
-              c['symptoms'].toString(),
-            ),
+            _buildGridRow('Problem', c['symptoms'].toString()),
             const SizedBox(height: 12),
           ],
-          if (c['leading_questions'] != null && c['leading_questions'].toString().isNotEmpty) ...[
+          if (c['leading_questions'] != null &&
+              c['leading_questions'].toString().isNotEmpty) ...[
             _buildGridRow(
               'Leading Questions',
               c['leading_questions'].toString(),
@@ -4214,87 +4292,68 @@ class _PatientDetailViewState extends State<PatientDetailView>
             const SizedBox(height: 12),
           ],
           if (c['history'] != null && c['history'].toString().isNotEmpty) ...[
-            _buildGridRow(
-              'History',
-              c['history'].toString(),
-            ),
+            _buildGridRow('History', c['history'].toString()),
             const SizedBox(height: 12),
           ],
-          if (c['examination'] != null && c['examination'].toString().isNotEmpty) ...[
-            _buildGridRow(
-              'Examination',
-              c['examination'].toString(),
-            ),
+          if (c['examination'] != null &&
+              c['examination'].toString().isNotEmpty) ...[
+            _buildGridRow('Examination', c['examination'].toString()),
             const SizedBox(height: 12),
           ],
-          if (c['family_history'] != null && c['family_history'].toString().isNotEmpty) ...[
-            _buildGridRow(
-              'Family History',
-              c['family_history'].toString(),
-            ),
+          if (c['family_history'] != null &&
+              c['family_history'].toString().isNotEmpty) ...[
+            _buildGridRow('Family History', c['family_history'].toString()),
             const SizedBox(height: 12),
           ],
           if (c['social'] != null && c['social'].toString().isNotEmpty) ...[
-            _buildGridRow(
-              'Social History',
-              c['social'].toString(),
-            ),
+            _buildGridRow('Social History', c['social'].toString()),
             const SizedBox(height: 12),
           ],
           if (c['allergy'] != null && c['allergy'].toString().isNotEmpty) ...[
-            _buildGridRow(
-              'Allergies',
-              c['allergy'].toString(),
-            ),
+            _buildGridRow('Allergies', c['allergy'].toString()),
             const SizedBox(height: 12),
           ],
-          if (c['procedure'] != null && c['procedure'].toString().isNotEmpty) ...[
-            _buildGridRow(
-              'Procedure',
-              c['procedure'].toString(),
-            ),
+          if (c['procedure'] != null &&
+              c['procedure'].toString().isNotEmpty) ...[
+            _buildGridRow('Procedure', c['procedure'].toString()),
             const SizedBox(height: 12),
           ],
-          if (c['diagnosis'] != null && c['diagnosis'].toString().isNotEmpty) ...[
-            _buildGridRow(
-              'Diagnosis',
-              c['diagnosis'].toString(),
-            ),
+          if (c['diagnosis'] != null &&
+              c['diagnosis'].toString().isNotEmpty) ...[
+            _buildGridRow('Diagnosis', c['diagnosis'].toString()),
             const SizedBox(height: 12),
           ],
           if (c['plan'] != null && c['plan'].toString().isNotEmpty) ...[
-            _buildGridRow(
-              'Plan',
-              c['plan'].toString(),
-            ),
+            _buildGridRow('Plan', c['plan'].toString()),
             const SizedBox(height: 12),
           ],
           if (medsList.isNotEmpty) ...[
             _buildGridRow(
               'Medications',
-              medsList.map((m) {
-                if (m is Map) {
-                  final name = m['name'] ?? 'N/A';
-                  final dosage = m['dosage'] ?? 'N/A';
-                  final freq = m['frequency'] ?? 'N/A';
-                  return '$name - $dosage ($freq)';
-                }
-                return m.toString();
-              }).join('\n'),
+              medsList
+                  .map((m) {
+                    if (m is Map) {
+                      final name = m['name'] ?? 'N/A';
+                      final dosage = m['dosage'] ?? 'N/A';
+                      final freq = m['frequency'] ?? 'N/A';
+                      return '$name - $dosage ($freq)';
+                    }
+                    return m.toString();
+                  })
+                  .join('\n'),
             ),
             const SizedBox(height: 12),
           ],
           if (labsList.isNotEmpty) ...[
-            _buildGridRow(
-              'Lab Tests',
-              labsList.join(', '),
-            ),
+            _buildGridRow('Lab Tests', labsList.join(', ')),
             const SizedBox(height: 12),
           ],
           if (refMap != null &&
               ((refMap['referred_doctor']?.toString().isNotEmpty ?? false) ||
-               (refMap['referred_department']?.toString().isNotEmpty ?? false) ||
-               (refMap['referral_notes']?.toString().isNotEmpty ?? false))) ...[
+                  (refMap['referred_department']?.toString().isNotEmpty ??
+                      false) ||
+                  (refMap['referral_notes']?.toString().isNotEmpty ??
+                      false))) ...[
             _buildGridRow(
               'Referral',
               'To Doctor: ${refMap['referred_doctor'] ?? 'N/A'} • Dept: ${refMap['referred_department'] ?? 'N/A'}${refMap['referral_notes'] != null && refMap['referral_notes'].toString().isNotEmpty ? "\nNotes: ${refMap['referral_notes']}" : ""}',
@@ -4304,27 +4363,24 @@ class _PatientDetailViewState extends State<PatientDetailView>
           if (docsList != null && docsList.isNotEmpty) ...[
             _buildGridRow(
               'Documents',
-              docsList.map((d) {
-                if (d is Map) {
-                  return '${d['title']} (${d['file_name']})';
-                }
-                return '';
-              }).where((str) => str.isNotEmpty).join('\n'),
+              docsList
+                  .map((d) {
+                    if (d is Map) {
+                      return '${d['title']} (${d['file_name']})';
+                    }
+                    return '';
+                  })
+                  .where((str) => str.isNotEmpty)
+                  .join('\n'),
             ),
             const SizedBox(height: 12),
           ],
           if (c['comment'] != null && c['comment'].toString().isNotEmpty) ...[
-            _buildGridRow(
-              'Comments',
-              c['comment'].toString(),
-            ),
+            _buildGridRow('Comments', c['comment'].toString()),
             const SizedBox(height: 12),
           ],
           if (c['notes'] != null && c['notes'].toString().isNotEmpty) ...[
-            _buildGridRow(
-              'Notes',
-              c['notes'].toString(),
-            ),
+            _buildGridRow('Notes', c['notes'].toString()),
             const SizedBox(height: 12),
           ],
         ],
@@ -4483,13 +4539,13 @@ class _PatientDetailViewState extends State<PatientDetailView>
   Widget _buildPatientInsightsTab(PatientModel p) {
     return PatientInsightsForm(patient: p);
   }
-
 }
 
 class PatientInsightsForm extends StatefulWidget {
   final PatientModel patient;
 
-  const PatientInsightsForm({Key? key, required this.patient}) : super(key: key);
+  const PatientInsightsForm({Key? key, required this.patient})
+    : super(key: key);
 
   @override
   State<PatientInsightsForm> createState() => PatientInsightsFormState();
@@ -4501,102 +4557,209 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
   bool _isLoading = true;
 
   final List<Map<String, dynamic>> insightCategories = [
-// ... (omitted for brevity, will include full content in replacement)
+    // ... (omitted for brevity, will include full content in replacement)
     {
       'category': 'Recovery',
       'icon': Icons.healing_outlined,
       'color': Colors.blue,
       'questions': [
-        {'q': 'What is the one activity that makes you lose track of time?', 'data': 'Primary Hobby', 'why': 'Used for physical therapy to speed up recovery.'},
-        {'q': 'What music always lifts your mood?', 'data': 'Auditory Anchor', 'why': 'Played during painful treatments to naturally lower stress.'},
-        {'q': 'Are you an early riser or a night owl?', 'data': 'Sleep Cycle', 'why': 'Used to schedule nursing tasks when patient is naturally awake.'},
-        {'q': 'What is your favorite childhood comfort food?', 'data': 'Palate Preference', 'why': 'Served if patient stops eating due to illness to keep strength up.'},
-      ]
+        {
+          'q': 'What is the one activity that makes you lose track of time?',
+          'data': 'Primary Hobby',
+          'why': 'Used for physical therapy to speed up recovery.',
+        },
+        {
+          'q': 'What music always lifts your mood?',
+          'data': 'Auditory Anchor',
+          'why': 'Played during painful treatments to naturally lower stress.',
+        },
+        {
+          'q': 'Are you an early riser or a night owl?',
+          'data': 'Sleep Cycle',
+          'why':
+              'Used to schedule nursing tasks when patient is naturally awake.',
+        },
+        {
+          'q': 'What is your favorite childhood comfort food?',
+          'data': 'Palate Preference',
+          'why':
+              'Served if patient stops eating due to illness to keep strength up.',
+        },
+      ],
     },
     {
       'category': 'Social',
       'icon': Icons.people_outline,
       'color': Colors.indigo,
       'questions': [
-        {'q': 'Who is the first person you call in an emergency?', 'data': 'Primary Caregiver', 'why': 'Used to send home-care instructions and bill alerts.'},
-      ]
+        {
+          'q': 'Who is the first person you call in an emergency?',
+          'data': 'Primary Caregiver',
+          'why': 'Used to send home-care instructions and bill alerts.',
+        },
+      ],
     },
     {
       'category': 'Safety',
       'icon': Icons.security_outlined,
       'color': Colors.orange,
       'questions': [
-        {'q': 'How is your home set up—any stairs or narrow doors?', 'data': 'Home Architecture', 'why': 'Used to flag if home is "Not Safe" for a patient with a walker.'},
-        {'q': 'How do you usually get around (Bike, Car, Bus)?', 'data': 'Transit Mode', 'why': 'Used to set specific strength goals to safely return to transit.'},
-        {'q': 'Do you have any pets waiting for you at home?', 'data': 'Emotional Bond', 'why': 'Pet\'s name used to motivate walking during recovery.'},
-      ]
+        {
+          'q': 'How is your home set up—any stairs or narrow doors?',
+          'data': 'Home Architecture',
+          'why':
+              'Used to flag if home is "Not Safe" for a patient with a walker.',
+        },
+        {
+          'q': 'How do you usually get around (Bike, Car, Bus)?',
+          'data': 'Transit Mode',
+          'why':
+              'Used to set specific strength goals to safely return to transit.',
+        },
+        {
+          'q': 'Do you have any pets waiting for you at home?',
+          'data': 'Emotional Bond',
+          'why': 'Pet\'s name used to motivate walking during recovery.',
+        },
+      ],
     },
     {
       'category': 'Kitchen',
       'icon': Icons.restaurant_outlined,
       'color': Colors.red,
       'questions': [
-        {'q': 'On a scale of 1-10, how spicy do you like your food?', 'data': 'Spice Tolerance', 'why': 'Used to tell the kitchen exactly how much chili to use.'},
-        {'q': 'How many meals do you usually eat in a day?', 'data': 'Portion Frequency', 'why': 'Used to plan kitchen cooking fire-up times.'},
-        {'q': 'Are there any specific grains (like Millets) you prefer?', 'data': 'Grain Type', 'why': 'Provides exact nutrition to prevent digestive issues.'},
-        {'q': 'Do you prefer coffee, tea, or milk in the morning?', 'data': 'Beverage Choice', 'why': 'Used to procure exact liters of milk daily.'},
-      ]
+        {
+          'q': 'On a scale of 1-10, how spicy do you like your food?',
+          'data': 'Spice Tolerance',
+          'why': 'Used to tell the kitchen exactly how much chili to use.',
+        },
+        {
+          'q': 'How many meals do you usually eat in a day?',
+          'data': 'Portion Frequency',
+          'why': 'Used to plan kitchen cooking fire-up times.',
+        },
+        {
+          'q': 'Are there any specific grains (like Millets) you prefer?',
+          'data': 'Grain Type',
+          'why': 'Provides exact nutrition to prevent digestive issues.',
+        },
+        {
+          'q': 'Do you prefer coffee, tea, or milk in the morning?',
+          'data': 'Beverage Choice',
+          'why': 'Used to procure exact liters of milk daily.',
+        },
+      ],
     },
     {
       'category': 'Logistics',
       'icon': Icons.local_shipping_outlined,
       'color': Colors.teal,
       'questions': [
-        {'q': 'Who usually cooks for you at home?', 'data': 'Caregiver Skill', 'why': 'Decides if "Ready-to-Eat" or "Raw Ingredients" are needed.'},
-        {'q': 'What time of day is best for a home visit?', 'data': 'Service Window', 'why': 'Optimizes home-care staff travel route to save fuel/time.'},
-        {'q': 'Do you prefer video updates or paper charts?', 'data': 'Literacy Type', 'why': 'Saves money on printing for tech-savvy patients.'},
-        {'q': 'How often do you buy groceries (Daily/Weekly)?', 'data': 'Supply Chain', 'why': 'Helps design a subscription model for food delivery.'},
-      ]
+        {
+          'q': 'Who usually cooks for you at home?',
+          'data': 'Caregiver Skill',
+          'why': 'Decides if "Ready-to-Eat" or "Raw Ingredients" are needed.',
+        },
+        {
+          'q': 'What time of day is best for a home visit?',
+          'data': 'Service Window',
+          'why': 'Optimizes home-care staff travel route to save fuel/time.',
+        },
+        {
+          'q': 'Do you prefer video updates or paper charts?',
+          'data': 'Literacy Type',
+          'why': 'Saves money on printing for tech-savvy patients.',
+        },
+        {
+          'q': 'How often do you buy groceries (Daily/Weekly)?',
+          'data': 'Supply Chain',
+          'why': 'Helps design a subscription model for food delivery.',
+        },
+      ],
     },
     {
       'category': 'Work',
       'icon': Icons.work_outline,
       'color': Colors.brown,
       'questions': [
-        {'q': 'What kind of work have you done most of your life?', 'data': 'Career Strain', 'why': 'Predicts back/neck issues based on years of strain.'},
-        {'q': 'Have you worked around dust, chemicals, or loud noise?', 'data': 'Environmental Risk', 'why': 'Flags potential lung or hearing issues for doctors.'},
-      ]
+        {
+          'q': 'What kind of work have you done most of your life?',
+          'data': 'Career Strain',
+          'why': 'Predicts back/neck issues based on years of strain.',
+        },
+        {
+          'q': 'Have you worked around dust, chemicals, or loud noise?',
+          'data': 'Environmental Risk',
+          'why': 'Flags potential lung or hearing issues for doctors.',
+        },
+      ],
     },
     {
       'category': 'Lifestyle',
       'icon': Icons.favorite_outline,
       'color': Colors.pink,
       'questions': [
-        {'q': 'What is your biggest health-related fear?', 'data': 'Psychological Trigger', 'why': 'Staff trained to talk with extra reassurance to prevent anxiety.'},
-        {'q': 'Do you fast for religious or personal reasons?', 'data': 'Fasting Calendar', 'why': 'Prevents cooking meals on fasting days.'},
-        {'q': 'What is one "Goal" you want to reach in 6 months?', 'data': 'Motivation Goal', 'why': 'Tracks recovery against dreams (e.g., "Walking to temple").'},
-      ]
+        {
+          'q': 'What is your biggest health-related fear?',
+          'data': 'Psychological Trigger',
+          'why':
+              'Staff trained to talk with extra reassurance to prevent anxiety.',
+        },
+        {
+          'q': 'Do you fast for religious or personal reasons?',
+          'data': 'Fasting Calendar',
+          'why': 'Prevents cooking meals on fasting days.',
+        },
+        {
+          'q': 'What is one "Goal" you want to reach in 6 months?',
+          'data': 'Motivation Goal',
+          'why': 'Tracks recovery against dreams (e.g., "Walking to temple").',
+        },
+      ],
     },
     {
       'category': 'Physical',
       'icon': Icons.directions_run_outlined,
       'color': Colors.green,
       'questions': [
-        {'q': 'How much water do you drink on a normal day?', 'data': 'Hydration Base', 'why': 'AI alerts nurse if below "Base" amount (Dehydration Risk).'},
-        {'q': 'In one word, how is your energy today?', 'data': 'Baseline Vitality', 'why': 'Tracks slow decline in health over time.'},
-      ]
+        {
+          'q': 'How much water do you drink on a normal day?',
+          'data': 'Hydration Base',
+          'why': 'AI alerts nurse if below "Base" amount (Dehydration Risk).',
+        },
+        {
+          'q': 'In one word, how is your energy today?',
+          'data': 'Baseline Vitality',
+          'why': 'Tracks slow decline in health over time.',
+        },
+      ],
     },
     {
       'category': 'Financial',
       'icon': Icons.account_balance_wallet_outlined,
       'color': Colors.deepPurple,
       'questions': [
-        {'q': 'Do you prefer the most effective or most budget-friendly option?', 'data': 'Price Sensitivity', 'why': 'Suggests affordable medicines to ensure treatment completion.'},
-      ]
+        {
+          'q':
+              'Do you prefer the most effective or most budget-friendly option?',
+          'data': 'Price Sensitivity',
+          'why':
+              'Suggests affordable medicines to ensure treatment completion.',
+        },
+      ],
     },
     {
       'category': 'Behavior',
       'icon': Icons.psychology_outlined,
       'color': Colors.deepOrange,
       'questions': [
-        {'q': 'Do you prefer to be around people or have a quiet room?', 'data': 'Social Density', 'why': 'Places "Social" patients in shared wards to help recovery.'},
-      ]
-    }
+        {
+          'q': 'Do you prefer to be around people or have a quiet room?',
+          'data': 'Social Density',
+          'why': 'Places "Social" patients in shared wards to help recovery.',
+        },
+      ],
+    },
   ];
 
   @override
@@ -4614,7 +4777,9 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
   Future<void> _fetchInsights() async {
     if (widget.patient.id == null) return;
     try {
-      final insights = await _apiController.fetchPatientInsights(widget.patient.id!);
+      final insights = await _apiController.fetchPatientInsights(
+        widget.patient.id!,
+      );
       if (mounted) {
         setState(() {
           insights.forEach((key, value) {
@@ -4633,7 +4798,7 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
 
   Future<bool> saveInsights() async {
     if (widget.patient.id == null) return false;
-    
+
     final Map<String, String> data = {};
     _controllers.forEach((key, controller) {
       if (controller.text.trim().isNotEmpty) {
@@ -4653,10 +4818,10 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
       }
       return false;
     }
-    
+
     try {
       await _apiController.savePatientInsights(widget.patient.id!, data);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -4683,7 +4848,7 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
 
   @override
   void dispose() {
-// ... (omitted)
+    // ... (omitted)
     for (var controller in _controllers.values) {
       controller.dispose();
     }
@@ -4699,7 +4864,10 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('Loading patient insights...', style: TextStyle(color: AppTheme.textSecondaryColor)),
+            Text(
+              'Loading patient insights...',
+              style: TextStyle(color: AppTheme.textSecondaryColor),
+            ),
           ],
         ),
       );
@@ -4714,7 +4882,10 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
     );
   }
 
-  Widget _buildInsightCategory(Map<String, dynamic> cat, Map<String, TextEditingController> controllers) {
+  Widget _buildInsightCategory(
+    Map<String, dynamic> cat,
+    Map<String, TextEditingController> controllers,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -4737,7 +4908,11 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
             color: (cat['color'] as Color).withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(cat['icon'] as IconData, color: cat['color'] as Color, size: 20),
+          child: Icon(
+            cat['icon'] as IconData,
+            color: cat['color'] as Color,
+            size: 20,
+          ),
         ),
         title: Text(
           cat['category'],
@@ -4772,7 +4947,11 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.help_outline, size: 16, color: AppTheme.primaryColor),
+                    const Icon(
+                      Icons.help_outline,
+                      size: 16,
+                      color: AppTheme.primaryColor,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -4803,10 +4982,16 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
                   maxLines: null,
                   decoration: InputDecoration(
                     hintText: 'Type patient\'s response here...',
-                    hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                    hintStyle: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade400,
+                    ),
                     filled: true,
                     fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -4817,10 +5002,16 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                      borderSide: const BorderSide(
+                        color: AppTheme.primaryColor,
+                        width: 1.5,
+                      ),
                     ),
                   ),
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF334155)),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF334155),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -4839,7 +5030,10 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
                           ),
                           Text(
                             q['data'],
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                            ),
                           ),
                         ],
                       ),
@@ -4859,7 +5053,10 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
                           ),
                           Text(
                             q['why'],
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
                           ),
                         ],
                       ),
@@ -4874,7 +5071,6 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
     );
   }
 }
-
 
 class _VitalItem {
   final String label;
