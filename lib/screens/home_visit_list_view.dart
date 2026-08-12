@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
@@ -12,13 +11,13 @@ import '../controllers/patient_controller.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_dropdown_search.dart';
-import 'home_visit_execution_screen.dart';
 
 class HomeVisitListView extends StatefulWidget {
   final Function(int visitId)? onExecuteVisit;
   final Function(int visitId)? onViewSummary;
   final bool showScheduleButton;
   final bool showExecuteButton;
+  final bool showHeader;
 
   const HomeVisitListView({
     super.key,
@@ -26,6 +25,7 @@ class HomeVisitListView extends StatefulWidget {
     this.onViewSummary,
     this.showScheduleButton = true,
     this.showExecuteButton = true,
+    this.showHeader = false,
   });
 
   @override
@@ -347,6 +347,15 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   },
                 ),
               ],
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                tooltip: 'Refresh visits',
+                onPressed: () {
+                  Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
+                  _fetchPatients();
+                },
+              ),
             ],
           ),
         );
@@ -537,50 +546,123 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Page Header — responsive
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isNarrow = constraints.maxWidth < 600;
-                  if (isNarrow) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
+              // Page Header — responsive (only if widget.showHeader is true)
+              if (widget.showHeader) ...[
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 600;
+                    if (isNarrow) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.home_work_outlined, color: AppTheme.primaryColor, size: 24),
                               ),
-                              child: const Icon(Icons.home_work_outlined, color: AppTheme.primaryColor, size: 24),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Home Visit Care & Services',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textPrimaryColor,
-                                      fontFamily: 'Inter',
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Home Visit Care & Services',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textPrimaryColor,
+                                        fontFamily: 'Inter',
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    'Manage patient home care & billing',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey, fontFamily: 'Inter'),
-                                  ),
-                                ],
+                                    Text(
+                                      'Manage patient home care & billing',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey, fontFamily: 'Inter'),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                                tooltip: 'Refresh visits',
+                                onPressed: () {
+                                  Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
+                                  _fetchPatients();
+                                },
+                              ),
+                              if (widget.showScheduleButton) ...[
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  height: 36,
+                                  child: ElevatedButton.icon(
+                                    style: AppTheme.dangerButton,
+                                    icon: const Icon(Icons.add, color: Colors.white, size: 15),
+                                    label: const Text(
+                                      'Schedule Home Visit',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                    ),
+                                    onPressed: () => _showScheduleVisitDialog(context),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.home_work_outlined, color: AppTheme.primaryColor, size: 28),
+                              ),
+                              const SizedBox(width: 14),
+                              const Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Home Visit Care & Services',
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textPrimaryColor,
+                                        fontFamily: 'Inter',
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      'Manage patient home care, vitals, dressing & attender billing',
+                                      style: TextStyle(fontSize: 13, color: Colors.grey, fontFamily: 'Inter'),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(width: 12),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
@@ -609,81 +691,10 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         ),
                       ],
                     );
-                  }
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(Icons.home_work_outlined, color: AppTheme.primaryColor, size: 28),
-                            ),
-                            const SizedBox(width: 14),
-                            const Flexible(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Home Visit Care & Services',
-                                    style: TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textPrimaryColor,
-                                      fontFamily: 'Inter',
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    'Manage patient home care, vitals, dressing & attender billing',
-                                    style: TextStyle(fontSize: 13, color: Colors.grey, fontFamily: 'Inter'),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
-                            tooltip: 'Refresh visits',
-                            onPressed: () {
-                              Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
-                              _fetchPatients();
-                            },
-                          ),
-                          if (widget.showScheduleButton) ...[
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              height: 36,
-                              child: ElevatedButton.icon(
-                                style: AppTheme.dangerButton,
-                                icon: const Icon(Icons.add, color: Colors.white, size: 15),
-                                label: const Text(
-                                  'Schedule Home Visit',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
-                                ),
-                                onPressed: () => _showScheduleVisitDialog(context),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
+                  },
+                ),
+                const SizedBox(height: 20),
+              ],
 
               // Summary Stat Cards
               _buildSummaryCards(allVisits),
@@ -1380,21 +1391,6 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     );
   }
 
-
-
-  String _formatDateDDMMYYYY(String? dateStr) {
-    if (dateStr == null || dateStr.trim().isEmpty) return 'N/A';
-    final clean = dateStr.trim().split('T')[0].split(' ')[0];
-    final parts = clean.split('-');
-    if (parts.length == 3) {
-      if (parts[0].length == 4) {
-        return "${parts[2].padLeft(2, '0')}-${parts[1].padLeft(2, '0')}-${parts[0]}";
-      } else {
-        return "${parts[0].padLeft(2, '0')}-${parts[1].padLeft(2, '0')}-${parts[2]}";
-      }
-    }
-    return dateStr;
-  }
 
   bool _isExecuteButtonEnabled(HomeVisitModel visit) {
     if (visit.status == 'Verified' || visit.status == 'Completed') {

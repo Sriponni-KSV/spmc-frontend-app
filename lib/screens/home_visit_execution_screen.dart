@@ -10,6 +10,7 @@ import '../utils/app_theme.dart';
 import '../models/home_visit_model.dart';
 import '../controllers/home_visit_controller.dart';
 import '../services/api_service.dart';
+import '../services/home_visit_service.dart';
 import '../services/media_service.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'home_visit_invoice_dialog.dart';
@@ -83,6 +84,24 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     text: '1',
   );
   String _kitItemType = 'Device';
+  List<Map<String, dynamic>> _dbKitMasterItems = [];
+  List<String> _dbKitDevices = [];
+
+  List<String> get _effectiveKitDevices {
+    final List<String> items = [];
+    for (final name in _dbKitDevices) {
+      if (name.trim().isNotEmpty && !items.contains(name.trim())) {
+        items.add(name.trim());
+      }
+    }
+    for (final defaultItem in _defaultKitDevices) {
+      if (defaultItem != 'Other (Type Custom Kit Item...)' && !items.contains(defaultItem)) {
+        items.add(defaultItem);
+      }
+    }
+    items.add('Other (Type Custom Kit Item...)');
+    return items;
+  }
 
   final List<String> _defaultKitDevices = const [
     'Digital BP Monitor',
@@ -2802,6 +2821,25 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         }
       }
     } catch (_) {}
+
+    try {
+      final kitItemsData = await HomeVisitService().fetchKitItemsMaster();
+      final List<String> kitNames = [];
+      for (var item in kitItemsData) {
+        final name = item['name']?.toString() ?? '';
+        if (name.isNotEmpty) {
+          kitNames.add(name);
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _dbKitMasterItems = kitItemsData;
+          if (kitNames.isNotEmpty) {
+            _dbKitDevices = kitNames;
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadData() async {
@@ -3399,10 +3437,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     // Shared add button logic
                     Future<void> addKitItem() async {
                       final name =
-                          (_selectedKitDropdown != null &&
-                              _selectedKitDropdown!.isNotEmpty)
-                          ? _selectedKitDropdown!.trim()
-                          : _kitItemNameCtrl.text.trim();
+                          (_selectedKitDropdown == 'Other (Type Custom Kit Item...)')
+                              ? _customKitNameCtrl.text.trim()
+                              : ((_selectedKitDropdown != null &&
+                                      _selectedKitDropdown!.isNotEmpty)
+                                  ? _selectedKitDropdown!.trim()
+                                  : _kitItemNameCtrl.text.trim());
 
                       if (name.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -3445,6 +3485,38 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       }
                     }
 
+                    void handleKitDropdownChange(String? val) {
+                      setState(() {
+                        _selectedKitDropdown = val;
+                        if (val != null) {
+                          _kitItemNameCtrl.text = val;
+                          final matched = _dbKitMasterItems.firstWhere(
+                            (element) =>
+                                element['name']?.toString().toLowerCase().trim() ==
+                                val.toLowerCase().trim(),
+                            orElse: () => {},
+                          );
+                          if (matched.isNotEmpty && matched['item_type'] != null) {
+                            final t = matched['item_type'].toString();
+                            if (['Device', 'Equipment', 'Kit', 'Tool', 'Consumable', 'Medicine', 'Monitoring Tool', 'Accessories'].contains(t)) {
+                              _kitItemType = t;
+                            }
+                          }
+                        }
+                      });
+                    }
+
+                    const categoryMap = {
+                      'Device': 'Medical Device',
+                      'Equipment': 'Equipment',
+                      'Kit': 'Procedure Kit',
+                      'Tool': 'Kit Tool',
+                      'Consumable': 'Supply / Consumable',
+                      'Medicine': 'Kit Medicine',
+                      'Monitoring Tool': 'Monitoring Tool',
+                      'Accessories': 'Accessories',
+                    };
+
                     if (isMobile) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3452,15 +3524,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           CustomDropdownSearch(
                             label: '',
                             hint: 'Select or Type Kit Item / Device',
-                            dropdownItems: _defaultKitDevices,
+                            dropdownItems: _effectiveKitDevices,
                             value: _selectedKitDropdown,
                             allowFreeText: true,
-                            onChanged: (val) {
-                              setState(() {
-                                _selectedKitDropdown = val;
-                                if (val != null) _kitItemNameCtrl.text = val;
-                              });
-                            },
+                            onChanged: handleKitDropdownChange,
                           ),
                           if (_selectedKitDropdown ==
                               'Other (Type Custom Kit Item...)') ...[
@@ -3478,12 +3545,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           CustomDropdownSearch(
                             label: '',
                             hint: 'Category',
-                            dropdownMap: const {
-                              'Device': 'Medical Device',
-                              'Tool': 'Kit Tool',
-                              'Consumable': 'Supply / Consumable',
-                              'Medicine': 'Kit Medicine',
-                            },
+                            dropdownMap: categoryMap,
                             value: _kitItemType,
                             onChanged: (val) {
                               if (val != null)
@@ -3513,15 +3575,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: CustomDropdownSearch(
                               label: '',
                               hint: 'Select or Type Kit Item / Device',
-                              dropdownItems: _defaultKitDevices,
+                              dropdownItems: _effectiveKitDevices,
                               value: _selectedKitDropdown,
                               allowFreeText: true,
-                              onChanged: (val) {
-                                setState(() {
-                                  _selectedKitDropdown = val;
-                                  if (val != null) _kitItemNameCtrl.text = val;
-                                });
-                              },
+                              onChanged: handleKitDropdownChange,
                             ),
                           ),
                           if (_selectedKitDropdown ==
@@ -3545,12 +3602,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: CustomDropdownSearch(
                               label: '',
                               hint: 'Category',
-                              dropdownMap: const {
-                                'Device': 'Medical Device',
-                                'Tool': 'Kit Tool',
-                                'Consumable': 'Supply / Consumable',
-                                'Medicine': 'Kit Medicine',
-                              },
+                              dropdownMap: categoryMap,
                               value: _kitItemType,
                               onChanged: (val) {
                                 if (val != null)
