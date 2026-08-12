@@ -3498,7 +3498,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           );
                           if (matched.isNotEmpty && matched['item_type'] != null) {
                             final t = matched['item_type'].toString();
-                            if (['Device', 'Equipment', 'Kit', 'Tool', 'Consumable', 'Medicine', 'Monitoring Tool', 'Accessories'].contains(t)) {
+                            if (['Device', 'Equipment', 'Kit', 'Monitoring Tool', 'Accessories'].contains(t)) {
                               _kitItemType = t;
                             }
                           }
@@ -3506,16 +3506,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       });
                     }
 
-                    const categoryMap = {
-                      'Device': 'Medical Device',
-                      'Equipment': 'Equipment',
-                      'Kit': 'Procedure Kit',
-                      'Tool': 'Kit Tool',
-                      'Consumable': 'Supply / Consumable',
-                      'Medicine': 'Kit Medicine',
-                      'Monitoring Tool': 'Monitoring Tool',
-                      'Accessories': 'Accessories',
-                    };
+                    const kitItemTypes = [
+                      'Device',
+                      'Equipment',
+                      'Kit',
+                      'Monitoring Tool',
+                      'Accessories',
+                    ];
 
                     if (isMobile) {
                       return Column(
@@ -3545,7 +3542,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           CustomDropdownSearch(
                             label: '',
                             hint: 'Category',
-                            dropdownMap: categoryMap,
+                            dropdownItems: kitItemTypes,
                             value: _kitItemType,
                             onChanged: (val) {
                               if (val != null)
@@ -3602,7 +3599,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: CustomDropdownSearch(
                               label: '',
                               hint: 'Category',
-                              dropdownMap: categoryMap,
+                              dropdownItems: kitItemTypes,
                               value: _kitItemType,
                               onChanged: (val) {
                                 if (val != null)
