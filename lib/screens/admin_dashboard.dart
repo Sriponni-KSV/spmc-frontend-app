@@ -36,6 +36,7 @@ import '../controllers/home_visit_controller.dart';
 import '../services/home_visit_service.dart';
 import '../models/home_visit_model.dart';
 import 'home_visit_list_view.dart';
+import 'home_visit_execution_screen.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
@@ -49,6 +50,7 @@ class AdminDashboardScreen extends StatefulWidget {
   final PatientModel? existingPatient;
   final PatientModel? viewPatient;
   final UserModel? viewingStaffProfile;
+  final int? selectedHomeVisitId;
 
   const AdminDashboardScreen({
     Key? key,
@@ -57,6 +59,7 @@ class AdminDashboardScreen extends StatefulWidget {
     this.existingPatient,
     this.viewPatient,
     this.viewingStaffProfile,
+    this.selectedHomeVisitId,
   }) : super(key: key);
 
   @override
@@ -88,6 +91,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   PatientModel? _patientToComplete;
   PatientModel? _viewPatient;
   UserModel? _viewingStaffProfile;
+  int? _selectedHomeVisitId;
   String _staffSearchQuery = '';
   int _staffCurrentPage = 0;
   final int _itemsPerPage = 10;
@@ -214,6 +218,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _patientToComplete = widget.existingPatient;
     _viewPatient = widget.viewPatient;
     _viewingStaffProfile = widget.viewingStaffProfile;
+    _selectedHomeVisitId = widget.selectedHomeVisitId;
     _loadStaff();
     _loadRbacData();
     _fetchPatients();
@@ -229,13 +234,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         widget.isRegisteringPatient != oldWidget.isRegisteringPatient ||
         widget.existingPatient != oldWidget.existingPatient ||
         widget.viewPatient != oldWidget.viewPatient ||
-        widget.viewingStaffProfile != oldWidget.viewingStaffProfile) {
+        widget.viewingStaffProfile != oldWidget.viewingStaffProfile ||
+        widget.selectedHomeVisitId != oldWidget.selectedHomeVisitId) {
       setState(() {
         _selectedIndex = widget.initialIndex;
         _isRegisteringPatient = widget.isRegisteringPatient;
         _patientToComplete = widget.existingPatient;
         _viewPatient = widget.viewPatient;
         _viewingStaffProfile = widget.viewingStaffProfile;
+        _selectedHomeVisitId = widget.selectedHomeVisitId;
       });
       if (_selectedIndex == 8) {
         _loadShiftData();
@@ -5211,6 +5218,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // --- Home Visit Care Section (Admin Only Schedule) ---
 
   Widget _buildAdminHomeVisitCare(bool isMobile) {
+    if (_selectedHomeVisitId != null) {
+      return HomeVisitExecutionScreen(
+        visitId: _selectedHomeVisitId!,
+        isReadOnlyView: true,
+        onBack: () {
+          setState(() {
+            _selectedHomeVisitId = null;
+          });
+          context.go(AppRoutes.adminHomeVisits);
+        },
+      );
+    }
+
     return Container(
       color: AppTheme.backgroundColor,
       child: Column(
@@ -5290,6 +5310,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: HomeVisitListView(
               showScheduleButton: false,
               showExecuteButton: false,
+              onViewSummary: (visitId) {
+                setState(() {
+                  _selectedHomeVisitId = visitId;
+                });
+                context.go('/admin/home-visits/summary/$visitId');
+              },
             ),
           ),
         ],

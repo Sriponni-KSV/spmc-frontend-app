@@ -912,7 +912,12 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     if (widget.onViewSummary != null) {
                       widget.onViewSummary!(visit.id);
                     } else {
-                      context.go('/nurse/home-visits/summary/${visit.id}');
+                      final user = Provider.of<AuthProvider>(context, listen: false).user;
+                      if (user?.role == 'Admin' || user?.role == 'Super Admin' || user?.role == 'Supervisor') {
+                        context.go('/admin/home-visits/summary/${visit.id}');
+                      } else {
+                        context.go('/nurse/home-visits/summary/${visit.id}');
+                      }
                     }
                   },
                 ),
@@ -1030,7 +1035,12 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                           if (widget.onViewSummary != null) {
                             widget.onViewSummary!(visit.id);
                           } else {
-                            context.go('/nurse/home-visits/summary/${visit.id}');
+                            final user = Provider.of<AuthProvider>(context, listen: false).user;
+                            if (user?.role == 'Admin' || user?.role == 'Super Admin' || user?.role == 'Supervisor') {
+                              context.go('/admin/home-visits/summary/${visit.id}');
+                            } else {
+                              context.go('/nurse/home-visits/summary/${visit.id}');
+                            }
                           }
                         },
                       ),

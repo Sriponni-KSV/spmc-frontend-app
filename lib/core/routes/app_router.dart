@@ -302,6 +302,19 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: AppRoutes.adminHomeVisitSummary,
+          pageBuilder: (context, state) {
+            final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+            return NoTransitionPage(
+              key: ValueKey('admin_home_visit_summary_$id'),
+              child: AdminDashboardScreen(
+                initialIndex: 12,
+                selectedHomeVisitId: id,
+              ),
+            );
+          },
+        ),
+        GoRoute(
           path: AppRoutes.adminMedicationCatalog,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('admin_dashboard'),
