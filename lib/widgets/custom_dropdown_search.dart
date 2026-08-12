@@ -235,6 +235,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
           if (displayValue != _textEditingController.text) {
             _textEditingController.text = displayValue;
           }
+          if (widget.value == null || widget.value!.isEmpty) {
+            _filteredItems = _allEntries.entries.toList();
+          }
         }
       });
     }
@@ -286,6 +289,12 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       _closeActiveDropdown!();
     }
     _closeActiveDropdown = _hideDropdown;
+
+    final currentText = _textEditingController.text.trim();
+    final selectedDisplay = _allEntries[widget.value] ?? widget.value ?? '';
+    if (currentText.isEmpty || currentText == selectedDisplay) {
+      _filteredItems = _allEntries.entries.toList();
+    }
 
     final RenderBox renderBox = context.findRenderObject() as RenderBox;
     final size = renderBox.size;

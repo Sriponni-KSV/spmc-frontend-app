@@ -294,6 +294,34 @@ class AppRouter {
             child: AdminDashboardScreen(initialIndex: 10),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.adminHomeVisits,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 12),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminMedicationCatalog,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 13),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminHomeVisitConsumables,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 14),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminCarriedKitItems,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 15),
+          ),
+        ),
 
         // --- Nurse Protected Routes ---
         GoRoute(

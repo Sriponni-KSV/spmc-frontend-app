@@ -44,6 +44,9 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
       TextEditingController();
   final _passwordFormKey = GlobalKey<FormState>();
 
+  /// Focus node to move cursor from new password to confirm password.
+  final FocusNode _confirmPasswordFocus = FocusNode();
+
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -71,6 +74,7 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
     _pageController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
+    _confirmPasswordFocus.dispose();
     super.dispose();
   }
 
@@ -138,6 +142,9 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
         if (mounted) setState(() => _isLoading = false);
       }
     } else if (_currentStep == 1) {
+      if (_confirmPasswordController.text.trim().isEmpty) {
+        FocusScope.of(context).requestFocus(_confirmPasswordFocus);
+      }
       if (_passwordFormKey.currentState!.validate()) {
         setState(() => _isLoading = true);
         try {
@@ -163,6 +170,11 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
           );
         } finally {
           if (mounted) setState(() => _isLoading = false);
+        }
+      } else {
+        if (_confirmPasswordController.text.trim().isEmpty ||
+            _confirmPasswordController.text != _newPasswordController.text) {
+          FocusScope.of(context).requestFocus(_confirmPasswordFocus);
         }
       }
     }
@@ -330,6 +342,9 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
               ),
               validator: PasswordPolicy.validatePassword,
               textInputAction: TextInputAction.next,
+              onFieldSubmitted: (_) {
+                FocusScope.of(context).requestFocus(_confirmPasswordFocus);
+              },
               decoration: InputDecoration(
                 counterText: '',
                 hintText: 'Enter New Password',
@@ -363,6 +378,7 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _confirmPasswordController,
+              focusNode: _confirmPasswordFocus,
               obscureText: _obscureConfirmPassword,
               autovalidateMode: AutovalidateMode.onUserInteraction,
               maxLength: 16,
