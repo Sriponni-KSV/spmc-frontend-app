@@ -263,11 +263,22 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           key: UniqueKey(),
           existingPatient: _patientToComplete,
           onBack: () {
+            final patientToReturn = _patientToComplete;
             setState(() {
               _isRegisteringPatient = false;
               _patientToComplete = null;
+              if (patientToReturn != null) {
+                _viewPatient = patientToReturn;
+              }
             });
-            context.go(AppRoutes.frontDeskPatients);
+            if (patientToReturn != null) {
+              context.go(
+                AppRoutes.frontDeskViewPatient,
+                extra: patientToReturn,
+              );
+            } else {
+              context.go(AppRoutes.frontDeskPatients);
+            }
             _fetchPatients();
           },
         );

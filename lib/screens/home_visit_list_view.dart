@@ -164,9 +164,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  buildStatCard('In-Progress', inProgressCount, Icons.hourglass_top_outlined, Colors.blue),
+                  buildStatCard('In-Progress', inProgressCount, Icons.hourglass_top_outlined, AppTheme.primaryColor),
                   const SizedBox(width: 10),
-                  buildStatCard('Completed', completedCount, Icons.check_circle_outline, Colors.green),
+                  buildStatCard('Completed', completedCount, Icons.check_circle_outline, AppTheme.secondaryColor),
                 ],
               ),
             ],
@@ -178,9 +178,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             const SizedBox(width: 12),
             buildStatCard('Scheduled', scheduledCount, Icons.calendar_today_outlined, Colors.orange),
             const SizedBox(width: 12),
-            buildStatCard('In-Progress', inProgressCount, Icons.hourglass_top_outlined, Colors.blue),
+            buildStatCard('In-Progress', inProgressCount, Icons.hourglass_top_outlined, AppTheme.primaryColor),
             const SizedBox(width: 12),
-            buildStatCard('Completed', completedCount, Icons.check_circle_outline, Colors.green),
+            buildStatCard('Completed', completedCount, Icons.check_circle_outline, AppTheme.secondaryColor),
           ],
         );
       },
@@ -811,8 +811,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     final todayFormatted = "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}";
     final String displayDate = (effectiveStatus == 'Scheduled' && canExecute) ? todayFormatted : visit.formattedScheduledDate;
 
-    Color badgeBg = const Color(0xFFDBEAFE);
-    Color badgeText = const Color(0xFF1E40AF);
+    Color badgeBg = AppTheme.primaryLight;
+    Color badgeText = AppTheme.primaryColor;
 
     if (effectiveStatus == 'In-Progress') {
       badgeBg = const Color(0xFFFEF3C7);
@@ -848,7 +848,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
 
               final btn = ElevatedButton.icon(
                 style: canExecute
-                    ? AppTheme.dangerButton
+                    ? AppTheme.secondaryButton
                     : ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFCBD5E1),
                         foregroundColor: const Color(0xFF64748B),
@@ -934,13 +934,15 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               : 'ID: ${visit.patientId}';
 
           // Patient info widget (shared)
-          Widget buildPatientInfo(double maxW) => Row(
+          Widget buildPatientInfo(double maxW) {
+            final avatarColors = AppTheme.getAvatarColors(visit.nurseName ?? visit.patientName ?? '');
+            return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               CircleAvatar(
                 radius: 24,
-                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                child: const Icon(Icons.person, color: AppTheme.primaryColor, size: 26),
+                backgroundColor: avatarColors['bg'],
+                child: Icon(Icons.person, color: avatarColors['text'], size: 26),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -972,11 +974,21 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.person_pin_outlined, size: 14, color: AppTheme.primaryColor),
+                          const Icon(Icons.person_pin_outlined, size: 14, color: AppTheme.nurseColor),
                           const SizedBox(width: 4),
-                          Text(
-                            'Nurse: ${visit.nurseName}',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'Nurse: ',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.nurseColor),
+                                ),
+                                TextSpan(
+                                  text: visit.nurseName ?? '',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.nurseColor),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -1003,6 +1015,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               ),
             ],
           );
+          }
 
           if (isNarrow) {
             final bool canExecute = _isExecuteButtonEnabled(visit);
@@ -1026,8 +1039,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     Expanded(
                       child: ElevatedButton.icon(
                         style: AppTheme.primaryButton.copyWith(
-                          minimumSize: WidgetStateProperty.all(const Size(0, 40)),
-                          padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
+                          minimumSize: MaterialStateProperty.all(const Size(0, 40)),
+                          padding: MaterialStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
                         ),
                         icon: const Icon(Icons.visibility_outlined, size: 14),
                         label: const Text('View Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis),
@@ -1048,33 +1061,44 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     if (visit.status != 'Cancelled' && widget.showExecuteButton) ...[
                       const SizedBox(width: 6),
                       Expanded(
-                        child: ElevatedButton.icon(
-                          style: (canExecute ? AppTheme.dangerButton : ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFCBD5E1),
-                            foregroundColor: const Color(0xFF64748B),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          )).copyWith(
-                            minimumSize: WidgetStateProperty.all(const Size(0, 40)),
-                            padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
-                          ),
-                          icon: Icon(visit.status.toLowerCase() == 'in-progress' || effectiveStatus.toLowerCase() == 'in-progress' ? Icons.play_arrow_outlined : (canExecute ? Icons.medical_services_outlined : Icons.lock_clock_outlined), size: 14),
-                          label: Text(
-                            (visit.status.toLowerCase() == 'in-progress' || effectiveStatus.toLowerCase() == 'in-progress') ? 'Resume Visit' : 'Execute Visit',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: canExecute ? Colors.white : const Color(0xFF64748B)),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          onPressed: canExecute
-                              ? () => _onExecuteVisitPressed(context, visit)
-                              : () {
-                                  final String displayTime = (visit.scheduledTime == null || visit.scheduledTime == "10:00 AM") ? "9:00 AM" : visit.scheduledTime!;
-                                  final String msg = (visit.status == 'Verified' || visit.status == 'Completed')
-                                      ? 'This visit has already been ${visit.status.toLowerCase()}.'
-                                      : 'Duty time has not started yet. Unlocks at 8:50 AM (10 mins before $displayTime).';
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(msg), backgroundColor: AppTheme.primaryColor),
+                        child: Builder(
+                          builder: (context) {
+                            final baseStyle = canExecute
+                                ? AppTheme.secondaryButton
+                                : ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFCBD5E1),
+                                    foregroundColor: const Color(0xFF64748B),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   );
-                                },
+                            final btnStyle = baseStyle.copyWith(
+                              minimumSize: MaterialStateProperty.all(const Size(0, 40)),
+                              padding: MaterialStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
+                            );
+                            return ElevatedButton.icon(
+                              style: btnStyle,
+                              icon: Icon(visit.status.toLowerCase() == 'in-progress' || effectiveStatus.toLowerCase() == 'in-progress'
+                                  ? Icons.play_arrow_outlined
+                                  : (canExecute ? Icons.medical_services_outlined : Icons.lock_clock_outlined),
+                                  size: 14),
+                              label: Text(
+                                (visit.status.toLowerCase() == 'in-progress' || effectiveStatus.toLowerCase() == 'in-progress') ? 'Resume Visit' : 'Execute Visit',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: canExecute ? Colors.white : const Color(0xFF64748B)),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              onPressed: canExecute
+                                  ? () => _onExecuteVisitPressed(context, visit)
+                                  : () {
+                                      final String displayTime = (visit.scheduledTime == null || visit.scheduledTime == "10:00 AM") ? "9:00 AM" : visit.scheduledTime!;
+                                      final String msg = (visit.status == 'Verified' || visit.status == 'Completed')
+                                          ? 'This visit has already been ${visit.status.toLowerCase()}.'
+                                          : 'Duty time has not started yet. Unlocks at 8:50 AM (10 mins before $displayTime).';
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(msg), backgroundColor: AppTheme.primaryColor),
+                                      );
+                                    },
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -1106,7 +1130,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.do_not_disturb_on_outlined, color: AppTheme.dangerColor, size: 26),
               SizedBox(width: 10),
@@ -1209,7 +1233,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.home_work, color: AppTheme.primaryColor),
               SizedBox(width: 10),
@@ -1557,27 +1581,37 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          // Executing Nurse Details (Non-editable, distinct blue badge style)
+                          // Executing Nurse Details (Non-editable, distinct logo blue badge style)
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
+                              color: AppTheme.primaryLight,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                              border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.badge_outlined, size: 15, color: Color(0xFF1D4ED8)),
+                                const Icon(Icons.badge_outlined, size: 15, color: AppTheme.nurseColor),
                                 const SizedBox(width: 6),
                                 Expanded(
-                                  child: Text(
-                                    'Executing Nurse: $nurseDisplayWithId',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
+                                  child: Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        const TextSpan(
+                                          text: 'Executing Nurse: ',
+                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                                        ),
+                                        TextSpan(
+                                          text: nurseDisplayWithId,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.nurseColor),
+                                        ),
+                                      ],
+                                    ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                const Icon(Icons.lock_outline, size: 13, color: Color(0xFF93C5FD)),
+                                Icon(Icons.lock_outline, size: 13, color: AppTheme.primaryColor.withOpacity(0.6)),
                               ],
                             ),
                           ),

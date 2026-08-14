@@ -36,6 +36,9 @@ class AppTheme {
   static const Color dangerColor = Color(0xFFE53E3E);
   static const Color dangerBg = Color(0xFFFFF5F5);
 
+  // Nurse specific color (purple)
+  static const Color nurseColor = Color(0xFF6B46C1);
+
   // Aliases for backward compatibility
   static const Color alertBgColor = dangerBg;
   static const Color alertTextColor = dangerColor;
@@ -45,12 +48,15 @@ class AppTheme {
   static Color getStatusBgColor(String status) {
     switch (status) {
       case 'Confirmed':
-        return const Color(0xFFDBEAFE);
+      case 'Scheduled':
+      case 'In-Progress':
+        return primaryLight;
       case 'Waiting':
         return const Color(0xFFFEF3C7);
       case 'In Consultation':
         return const Color(0xFFEDE9FE);
       case 'Completed':
+      case 'Verified':
         return const Color(0xFFDCFCE7);
       case 'No Show':
       case 'No-Show':
@@ -65,12 +71,15 @@ class AppTheme {
   static Color getStatusTextColor(String status) {
     switch (status) {
       case 'Confirmed':
-        return const Color(0xFF1E40AF);
+      case 'Scheduled':
+      case 'In-Progress':
+        return primaryColor;
       case 'Waiting':
         return const Color(0xFF92400E);
       case 'In Consultation':
         return const Color(0xFF5B21B6);
       case 'Completed':
+      case 'Verified':
         return const Color(0xFF166534);
       case 'No Show':
       case 'No-Show':

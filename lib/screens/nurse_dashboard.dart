@@ -422,11 +422,19 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           key: UniqueKey(),
           existingPatient: _patientToComplete,
           onBack: () {
+            final patientToReturn = _patientToComplete;
             setState(() {
               _isRegisteringPatient = false;
               _patientToComplete = null;
+              if (patientToReturn != null) {
+                _viewPatient = patientToReturn;
+              }
             });
-            context.go(AppRoutes.nursePatients);
+            if (patientToReturn != null) {
+              context.go(AppRoutes.nurseViewPatient, extra: patientToReturn);
+            } else {
+              context.go(AppRoutes.nursePatients);
+            }
             _fetchPatients();
           },
         );

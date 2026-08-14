@@ -256,7 +256,7 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                style: AppTheme.primaryButton,
+                style: AppTheme.dangerButton,
                 onPressed: () {
                   Navigator.of(context).pop();
                   if (onCloseAndComplete != null) {

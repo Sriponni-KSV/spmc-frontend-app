@@ -124,8 +124,46 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
   }
 
   void _onFocusChange() {
+    if (!_searchFocusNode.hasFocus && !_mainFocusNode.hasFocus) {
+      if (_fieldKey.currentState != null) {
+        _validateAndSyncInput(_fieldKey.currentState!);
+      }
+    }
     if (mounted) {
       setState(() {});
+    }
+  }
+
+  void _validateAndSyncInput(FormFieldState<String> field) {
+    if (widget.allowFreeText) return;
+
+    final text = _textEditingController.text.trim();
+
+    if (text.isEmpty) {
+      if (widget.value != null && widget.value!.isNotEmpty) {
+        field.didChange(null);
+        widget.onChanged?.call(null);
+      }
+      return;
+    }
+
+    MapEntry<String, String>? matchedEntry;
+    for (final entry in _allEntries.entries) {
+      if (entry.key.toLowerCase() == text.toLowerCase() ||
+          entry.value.toLowerCase() == text.toLowerCase()) {
+        matchedEntry = entry;
+        break;
+      }
+    }
+
+    if (matchedEntry != null) {
+      field.didChange(matchedEntry.key);
+      _textEditingController.text = matchedEntry.value;
+      widget.onChanged?.call(matchedEntry.key);
+    } else {
+      _textEditingController.clear();
+      field.didChange(null);
+      widget.onChanged?.call(null);
     }
   }
 
@@ -618,7 +656,18 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
               key: _fieldKey,
               initialValue: widget.value,
               autovalidateMode: AutovalidateMode.onUserInteraction,
-              validator: widget.validator,
+              validator: (val) {
+                if (!widget.allowFreeText && val != null && val.trim().isNotEmpty) {
+                  final isValid = _allEntries.containsKey(val) || _allEntries.containsValue(val);
+                  if (!isValid) {
+                    return 'Please select a valid option from the list';
+                  }
+                }
+                if (widget.validator != null) {
+                  return widget.validator!(val);
+                }
+                return null;
+              },
               builder: (field) {
                 return Column(
                   mainAxisSize: MainAxisSize.min,
@@ -628,6 +677,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                       groupId: _groupId,
                       onTapOutside: (_) {
                         _hideDropdown();
+                        if (_fieldKey.currentState != null) {
+                          _validateAndSyncInput(_fieldKey.currentState!);
+                        }
                         _searchFocusNode.unfocus();
                         _mainFocusNode.unfocus();
                       },
@@ -694,16 +746,31 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                   fontSize: 14,
                                   fontWeight: FontWeight.w400,
                                 ),
-                                 onChanged: (val) {
-                                   field.didChange(val);
-                                   if (widget.allowFreeText) {
-                                     widget.onChanged?.call(val);
-                                   }
-                                   _filterItems(val);
-                                   if (_overlayEntry == null) {
-                                     _showDropdown(field);
-                                   }
-                                 },
+                                  onChanged: (val) {
+                                    if (widget.allowFreeText) {
+                                      field.didChange(val);
+                                      widget.onChanged?.call(val);
+                                    } else {
+                                      MapEntry<String, String>? matched;
+                                      for (final entry in _allEntries.entries) {
+                                        if (entry.key.toLowerCase() == val.trim().toLowerCase() ||
+                                            entry.value.toLowerCase() == val.trim().toLowerCase()) {
+                                          matched = entry;
+                                          break;
+                                        }
+                                      }
+                                      if (matched != null) {
+                                        field.didChange(matched.key);
+                                        widget.onChanged?.call(matched.key);
+                                      } else {
+                                        field.didChange(val.isEmpty ? null : val);
+                                      }
+                                    }
+                                    _filterItems(val);
+                                    if (_overlayEntry == null) {
+                                      _showDropdown(field);
+                                    }
+                                  },
                                 onTap: () {
                                   _toggleDropdown(field);
                                 },

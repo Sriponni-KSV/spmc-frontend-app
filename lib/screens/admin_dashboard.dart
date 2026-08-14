@@ -966,11 +966,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         key: UniqueKey(),
         existingPatient: _patientToComplete,
         onBack: () {
+          final patientToReturn = _patientToComplete;
           setState(() {
             _isRegisteringPatient = false;
             _patientToComplete = null;
+            if (patientToReturn != null) {
+              _viewPatient = patientToReturn;
+            }
           });
-          context.go(AppRoutes.adminPatients);
+          if (patientToReturn != null) {
+            context.go(AppRoutes.adminViewPatient, extra: patientToReturn);
+          } else {
+            context.go(AppRoutes.adminPatients);
+          }
           _fetchPatients();
         },
       );

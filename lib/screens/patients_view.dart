@@ -16,6 +16,8 @@ import '../widgets/access_denied_widget.dart';
 import '../models/appointment_model.dart';
 import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
+import '../models/home_visit_model.dart';
+import '../services/home_visit_service.dart';
 
 class PatientsView extends StatefulWidget {
   final List<PatientModel> patients;
@@ -109,12 +111,17 @@ class _PatientsViewState extends State<PatientsView> {
   List<PatientModel> get _filteredPatients {
     List<PatientModel> filtered = widget.patients;
 
-    // Search query filter
+    // Search query filter (Patient ID, Name, Phone, Email)
     if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
+      final q = _searchQuery.toLowerCase().trim();
       filtered = filtered.where((p) {
-        return p.name.toLowerCase().contains(q) ||
-            p.phone.toLowerCase().contains(q);
+        final nameMatches = p.name.toLowerCase().contains(q);
+        final phoneMatches = p.phone.toLowerCase().contains(q);
+        final idMatches = (p.patientId != null &&
+                p.patientId!.toLowerCase().contains(q)) ||
+            (p.id != null && p.id.toString().toLowerCase().contains(q));
+        final emailMatches = p.email.toLowerCase().contains(q);
+        return nameMatches || phoneMatches || idMatches || emailMatches;
       }).toList();
       // Reset to first page when searching
     }
@@ -388,7 +395,7 @@ class _PatientsViewState extends State<PatientsView> {
                       fontWeight: FontWeight.w500,
                     ),
                     decoration: const InputDecoration(
-                      hintText: 'Search patients by name or phone...',
+                      hintText: 'Search by Patient ID, name, or phone...',
                       hintStyle: TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 14,
@@ -520,7 +527,7 @@ class _PatientsViewState extends State<PatientsView> {
                           }),
                           decoration: const InputDecoration(
                             hintText:
-                                'Search by name, mobile number, department...',
+                                'Search by Patient ID, name, mobile number...',
                             hintStyle: TextStyle(
                               color: AppTheme.textSecondaryColor,
                               fontSize: 13,
@@ -634,7 +641,8 @@ class _PatientsViewState extends State<PatientsView> {
                       _currentPage = 0;
                     }),
                     decoration: const InputDecoration(
-                      hintText: 'Search by name or mobile number...',
+                      hintText:
+                          'Search by Patient ID, name, or mobile number...',
                       hintStyle: TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 14,
@@ -762,7 +770,7 @@ class _PatientsViewState extends State<PatientsView> {
                 width: 240,
                 child: PatientInfoCard(
                   name: name,
-                  info: '${age}y • $gender',
+                  info: '${patient.shortDisplayAge} • $gender',
                   initials: initials,
                   tags: patient.isQuickRegister ? ['Quick'] : [],
                   onView: () => _viewPatient(patient),
@@ -774,7 +782,7 @@ class _PatientsViewState extends State<PatientsView> {
                 width: 280,
                 child: PatientInfoCard(
                   name: name,
-                  info: '${age}y • $gender',
+                  info: '${patient.shortDisplayAge} • $gender',
                   initials: initials,
                   tags: patient.isQuickRegister ? ['Quick'] : [],
                   onView: () => _viewPatient(patient),
@@ -783,7 +791,7 @@ class _PatientsViewState extends State<PatientsView> {
               )
             : PatientInfoCard(
                 name: name,
-                info: '${age}y • $gender',
+                info: '${patient.shortDisplayAge} • $gender',
                 initials: initials,
                 tags: patient.isQuickRegister ? ['Quick'] : [],
                 onView: () => _viewPatient(patient),
@@ -933,7 +941,7 @@ class _PatientsViewState extends State<PatientsView> {
                     _buildPatientTableRow(
                       patient,
                       name,
-                      patient.age == 0 ? 'Not Provided' : '${patient.age}y',
+                      patient.shortDisplayAge,
                       patient.gender,
                       patient.phone,
                       patient.email,
@@ -962,7 +970,7 @@ class _PatientsViewState extends State<PatientsView> {
 
   Widget _buildPatientCardMobile(PatientModel patient) {
     final String name = patient.name;
-    final String ageStr = patient.age == 0 ? 'Not Prov.' : '${patient.age}y';
+    final String ageStr = patient.shortDisplayAge;
     final bool isQuick = patient.isQuickRegister;
 
     final parts = name
@@ -1905,13 +1913,16 @@ class _PatientsViewState extends State<PatientsView> {
                                   hint: 'Enter patient\'s full name',
                                   inputFormatters: [
                                     FilteringTextInputFormatter.allow(
-                                      RegExp(r'[a-zA-Z\s]'),
+                                      RegExp(r'[a-zA-Z\s.]'),
                                     ),
-                                    LengthLimitingTextInputFormatter(30),
+                                    LengthLimitingTextInputFormatter(60),
                                   ],
-                                  validator: (val) => val == null || val.isEmpty
-                                      ? 'Please enter Full Name'
-                                      : null,
+                                  validator: (val) {
+                                    if (val == null || val.trim().isEmpty) return 'Please enter Full Name';
+                                    if (val.trim().length < 3) return 'Name must be at least 3 characters';
+                                    if (val.trim().length > 60) return 'Full Name cannot exceed 60 characters';
+                                    return null;
+                                  },
                                 ),
                                 const SizedBox(height: 16),
                                 _buildQuickFieldLabel('Email Address'),
@@ -1945,16 +1956,18 @@ class _PatientsViewState extends State<PatientsView> {
                                             hint: 'Enter patient\'s full name',
                                             inputFormatters: [
                                               FilteringTextInputFormatter.allow(
-                                                RegExp(r'[a-zA-Z\s]'),
+                                                RegExp(r'[a-zA-Z\s.]'),
                                               ),
                                               LengthLimitingTextInputFormatter(
-                                                30,
+                                                60,
                                               ),
                                             ],
-                                            validator: (val) =>
-                                                val == null || val.isEmpty
-                                                ? 'Please enter Full Name'
-                                                : null,
+                                            validator: (val) {
+                                              if (val == null || val.trim().isEmpty) return 'Please enter Full Name';
+                                              if (val.trim().length < 3) return 'Name must be at least 3 characters';
+                                              if (val.trim().length > 60) return 'Full Name cannot exceed 60 characters';
+                                              return null;
+                                            },
                                           ),
                                         ],
                                       ),
@@ -1973,10 +1986,16 @@ class _PatientsViewState extends State<PatientsView> {
                                             hint: 'Enter Email Address',
                                             keyboardType:
                                                 TextInputType.emailAddress,
+                                            inputFormatters: [
+                                              LengthLimitingTextInputFormatter(100),
+                                            ],
                                             validator: (val) {
                                               if (val == null ||
                                                   val.trim().isEmpty) {
                                                 return 'Please enter Email Address';
+                                              }
+                                              if (val.trim().length > 100) {
+                                                return 'Email address cannot exceed 100 characters';
                                               }
                                               if (!RegExp(
                                                 r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
@@ -2032,12 +2051,13 @@ class _PatientsViewState extends State<PatientsView> {
                                   ],
                                   onChanged: (val) {
                                     setState(() {
-                                      if (val.isEmpty) {
-                                        phoneError =
-                                            'Please enter Mobile Number';
-                                      } else if (val.length < 10) {
-                                        phoneError =
-                                            'Please enter a valid Mobile Number (${val.length}/10)';
+                                      final clean = val.trim();
+                                      if (clean.isEmpty) {
+                                        phoneError = 'Please enter Mobile Number';
+                                      } else if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+                                        phoneError = 'Mobile number must start with 6, 7, 8, or 9';
+                                      } else if (clean.length < 10) {
+                                        phoneError = 'Please enter a valid Mobile Number (${clean.length}/10)';
                                       } else {
                                         phoneError = null;
                                       }
@@ -2045,11 +2065,15 @@ class _PatientsViewState extends State<PatientsView> {
                                   },
                                   errorText: phoneError,
                                   validator: (val) {
-                                    if (val == null || val.isEmpty) {
+                                    if (val == null || val.trim().isEmpty) {
                                       return 'Please enter Mobile Number';
                                     }
-                                    if (val.length != 10) {
-                                      return 'Please enter a valid Mobile Number';
+                                    final clean = val.trim();
+                                    if (clean.length != 10) {
+                                      return 'Mobile number must be exactly 10 digits';
+                                    }
+                                    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(clean)) {
+                                      return 'Mobile number must start with 6, 7, 8, or 9';
                                     }
                                     return null;
                                   },
@@ -2121,12 +2145,16 @@ class _PatientsViewState extends State<PatientsView> {
                                             ],
                                             onChanged: (val) {
                                               setState(() {
-                                                if (val.isEmpty) {
+                                                final clean = val.trim();
+                                                if (clean.isEmpty) {
                                                   phoneError =
                                                       'Please enter Mobile Number';
-                                                } else if (val.length < 10) {
+                                                } else if (!RegExp(r'^[6-9]').hasMatch(clean)) {
                                                   phoneError =
-                                                      'Please enter a valid Mobile Number (${val.length}/10)';
+                                                      'Mobile number must start with 6, 7, 8, or 9';
+                                                } else if (clean.length < 10) {
+                                                  phoneError =
+                                                      'Please enter a valid Mobile Number (${clean.length}/10)';
                                                 } else {
                                                   phoneError = null;
                                                 }
@@ -2134,11 +2162,15 @@ class _PatientsViewState extends State<PatientsView> {
                                             },
                                             errorText: phoneError,
                                             validator: (val) {
-                                              if (val == null || val.isEmpty) {
+                                              if (val == null || val.trim().isEmpty) {
                                                 return 'Please enter Mobile Number';
                                               }
-                                              if (val.length != 10) {
-                                                return 'Please enter a valid Mobile Number';
+                                              final clean = val.trim();
+                                              if (clean.length != 10) {
+                                                return 'Mobile number must be exactly 10 digits';
+                                              }
+                                              if (!RegExp(r'^[6-9]\d{9}$').hasMatch(clean)) {
+                                                return 'Mobile number must start with 6, 7, 8, or 9';
                                               }
                                               return null;
                                             },
@@ -2646,8 +2678,10 @@ class _PatientDetailViewState extends State<PatientDetailView>
   final AppointmentController _appointmentController = AppointmentController();
   List<Map<String, dynamic>> _consultations = [];
   List<AppointmentModel> _patientAppointments = [];
+  List<HomeVisitModel> _patientHomeVisits = [];
   bool _isLoadingConsultations = true;
   bool _isLoadingAppointments = false;
+  bool _isLoadingHomeVisits = true;
   bool _isShowingInsights = false;
   bool _isSavingInsights = false;
   final GlobalKey<PatientInsightsFormState> _insightsFormKey =
@@ -2656,12 +2690,39 @@ class _PatientDetailViewState extends State<PatientDetailView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this, initialIndex: 1);
+    _tabController = TabController(length: 5, vsync: this, initialIndex: 1);
     _fetchData();
   }
 
   Future<void> _fetchData() async {
-    await Future.wait([_fetchConsultations(), _fetchPatientAppointments()]);
+    await Future.wait([
+      _fetchConsultations(),
+      _fetchPatientAppointments(),
+      _fetchPatientHomeVisits(),
+    ]);
+  }
+
+  Future<void> _fetchPatientHomeVisits() async {
+    try {
+      if (widget.patient.id == null) {
+        if (mounted) setState(() => _isLoadingHomeVisits = false);
+        return;
+      }
+      setState(() => _isLoadingHomeVisits = true);
+      final visits =
+          await HomeVisitService().getHomeVisits(patientId: widget.patient.id);
+      if (mounted) {
+        setState(() {
+          _patientHomeVisits = visits;
+          _isLoadingHomeVisits = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching patient home visits: $e');
+      if (mounted) {
+        setState(() => _isLoadingHomeVisits = false);
+      }
+    }
   }
 
   Future<void> _fetchPatientAppointments() async {
@@ -3031,7 +3092,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.age} years  •  ${p.gender}  •  Blood Group: ${p.bloodGroup.isNotEmpty ? p.bloodGroup : "N/A"}',
+                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.displayAge}  •  ${p.gender}  •  Blood Group: ${p.bloodGroup.isNotEmpty ? p.bloodGroup : "N/A"}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: isTablet ? 14 : 15,
@@ -3162,7 +3223,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.age} years  •  ${p.gender}',
+                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.displayAge}  •  ${p.gender}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.85),
                       fontSize: 13,
@@ -3353,7 +3414,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
         label: 'Height',
         value: p.height == 0.0 ? 'Not Provided' : '${p.height} cm',
         color: const Color(0xFFFAF5FF), // Light purple
-        textColor: const Color(0xFF6B46C1),
+        textColor: AppTheme.nurseColor,
       ),
     ];
 
@@ -3486,7 +3547,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
             ),
             child: TabBar(
               controller: _tabController,
-              isScrollable: isMobile,
+              isScrollable: true,
               labelColor: AppTheme.primaryColor,
               unselectedLabelColor: AppTheme.textSecondaryColor,
               indicatorColor: AppTheme.primaryColor,
@@ -3513,6 +3574,16 @@ class _PatientDetailViewState extends State<PatientDetailView>
                       Icon(Icons.timeline_outlined, size: 16),
                       SizedBox(width: 8),
                       Text('Visits Timeline'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.home_work_outlined, size: 16),
+                      SizedBox(width: 8),
+                      Text('Home Visit Timeline'),
                     ],
                   ),
                 ),
@@ -3547,6 +3618,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
               children: [
                 _buildMedicalHistoryTab(p),
                 _buildVisitsTimelineTab(p),
+                _buildHomeVisitTimelineTab(p),
                 _buildConsultationsTab(p),
                 _buildLifestyleTab(p),
               ],
@@ -4047,6 +4119,392 @@ class _PatientDetailViewState extends State<PatientDetailView>
             fontSize: 14,
             color: Color(0xFF475569),
             height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHomeVisitTimelineTab(PatientModel p) {
+    if (_isLoadingHomeVisits) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_patientHomeVisits.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.home_work_outlined,
+                  size: 40,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'No Home Visit Records Found',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimaryColor,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'There are no home visits recorded for this patient.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondaryColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${_patientHomeVisits.length} Home Visit Record${_patientHomeVisits.length > 1 ? 's' : ''}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 13,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.refresh,
+                  size: 20,
+                  color: AppTheme.primaryColor,
+                ),
+                onPressed: _fetchPatientHomeVisits,
+                tooltip: 'Refresh Home Visits',
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _patientHomeVisits.asMap().entries.map((entry) {
+                final index = entry.key;
+                final visit = entry.value;
+                return _buildHomeVisitTimelineItem(
+                  visit,
+                  index == 0,
+                  index == _patientHomeVisits.length - 1,
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHomeVisitTimelineItem(
+    HomeVisitModel visit,
+    bool isFirst,
+    bool isLast,
+  ) {
+    String formattedDate = visit.scheduledDate;
+    final dt = DateFormatter.toDateTime(visit.scheduledDate);
+    if (dt != null) {
+      formattedDate = DateFormat('MMM dd, yyyy').format(dt);
+    }
+
+    final nurseName = (visit.startNurseName != null &&
+            visit.startNurseName!.trim().isNotEmpty)
+        ? visit.startNurseName!
+        : ((visit.nurseName != null && visit.nurseName!.trim().isNotEmpty)
+            ? visit.nurseName!
+            : 'Nurse Not Assigned');
+
+    final startTime = (visit.startTime != null &&
+            visit.startTime!.trim().isNotEmpty)
+        ? visit.startTime!
+        : (visit.scheduledTime != null && visit.scheduledTime!.trim().isNotEmpty
+            ? visit.scheduledTime!
+            : '9:00 AM');
+
+    String endTime = 'Pending';
+    if (visit.signedAt != null && visit.signedAt!.trim().isNotEmpty) {
+      try {
+        final signedDt = DateTime.parse(visit.signedAt!);
+        endTime = DateFormat('hh:mm a').format(signedDt.toLocal());
+      } catch (_) {
+        endTime = visit.signedAt!;
+      }
+    } else if (visit.status.toLowerCase() == 'completed' ||
+        visit.status.toLowerCase() == 'verified') {
+      endTime = 'Completed';
+    } else if (visit.status.toLowerCase() == 'in-progress' ||
+        visit.status.toLowerCase() == 'in progress') {
+      endTime = 'In Progress';
+    } else if (visit.status.toLowerCase() == 'scheduled') {
+      endTime = 'Not Started';
+    } else if (visit.status.toLowerCase() == 'cancelled') {
+      endTime = 'Cancelled';
+    }
+
+    Color statusBg;
+    Color statusColor;
+    switch (visit.status.toLowerCase()) {
+      case 'completed':
+      case 'verified':
+        statusBg = const Color(0xFFC6F6D5);
+        statusColor = const Color(0xFF22543D);
+        break;
+      case 'in-progress':
+      case 'in progress':
+        statusBg = const Color(0xFFFEEBC8);
+        statusColor = const Color(0xFFC05621);
+        break;
+      case 'cancelled':
+        statusBg = const Color(0xFFFED7D7);
+        statusColor = const Color(0xFF9B2C2C);
+        break;
+      default:
+        statusBg = const Color(0xFFEBF8FF);
+        statusColor = const Color(0xFF2B6CB0);
+        break;
+    }
+
+    final isMobile = MediaQuery.of(context).size.width < 700;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          children: [
+            const SizedBox(height: 5),
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: isFirst ? AppTheme.primaryColor : AppTheme.borderColor,
+                shape: BoxShape.circle,
+                border:
+                    isFirst ? Border.all(color: Colors.white, width: 2) : null,
+                boxShadow: isFirst
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
+              ),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: isMobile ? 140 : 100,
+                color: AppTheme.borderColor.withOpacity(0.3),
+              ),
+          ],
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor,
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.event_note_outlined,
+                          size: 18,
+                          color: AppTheme.primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          formattedDate,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusBg,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        visit.status,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(
+                  height: 20,
+                  thickness: 1,
+                  color: Color(0xFFEDF2F7),
+                ),
+                if (isMobile)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.person_outline,
+                              size: 16, color: Color(0xFF64748B)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Nurse: $nurseName',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF334155),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.play_circle_outline,
+                              size: 16, color: Color(0xFF319795)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Start Time: $startTime',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF334155),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.stop_circle_outlined,
+                              size: 16, color: Color(0xFFD69E2E)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'End Time: $endTime',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF334155),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.person_outline,
+                                size: 16, color: Color(0xFF64748B)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Nurse: $nurseName',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF334155),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.play_circle_outline,
+                                size: 16, color: Color(0xFF319795)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Start Time: $startTime',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF334155),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.stop_circle_outlined,
+                                size: 16, color: Color(0xFFD69E2E)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'End Time: $endTime',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF334155),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ],

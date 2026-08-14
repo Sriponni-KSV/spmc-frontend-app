@@ -9,11 +9,12 @@ class HomeVisitService {
   }
 
   // Fetch list of home visits
-  Future<List<HomeVisitModel>> getHomeVisits({int? nurseId, String? status}) async {
+  Future<List<HomeVisitModel>> getHomeVisits({int? nurseId, String? status, int? patientId}) async {
     try {
       String endpoint = '$baseUrl/home-visits?';
       if (nurseId != null) endpoint += 'nurse_id=$nurseId&';
       if (status != null) endpoint += 'status=$status&';
+      if (patientId != null) endpoint += 'patient_id=$patientId&';
 
       final response = await ApiService.get(endpoint);
       final body = ApiService.decodeJsonResponse(response);

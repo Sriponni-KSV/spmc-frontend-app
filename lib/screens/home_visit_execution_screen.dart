@@ -14,6 +14,7 @@ import '../services/home_visit_service.dart';
 import '../services/media_service.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'home_visit_invoice_dialog.dart';
+import '../utils/unsaved_changes_helper.dart';
 
 class HomeVisitExecutionScreen extends StatefulWidget {
   final int visitId;
@@ -37,6 +38,79 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   late TabController _tabController;
   final _formKeyVitals = GlobalKey<FormState>();
   final _formKeyCare = GlobalKey<FormState>();
+
+  Future<bool?> _showUnsavedChangesDialog(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: Colors.white,
+        child: Container(
+          width: 440,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.warning_amber_rounded,
+                      color: AppTheme.dangerColor,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Unsaved Form Data',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppTheme.textPrimaryColor,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Do you want to leave this page? Any unsaved form data or entries will be lost.',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: Color(0xFF64748B),
+                  height: 1.4,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    style: AppTheme.cancelButton,
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('Stay on Page'),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    style: AppTheme.dangerButton,
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    child: const Text('Leave Page'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   // Vitals Controllers
   final TextEditingController _sysBpCtrl = TextEditingController();
@@ -89,36 +163,37 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
   List<String> get _effectiveKitDevices {
     final List<String> items = [];
-    for (final name in _dbKitDevices) {
-      if (name.trim().isNotEmpty && !items.contains(name.trim())) {
-        items.add(name.trim());
+    if (_dbKitDevices.isNotEmpty) {
+      for (final name in _dbKitDevices) {
+        if (name.trim().isNotEmpty && !items.contains(name.trim())) {
+          items.add(name.trim());
+        }
+      }
+    } else {
+      for (final defaultItem in _defaultKitDevices) {
+        if (defaultItem != 'Other (Type Custom Kit Item...)' &&
+            !items.contains(defaultItem)) {
+          items.add(defaultItem);
+        }
       }
     }
-    for (final defaultItem in _defaultKitDevices) {
-      if (defaultItem != 'Other (Type Custom Kit Item...)' && !items.contains(defaultItem)) {
-        items.add(defaultItem);
-      }
+    if (!items.contains('Other (Type Custom Kit Item...)')) {
+      items.add('Other (Type Custom Kit Item...)');
     }
-    items.add('Other (Type Custom Kit Item...)');
     return items;
   }
 
   final List<String> _defaultKitDevices = const [
-    'Digital BP Monitor',
+    'BP Apparatus',
+    'Stethoscope',
+    'Thermometer',
     'Glucometer Kit',
     'Pulse Oximeter',
-    'Digital Thermometer',
-    'Stethoscope',
-    'ECG Machine (Portable)',
     'Nebulizer Machine',
+    'ECG Machine (Portable)',
+    'Oxygen Concentrator / Cylinder',
     'Suction Machine',
-    'Sterile Dressing Bandage Kit',
-    'IV Infusion Set',
-    'Oxygen Cylinder & Regulator',
-    'Syringe & Needle Kit',
-    'Catheterization Kit',
-    'Blood Glucose Test Strips',
-    'Antiseptic Solution & Wipes',
+    'Dressing & Minor Procedure Kit',
     'Other (Type Custom Kit Item...)',
   ];
 
@@ -157,20 +232,37 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
     return Container(
       height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(
         children: [
-          const SizedBox(width: 8),
+          Material(
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(6),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => updateQty(-1),
+              child: const SizedBox(
+                width: 32,
+                height: 38,
+                child: Icon(Icons.remove, size: 16, color: Color(0xFF0284C7)),
+              ),
+            ),
+          ),
           Expanded(
             child: TextField(
               controller: controller,
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(3),
@@ -191,29 +283,32 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 }
               },
               decoration: InputDecoration(
-                hintText: 'Qty',
+                hintText: '1',
                 suffixText: suffix,
-                suffixStyle: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.normal),
+                suffixStyle: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.normal,
+                ),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
                 isDense: true,
               ),
             ),
           ),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              InkWell(
-                onTap: () => updateQty(1),
-                child: const Icon(Icons.keyboard_arrow_up, size: 18, color: AppTheme.primaryColor),
+          Material(
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(6),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => updateQty(1),
+              child: const SizedBox(
+                width: 32,
+                height: 38,
+                child: Icon(Icons.add, size: 16, color: Color(0xFF0284C7)),
               ),
-              InkWell(
-                onTap: () => updateQty(-1),
-                child: const Icon(Icons.keyboard_arrow_down, size: 18, color: AppTheme.primaryColor),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(width: 4),
         ],
       ),
     );
@@ -462,6 +557,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 6, vsync: this);
+    if (!widget.isReadOnlyView) {
+      UnsavedChangesHelper.setUnsavedChanges(true);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
       // Periodically refresh visit details every 10 seconds to auto-unlock form when scheduled time is reached
@@ -937,7 +1035,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                borderSide: const BorderSide(
+                  color: AppTheme.primaryColor,
+                  width: 1.5,
+                ),
               ),
             ),
             onChanged: (val) {
@@ -998,9 +1099,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         initialDays = int.tryParse(match.group(1)!) ?? 5;
       }
     }
-    final durDaysCtrl = TextEditingController(text: initialDays.clamp(1, 365).toString());
+    final durDaysCtrl = TextEditingController(
+      text: initialDays.clamp(1, 365).toString(),
+    );
     final durCtrl = TextEditingController(
-      text: localType == 'STAT' ? 'STAT - Single Dose' : '${durDaysCtrl.text} Days',
+      text: localType == 'STAT'
+          ? 'STAT - Single Dose'
+          : '${durDaysCtrl.text} Days',
     );
 
     final givenTimeCtrl = TextEditingController(
@@ -1132,7 +1237,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           padding: EdgeInsets.only(top: 4, left: 4),
                           child: Text(
                             'Please select or enter medicine name',
-                            style: TextStyle(color: AppTheme.dangerColor, fontSize: 12),
+                            style: TextStyle(
+                              color: AppTheme.dangerColor,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       const SizedBox(height: 14),
@@ -1167,20 +1275,40 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   items: const [
                                     DropdownMenuItem(
                                       value: 'After Food',
-                                      child: Text('After Food', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                      child: Text(
+                                        'After Food',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Before Food',
-                                      child: Text('Before Food', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                      child: Text(
+                                        'Before Food',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'With Food',
-                                      child: Text('With Food', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                      child: Text(
+                                        'With Food',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                   onChanged: (val) {
                                     if (val != null) {
-                                      setModalState(() => selectedFoodTiming = val);
+                                      setModalState(
+                                        () => selectedFoodTiming = val,
+                                      );
                                     }
                                   },
                                 ),
@@ -1207,11 +1335,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   Container(
                                     height: 48,
                                     alignment: Alignment.centerLeft,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFFEEBC8),
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: const Color(0xFFFBD38D)),
+                                      border: Border.all(
+                                        color: const Color(0xFFFBD38D),
+                                      ),
                                     ),
                                     child: const Text(
                                       'STAT (Immediate Single Dose)',
@@ -1224,31 +1356,92 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   )
                                 else ...[
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 6,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFF8FAFC),
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                      border: Border.all(
+                                        color: const Color(0xFFCBD5E1),
+                                      ),
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
-                                        _buildDigitInputSlot(f1Ctrl, fn1, fn2, 'M', updateFreqText, setModalState),
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(horizontal: 4),
-                                          child: Text('-', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
+                                        _buildDigitInputSlot(
+                                          f1Ctrl,
+                                          fn1,
+                                          fn2,
+                                          'M',
+                                          updateFreqText,
+                                          setModalState,
                                         ),
-                                        _buildDigitInputSlot(f2Ctrl, fn2, fn3, 'A', updateFreqText, setModalState),
                                         const Padding(
-                                          padding: EdgeInsets.symmetric(horizontal: 4),
-                                          child: Text('-', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                          ),
+                                          child: Text(
+                                            '-',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
                                         ),
-                                        _buildDigitInputSlot(f3Ctrl, fn3, fn4, 'E', updateFreqText, setModalState),
+                                        _buildDigitInputSlot(
+                                          f2Ctrl,
+                                          fn2,
+                                          fn3,
+                                          'A',
+                                          updateFreqText,
+                                          setModalState,
+                                        ),
                                         const Padding(
-                                          padding: EdgeInsets.symmetric(horizontal: 4),
-                                          child: Text('-', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                          ),
+                                          child: Text(
+                                            '-',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
                                         ),
-                                        _buildDigitInputSlot(f4Ctrl, fn4, null, 'N', updateFreqText, setModalState),
+                                        _buildDigitInputSlot(
+                                          f3Ctrl,
+                                          fn3,
+                                          fn4,
+                                          'E',
+                                          updateFreqText,
+                                          setModalState,
+                                        ),
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                          ),
+                                          child: Text(
+                                            '-',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ),
+                                        _buildDigitInputSlot(
+                                          f4Ctrl,
+                                          fn4,
+                                          null,
+                                          'N',
+                                          updateFreqText,
+                                          setModalState,
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -1263,17 +1456,23 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _buildLabel(
-                                  localType == 'STAT' ? 'Duration' : 'Duration *',
+                                  localType == 'STAT'
+                                      ? 'Duration'
+                                      : 'Duration *',
                                 ),
                                 if (localType == 'STAT')
                                   Container(
                                     height: 48,
                                     alignment: Alignment.centerLeft,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFF8FAFC),
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                      border: Border.all(
+                                        color: const Color(0xFFCBD5E1),
+                                      ),
                                     ),
                                     child: const Text(
                                       'STAT - Single Dose',
@@ -1306,39 +1505,40 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         TextFormField(
                           controller: givenTimeCtrl,
                           readOnly: true,
-                          decoration: AppTheme.standardInputDecoration(
-                            hintText: 'e.g. 09:30 AM',
-                            prefixIcon: Icons.access_time,
-                          ).copyWith(
-                            suffixIcon: IconButton(
-                              icon: const Icon(
-                                Icons.access_time,
-                                color: AppTheme.primaryColor,
-                              ),
-                              onPressed: () async {
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: TimeOfDay.now(),
-                                );
-                                if (picked != null) {
-                                  final hour = picked.hourOfPeriod == 0
-                                      ? 12
-                                      : picked.hourOfPeriod;
-                                  final minute = picked.minute
-                                      .toString()
-                                      .padLeft(2, '0');
-                                  final period =
-                                      picked.period == DayPeriod.am
+                          decoration:
+                              AppTheme.standardInputDecoration(
+                                hintText: 'e.g. 09:30 AM',
+                                prefixIcon: Icons.access_time,
+                              ).copyWith(
+                                suffixIcon: IconButton(
+                                  icon: const Icon(
+                                    Icons.access_time,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                  onPressed: () async {
+                                    final picked = await showTimePicker(
+                                      context: context,
+                                      initialTime: TimeOfDay.now(),
+                                    );
+                                    if (picked != null) {
+                                      final hour = picked.hourOfPeriod == 0
+                                          ? 12
+                                          : picked.hourOfPeriod;
+                                      final minute = picked.minute
+                                          .toString()
+                                          .padLeft(2, '0');
+                                      final period =
+                                          picked.period == DayPeriod.am
                                           ? 'AM'
                                           : 'PM';
-                                  setModalState(() {
-                                    givenTimeCtrl.text =
-                                        '${hour.toString().padLeft(2, '0')}:$minute $period';
-                                  });
-                                }
-                              },
-                            ),
-                          ),
+                                      setModalState(() {
+                                        givenTimeCtrl.text =
+                                            '${hour.toString().padLeft(2, '0')}:$minute $period';
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
                         ),
                       ],
                     ],
@@ -1352,7 +1552,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton.icon(
-                  style: AppTheme.primaryButton,
+                  style: AppTheme.dangerButton,
                   icon: isSubmitting
                       ? const SizedBox(
                           width: 18,
@@ -1484,7 +1684,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         padding: EdgeInsets.only(top: 4, left: 4),
                         child: Text(
                           'Please select or enter consumable name',
-                          style: TextStyle(color: AppTheme.dangerColor, fontSize: 12),
+                          style: TextStyle(
+                            color: AppTheme.dangerColor,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     const SizedBox(height: 14),
@@ -1505,7 +1708,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton.icon(
-                  style: AppTheme.primaryButton,
+                  style: AppTheme.dangerButton,
                   icon: isSubmitting
                       ? const SizedBox(
                           width: 18,
@@ -1646,7 +1849,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         padding: EdgeInsets.only(top: 4, left: 4),
                         child: Text(
                           'Please select or enter consumable name',
-                          style: TextStyle(color: AppTheme.dangerColor, fontSize: 12),
+                          style: TextStyle(
+                            color: AppTheme.dangerColor,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     const SizedBox(height: 12),
@@ -1695,7 +1901,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  style: AppTheme.primaryButton,
+                  style: AppTheme.dangerButton,
                   onPressed: () {
                     final cName = nameCtrl.text.trim();
                     if (cName.isEmpty) {
@@ -1951,9 +2157,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
+                            color: AppTheme.primaryLight,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                            border: Border.all(
+                              color: AppTheme.primaryColor.withOpacity(0.3),
+                            ),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1966,7 +2174,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.blue.shade900,
+                                      color: AppTheme.primaryColor,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -1974,7 +2182,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     '₹${chargePerProc.toStringAsFixed(0)} per procedure × $selectedFreq',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: Colors.blue.shade700,
+                                      color: AppTheme.primaryColor.withOpacity(
+                                        0.8,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -2028,12 +2238,68 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 ),
                               ),
                               onPressed: () {
-                                _showAddManualConsumableDialog(
-                                  context,
-                                  (newConsumable) {
-                                    setModalState(() {
-                                      final existingManualIdx =
-                                          manualConsumables.indexWhere(
+                                _showAddManualConsumableDialog(context, (
+                                  newConsumable,
+                                ) {
+                                  setModalState(() {
+                                    final existingManualIdx = manualConsumables
+                                        .indexWhere(
+                                          (c) =>
+                                              c.consumableName
+                                                  .trim()
+                                                  .toLowerCase() ==
+                                              newConsumable.consumableName
+                                                  .trim()
+                                                  .toLowerCase(),
+                                        );
+                                    if (existingManualIdx != -1) {
+                                      final existing =
+                                          manualConsumables[existingManualIdx];
+                                      final updatedQty =
+                                          existing.qtyPerProcedure +
+                                          newConsumable.qtyPerProcedure;
+                                      manualConsumables[existingManualIdx] =
+                                          ProcedureConsumableMappingModel(
+                                            consumableId: existing.consumableId,
+                                            consumableName:
+                                                existing.consumableName,
+                                            unit: existing.unit,
+                                            unitPrice: existing.unitPrice,
+                                            qtyPerProcedure: updatedQty,
+                                          );
+                                      if (itemQtyCtrls.containsKey(
+                                        existing.consumableName,
+                                      )) {
+                                        final curVal =
+                                            int.tryParse(
+                                              itemQtyCtrls[existing
+                                                      .consumableName]!
+                                                  .text
+                                                  .trim(),
+                                            ) ??
+                                            (existing.qtyPerProcedure *
+                                                freqMultiplier);
+                                        itemQtyCtrls[existing.consumableName]!
+                                                .text =
+                                            (curVal +
+                                                    (newConsumable
+                                                            .qtyPerProcedure *
+                                                        freqMultiplier))
+                                                .toString();
+                                      }
+                                    } else if (selectedProc != null &&
+                                        selectedProc!.mappedConsumables.any(
+                                          (c) =>
+                                              c.consumableName
+                                                  .trim()
+                                                  .toLowerCase() ==
+                                              newConsumable.consumableName
+                                                  .trim()
+                                                  .toLowerCase(),
+                                        )) {
+                                      final mappedItem = selectedProc!
+                                          .mappedConsumables
+                                          .firstWhere(
                                             (c) =>
                                                 c.consumableName
                                                     .trim()
@@ -2042,91 +2308,31 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                                     .trim()
                                                     .toLowerCase(),
                                           );
-                                      if (existingManualIdx != -1) {
-                                        final existing =
-                                            manualConsumables[existingManualIdx];
-                                        final updatedQty =
-                                            existing.qtyPerProcedure +
-                                            newConsumable.qtyPerProcedure;
-                                        manualConsumables[existingManualIdx] =
-                                            ProcedureConsumableMappingModel(
-                                              consumableId:
-                                                  existing.consumableId,
-                                              consumableName:
-                                                  existing.consumableName,
-                                              unit: existing.unit,
-                                              unitPrice: existing.unitPrice,
-                                              qtyPerProcedure: updatedQty,
-                                            );
-                                        if (itemQtyCtrls.containsKey(
-                                          existing.consumableName,
-                                        )) {
-                                          final curVal =
-                                              int.tryParse(
-                                                itemQtyCtrls[existing
-                                                        .consumableName]!
-                                                    .text
-                                                    .trim(),
-                                              ) ??
-                                              (existing.qtyPerProcedure *
-                                                  freqMultiplier);
-                                          itemQtyCtrls[existing
-                                                  .consumableName]!
-                                              .text =
-                                              (curVal +
-                                                      (newConsumable
-                                                              .qtyPerProcedure *
-                                                          freqMultiplier))
-                                                  .toString();
-                                        }
-                                      } else if (selectedProc != null &&
-                                          selectedProc!.mappedConsumables.any(
-                                            (c) =>
-                                                c.consumableName
-                                                    .trim()
-                                                    .toLowerCase() ==
-                                                newConsumable.consumableName
-                                                    .trim()
-                                                    .toLowerCase(),
-                                          )) {
-                                        final mappedItem = selectedProc!
-                                            .mappedConsumables
-                                            .firstWhere(
-                                              (c) =>
-                                                  c.consumableName
-                                                      .trim()
-                                                      .toLowerCase() ==
-                                                  newConsumable.consumableName
-                                                      .trim()
-                                                      .toLowerCase(),
-                                            );
-                                        if (itemQtyCtrls.containsKey(
-                                          mappedItem.consumableName,
-                                        )) {
-                                          final curVal =
-                                              int.tryParse(
-                                                itemQtyCtrls[mappedItem
-                                                        .consumableName]!
-                                                    .text
-                                                    .trim(),
-                                              ) ??
-                                              (mappedItem.qtyPerProcedure *
-                                                  freqMultiplier);
-                                          itemQtyCtrls[mappedItem
-                                                  .consumableName]!
-                                              .text =
-                                              (curVal +
-                                                      (newConsumable
-                                                              .qtyPerProcedure *
-                                                          freqMultiplier))
-                                                  .toString();
-                                        }
-                                      } else {
-                                        manualConsumables.add(newConsumable);
+                                      if (itemQtyCtrls.containsKey(
+                                        mappedItem.consumableName,
+                                      )) {
+                                        final curVal =
+                                            int.tryParse(
+                                              itemQtyCtrls[mappedItem
+                                                      .consumableName]!
+                                                  .text
+                                                  .trim(),
+                                            ) ??
+                                            (mappedItem.qtyPerProcedure *
+                                                freqMultiplier);
+                                        itemQtyCtrls[mappedItem.consumableName]!
+                                                .text =
+                                            (curVal +
+                                                    (newConsumable
+                                                            .qtyPerProcedure *
+                                                        freqMultiplier))
+                                                .toString();
                                       }
-                                    });
-                                  },
-                                );
+                                    } else {
+                                      manualConsumables.add(newConsumable);
+                                    }
+                                  });
+                                });
                               },
                             ),
                           ],
@@ -2218,10 +2424,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     }
 
                                     final currentQtyStr =
-                                        itemQtyCtrls[m.consumableName]
-                                                ?.text
-                                                .trim() ??
-                                            '';
+                                        itemQtyCtrls[m.consumableName]?.text
+                                            .trim() ??
+                                        '';
                                     final currentQty =
                                         int.tryParse(currentQtyStr) ?? totalQty;
 
@@ -2242,7 +2447,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       };
                                       unitPrice =
                                           defaultPriceMap[m.consumableName] ??
-                                              20.0;
+                                          20.0;
                                     }
                                     final lineTotal = currentQty * unitPrice;
 
@@ -2366,7 +2571,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                               setModalState(() {
                                                 manualConsumables.remove(m);
                                                 if (selectedProc != null) {
-                                                  selectedProc!.mappedConsumables
+                                                  selectedProc!
+                                                      .mappedConsumables
                                                       .remove(m);
                                                 }
                                               });
@@ -2412,7 +2618,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 'IV Cannula 20G': 65.0,
                                 'Adhesive Tape': 15.0,
                               };
-                              uPrice = defaultPriceMap[m.consumableName] ?? 20.0;
+                              uPrice =
+                                  defaultPriceMap[m.consumableName] ?? 20.0;
                             }
                             totalConsumablesCost += (qty * uPrice);
                           }
@@ -2518,7 +2725,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton.icon(
-                  style: AppTheme.primaryButton,
+                  style: AppTheme.dangerButton,
                   icon: isSubmitting
                       ? const SizedBox(
                           width: 18,
@@ -2563,7 +2770,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 'IV Cannula 20G': 65.0,
                                 'Adhesive Tape': 15.0,
                               };
-                              uPrice = defaultPriceMap[m.consumableName] ?? 20.0;
+                              uPrice =
+                                  defaultPriceMap[m.consumableName] ?? 20.0;
                             }
 
                             return {
@@ -2866,7 +3074,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
     final String rawNurseName = visit.startNurseName ?? visit.nurseName ?? '';
     final String rawPatientName = visit.patientName ?? 'Patient';
-    final String patientDisplayId = (visit.patientDisplayId != null && visit.patientDisplayId!.trim().isNotEmpty)
+    final String patientDisplayId =
+        (visit.patientDisplayId != null &&
+            visit.patientDisplayId!.trim().isNotEmpty)
         ? visit.patientDisplayId!
         : 'ID: ${visit.patientId}';
     final String patientDisplayWithId = '$rawPatientName ($patientDisplayId)';
@@ -2876,7 +3086,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     bool isSubmitting = false;
 
     final bool isInProgress = visit.status.toLowerCase() == 'in-progress';
-    final String dialogTitle = isInProgress ? 'Resume Home Visit Session' : 'Start Home Visit Session';
+    final String dialogTitle = isInProgress
+        ? 'Resume Home Visit Session'
+        : 'Start Home Visit Session';
 
     showDialog(
       context: context,
@@ -2937,12 +3149,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.person_outline, size: 15, color: AppTheme.primaryColor),
+                              const Icon(
+                                Icons.person_outline,
+                                size: 15,
+                                color: AppTheme.primaryColor,
+                              ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   'Patient: $patientDisplayWithId',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimaryColor,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -2951,24 +3171,56 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           const SizedBox(height: 8),
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
+                              color: AppTheme.primaryLight,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                              border: Border.all(
+                                color: AppTheme.primaryColor.withOpacity(0.3),
+                              ),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.badge_outlined, size: 15, color: Color(0xFF1D4ED8)),
+                                const Icon(
+                                  Icons.badge_outlined,
+                                  size: 15,
+                                  color: AppTheme.nurseColor,
+                                ),
                                 const SizedBox(width: 6),
                                 Expanded(
-                                  child: Text(
-                                    'Executing Nurse: $rawNurseName',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
+                                  child: Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: 'Executing Nurse: ',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: rawNurseName,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme
+                                                .nurseColor, // Purple for nurse name
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                const Icon(Icons.lock_outline, size: 13, color: Color(0xFF93C5FD)),
+                                Icon(
+                                  Icons.lock_outline,
+                                  size: 13,
+                                  color: AppTheme.primaryColor.withOpacity(0.6),
+                                ),
                               ],
                             ),
                           ),
@@ -3030,7 +3282,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             SizedBox(
               height: 44,
               child: ElevatedButton.icon(
-                style: AppTheme.primaryButton,
+                style: AppTheme.dangerButton,
                 icon: isSubmitting
                     ? const SizedBox(
                         width: 16,
@@ -3126,6 +3378,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
   @override
   void dispose() {
+    UnsavedChangesHelper.setUnsavedChanges(false);
     _vitalsTimer?.cancel();
     _tabController.dispose();
     _sysBpCtrl.dispose();
@@ -3239,159 +3492,200 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 !_isPastVisit(visit.scheduledDate)) ||
             (visit.status == 'Verified' && !_isPastVisit(visit.scheduledDate));
 
-        return Scaffold(
-          backgroundColor: AppTheme.backgroundColor,
-          appBar: AppBar(
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (bool didPop, dynamic result) async {
+            if (didPop) return;
+            final shouldLeave = await _showUnsavedChangesDialog(context);
+            if (shouldLeave == true && context.mounted) {
+              UnsavedChangesHelper.setUnsavedChanges(false);
+              if (widget.onBack != null) {
+                widget.onBack!();
+              } else {
+                Navigator.of(context).pop();
+              }
+            }
+          },
+          child: Scaffold(
             backgroundColor: AppTheme.backgroundColor,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            toolbarHeight: 75,
-            leading: widget.onBack != null
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 16.0),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.arrow_back,
+            appBar: AppBar(
+              backgroundColor: AppTheme.backgroundColor,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              toolbarHeight: 75,
+              leading: widget.onBack != null
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          color: AppTheme.primaryColor,
+                        ),
+                        onPressed: () async {
+                          final shouldLeave = await _showUnsavedChangesDialog(
+                            context,
+                          );
+                          if (shouldLeave == true && context.mounted) {
+                            UnsavedChangesHelper.setUnsavedChanges(false);
+                            widget.onBack!();
+                          }
+                        },
+                      ),
+                    )
+                  : null,
+              title: Padding(
+                padding: const EdgeInsets.only(top: 16.0),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.home_work_rounded,
                         color: AppTheme.primaryColor,
                       ),
-                      onPressed: widget.onBack,
                     ),
-                  )
-                : null,
-            title: Padding(
-              padding: const EdgeInsets.only(top: 16.0),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Home Visit Care - ${visit.visitNumber}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimaryColor,
+                              fontFamily: 'Inter',
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Patient: ${visit.patientName ?? "N/A"} (${visit.patientDisplayId ?? ""})',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
+                              fontFamily: 'Inter',
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.home_work_rounded,
-                      color: AppTheme.primaryColor,
+                  ],
+                ),
+              ),
+              actions: [
+                if (visit.status != 'Cancelled')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0, right: 16.0),
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.dangerColor,
+                        side: const BorderSide(color: AppTheme.dangerColor),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.do_not_disturb_on_outlined,
+                        size: 16,
+                      ),
+                      label: const Text(
+                        'Stop / Discontinue Care',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                      onPressed: () => _showDiscontinueDialog(context, visit),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Home Visit Care - ${visit.visitNumber}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimaryColor,
-                            fontFamily: 'Inter',
+              ],
+              bottom: isCompletedOrVerified
+                  ? null
+                  : TabBar(
+                      controller: _tabController,
+                      labelColor: AppTheme.primaryColor,
+                      unselectedLabelColor: const Color(0xFF64748B),
+                      indicatorColor: AppTheme.primaryColor,
+                      indicatorWeight: 3,
+                      isScrollable: true,
+                      tabs: const [
+                        Tab(
+                          icon: Icon(
+                            Icons.medical_services_outlined,
+                            color: Color(0xFF0284C7),
                           ),
-                          overflow: TextOverflow.ellipsis,
+                          text: 'Kit & Devices',
                         ),
-                        Text(
-                          'Patient: ${visit.patientName ?? "N/A"} (${visit.patientDisplayId ?? ""})',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey,
-                            fontFamily: 'Inter',
+                        Tab(
+                          icon: Icon(
+                            Icons.monitor_heart_outlined,
+                            color: Color(0xFF16A34A),
                           ),
-                          overflow: TextOverflow.ellipsis,
+                          text: 'Vitals',
+                        ),
+                        Tab(
+                          icon: Icon(
+                            Icons.health_and_safety_outlined,
+                            color: Color(0xFFE11D48),
+                          ),
+                          text: 'Nursing Care & Dressing',
+                        ),
+                        Tab(
+                          icon: Icon(
+                            Icons.medication_liquid_outlined,
+                            color: Color(0xFFEA580C),
+                          ),
+                          text: 'Meds & Consumables',
+                        ),
+                        Tab(
+                          icon: Icon(
+                            Icons.insert_photo_outlined,
+                            color: Color(0xFF9333EA),
+                          ),
+                          text: 'Photo Evidence',
+                        ),
+                        Tab(
+                          icon: Icon(
+                            Icons.analytics_outlined,
+                            color: Color(0xFF0D9488),
+                          ),
+                          text: 'View Live Summary',
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
             ),
-            actions: [
-              if (visit.status != 'Cancelled')
-                Padding(
-                  padding: const EdgeInsets.only(top: 16.0, right: 16.0),
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.dangerColor,
-                      side: const BorderSide(color: AppTheme.dangerColor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    icon: const Icon(
-                      Icons.do_not_disturb_on_outlined,
-                      size: 16,
-                    ),
-                    label: const Text(
-                      'Stop / Discontinue Care',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                    onPressed: () => _showDiscontinueDialog(context, visit),
-                  ),
-                ),
-            ],
-            bottom: isCompletedOrVerified
-                ? null
-                : TabBar(
+            body: isCompletedOrVerified
+                ? (_selectedSummaryVisitId == null
+                      ? _buildDailySessionsOverview(visit, controller)
+                      : _buildCompletedVisitSummaryView(
+                          (controller.selectedVisit != null &&
+                                  controller.selectedVisit!.id ==
+                                      _selectedSummaryVisitId)
+                              ? controller.selectedVisit!
+                              : controller.visits.firstWhere(
+                                  (v) => v.id == _selectedSummaryVisitId,
+                                  orElse: () => visit,
+                                ),
+                          controller,
+                        ))
+                : TabBarView(
                     controller: _tabController,
-                    labelColor: AppTheme.primaryColor,
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: AppTheme.primaryColor,
-                    indicatorWeight: 3,
-                    isScrollable: true,
-                    tabs: const [
-                      Tab(
-                        icon: Icon(Icons.medical_services_outlined),
-                        text: 'Kit & Devices',
-                      ),
-                      Tab(
-                        icon: Icon(Icons.monitor_heart_outlined),
-                        text: 'Vitals',
-                      ),
-                      Tab(
-                        icon: Icon(Icons.edit_note_outlined),
-                        text: 'Nursing Care & Dressing',
-                      ),
-                      Tab(
-                        icon: Icon(Icons.medication_liquid_outlined),
-                        text: 'Meds & Consumables',
-                      ),
-                      Tab(
-                        icon: Icon(Icons.insert_photo_outlined),
-                        text: 'Photo Evidence',
-                      ),
-                      Tab(
-                        icon: Icon(Icons.analytics_outlined),
-                        text: 'View Live Summary',
-                      ),
+                    children: [
+                      _buildKitTab(visit, controller),
+                      _buildVitalsTab(visit, controller),
+                      _buildCareTab(visit, controller),
+                      _buildMedsAndConsumablesTab(visit, controller),
+                      _buildPhotosTab(visit, controller),
+                      _buildLiveSessionSummaryTab(visit, controller),
                     ],
                   ),
           ),
-          body: isCompletedOrVerified
-              ? (_selectedSummaryVisitId == null
-                    ? _buildDailySessionsOverview(visit, controller)
-                    : _buildCompletedVisitSummaryView(
-                        (controller.selectedVisit != null &&
-                                controller.selectedVisit!.id ==
-                                    _selectedSummaryVisitId)
-                            ? controller.selectedVisit!
-                            : controller.visits.firstWhere(
-                                (v) => v.id == _selectedSummaryVisitId,
-                                orElse: () => visit,
-                              ),
-                        controller,
-                      ))
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildKitTab(visit, controller),
-                    _buildVitalsTab(visit, controller),
-                    _buildCareTab(visit, controller),
-                    _buildMedsAndConsumablesTab(visit, controller),
-                    _buildPhotosTab(visit, controller),
-                    _buildLiveSessionSummaryTab(visit, controller),
-                  ],
-                ),
         );
       },
     );
@@ -3404,13 +3698,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Section 1 Header
           _buildSectionHeader(
             'Select & Add Kit Items & Medical Devices Used',
-            Icons.shopping_bag_outlined,
+            Icons.fact_check_outlined,
+            subtitle:
+                'Add the kit items or medical devices used during this visit.',
           ),
           const SizedBox(height: 16),
 
-          // Interactive Form to Select & Add Used Kit/Devices
+          // Interactive Form Card
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -3422,27 +3719,38 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Add Kit Device / Item Used During Visit',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  ),
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.tune_rounded,
+                      color: AppTheme.secondaryColor,
+                      size: 20,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Add Kit Device / Item Used During Visit',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.secondaryColor,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final isMobile = constraints.maxWidth < 600;
-                    // Shared add button logic
+                    final isMobile = constraints.maxWidth < 650;
                     Future<void> addKitItem() async {
                       final name =
-                          (_selectedKitDropdown == 'Other (Type Custom Kit Item...)')
-                              ? _customKitNameCtrl.text.trim()
-                              : ((_selectedKitDropdown != null &&
-                                      _selectedKitDropdown!.isNotEmpty)
-                                  ? _selectedKitDropdown!.trim()
-                                  : _kitItemNameCtrl.text.trim());
+                          (_selectedKitDropdown ==
+                              'Other (Type Custom Kit Item...)')
+                          ? _customKitNameCtrl.text.trim()
+                          : ((_selectedKitDropdown != null &&
+                                    _selectedKitDropdown!.isNotEmpty)
+                                ? _selectedKitDropdown!.trim()
+                                : _kitItemNameCtrl.text.trim());
 
                       if (name.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -3469,7 +3777,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             content: Text(
                               'Kit item / device added successfully',
                             ),
-                            backgroundColor: Colors.green,
+                            backgroundColor: AppTheme.secondaryColor,
                           ),
                         );
                       } else {
@@ -3492,13 +3800,23 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           _kitItemNameCtrl.text = val;
                           final matched = _dbKitMasterItems.firstWhere(
                             (element) =>
-                                element['name']?.toString().toLowerCase().trim() ==
+                                element['name']
+                                    ?.toString()
+                                    .toLowerCase()
+                                    .trim() ==
                                 val.toLowerCase().trim(),
                             orElse: () => {},
                           );
-                          if (matched.isNotEmpty && matched['item_type'] != null) {
+                          if (matched.isNotEmpty &&
+                              matched['item_type'] != null) {
                             final t = matched['item_type'].toString();
-                            if (['Device', 'Equipment', 'Kit', 'Monitoring Tool', 'Accessories'].contains(t)) {
+                            if ([
+                              'Device',
+                              'Equipment',
+                              'Kit',
+                              'Monitoring Tool',
+                              'Accessories',
+                            ].contains(t)) {
                               _kitItemType = t;
                             }
                           }
@@ -3514,10 +3832,31 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       'Accessories',
                     ];
 
+                    final addButton = ElevatedButton.icon(
+                      style: AppTheme.dangerButton.copyWith(
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 14,
+                          ),
+                        ),
+                        minimumSize: WidgetStateProperty.all(const Size(0, 48)),
+                        shape: WidgetStateProperty.all(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Kit Item'),
+                      onPressed: addKitItem,
+                    );
+
                     if (isMobile) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          _buildLabel('Type'),
                           CustomDropdownSearch(
                             label: '',
                             hint: 'Select or Type Kit Item / Device',
@@ -3528,7 +3867,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                           if (_selectedKitDropdown ==
                               'Other (Type Custom Kit Item...)') ...[
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 12),
                             TextFormField(
                               controller: _customKitNameCtrl,
                               decoration: AppTheme.standardInputDecoration(
@@ -3538,10 +3877,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               ),
                             ),
                           ],
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
+                          _buildLabel('Device / Item'),
                           CustomDropdownSearch(
                             label: '',
-                            hint: 'Category',
+                            hint: 'Select Device / Item',
                             dropdownItems: kitItemTypes,
                             value: _kitItemType,
                             onChanged: (val) {
@@ -3549,75 +3889,97 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 setState(() => _kitItemType = val);
                             },
                           ),
-                          const SizedBox(height: 10),
-                          _buildQtyStepperField(controller: _kitItemQtyCtrl, min: 1, max: 999),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 48,
-                            child: ElevatedButton.icon(
-                              style: AppTheme.primaryButton,
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Add Kit Item'),
-                              onPressed: addKitItem,
-                            ),
+                          const SizedBox(height: 12),
+                          _buildLabel('Quantity'),
+                          _buildQtyStepperField(
+                            controller: _kitItemQtyCtrl,
+                            min: 1,
+                            max: 999,
                           ),
+                          const SizedBox(height: 16),
+                          SizedBox(width: double.infinity, child: addButton),
                         ],
                       );
                     } else {
                       return Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Expanded(
                             flex: 3,
-                            child: CustomDropdownSearch(
-                              label: '',
-                              hint: 'Select or Type Kit Item / Device',
-                              dropdownItems: _effectiveKitDevices,
-                              value: _selectedKitDropdown,
-                              allowFreeText: true,
-                              onChanged: handleKitDropdownChange,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Type'),
+                                CustomDropdownSearch(
+                                  label: '',
+                                  hint: 'Select or Type Kit Item / Device',
+                                  dropdownItems: _effectiveKitDevices,
+                                  value: _selectedKitDropdown,
+                                  allowFreeText: true,
+                                  onChanged: handleKitDropdownChange,
+                                ),
+                              ],
                             ),
                           ),
                           if (_selectedKitDropdown ==
                               'Other (Type Custom Kit Item...)') ...[
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
                             Expanded(
                               flex: 3,
-                              child: TextFormField(
-                                controller: _customKitNameCtrl,
-                                decoration: AppTheme.standardInputDecoration(
-                                  hintText:
-                                      'Enter Custom Kit Item / Device Name *',
-                                  prefixIcon: Icons.edit_note,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Custom Kit Item Name'),
+                                  TextFormField(
+                                    controller: _customKitNameCtrl,
+                                    decoration:
+                                        AppTheme.standardInputDecoration(
+                                          hintText:
+                                              'Enter Custom Kit Item Name *',
+                                          prefixIcon: Icons.edit_note,
+                                        ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 12),
                           Expanded(
-                            flex: 2,
-                            child: CustomDropdownSearch(
-                              label: '',
-                              hint: 'Category',
-                              dropdownItems: kitItemTypes,
-                              value: _kitItemType,
-                              onChanged: (val) {
-                                if (val != null)
-                                  setState(() => _kitItemType = val);
-                              },
+                            flex: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Device / Item'),
+                                CustomDropdownSearch(
+                                  label: '',
+                                  hint: 'Select Device / Item',
+                                  dropdownItems: kitItemTypes,
+                                  value: _kitItemType,
+                                  onChanged: (val) {
+                                    if (val != null)
+                                      setState(() => _kitItemType = val);
+                                  },
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 12),
                           Expanded(
-                            child: _buildQtyStepperField(controller: _kitItemQtyCtrl, min: 1, max: 999),
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Quantity'),
+                                _buildQtyStepperField(
+                                  controller: _kitItemQtyCtrl,
+                                  min: 1,
+                                  max: 999,
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(width: 10),
-                          ElevatedButton.icon(
-                            style: AppTheme.primaryButton,
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Add Kit Item'),
-                            onPressed: addKitItem,
-                          ),
+                          const SizedBox(width: 12),
+                          addButton,
                         ],
                       );
                     }
@@ -3628,33 +3990,110 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           ),
           const SizedBox(height: 24),
 
-          // Added Kit Items List
-          const Text(
-            'Carried & Used Kit Devices List',
-
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.primaryColor,
-            ),
+          // Section 2 Header with Items Count Badge
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: _buildSectionHeader(
+                  'Carried & Used Kit Devices List',
+                  Icons.assignment_turned_in_outlined,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  '${visit.carriedItems.length} Items',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0369A1),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
 
+          // Empty State Box or Carried Items Grid
           if (visit.carriedItems.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(24),
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: const Center(
-                child: Text(
-                  'No kit items or medical devices added yet. Select and add devices using the form above.',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
+            Stack(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 36,
+                    horizontal: 24,
+                  ),
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF93C5FD),
+                      width: 1.2,
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFE0F2FE),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.medical_services_rounded,
+                          color: Color(0xFF0284C7),
+                          size: 36,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'No kit items or medical devices added yet.',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E293B),
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Select and add devices using the form above.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: FloatingActionButton.small(
+                    heroTag: 'add_kit_fab',
+                    elevation: 3,
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
+                    onPressed: () {
+                      // Focus or scroll to form
+                    },
+                    child: const Icon(Icons.add, size: 20),
+                  ),
+                ),
+              ],
             )
           else
             LayoutBuilder(
@@ -3680,7 +4119,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       itemIcon = Icons.clean_hands;
 
                     return Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
@@ -3689,14 +4128,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                       child: Row(
                         children: [
-                          CircleAvatar(
-                            backgroundColor: AppTheme.primaryColor.withOpacity(
-                              0.1,
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
                               itemIcon,
                               color: AppTheme.primaryColor,
-                              size: 20,
+                              size: 24,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -3711,9 +4152,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
                                   ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
+                                const SizedBox(height: 4),
                                 Text(
-                                  '${item.itemType} • Qty Carried: ${item.quantityCarried}',
+                                  'Category: ${item.itemType} • Qty: ${item.quantityCarried}',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey,
@@ -3722,28 +4165,42 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               ],
                             ),
                           ),
-                          if (item.id != null)
-                            IconButton(
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                color: AppTheme.dangerColor,
-                                size: 20,
-                              ),
-                              tooltip: 'Remove Device',
-                              onPressed: () async {
-                                final ok = await controller.removeCarriedItem(
+                          IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: AppTheme.dangerColor,
+                              size: 20,
+                            ),
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Remove Kit Item'),
+                                  content: Text(
+                                    'Are you sure you want to remove "${item.itemName}"?',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      style: AppTheme.dangerButton,
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Remove'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true && item.id != null) {
+                                await controller.removeCarriedItem(
                                   visit.id,
                                   item.id!,
                                 );
-                                if (ok) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Kit item removed'),
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
+                              }
+                            },
+                          ),
                         ],
                       ),
                     );
@@ -3809,7 +4266,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
-                                      color: AppTheme.primaryColor,
+                                      color: AppTheme.secondaryColor,
                                       fontFamily: 'Inter',
                                     ),
                                   ),
@@ -4160,7 +4617,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
-                            style: AppTheme.primaryButton,
+                            style: AppTheme.dangerButton,
                             icon: _isSavingVitals
                                 ? const SizedBox(
                                     width: 18,
@@ -4583,7 +5040,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               width: double.infinity,
               height: 48,
               child: ElevatedButton.icon(
-                style: AppTheme.primaryButton,
+                style: AppTheme.dangerButton,
                 icon: _isSavingVitals
                     ? const SizedBox(
                         width: 18,
@@ -4700,6 +5157,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.primaryColor,
+                      fontFamily: 'Inter',
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -4709,23 +5167,58 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      color: AppTheme.secondaryColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       '$totalVitals Entry(ies)',
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
+                        color: AppTheme.secondaryColor,
                       ),
                     ),
                   ),
                 ],
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.filter_list_rounded,
+                      size: 16,
+                      color: Color(0xFF475569),
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'Filter',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 16,
+                      color: Color(0xFF475569),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           if (visit.vitalsHistory.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
@@ -4753,145 +5246,158 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         constraints: BoxConstraints(
                           minWidth: tableConstraints.maxWidth > 0
                               ? tableConstraints.maxWidth
-                              : 700,
+                              : 850,
                         ),
                         child: Table(
                           defaultColumnWidth: const FlexColumnWidth(),
                           defaultVerticalAlignment:
                               TableCellVerticalAlignment.middle,
-
                           children: [
                             TableRow(
                               decoration: const BoxDecoration(
-                                color: Color(0xFFEDF2F7),
+                                color: Color(0xFFF8FAFC),
                                 border: Border(
                                   bottom: BorderSide(color: Color(0xFFE2E8F0)),
                                 ),
                               ),
-                              children: [
-                                const Padding(
+                              children: const [
+                                Padding(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 10,
+                                    horizontal: 12,
+                                    vertical: 14,
                                   ),
                                   child: Text(
                                     'Date & Time Recorded',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                      color: Color(0xFF1E293B),
                                     ),
                                   ),
                                 ),
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 10,
+                                    horizontal: 12,
+                                    vertical: 14,
                                   ),
                                   child: Text(
                                     'Time Gap / Duration',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                      color: Color(0xFF1E293B),
                                     ),
                                   ),
                                 ),
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 10,
+                                    horizontal: 12,
+                                    vertical: 14,
                                   ),
                                   child: Text(
                                     'BP (mmHg)',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                      color: Color(0xFF1E293B),
                                     ),
                                   ),
                                 ),
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 10,
+                                    horizontal: 12,
+                                    vertical: 14,
                                   ),
                                   child: Text(
                                     'Pulse (bpm)',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                      color: Color(0xFF1E293B),
                                     ),
                                   ),
                                 ),
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 10,
+                                    horizontal: 12,
+                                    vertical: 14,
                                   ),
                                   child: Text(
                                     'Temp (°F)',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                      color: Color(0xFF1E293B),
                                     ),
                                   ),
                                 ),
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 10,
+                                    horizontal: 12,
+                                    vertical: 14,
                                   ),
                                   child: Text(
                                     'SpO₂ (%)',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                      color: Color(0xFF1E293B),
                                     ),
                                   ),
                                 ),
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 10,
+                                    horizontal: 12,
+                                    vertical: 14,
                                   ),
                                   child: Text(
                                     'Sugar (mg/dL)',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                      color: Color(0xFF1E293B),
                                     ),
                                   ),
                                 ),
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 10,
+                                    horizontal: 12,
+                                    vertical: 14,
                                   ),
                                   child: Text(
                                     'Weight (kg)',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                      color: Color(0xFF1E293B),
                                     ),
                                   ),
                                 ),
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 10,
+                                    horizontal: 12,
+                                    vertical: 14,
                                   ),
                                   child: Text(
                                     'Height (cm)',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 14,
+                                  ),
+                                  child: Text(
+                                    'Actions',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: Color(0xFF1E293B),
                                     ),
                                   ),
                                 ),
@@ -4906,18 +5412,26 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 final v = pageVitals[idx];
                                 return TableRow(
                                   decoration: BoxDecoration(
-                                    color: idx.isEven
-                                        ? Colors.white
-                                        : const Color(0xFFF8FAFC),
+                                    color: Colors.white,
                                     border: idx < pageVitals.length - 1
                                         ? const Border(
                                             bottom: BorderSide(
-                                              color: Color(0xFFEDF2F7),
+                                              color: Color(0xFFE2E8F0),
                                             ),
                                           )
                                         : null,
                                   ),
                                   children: [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 14,
+                                      ),
+                                      child: _buildTimestampBadge(
+                                        v.recordedAt,
+                                        color: const Color(0xFF1E293B),
+                                      ),
+                                    ),
                                     () {
                                       final gapStr = _formatTimeGap(
                                         v,
@@ -4925,54 +5439,26 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       );
                                       return Padding(
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 10,
-                                        ),
-                                        child: _buildTimestampBadge(
-                                          v.recordedAt,
-                                          color: AppTheme.primaryColor,
-                                        ),
-                                      );
-                                    }(),
-                                    () {
-                                      final gapStr = _formatTimeGap(
-                                        v,
-                                        sortedVitals,
-                                      );
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 10,
+                                          horizontal: 12,
+                                          vertical: 14,
                                         ),
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
+                                            horizontal: 10,
                                             vertical: 4,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: gapStr == 'Initial Entry'
-                                                ? AppTheme.primaryColor
-                                                      .withOpacity(0.08)
-                                                : const Color(0xFFFFF7ED),
+                                            color: const Color(0xFFEFF6FF),
                                             borderRadius: BorderRadius.circular(
                                               6,
-                                            ),
-                                            border: Border.all(
-                                              color: gapStr == 'Initial Entry'
-                                                  ? AppTheme.primaryColor
-                                                        .withOpacity(0.3)
-                                                  : const Color(0xFFFDBA74),
-                                              width: 0.8,
                                             ),
                                           ),
                                           child: Text(
                                             gapStr,
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
-                                              color: gapStr == 'Initial Entry'
-                                                  ? AppTheme.primaryColor
-                                                  : const Color(0xFFC2410C),
+                                              color: Color(0xFF1D4ED8),
                                             ),
                                           ),
                                         ),
@@ -4980,102 +5466,125 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     }(),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 10,
+                                        horizontal: 12,
+                                        vertical: 14,
                                       ),
                                       child: Text(
                                         '${v.systolicBp ?? "--"} / ${v.diastolicBp ?? "--"}',
                                         style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF1E293B),
                                         ),
                                       ),
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 10,
+                                        horizontal: 12,
+                                        vertical: 14,
                                       ),
                                       child: Text(
                                         v.pulseRate != null
                                             ? '${v.pulseRate} bpm'
                                             : '--',
                                         style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.black87,
+                                          fontSize: 13,
+                                          color: Color(0xFF1E293B),
                                         ),
                                       ),
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 10,
+                                        horizontal: 12,
+                                        vertical: 14,
                                       ),
                                       child: Text(
                                         v.temperature != null
                                             ? '${v.temperature} °F'
                                             : '--',
                                         style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.black87,
+                                          fontSize: 13,
+                                          color: Color(0xFF1E293B),
                                         ),
                                       ),
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 10,
+                                        horizontal: 12,
+                                        vertical: 14,
                                       ),
                                       child: Text(
                                         v.spo2 != null ? '${v.spo2}%' : '--',
                                         style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.black87,
+                                          fontSize: 13,
+                                          color: Color(0xFF1E293B),
                                         ),
                                       ),
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 10,
+                                        horizontal: 12,
+                                        vertical: 14,
                                       ),
                                       child: Text(
                                         v.bloodSugar != null
                                             ? '${v.bloodSugar} mg/dL'
                                             : '--',
                                         style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.black87,
+                                          fontSize: 13,
+                                          color: Color(0xFF1E293B),
                                         ),
                                       ),
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 10,
+                                        horizontal: 12,
+                                        vertical: 14,
                                       ),
                                       child: Text(
                                         v.weight != null
                                             ? '${v.weight} kg'
                                             : '--',
                                         style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.black87,
+                                          fontSize: 13,
+                                          color: Color(0xFF1E293B),
                                         ),
                                       ),
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 10,
+                                        horizontal: 12,
+                                        vertical: 14,
                                       ),
                                       child: Text(
                                         v.height != null
                                             ? '${v.height} cm'
                                             : '--',
                                         style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.black87,
+                                          fontSize: 13,
+                                          color: Color(0xFF1E293B),
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                      child: Container(
+                                        width: 32,
+                                        height: 32,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF8FAFC),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: const Color(0xFFE2E8F0),
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.more_vert,
+                                          color: Color(0xFF475569),
+                                          size: 18,
                                         ),
                                       ),
                                     ),
@@ -5091,86 +5600,125 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                Text(
-                  'Showing ${totalVitals == 0 ? 0 : vitalsStartIdx + 1}-$vitalsEndIdx of $totalVitals entries',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+            const SizedBox(height: 16),
+
+            // Footer / Pagination Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondaryColor.withOpacity(0.15),
+                          shape: BoxShape.circle,
                         ),
-                        minimumSize: const Size(0, 32),
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                        child: const Icon(
+                          Icons.info_outline_rounded,
+                          size: 14,
+                          color: AppTheme.secondaryColor,
                         ),
                       ),
-                      onPressed: currentVitalsPage > 1
-                          ? () => setState(() => _vitalsPage--)
-                          : null,
-                      icon: const Icon(Icons.chevron_left, size: 16),
-                      label: const Text(
-                        'Previous',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Page $currentVitalsPage of $totalVitalsPages',
+                      const SizedBox(width: 8),
+                      Text(
+                        'Showing ${totalVitals == 0 ? 0 : vitalsStartIdx + 1} to $vitalsEndIdx of $totalVitals entries',
                         style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                          fontFamily: 'Inter',
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          backgroundColor: Colors.white,
                         ),
-                        minimumSize: const Size(0, 32),
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                        onPressed: currentVitalsPage > 1
+                            ? () => setState(() => _vitalsPage--)
+                            : null,
+                        icon: const Icon(
+                          Icons.chevron_left,
+                          size: 16,
+                          color: Color(0xFF64748B),
+                        ),
+                        label: const Text(
+                          'Previous',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ),
-                      onPressed: currentVitalsPage < totalVitalsPages
-                          ? () => setState(() => _vitalsPage++)
-                          : null,
-                      icon: const Icon(Icons.chevron_right, size: 16),
-                      label: const Text('Next', style: TextStyle(fontSize: 12)),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondaryColor,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '$currentVitalsPage',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          backgroundColor: Colors.white,
+                        ),
+                        onPressed: currentVitalsPage < totalVitalsPages
+                            ? () => setState(() => _vitalsPage++)
+                            : null,
+                        icon: const Icon(
+                          Icons.chevron_right,
+                          size: 16,
+                          color: Color(0xFF64748B),
+                        ),
+                        label: const Text(
+                          'Next',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -5186,21 +5734,30 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Flexible(
+              Expanded(
                 child: _buildSectionHeader(
                   'Record Patient Vitals Entry',
                   Icons.monitor_heart_outlined,
+                  subtitle:
+                      'Track and manage patient vital signs during the visit.',
                 ),
               ),
               if (!widget.isReadOnlyView) ...[
                 const SizedBox(width: 12),
                 ElevatedButton.icon(
-                  style: AppTheme.primaryButton,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text(
-                    'Add Vitals Entry',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: AppTheme.dangerButton.copyWith(
+                    padding: WidgetStateProperty.all(
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    ),
+                    minimumSize: WidgetStateProperty.all(const Size(0, 48)),
+                    shape: WidgetStateProperty.all(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Vitals Entry'),
                   onPressed: () =>
                       _showAddVitalsModalDialog(context, visit, controller),
                 ),
@@ -5612,7 +6169,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ),
                 ),
                 ElevatedButton(
-                  style: AppTheme.primaryButton,
+                  style: AppTheme.dangerButton,
                   onPressed: isSaving
                       ? null
                       : () async {
@@ -6003,7 +6560,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                style: AppTheme.primaryButton,
+                style: AppTheme.dangerButton,
                 onPressed: _isSavingCare
                     ? null
                     : () async {
@@ -6825,16 +7382,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     );
 
     final displayProcedures =
-        List<HomeVisitProcedureModel>.from(visit.procedures)
-          ..sort((a, b) {
-            if (a.id != null && b.id != null && a.id != b.id) {
-              return b.id!.compareTo(a.id!);
-            }
-            if (a.createdAt != null && b.createdAt != null) {
-              return b.createdAt!.compareTo(a.createdAt!);
-            }
-            return 0;
-          });
+        List<HomeVisitProcedureModel>.from(visit.procedures)..sort((a, b) {
+          if (a.id != null && b.id != null && a.id != b.id) {
+            return b.id!.compareTo(a.id!);
+          }
+          if (a.createdAt != null && b.createdAt != null) {
+            return b.createdAt!.compareTo(a.createdAt!);
+          }
+          return 0;
+        });
 
     final proceduresTableCard = Container(
       padding: const EdgeInsets.all(20),
@@ -7118,17 +7674,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
+                      style: AppTheme.dangerButton,
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text(
                         'Add Medicine',
@@ -7142,20 +7688,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ),
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF65A30D),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                      style: AppTheme.dangerButton,
+                      icon: const Icon(
+                        Icons.medical_services_outlined,
+                        size: 18,
                       ),
-                      icon: const Icon(Icons.medical_services_outlined, size: 18),
                       label: const Text(
-                        'Add Procedure',
+                        'Add Procedure Item',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -7414,7 +7953,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       width: isMobileCaption ? double.infinity : null,
                       height: 52,
                       child: ElevatedButton.icon(
-                        style: AppTheme.secondaryButton,
+                        style: AppTheme.dangerButton,
                         icon: _isUploadingPhoto
                             ? const SizedBox(
                                 width: 18,
@@ -7951,7 +8490,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton.icon(
-                    style: AppTheme.primaryButton,
+                    style: AppTheme.dangerButton,
                     icon: _isVerifying
                         ? const SizedBox(
                             width: 20,
@@ -8202,7 +8741,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton.icon(
-                          style: AppTheme.secondaryButton,
+                          style: AppTheme.dangerButton,
                           icon: isSubmitting
                               ? const SizedBox(
                                   width: 18,
@@ -8431,11 +8970,101 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
                 boxShadow: AppTheme.cardShadow,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              child: LayoutBuilder(
+                builder: (context, bannerConstraints) {
+                  final isNarrow = bannerConstraints.maxWidth < 650;
+                  final buttonWidget = SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      style: AppTheme.dangerButton.copyWith(
+                        shape: WidgetStateProperty.all(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.verified_outlined,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        "End Today's Visit",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      onPressed: () => _showEndVisitSignatureModal(
+                        context,
+                        visit,
+                        controller,
+                      ),
+                    ),
+                  );
+
+                  if (isNarrow) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.secondaryColor.withOpacity(
+                                  0.15,
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check_circle_rounded,
+                                color: AppTheme.secondaryColor,
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Ready to Complete Today's Visit?",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF14532D),
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    "Click below to capture attender signature, generate the itemized billing invoice, and mark today's home visit as Completed.",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF15803D),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(width: double.infinity, child: buttonWidget),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -8464,7 +9093,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             ),
                             SizedBox(height: 2),
                             Text(
-                              "Click below to capture attender signature, generate the itemized billing invoice, and mark today's home visit as Completed.",
+                              "Click to capture attender signature, generate the itemized billing invoice, and mark today's home visit as Completed.",
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF15803D),
@@ -8473,41 +9102,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ],
                         ),
                       ),
+                      const SizedBox(width: 20),
+                      buttonWidget,
                     ],
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      style: AppTheme.secondaryButton.copyWith(
-                        shape: WidgetStateProperty.all(
-                          RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
-                      icon: const Icon(
-                        Icons.verified_outlined,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        "End Today's Visit",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      onPressed: () => _showEndVisitSignatureModal(
-                        context,
-                        visit,
-                        controller,
-                      ),
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
             const SizedBox(height: 24),
@@ -8561,11 +9160,31 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            'Session: ${visit.scheduledDate} | Nurse: ${visit.nurseName ?? "N/A"}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'Session: ${visit.scheduledDate} | ',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                const TextSpan(
+                                  text: 'Nurse: ',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.nurseColor,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: visit.nurseName ?? "N/A",
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.nurseColor,
+                                  ),
+                                ),
+                              ],
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -8849,7 +9468,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               const Icon(
                                 Icons.access_time,
                                 size: 14,
-                                color: AppTheme.primaryColor,
+                                color: AppTheme.secondaryColor,
                               ),
                               const SizedBox(width: 6),
                               Text(
@@ -8857,7 +9476,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
-                                  color: AppTheme.primaryColor,
+                                  color: AppTheme.secondaryColor,
                                 ),
                               ),
                             ],
@@ -8910,7 +9529,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   Icons.medication_liquid_outlined,
                 ),
                 const SizedBox(height: 12),
-                if (todayMedicines.isEmpty && visit.procedures.isEmpty && todayConsumables.isEmpty)
+                if (todayMedicines.isEmpty &&
+                    visit.procedures.isEmpty &&
+                    todayConsumables.isEmpty)
                   const Text(
                     'No medicines or procedures logged today in Meds & Consumables tab.',
                     style: TextStyle(color: Colors.grey, fontSize: 13),
@@ -8946,15 +9567,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                     ),
                     const SizedBox(height: 6),
-                    for (final p in List<HomeVisitProcedureModel>.from(visit.procedures)
-                      ..sort((a, b) => (b.id != null && a.id != null && a.id != b.id)
-                          ? b.id!.compareTo(a.id!)
-                          : 0))
+                    for (final p
+                        in List<HomeVisitProcedureModel>.from(visit.procedures)
+                          ..sort(
+                            (a, b) =>
+                                (b.id != null && a.id != null && a.id != b.id)
+                                ? b.id!.compareTo(a.id!)
+                                : 0,
+                          ))
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6.0),
                         child: Text(
                           '• ${p.procedureName} (${p.frequency}) - Charge: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                   ] else if (todayConsumables.isNotEmpty) ...[
@@ -9271,7 +9899,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       const Icon(
                         Icons.notes,
                         size: 18,
-                        color: AppTheme.primaryColor,
+                        color: AppTheme.secondaryColor,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -9526,11 +10154,24 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 color: Colors.grey.shade600,
                               ),
                               const SizedBox(width: 4),
-                              Text(
-                                'Nurse: ${v.nurseName ?? "N/A"}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.black87,
+                              Text.rich(
+                                TextSpan(
+                                  children: [
+                                    const TextSpan(
+                                      text: 'Nurse: ',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: AppTheme.nurseColor,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: v.nurseName ?? "N/A",
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppTheme.nurseColor,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -9575,7 +10216,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
                     // View Day Details Button
                     ElevatedButton.icon(
-                      style: AppTheme.primaryButton,
+                      style: AppTheme.dangerButton,
                       icon: const Icon(Icons.visibility_outlined, size: 16),
                       label: Text('View Day $dayNumber Summary Details'),
                       onPressed: () {
@@ -9847,7 +10488,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ],
                   ),
                   ElevatedButton.icon(
-                    style: AppTheme.primaryButton,
+                    style: AppTheme.dangerButton,
                     icon: const Icon(
                       Icons.visibility_outlined,
                       size: 18,
@@ -10403,7 +11044,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         style: const TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 12,
-          color: AppTheme.primaryColor,
+          color: AppTheme.secondaryColor,
         ),
       ),
     );
@@ -10702,21 +11343,39 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon) {
+  Widget _buildSectionHeader(String title, IconData icon, {String? subtitle}) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: AppTheme.primaryColor, size: 22),
+        Icon(icon, color: const Color(0xFF1E293B), size: 22),
         const SizedBox(width: 10),
         Flexible(
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.primaryColor,
-              fontFamily: 'Inter',
-            ),
-            overflow: TextOverflow.ellipsis,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                  fontFamily: 'Inter',
+                ),
+              ),
+              if (subtitle != null && subtitle.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF64748B),
+                    fontFamily: 'Inter',
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ],
