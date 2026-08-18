@@ -133,6 +133,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     int index, {
     bool isRegistering = false,
     bool forceBooking = false,
+    PatientModel? prefilledPatient,
   }) {
     if (!mounted) return;
     switch (index) {
@@ -141,7 +142,10 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
         break;
       case 1:
         if (isRegistering) {
-          context.go(AppRoutes.frontDeskNewPatient);
+          context.go(
+            AppRoutes.frontDeskNewPatient,
+            extra: prefilledPatient ?? _patientToComplete,
+          );
         } else {
           context.go(AppRoutes.frontDeskPatients);
         }
@@ -267,11 +271,11 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
             setState(() {
               _isRegisteringPatient = false;
               _patientToComplete = null;
-              if (patientToReturn != null) {
+              if (patientToReturn != null && patientToReturn.id != null) {
                 _viewPatient = patientToReturn;
               }
             });
-            if (patientToReturn != null) {
+            if (patientToReturn != null && patientToReturn.id != null) {
               context.go(
                 AppRoutes.frontDeskViewPatient,
                 extra: patientToReturn,
@@ -295,7 +299,12 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
             isLoading: _isLoadingPatients,
             error: _patientError,
             initialSelectedPatient: _viewPatient,
-            onRegisterPatient: () => _changePage(1, isRegistering: true),
+            onRegisterPatient: ([prefilledPatient]) {
+              setState(() {
+                _patientToComplete = prefilledPatient;
+              });
+              _changePage(1, isRegistering: true, prefilledPatient: prefilledPatient);
+            },
             onCompleteProfile: (patient) {
               context.go(AppRoutes.frontDeskEditPatient, extra: patient);
             },

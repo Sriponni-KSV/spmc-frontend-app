@@ -388,8 +388,39 @@ class _NewPatientRegistrationViewState
   void _loadPatientIntoForm(PatientModel p) {
     _nameController.text = p.name;
     _dobController.text = p.dob;
-    _ageController.text = p.age > 0 ? p.age.toString() : '';
+    if (p.dob.isNotEmpty) {
+      try {
+        final dob = DateFormat('dd/MM/yyyy').parse(p.dob);
+        final now = DateTime.now();
+        int years = now.year - dob.year;
+        int months = now.month - dob.month;
+        int days = now.day - dob.day;
+        if (days < 0) {
+          months--;
+          final prevMonth = DateTime(now.year, now.month, 0);
+          days += prevMonth.day;
+        }
+        if (months < 0) {
+          years--;
+          months += 12;
+        }
+        if (years >= 1) {
+          _ageController.text = years.toString();
+        } else if (months >= 1) {
+          _ageController.text = '$months month${months == 1 ? '' : 's'}';
+        } else {
+          _ageController.text = '$days day${days == 1 ? '' : 's'}';
+        }
+      } catch (_) {
+        _ageController.text = p.age > 0 ? p.age.toString() : '';
+      }
+    } else {
+      _ageController.text = p.age > 0 ? p.age.toString() : '';
+    }
     _phoneController.text = p.phone;
+    if (p.phone.length == 10) {
+      _lastCheckedPhone = p.phone;
+    }
     _emailController.text = p.email;
     _addressController.text = p.address;
     _addressLine2Controller.text = p.addressLine2;
@@ -397,7 +428,9 @@ class _NewPatientRegistrationViewState
         ? p.district
         : null;
     _pincodeController.text = p.pincode;
-    _selectedGender = p.gender;
+    _selectedGender = ['Male', 'Female', 'Other'].contains(p.gender)
+        ? p.gender
+        : null;
 
     _emergencyContactNameController.text = p.emergencyContactName;
     _emergencyContactRelationController.text = p.emergencyContactRelation;
@@ -413,6 +446,7 @@ class _NewPatientRegistrationViewState
     _sugarController.text = p.sugar > 0 ? p.sugar.toString() : '';
     _tempController.text = p.temp > 0 ? p.temp.toString() : '';
     _heightController.text = p.height > 0 ? p.height.toString() : '';
+    _weightController.text = p.weight > 0 ? p.weight.toString() : '';
     _bloodGroupController.text = p.bloodGroup;
     _selectedBloodGroup = _bloodGroupOptions.contains(p.bloodGroup)
         ? p.bloodGroup
@@ -621,7 +655,9 @@ class _NewPatientRegistrationViewState
                     onPressed: () {
                       Navigator.of(ctx).pop();
                       UnsavedChangesHelper.clear();
-                      widget.onBack();
+                      Future.delayed(const Duration(milliseconds: 60), () {
+                        widget.onBack();
+                      });
                     },
                     child: const Text('Discard & Leave'),
                   ),
@@ -947,14 +983,14 @@ class _NewPatientRegistrationViewState
                         hint: 'Enter Email Address',
                         keyboardType: TextInputType.emailAddress,
                         inputFormatters: [
-                          LengthLimitingTextInputFormatter(100),
+                          LengthLimitingTextInputFormatter(254),
                         ],
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
                             return 'Please enter Email Address';
                           }
-                          if (val.trim().length > 100) {
-                            return 'Email address cannot exceed 100 characters';
+                          if (val.trim().length > 254) {
+                            return 'Email address cannot exceed 254 characters';
                           }
                           if (!RegExp(
                             r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
@@ -1055,11 +1091,11 @@ class _NewPatientRegistrationViewState
                             return 'Please enter Mobile Number';
                           }
                           final clean = val.trim();
+                          if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+                            return 'Mobile number must start with 6, 7, 8, or 9';
+                          }
                           if (clean.length != 10) {
                             return 'Mobile number must be exactly 10 digits';
-                          }
-                          if (!RegExp(r'^[6-9]\d{9}$').hasMatch(clean)) {
-                            return 'Mobile number must start with 6, 7, 8, or 9';
                           }
                           return null;
                         },
@@ -1111,7 +1147,7 @@ class _NewPatientRegistrationViewState
                         hint: 'Enter Relationship',
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(
-                            RegExp(r'[a-zA-Z\s.]'),
+                            RegExp(r'[a-zA-Z\s]'),
                           ),
                           LengthLimitingTextInputFormatter(20),
                         ],
@@ -1145,11 +1181,11 @@ class _NewPatientRegistrationViewState
                             return 'Please enter Emergency Mobile Number';
                           }
                           final clean = val.trim();
+                          if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+                            return 'Emergency mobile number must start with 6, 7, 8, or 9';
+                          }
                           if (clean.length != 10) {
                             return 'Emergency mobile number must be exactly 10 digits';
-                          }
-                          if (!RegExp(r'^[6-9]\d{9}$').hasMatch(clean)) {
-                            return 'Emergency mobile number must start with 6, 7, 8, or 9';
                           }
                           return null;
                         },
@@ -1497,9 +1533,8 @@ class _NewPatientRegistrationViewState
                         final text = val?.trim() ?? '';
                         if (text.isEmpty) return null;
                         final num = double.tryParse(text);
-                        if (num == null) return 'Enter a number';
-                        if (num == 0) return 'Cannot be 0';
-                        if (num < 30 || num > 300) return '30 to 300 cm';
+                        if (num == null) return 'Height must be a valid number';
+                        if (num <= 0) return 'Height must be greater than 0';
                         return null;
                       },
                     ),
@@ -1518,9 +1553,8 @@ class _NewPatientRegistrationViewState
                         final text = val?.trim() ?? '';
                         if (text.isEmpty) return null;
                         final num = double.tryParse(text);
-                        if (num == null) return 'Enter a number';
-                        if (num == 0) return 'Cannot be 0';
-                        if (num < 1 || num > 600) return '1 to 600 kg';
+                        if (num == null) return 'Weight must be a valid number';
+                        if (num <= 0) return 'Weight must be greater than 0';
                         return null;
                       },
                     ),
@@ -1544,9 +1578,9 @@ class _NewPatientRegistrationViewState
                         final text = val?.trim() ?? '';
                         if (text.isEmpty) return null;
                         final num = int.tryParse(text);
-                        if (num == null) return 'Enter a number';
-                        if (num == 0) return 'Cannot be 0';
-                        if (num < 70 || num > 300) return '70 to 300';
+                        if (num == null) return 'Systolic BP must be an integer';
+                        if (num == 0) return 'Systolic BP cannot be 0';
+                        if (num < 90 || num > 300) return 'Systolic BP must be between 90 and 300 mmHg';
                         return null;
                       },
                     ),
@@ -1571,9 +1605,9 @@ class _NewPatientRegistrationViewState
                         final text = val?.trim() ?? '';
                         if (text.isEmpty) return null;
                         final num = int.tryParse(text);
-                        if (num == null) return 'Enter a number';
-                        if (num == 0) return 'Cannot be 0';
-                        if (num < 40 || num > 180) return '40 to 180';
+                        if (num == null) return 'Diastolic BP must be an integer';
+                        if (num == 0) return 'Diastolic BP cannot be 0';
+                        if (num < 50 || num > 180) return 'Diastolic BP must be between 50 and 180 mmHg';
                         return null;
                       },
                     ),
@@ -1602,9 +1636,9 @@ class _NewPatientRegistrationViewState
                             final text = val?.trim() ?? '';
                             if (text.isEmpty) return null;
                             final num = double.tryParse(text);
-                            if (num == null) return 'Enter a number';
-                            if (num == 0) return 'Cannot be 0';
-                            if (num < 30 || num > 600) return '30 to 600';
+                            if (num == null) return 'Sugar Level must be a number';
+                            if (num == 0) return 'Sugar Level cannot be 0';
+                            if (num < 30 || num > 600) return 'Sugar Level must be between 30 and 600 mg/dL';
                             return null;
                           },
                         ),
@@ -1631,9 +1665,9 @@ class _NewPatientRegistrationViewState
                             final text = val?.trim() ?? '';
                             if (text.isEmpty) return null;
                             final num = double.tryParse(text);
-                            if (num == null) return 'Enter a number';
-                            if (num == 0) return 'Cannot be 0';
-                            if (num < 90 || num > 115) return '90 to 115 °F';
+                            if (num == null) return 'Temperature must be a number';
+                            if (num == 0) return 'Temperature cannot be 0';
+                            if (num < 90 || num > 115) return 'Temperature must be between 90 and 115 °F';
                             return null;
                           },
                         ),
@@ -1740,10 +1774,8 @@ class _NewPatientRegistrationViewState
                                   final text = val?.trim() ?? '';
                                   if (text.isEmpty) return null;
                                   final num = double.tryParse(text);
-                                  if (num == null) return 'Enter a number';
-                                  if (num == 0) return 'Cannot be 0';
-                                  if (num < 30 || num > 300)
-                                    return '30 to 300 cm';
+                                  if (num == null) return 'Height must be a valid number';
+                                  if (num <= 0) return 'Height must be greater than 0';
                                   return null;
                                 },
                               ),
@@ -1764,10 +1796,8 @@ class _NewPatientRegistrationViewState
                                   final text = val?.trim() ?? '';
                                   if (text.isEmpty) return null;
                                   final num = double.tryParse(text);
-                                  if (num == null) return 'Enter a number';
-                                  if (num == 0) return 'Cannot be 0';
-                                  if (num < 1 || num > 600)
-                                    return '1 to 600 kg';
+                                  if (num == null) return 'Weight must be a valid number';
+                                  if (num <= 0) return 'Weight must be greater than 0';
                                   return null;
                                 },
                               ),
@@ -3176,6 +3206,19 @@ class _NewPatientRegistrationViewState
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1),
         ),
+        errorMaxLines: 2,
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+        ),
+        errorStyle: const TextStyle(
+          fontSize: 11,
+          color: AppTheme.dangerColor,
+        ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
@@ -3244,13 +3287,13 @@ class _NewPatientRegistrationViewState
     }
     if (heightText.isNotEmpty) {
       final val = double.tryParse(heightText);
-      if (val == null) throw 'Height must be a number';
-      if (val == 0) throw 'Height cannot be 0';
+      if (val == null) throw 'Height must be a valid number';
+      if (val <= 0) throw 'Height must be greater than 0';
     }
     if (weightText.isNotEmpty) {
       final val = double.tryParse(weightText);
-      if (val == null) throw 'Weight must be a number';
-      if (val == 0) throw 'Weight cannot be 0';
+      if (val == null) throw 'Weight must be a valid number';
+      if (val <= 0) throw 'Weight must be greater than 0';
     }
   }
 
@@ -3351,7 +3394,11 @@ class _NewPatientRegistrationViewState
         int years = now.year - picked.year;
         int months = now.month - picked.month;
         int days = now.day - picked.day;
-        if (days < 0) months--;
+        if (days < 0) {
+          months--;
+          final prevMonth = DateTime(now.year, now.month, 0);
+          days += prevMonth.day;
+        }
         if (months < 0) {
           years--;
           months += 12;
@@ -3359,14 +3406,10 @@ class _NewPatientRegistrationViewState
 
         if (years >= 1) {
           _ageController.text = years.toString();
+        } else if (months >= 1) {
+          _ageController.text = '$months month${months == 1 ? '' : 's'}';
         } else {
-          if (months <= 0) {
-            int diffDays = now.difference(picked).inDays;
-            if (diffDays < 0) diffDays = 0;
-            _ageController.text = diffDays < 30 ? '$diffDays days' : '1 month';
-          } else {
-            _ageController.text = '$months month${months == 1 ? '' : 's'}';
-          }
+          _ageController.text = '$days day${days == 1 ? '' : 's'}';
         }
       });
     }

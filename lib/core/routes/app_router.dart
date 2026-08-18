@@ -16,6 +16,8 @@ import '../../screens/front_desk_dashboard.dart';
 import '../../screens/lab_dashboard.dart';
 import '../../screens/pharmacy_dashboard.dart';
 import '../../screens/ipd_patient_detail_page.dart';
+import '../../utils/modal_history_helper.dart';
+import '../../utils/modal_history_observer.dart';
 import 'route_constants.dart';
 import 'screens/not_found_screen.dart';
 
@@ -64,12 +66,16 @@ class AppRouter {
 
   static GoRouter createRouter(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    ModalHistoryHelper.initialize(parentNavigatorKey);
 
     return GoRouter(
       navigatorKey: parentNavigatorKey,
       initialLocation: AppRoutes.login,
       debugLogDiagnostics: true,
       refreshListenable: authProvider,
+      observers: [
+        ModalHistoryObserver(),
+      ],
 
       // 🛑 ROUTE GUARDS & DYNAMIC REDIRECTION (Auth & Role-Based Checks)
       redirect: (context, state) {
@@ -256,11 +262,12 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.adminNewPatient,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            key: ValueKey('admin_dashboard'),
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('admin_dashboard'),
             child: AdminDashboardScreen(
               initialIndex: 2,
               isRegisteringPatient: true,
+              existingPatient: _parsePatient(state.extra),
             ),
           ),
         ),
@@ -407,11 +414,12 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.nurseNewPatient,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            key: ValueKey('nurse_dashboard'),
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('nurse_dashboard'),
             child: NurseDashboardScreen(
               initialIndex: 1,
               isRegisteringPatient: true,
+              existingPatient: _parsePatient(state.extra),
             ),
           ),
         ),
@@ -739,11 +747,12 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.frontDeskNewPatient,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            key: ValueKey('reception_dashboard'),
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('reception_dashboard'),
             child: FrontDeskDashboardScreen(
               initialIndex: 1,
               isRegisteringPatient: true,
+              existingPatient: _parsePatient(state.extra),
             ),
           ),
         ),

@@ -25,6 +25,7 @@ class CustomDropdownSearch extends StatefulWidget {
   final Color? popupBgColor;
   final double? hintFontSize;
   final bool allowFreeText;
+  final bool readOnly;
 
   const CustomDropdownSearch({
     super.key,
@@ -47,6 +48,7 @@ class CustomDropdownSearch extends StatefulWidget {
     this.popupBgColor,
     this.hintFontSize,
     this.allowFreeText = false,
+    this.readOnly = false,
   });
 
   static bool get isOpen =>
@@ -164,6 +166,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       _textEditingController.clear();
       field.didChange(null);
       widget.onChanged?.call(null);
+      _filteredItems = _allEntries.entries.toList();
     }
   }
 
@@ -194,7 +197,8 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
         }
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.enter) {
-        if (_highlightedIndex >= 0 &&
+        if (_filteredItems.isNotEmpty &&
+            _highlightedIndex >= 0 &&
             _highlightedIndex < _filteredItems.length) {
           if (_fieldKey.currentState != null) {
             _selectItem(
@@ -202,6 +206,12 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
               _filteredItems[_highlightedIndex],
             );
           }
+          return KeyEventResult.handled;
+        } else {
+          if (_fieldKey.currentState != null) {
+            _validateAndSyncInput(_fieldKey.currentState!);
+          }
+          _hideDropdown();
           return KeyEventResult.handled;
         }
       }
@@ -263,12 +273,10 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       });
     }
 
-    // Always keep display text and filtered list in sync when value/map/items change
-    if (widget.value != oldWidget.value ||
-        widget.dropdownMap != oldWidget.dropdownMap ||
-        widget.dropdownItems != oldWidget.dropdownItems) {
+    // Keep display text in sync when value changes externally and user is not actively typing
+    if (widget.value != oldWidget.value) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
+        if (mounted && !_searchFocusNode.hasFocus) {
           final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
           if (displayValue != _textEditingController.text) {
             _textEditingController.text = displayValue;
@@ -282,7 +290,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
 
     if (widget.dropdownItems != oldWidget.dropdownItems ||
         widget.dropdownMap != oldWidget.dropdownMap) {
-      _filteredItems = _allEntries.entries.toList();
+      if (!_searchFocusNode.hasFocus) {
+        _filteredItems = _allEntries.entries.toList();
+      }
     }
   }
 
@@ -338,7 +348,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     final size = renderBox.size;
 
     _highlightedIndex = 0;
-    if (!_searchFocusNode.hasFocus) {
+    if (!widget.readOnly && !_searchFocusNode.hasFocus) {
       _searchFocusNode.requestFocus();
     }
 
@@ -657,10 +667,22 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
               initialValue: widget.value,
               autovalidateMode: AutovalidateMode.onUserInteraction,
               validator: (val) {
-                if (!widget.allowFreeText && val != null && val.trim().isNotEmpty) {
-                  final isValid = _allEntries.containsKey(val) || _allEntries.containsValue(val);
-                  if (!isValid) {
-                    return 'Please select a valid option from the list';
+                if (!widget.allowFreeText) {
+                  final rawText = _textEditingController.text.trim();
+                  if (rawText.isNotEmpty) {
+                    final isKnown = _allEntries.entries.any((e) =>
+                        e.key.toLowerCase() == rawText.toLowerCase() ||
+                        e.value.toLowerCase() == rawText.toLowerCase());
+                    if (!isKnown) {
+                      return 'Please select a valid option from the list';
+                    }
+                  }
+                  if (val != null && val.trim().isNotEmpty) {
+                    final isValid = _allEntries.containsKey(val) ||
+                        _allEntries.containsValue(val);
+                    if (!isValid) {
+                      return 'Please select a valid option from the list';
+                    }
                   }
                 }
                 if (widget.validator != null) {
@@ -716,6 +738,11 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                 controller: _textEditingController,
                                 focusNode: _searchFocusNode,
                                 enabled: widget.isEnabled,
+                                readOnly: widget.readOnly,
+                                enableInteractiveSelection: !widget.readOnly,
+                                mouseCursor: widget.readOnly
+                                    ? SystemMouseCursors.click
+                                    : SystemMouseCursors.text,
                                 textInputAction: TextInputAction.done,
                                 onTapOutside: (_) {},
                                 decoration: InputDecoration(
@@ -746,31 +773,40 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                   fontSize: 14,
                                   fontWeight: FontWeight.w400,
                                 ),
-                                  onChanged: (val) {
-                                    if (widget.allowFreeText) {
-                                      field.didChange(val);
-                                      widget.onChanged?.call(val);
+                                onChanged: (val) {
+                                  if (widget.allowFreeText) {
+                                    field.didChange(val);
+                                    widget.onChanged?.call(val);
+                                  } else {
+                                    MapEntry<String, String>? matched;
+                                    for (final entry in _allEntries.entries) {
+                                      if (entry.key.toLowerCase() ==
+                                              val.trim().toLowerCase() ||
+                                          entry.value.toLowerCase() ==
+                                              val.trim().toLowerCase()) {
+                                        matched = entry;
+                                        break;
+                                      }
+                                    }
+                                    if (matched != null) {
+                                      field.didChange(matched.key);
+                                      widget.onChanged?.call(matched.key);
                                     } else {
-                                      MapEntry<String, String>? matched;
-                                      for (final entry in _allEntries.entries) {
-                                        if (entry.key.toLowerCase() == val.trim().toLowerCase() ||
-                                            entry.value.toLowerCase() == val.trim().toLowerCase()) {
-                                          matched = entry;
-                                          break;
-                                        }
-                                      }
-                                      if (matched != null) {
-                                        field.didChange(matched.key);
-                                        widget.onChanged?.call(matched.key);
-                                      } else {
-                                        field.didChange(val.isEmpty ? null : val);
-                                      }
+                                      field.didChange(null);
+                                      widget.onChanged?.call(null);
                                     }
-                                    _filterItems(val);
-                                    if (_overlayEntry == null) {
-                                      _showDropdown(field);
-                                    }
-                                  },
+                                  }
+                                  _filterItems(val);
+                                  if (_overlayEntry == null) {
+                                    _showDropdown(field);
+                                  }
+                                },
+                                onSubmitted: (_) {
+                                  if (_fieldKey.currentState != null) {
+                                    _validateAndSyncInput(_fieldKey.currentState!);
+                                  }
+                                  _hideDropdown();
+                                },
                                 onTap: () {
                                   _toggleDropdown(field);
                                 },

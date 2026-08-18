@@ -279,6 +279,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     int index, {
     bool isRegistering = false,
     bool forceBooking = false,
+    PatientModel? prefilledPatient,
   }) {
     if (!mounted) return;
     setState(() => _selectedHomeVisitId = null);
@@ -288,7 +289,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         break;
       case 1:
         if (isRegistering) {
-          context.go(AppRoutes.nurseNewPatient);
+          context.go(
+            AppRoutes.nurseNewPatient,
+            extra: prefilledPatient ?? _patientToComplete,
+          );
         } else {
           context.go(AppRoutes.nursePatients);
         }
@@ -426,11 +430,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             setState(() {
               _isRegisteringPatient = false;
               _patientToComplete = null;
-              if (patientToReturn != null) {
+              if (patientToReturn != null && patientToReturn.id != null) {
                 _viewPatient = patientToReturn;
               }
             });
-            if (patientToReturn != null) {
+            if (patientToReturn != null && patientToReturn.id != null) {
               context.go(AppRoutes.nurseViewPatient, extra: patientToReturn);
             } else {
               context.go(AppRoutes.nursePatients);
@@ -451,7 +455,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             isLoading: _isLoadingPatients,
             error: _patientError,
             initialSelectedPatient: _viewPatient,
-            onRegisterPatient: () => _changePage(1, isRegistering: true),
+            onRegisterPatient: ([prefilledPatient]) {
+              setState(() {
+                _patientToComplete = prefilledPatient;
+              });
+              _changePage(1, isRegistering: true, prefilledPatient: prefilledPatient);
+            },
             onCompleteProfile: (patient) {
               context.go(AppRoutes.nurseEditPatient, extra: patient);
             },

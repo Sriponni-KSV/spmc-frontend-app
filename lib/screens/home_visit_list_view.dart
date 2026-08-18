@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
@@ -1124,61 +1125,135 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
   void _showDiscontinueDialog(BuildContext context, HomeVisitModel visit) {
     String selectedReason = 'Patient Cured / Fully Recovered';
     final notesCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
+          title: const Row(
             children: [
               Icon(Icons.do_not_disturb_on_outlined, color: AppTheme.dangerColor, size: 26),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Stop / Discontinue Home Visit Care',
+                  'Stop / Discontinue Care Session',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Are you sure you want to stop/discontinue home visit care for ${visit.patientName ?? "Patient #${visit.patientId}"}?',
-                style: const TextStyle(fontSize: 13, color: Colors.black87),
+          content: Form(
+            key: formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Care Session: ${visit.visitNumber}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Patient: ${visit.patientName ?? "N/A"} (${visit.patientDisplayId ?? ""})',
+                          style: const TextStyle(fontSize: 12, color: Colors.black87),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Scheduled Date: ${visit.scheduledDate} | Status: ${visit.status}',
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Are you sure you want to stop/discontinue care session (${visit.visitNumber}) for ${visit.patientName ?? "the patient"}?',
+                    style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Select Discontinuation Reason:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  CustomDropdownSearch(
+                    label: '',
+                    hint: 'Search & Select Reason',
+                    allowFreeText: false,
+                    dropdownMap: const {
+                      'Patient Cured / Fully Recovered': 'Patient Cured / Fully Recovered',
+                      'Patient / Attender Requested Discontinuation': 'Patient / Attender Requested Discontinuation',
+                      'Admitted to Hospital / IPD Care': 'Admitted to Hospital / IPD Care',
+                      'Doctor Advice / Care Plan Ended': 'Doctor Advice / Care Plan Ended',
+                      'Other Reason': 'Other Reason',
+                    },
+                    value: selectedReason,
+                    onChanged: (val) {
+                      setDialogState(() => selectedReason = val ?? '');
+                    },
+                    validator: (val) {
+                      const validReasons = [
+                        'Patient Cured / Fully Recovered',
+                        'Patient / Attender Requested Discontinuation',
+                        'Admitted to Hospital / IPD Care',
+                        'Doctor Advice / Care Plan Ended',
+                        'Other Reason',
+                      ];
+                      if (val == null ||
+                          val.trim().isEmpty ||
+                          !validReasons.contains(val.trim())) {
+                        return 'Please select a valid discontinuation reason';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('Additional Notes / Remarks (Optional):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: notesCtrl,
+                    maxLines: 2,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;%+]'),
+                      ),
+                      LengthLimitingTextInputFormatter(250),
+                    ],
+                    decoration: AppTheme.standardInputDecoration(
+                      hintText: 'Enter reason notes (e.g. Cured and recovered)...',
+                    ).copyWith(counterText: ''),
+                    validator: (val) {
+                      if (val != null && val.trim().isNotEmpty) {
+                        final clean = val.trim();
+                        if (clean.length > 250) {
+                          return 'Notes cannot exceed 250 characters';
+                        }
+                        if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
+                          return 'Notes must contain alphabetical characters if provided';
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              const Text('Select Discontinuation Reason:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              const SizedBox(height: 6),
-              CustomDropdownSearch(
-                label: '',
-                hint: 'Select Reason',
-                dropdownMap: const {
-                  'Patient Cured / Fully Recovered': 'Patient Cured / Fully Recovered',
-                  'Patient / Attender Requested Discontinuation': 'Patient / Attender Requested Discontinuation',
-                  'Admitted to Hospital / IPD Care': 'Admitted to Hospital / IPD Care',
-                  'Doctor Advice / Care Plan Ended': 'Doctor Advice / Care Plan Ended',
-                  'Other Reason': 'Other Reason',
-                },
-                value: selectedReason,
-                onChanged: (val) {
-                  if (val != null) {
-                    setDialogState(() => selectedReason = val);
-                  }
-                },
-              ),
-              const SizedBox(height: 14),
-              const Text('Additional Notes / Remarks (Optional):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: notesCtrl,
-                maxLines: 2,
-                decoration: AppTheme.standardInputDecoration(hintText: 'Enter reason notes (e.g. Cured and recovered)...'),
-              ),
-            ],
+            ),
           ),
           actions: [
             TextButton(
@@ -1188,16 +1263,19 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             ElevatedButton.icon(
               style: AppTheme.dangerButton,
               icon: const Icon(Icons.check_circle_outline, size: 18),
-              label: const Text('Stop Care'),
+              label: const Text('Stop Care Session'),
               onPressed: () async {
+                if (formKey.currentState != null && !formKey.currentState!.validate()) {
+                  return;
+                }
                 final homeVisitCtrl = Provider.of<HomeVisitController>(context, listen: false);
-                final success = await homeVisitCtrl.cancelVisit(visit.id, selectedReason, notesCtrl.text);
+                final success = await homeVisitCtrl.cancelVisit(visit.id, selectedReason, notesCtrl.text.trim());
                 if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
 
                 if (success && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Home visit care for ${visit.patientName ?? "Patient"} stopped/discontinued successfully.'),
+                      content: Text('Care session (${visit.visitNumber}) for ${visit.patientName ?? "Patient"} stopped/discontinued successfully.'),
                       backgroundColor: AppTheme.secondaryColor,
                     ),
                   );

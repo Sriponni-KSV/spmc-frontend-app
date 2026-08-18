@@ -313,6 +313,19 @@ class HomeVisitService {
     }
   }
 
+  // Update Procedure Master Entry
+  Future<void> updateProcedureMaster(int procedureId, Map<String, dynamic> procData) async {
+    try {
+      final response = await ApiService.put('$baseUrl/home-visits/procedures-master/$procedureId', procData);
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to update procedure');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
   // Delete/Deactivate Procedure Master
   Future<void> deleteProcedureMaster(int procedureId) async {
     try {
@@ -352,6 +365,32 @@ class HomeVisitService {
     }
   }
 
+  // Update Consumable Item Master Entry
+  Future<void> updateConsumableMaster(int id, Map<String, dynamic> itemData) async {
+    try {
+      final response = await ApiService.put('$baseUrl/home-visits/consumables-master/$id', itemData);
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to update consumable item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Soft Delete / Deactivate Consumable Item Master
+  Future<void> deleteConsumableMaster(int id) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/home-visits/consumables-master/$id');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to deactivate consumable item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
   // Fetch Master Carried Kit Items
   Future<List<Map<String, dynamic>>> fetchKitItemsMaster() async {
     try {
@@ -373,6 +412,21 @@ class HomeVisitService {
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to save kit item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Update Master Carried Kit Item
+  Future<Map<String, dynamic>> updateKitItemMaster(int id, Map<String, dynamic> itemData) async {
+    try {
+      final response = await ApiService.put('$baseUrl/home-visits/kit-items-master/$id', itemData);
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true) {
+        return Map<String, dynamic>.from(body['data'] ?? {});
+      } else {
+        throw Exception(body['message'] ?? 'Failed to update kit item');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
