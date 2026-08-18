@@ -9,6 +9,7 @@ import '../controllers/auth_controller.dart';
 import '../providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../widgets/otp_input_widget.dart';
+import '../utils/no_paste_formatter.dart';
 
 class ForceChangePasswordScreen extends StatefulWidget {
   final String email;
@@ -397,6 +398,20 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
               },
               textInputAction: TextInputAction.done,
               onFieldSubmitted: (_) => _nextStep(),
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(16),
+                NoPasteFormatter(),
+              ],
+              contextMenuBuilder: (context, editableTextState) {
+                final List<ContextMenuButtonItem> buttonItems =
+                    editableTextState.contextMenuButtonItems
+                        .where((item) => item.type != ContextMenuButtonType.paste)
+                        .toList();
+                return AdaptiveTextSelectionToolbar.buttonItems(
+                  anchors: editableTextState.contextMenuAnchors,
+                  buttonItems: buttonItems,
+                );
+              },
               decoration: InputDecoration(
                 counterText: '',
                 hintText: 'Confirm New Password',

@@ -7,6 +7,7 @@ import '../core/routes/route_constants.dart';
 import '../utils/password_policy.dart';
 import 'package:flutter/services.dart';
 import '../controllers/auth_controller.dart';
+import '../utils/auth_nav_state.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -23,6 +24,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final email = AuthNavState.consumePendingEmail();
+    if (email.isNotEmpty) {
+      _emailController.text = email;
+    }
+  }
 
   @override
   void dispose() {
@@ -261,6 +271,8 @@ class _LoginScreenState extends State<LoginScreen> {
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: () {
+              final email = _emailController.text.trim();
+              AuthNavState.setPendingEmail(email);
               context.go(AppRoutes.forgotPassword);
             },
             style: TextButton.styleFrom(

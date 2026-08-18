@@ -8,6 +8,8 @@ import '../core/routes/route_constants.dart';
 import '../utils/password_policy.dart';
 import 'package:flutter/services.dart';
 import '../widgets/otp_input_widget.dart';
+import '../utils/auth_nav_state.dart';
+import '../utils/no_paste_formatter.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);
@@ -44,6 +46,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   String? _otpErrorMessage;
 
   final AuthController _authController = AuthController();
+
+  @override
+  void initState() {
+    super.initState();
+    final email = AuthNavState.consumePendingEmail();
+    if (email.isNotEmpty) {
+      _emailController.text = email;
+    }
+  }
 
   @override
   void dispose() {
@@ -132,10 +143,75 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             newPassword: _newPasswordController.text,
           );
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Password changed successfully!'),
-              backgroundColor: Colors.green,
+          await showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              contentPadding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: Colors.green.shade600,
+                      size: 48,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Password Reset Successful!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: AppTheme.fontFamily,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Your password has been changed successfully. Please log in with your new password.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                      fontFamily: AppTheme.fontFamily,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      context.go(AppRoutes.login);
+                    },
+                    style: AppTheme.primaryButton.copyWith(
+                      minimumSize: MaterialStateProperty.all(
+                        const Size(double.infinity, 48),
+                      ),
+                      shape: MaterialStateProperty.all(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    child: const Text('OK, Go to Login'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
             ),
           );
         } catch (e) {
@@ -453,7 +529,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 16),
           TextButton(
-            onPressed: () => context.go(AppRoutes.login),
+            onPressed: () {
+              final email = _emailController.text.trim();
+              AuthNavState.setPendingEmail(email);
+              context.go(AppRoutes.login);
+            },
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.textSecondaryColor,
               overlayColor: Colors.transparent,
@@ -538,7 +618,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 12),
           TextButton(
-            onPressed: () => context.go(AppRoutes.login),
+            onPressed: () {
+              final email = _emailController.text.trim();
+              AuthNavState.setPendingEmail(email);
+              context.go(AppRoutes.login);
+            },
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.textSecondaryColor,
               overlayColor: Colors.transparent,
@@ -678,7 +762,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             },
             onFieldSubmitted: (_) => _nextStep(),
             maxLength: 16,
-            inputFormatters: [LengthLimitingTextInputFormatter(16)],
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(16),
+              NoPasteFormatter(),
+            ],
+            contextMenuBuilder: (context, editableTextState) {
+              final List<ContextMenuButtonItem> buttonItems =
+                  editableTextState.contextMenuButtonItems
+                      .where((item) => item.type != ContextMenuButtonType.paste)
+                      .toList();
+              return AdaptiveTextSelectionToolbar.buttonItems(
+                anchors: editableTextState.contextMenuAnchors,
+                buttonItems: buttonItems,
+              );
+            },
             decoration: InputDecoration(
               counterText: '',
               hintText: 'Enter Confirm Password',
