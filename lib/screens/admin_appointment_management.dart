@@ -9,6 +9,7 @@ import '../controllers/appointment_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/appointment_details_dialog.dart';
+import '../utils/unsaved_changes_helper.dart';
 
 class AdminAppointmentManagement extends StatefulWidget {
   const AdminAppointmentManagement({Key? key}) : super(key: key);
@@ -102,11 +103,13 @@ class _AdminAppointmentManagementState
   @override
   void initState() {
     super.initState();
+    UnsavedChangesHelper.setUnsavedChanges(true);
     _loadData();
   }
 
   @override
   void dispose() {
+    UnsavedChangesHelper.setUnsavedChanges(false);
     _vScroll.dispose();
     _hScroll.dispose();
     _searchController.dispose();

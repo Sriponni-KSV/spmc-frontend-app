@@ -77,4 +77,59 @@ class DateFormatter {
       }
     }
   }
+
+  /// Formats patient age. Returns age in months for infants under 1 year (e.g. "6 months" or "6m"),
+  /// or age in years (e.g. "25 years" or "25y").
+  static String formatAge(dynamic age, {dynamic dob, bool shortUnit = false}) {
+    DateTime? dt = toDateTime(dob);
+
+    if (dt != null) {
+      final now = DateTime.now();
+      int years = now.year - dt.year;
+      int months = now.month - dt.month;
+      int days = now.day - dt.day;
+
+      if (days < 0) {
+        months--;
+      }
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
+
+      if (years >= 1) {
+        return shortUnit ? '${years}y' : '$years years';
+      } else {
+        // Infant under 1 year old -> Display in terms of months!
+        if (months <= 0) {
+          int diffDays = now.difference(dt).inDays;
+          if (diffDays < 0) diffDays = 0;
+          if (diffDays == 0) {
+            return shortUnit ? '0m' : '0 months';
+          }
+          if (diffDays < 30) {
+            return shortUnit ? '${diffDays}d' : '$diffDays days';
+          }
+          return shortUnit ? '1m' : '1 month';
+        }
+        return shortUnit
+            ? '${months}m'
+            : '$months month${months == 1 ? '' : 's'}';
+      }
+    }
+
+    // Fallback if dob is missing/invalid
+    int ageNum = 0;
+    if (age is int) {
+      ageNum = age;
+    } else if (age != null) {
+      ageNum = int.tryParse(age.toString()) ?? 0;
+    }
+
+    if (ageNum > 0) {
+      return shortUnit ? '${ageNum}y' : '$ageNum years';
+    }
+
+    return 'Not Provided';
+  }
 }

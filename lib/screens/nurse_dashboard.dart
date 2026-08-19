@@ -27,6 +27,8 @@ import '../utils/logout_helper.dart';
 import '../models/user_model.dart';
 import '../controllers/nurse_shift_controller.dart';
 import '../widgets/user_profile_dialog.dart';
+import '../utils/modal_history_helper.dart';
+import '../utils/unsaved_changes_helper.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -275,20 +277,202 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     super.dispose();
   }
 
+  Future<bool> _confirmLeaveActiveVisit() async {
+    if (_selectedHomeVisitId == null || _isReadOnlyHomeVisit) {
+      return true;
+    }
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: Colors.white,
+        child: Container(
+          width: 440,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.warning_amber_rounded,
+                      color: AppTheme.dangerColor,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Unsaved Clinical Session Data',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppTheme.textPrimaryColor,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'An active Home Visit Care session is currently in progress. If you navigate away now, any unsaved inputs or form entries will be lost.\n\nDo you want to leave this clinical visit?',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: Color(0xFF64748B),
+                  height: 1.4,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    style: AppTheme.cancelButton,
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('Stay on Page'),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    style: AppTheme.dangerButton,
+                    onPressed: () {
+                      ModalHistoryHelper.skipNextHistoryBack();
+                      Navigator.of(ctx).pop(true);
+                    },
+                    child: const Text('Leave Page'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return shouldLeave == true;
+  }
+
+  Future<bool> _confirmLeaveRegistration() async {
+    if (!_isRegisteringPatient) {
+      return true;
+    }
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: Colors.white,
+        child: Container(
+          width: 440,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.warning_amber_rounded,
+                      color: AppTheme.dangerColor,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Unsaved Patient Registration',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppTheme.textPrimaryColor,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'You are currently filling the patient registration form. If you navigate away now, any unsaved inputs will be lost.\n\nDo you want to leave this page?',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: Color(0xFF64748B),
+                  height: 1.4,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    style: AppTheme.cancelButton,
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('Stay on Page'),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    style: AppTheme.dangerButton,
+                    onPressed: () {
+                      ModalHistoryHelper.skipNextHistoryBack();
+                      Navigator.of(ctx).pop(true);
+                    },
+                    child: const Text('Leave Page'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return shouldLeave == true;
+  }
+
   void _changePage(
     int index, {
     bool isRegistering = false,
     bool forceBooking = false,
-  }) {
+    PatientModel? prefilledPatient,
+  }) async {
     if (!mounted) return;
-    setState(() => _selectedHomeVisitId = null);
+    if (_selectedHomeVisitId != null && !_isReadOnlyHomeVisit) {
+      final shouldLeave = await _confirmLeaveActiveVisit();
+      if (!shouldLeave || !mounted) return;
+    }
+    if (_isRegisteringPatient) {
+      if (index == 1 && isRegistering) {
+        return;
+      }
+      final shouldLeave = await _confirmLeaveRegistration();
+      if (!shouldLeave || !mounted) return;
+      setState(() => _isRegisteringPatient = false);
+    }
+    setState(() {
+      _selectedHomeVisitId = null;
+      _isReadOnlyHomeVisit = false;
+      _selectedIndex = index;
+    });
     switch (index) {
       case 0:
         context.go(AppRoutes.nurseDashboard);
         break;
       case 1:
         if (isRegistering) {
-          context.go(AppRoutes.nurseNewPatient);
+          context.go(
+            AppRoutes.nurseNewPatient,
+            extra: prefilledPatient ?? _patientToComplete,
+          );
         } else {
           context.go(AppRoutes.nursePatients);
         }
@@ -361,39 +545,61 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     );
   }
 
+  bool _isFormActive() {
+    if (_isRegisteringPatient ||
+        widget.isRegisteringPatient ||
+        widget.isEditingProfile ||
+        _patientToComplete != null) {
+      return true;
+    }
+    try {
+      final loc = GoRouterState.of(context).matchedLocation;
+      if (loc.contains('new-patient') ||
+          loc.contains('edit-patient') ||
+          loc.contains('book-appointment')) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
+    final bool isFormActive = _isFormActive();
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
-      floatingActionButton: CustomSpeedDial(
-        children: [
-          if (Provider.of<AuthProvider>(
-                context,
-                listen: false,
-              ).user?.hasPermission('add_patient') ??
-              false)
-            SpeedDialChild(
-              label: 'New Patient',
-              icon: Icons.person_add_alt_1_outlined,
-              color: AppTheme.dangerColor,
-              onTap: () => _changePage(1, isRegistering: true),
+      floatingActionButton: isFormActive
+          ? null
+          : CustomSpeedDial(
+              isVisible: !isFormActive,
+              children: [
+                if (Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    ).user?.hasPermission('add_patient') ??
+                    false)
+                  SpeedDialChild(
+                    label: 'New Patient',
+                    icon: Icons.person_add_alt_1_outlined,
+                    color: AppTheme.dangerColor,
+                    onTap: () => _changePage(1, isRegistering: true),
+                  ),
+                if (Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    ).user?.hasPermission('book_appointment') ??
+                    false)
+                  SpeedDialChild(
+                    label: 'Book Appointment',
+                    icon: Icons.calendar_month_outlined,
+                    color: const Color(0xFF0D5D9A),
+                    onTap: () => _changePage(2, forceBooking: true),
+                  ),
+              ],
             ),
-          if (Provider.of<AuthProvider>(
-                context,
-                listen: false,
-              ).user?.hasPermission('book_appointment') ??
-              false)
-            SpeedDialChild(
-              label: 'Book Appointment',
-              icon: Icons.calendar_month_outlined,
-              color: const Color(0xFF0D5D9A),
-              onTap: () => _changePage(2, forceBooking: true),
-            ),
-        ],
-      ),
       body: Row(
         children: [
           // Sidebar (only on desktop)
@@ -422,11 +628,19 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           key: UniqueKey(),
           existingPatient: _patientToComplete,
           onBack: () {
+            final patientToReturn = _patientToComplete;
             setState(() {
               _isRegisteringPatient = false;
               _patientToComplete = null;
+              if (patientToReturn != null && patientToReturn.id != null) {
+                _viewPatient = patientToReturn;
+              }
             });
-            context.go(AppRoutes.nursePatients);
+            if (patientToReturn != null && patientToReturn.id != null) {
+              context.go(AppRoutes.nurseViewPatient, extra: patientToReturn);
+            } else {
+              context.go(AppRoutes.nursePatients);
+            }
             _fetchPatients();
           },
         );
@@ -443,7 +657,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             isLoading: _isLoadingPatients,
             error: _patientError,
             initialSelectedPatient: _viewPatient,
-            onRegisterPatient: () => _changePage(1, isRegistering: true),
+            onRegisterPatient: ([prefilledPatient]) {
+              setState(() {
+                _patientToComplete = prefilledPatient;
+              });
+              _changePage(1, isRegistering: true, prefilledPatient: prefilledPatient);
+            },
             onCompleteProfile: (patient) {
               context.go(AppRoutes.nurseEditPatient, extra: patient);
             },

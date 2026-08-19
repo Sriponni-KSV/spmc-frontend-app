@@ -13,6 +13,7 @@ import '../providers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../services/api_service.dart';
+import '../utils/unsaved_changes_helper.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class IPDPatientDetailPage extends StatefulWidget {
@@ -91,6 +92,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   @override
   void initState() {
     super.initState();
+    UnsavedChangesHelper.setUnsavedChanges(true);
     final auth = Provider.of<AuthProvider>(context, listen: false);
     _userRole = auth.user?.role ?? 'Nurse';
     _staffName = auth.user?.fullname ?? 'Staff Member';
@@ -104,6 +106,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
   @override
   void dispose() {
+    UnsavedChangesHelper.setUnsavedChanges(false);
     _tabController.dispose();
     _medNameController.dispose();
     _dosageController.dispose();

@@ -14,6 +14,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/media_service.dart';
 import '../widgets/document_view_dialog.dart';
+import '../utils/unsaved_changes_helper.dart';
 import 'dart:io' as io;
 
 class NewConsultationView extends StatefulWidget {
@@ -229,12 +230,36 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   @override
   void initState() {
     super.initState();
+    UnsavedChangesHelper.setUnsavedChanges(true);
     _currentAppointment = widget.appointment;
     _fetchLatestVitals();
     _fetchPreviousConsultations();
     _initializeData();
     _loadMedicineCatalog();
     _loadReferralDropdowns();
+  }
+
+  @override
+  void dispose() {
+    UnsavedChangesHelper.setUnsavedChanges(false);
+    _symptomsController.dispose();
+    _diagnosisController.dispose();
+    _notesController.dispose();
+    _customLabController.dispose();
+    _historyController.dispose();
+    _examinationController.dispose();
+    _familyHistoryController.dispose();
+    _socialHistoryController.dispose();
+    _commentController.dispose();
+    _procedureController.dispose();
+    _allergyController.dispose();
+    _leadingQuestionsController.dispose();
+    _planController.dispose();
+    _referredDoctorController.dispose();
+    _referredDeptController.dispose();
+    _referralNotesController.dispose();
+    _docTitleController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadMedicineCatalog() async {

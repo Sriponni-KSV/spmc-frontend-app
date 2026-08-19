@@ -16,6 +16,8 @@ import '../../screens/front_desk_dashboard.dart';
 import '../../screens/lab_dashboard.dart';
 import '../../screens/pharmacy_dashboard.dart';
 import '../../screens/ipd_patient_detail_page.dart';
+import '../../utils/modal_history_helper.dart';
+import '../../utils/modal_history_observer.dart';
 import 'route_constants.dart';
 import 'screens/not_found_screen.dart';
 
@@ -23,14 +25,57 @@ class AppRouter {
   static final GlobalKey<NavigatorState> parentNavigatorKey =
       GlobalKey<NavigatorState>();
 
+  static PatientModel? _parsePatient(dynamic extra) {
+    if (extra == null) return null;
+    if (extra is PatientModel) return extra;
+    if (extra is Map) {
+      try {
+        return PatientModel.fromJson(Map<String, dynamic>.from(extra));
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  static UserModel? _parseUser(dynamic extra) {
+    if (extra == null) return null;
+    if (extra is UserModel) return extra;
+    if (extra is Map) {
+      try {
+        return UserModel.fromJson(Map<String, dynamic>.from(extra));
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  static AppointmentModel? _parseAppointment(dynamic extra) {
+    if (extra == null) return null;
+    if (extra is AppointmentModel) return extra;
+    if (extra is Map) {
+      try {
+        return AppointmentModel.fromJson(Map<String, dynamic>.from(extra));
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   static GoRouter createRouter(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    ModalHistoryHelper.initialize(parentNavigatorKey);
 
     return GoRouter(
       navigatorKey: parentNavigatorKey,
       initialLocation: AppRoutes.login,
       debugLogDiagnostics: true,
       refreshListenable: authProvider,
+      observers: [
+        ModalHistoryObserver(),
+      ],
 
       // 🛑 ROUTE GUARDS & DYNAMIC REDIRECTION (Auth & Role-Based Checks)
       redirect: (context, state) {
@@ -83,6 +128,11 @@ class AppRouter {
           if (!isAdmin) {
             return AppRoutes.dashboard; // Redirect to user's home dashboard
           }
+          if ((path == AppRoutes.adminViewPatient ||
+                  path == AppRoutes.adminEditPatient) &&
+              state.extra == null) {
+            return AppRoutes.adminPatients;
+          }
         } else if (path.startsWith('/nurse')) {
           final isNurse = userRole == 'Nurse' || userRole == 'Head Nurse';
           if (!isNurse) {
@@ -90,6 +140,11 @@ class AppRouter {
           }
           if (path == AppRoutes.nurseIpdMonitoring && state.extra == null) {
             return AppRoutes.nurseIpd;
+          }
+          if ((path == AppRoutes.nurseViewPatient ||
+                  path == AppRoutes.nurseEditPatient) &&
+              state.extra == null) {
+            return AppRoutes.nursePatients;
           }
         } else if (path.startsWith('/doctor')) {
           final isDoctor = userRole == 'Doctor' || userRole == 'Anaesthetist';
@@ -122,6 +177,11 @@ class AppRouter {
               userRole == 'Head Nurse';
           if (!isReception) {
             return AppRoutes.dashboard;
+          }
+          if ((path == AppRoutes.frontDeskViewPatient ||
+                  path == AppRoutes.frontDeskEditPatient) &&
+              state.extra == null) {
+            return AppRoutes.frontDeskPatients;
           }
         } else if (path.startsWith('/lab')) {
           final isLab = userRole == 'Lab';
@@ -189,7 +249,7 @@ class AppRouter {
             key: const ValueKey('admin_dashboard'),
             child: AdminDashboardScreen(
               initialIndex: 1,
-              viewingStaffProfile: state.extra as UserModel?,
+              viewingStaffProfile: _parseUser(state.extra),
             ),
           ),
         ),
@@ -202,11 +262,12 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.adminNewPatient,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            key: ValueKey('admin_dashboard'),
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('admin_dashboard'),
             child: AdminDashboardScreen(
               initialIndex: 2,
               isRegisteringPatient: true,
+              existingPatient: _parsePatient(state.extra),
             ),
           ),
         ),
@@ -217,7 +278,7 @@ class AppRouter {
             child: AdminDashboardScreen(
               initialIndex: 2,
               isRegisteringPatient: true,
-              existingPatient: state.extra as PatientModel?,
+              existingPatient: _parsePatient(state.extra),
             ),
           ),
         ),
@@ -227,7 +288,7 @@ class AppRouter {
             key: const ValueKey('admin_dashboard'),
             child: AdminDashboardScreen(
               initialIndex: 2,
-              viewPatient: state.extra as PatientModel?,
+              viewPatient: _parsePatient(state.extra),
             ),
           ),
         ),
@@ -353,11 +414,12 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.nurseNewPatient,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            key: ValueKey('nurse_dashboard'),
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('nurse_dashboard'),
             child: NurseDashboardScreen(
               initialIndex: 1,
               isRegisteringPatient: true,
+              existingPatient: _parsePatient(state.extra),
             ),
           ),
         ),
@@ -368,7 +430,7 @@ class AppRouter {
             child: NurseDashboardScreen(
               initialIndex: 1,
               isRegisteringPatient: true,
-              existingPatient: state.extra as PatientModel?,
+              existingPatient: _parsePatient(state.extra),
             ),
           ),
         ),
@@ -378,7 +440,7 @@ class AppRouter {
             key: const ValueKey('nurse_dashboard'),
             child: NurseDashboardScreen(
               initialIndex: 1,
-              viewPatient: state.extra as PatientModel?,
+              viewPatient: _parsePatient(state.extra),
             ),
           ),
         ),
@@ -465,28 +527,42 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: '/nurse/home-visits/execute',
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('nurse_dashboard'),
+            child: NurseDashboardScreen(initialIndex: 9),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.nurseHomeVisitExecute,
           pageBuilder: (context, state) {
             final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
             return NoTransitionPage(
-              key: ValueKey('nurse_home_visit_execute_$id'),
+              key: const ValueKey('nurse_dashboard'),
               child: NurseDashboardScreen(
                 initialIndex: 9,
-                selectedHomeVisitId: id,
+                selectedHomeVisitId: id > 0 ? id : null,
                 isReadOnlyHomeVisit: false,
               ),
             );
           },
         ),
         GoRoute(
+          path: '/nurse/home-visits/summary',
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('nurse_dashboard'),
+            child: NurseDashboardScreen(initialIndex: 9),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.nurseHomeVisitSummary,
           pageBuilder: (context, state) {
             final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
             return NoTransitionPage(
-              key: ValueKey('nurse_home_visit_summary_$id'),
+              key: const ValueKey('nurse_dashboard'),
               child: NurseDashboardScreen(
                 initialIndex: 9,
-                selectedHomeVisitId: id,
+                selectedHomeVisitId: id > 0 ? id : null,
                 isReadOnlyHomeVisit: true,
               ),
             );
@@ -581,7 +657,7 @@ class AppRouter {
             key: const ValueKey('doctor_dashboard'),
             child: DashboardScreen(
               initialIndex: 0,
-              activeAppointment: state.extra as AppointmentModel?,
+              activeAppointment: _parseAppointment(state.extra),
             ),
           ),
         ),
@@ -591,7 +667,7 @@ class AppRouter {
             key: const ValueKey('doctor_dashboard'),
             child: DashboardScreen(
               initialIndex: 1,
-              activeAppointment: state.extra as AppointmentModel?,
+              activeAppointment: _parseAppointment(state.extra),
             ),
           ),
         ),
@@ -685,11 +761,12 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.frontDeskNewPatient,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            key: ValueKey('reception_dashboard'),
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: const ValueKey('reception_dashboard'),
             child: FrontDeskDashboardScreen(
               initialIndex: 1,
               isRegisteringPatient: true,
+              existingPatient: _parsePatient(state.extra),
             ),
           ),
         ),
@@ -700,7 +777,7 @@ class AppRouter {
             child: FrontDeskDashboardScreen(
               initialIndex: 1,
               isRegisteringPatient: true,
-              existingPatient: state.extra as PatientModel?,
+              existingPatient: _parsePatient(state.extra),
             ),
           ),
         ),
@@ -710,7 +787,7 @@ class AppRouter {
             key: const ValueKey('reception_dashboard'),
             child: FrontDeskDashboardScreen(
               initialIndex: 1,
-              viewPatient: state.extra as PatientModel?,
+              viewPatient: _parsePatient(state.extra),
             ),
           ),
         ),

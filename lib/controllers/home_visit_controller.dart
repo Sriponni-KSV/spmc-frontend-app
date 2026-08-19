@@ -105,6 +105,32 @@ class HomeVisitController with ChangeNotifier {
     }
   }
 
+  // Update Medicine
+  Future<bool> updateMedicineItem(int visitId, int medId, Map<String, dynamic> medData) async {
+    try {
+      await _service.updateMedicine(visitId, medId, medData);
+      await fetchVisitDetails(visitId);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Delete Medicine
+  Future<bool> deleteMedicineItem(int visitId, int medId) async {
+    try {
+      await _service.deleteMedicine(visitId, medId);
+      await fetchVisitDetails(visitId);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
   // Toggle Medicine Daily Dose Checklist Day
   Future<bool> toggleMedicineDay(int visitId, int medId, Map<String, bool> days) async {
     try {
@@ -179,6 +205,24 @@ class HomeVisitController with ChangeNotifier {
     }
   }
 
+  // Delete Photo Evidence
+  Future<bool> deletePhotoEvidenceItem(int visitId, int photoId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      await _service.deletePhotoEvidence(visitId, photoId);
+      await fetchVisitDetails(visitId);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // Verify Visit & Generate Bill
   Future<Map<String, dynamic>?> verifyVisit(
       int visitId, String attenderName, String attenderRelation, String signatureUrl) async {
@@ -250,6 +294,32 @@ class HomeVisitController with ChangeNotifier {
         notifyListeners();
       }
 
+      await fetchVisitDetails(visitId);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Update Procedure Item
+  Future<bool> updateProcedureItem(int visitId, int procId, Map<String, dynamic> procedureData) async {
+    try {
+      await _service.updateProcedure(visitId, procId, procedureData);
+      await fetchVisitDetails(visitId);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Delete Procedure Item
+  Future<bool> deleteProcedureItem(int visitId, int procId) async {
+    try {
+      await _service.deleteProcedure(visitId, procId);
       await fetchVisitDetails(visitId);
       return true;
     } catch (e) {

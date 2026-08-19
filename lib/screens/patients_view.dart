@@ -16,12 +16,14 @@ import '../widgets/access_denied_widget.dart';
 import '../models/appointment_model.dart';
 import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
+import '../models/home_visit_model.dart';
+import '../services/home_visit_service.dart';
 
 class PatientsView extends StatefulWidget {
   final List<PatientModel> patients;
   final bool isLoading;
   final String? error;
-  final VoidCallback onRegisterPatient;
+  final void Function([PatientModel? prefilledPatient]) onRegisterPatient;
   final Function(PatientModel) onCompleteProfile;
   final Function(PatientModel) onBookAppointment;
   final VoidCallback? onRefresh;
@@ -100,6 +102,20 @@ class _PatientsViewState extends State<PatientsView> {
     }
   }
 
+  void _toggleFilterVisibility() {
+    setState(() {
+      _isFilterVisible = !_isFilterVisible;
+      if (!_isFilterVisible) {
+        // Clear active filter options and reset to default on close
+        _selectedAgeRange = 'All Ages';
+        _selectedGender = 'All Genders';
+        _selectedLastVisit = 'Any Time';
+        _selectedStatus = 'All Status';
+        _currentPage = 0;
+      }
+    });
+  }
+
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -109,12 +125,17 @@ class _PatientsViewState extends State<PatientsView> {
   List<PatientModel> get _filteredPatients {
     List<PatientModel> filtered = widget.patients;
 
-    // Search query filter
+    // Search query filter (Patient ID, Name, Phone, Email)
     if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
+      final q = _searchQuery.toLowerCase().trim();
       filtered = filtered.where((p) {
-        return p.name.toLowerCase().contains(q) ||
-            p.phone.toLowerCase().contains(q);
+        final nameMatches = p.name.toLowerCase().contains(q);
+        final phoneMatches = p.phone.toLowerCase().contains(q);
+        final idMatches = (p.patientId != null &&
+                p.patientId!.toLowerCase().contains(q)) ||
+            (p.id != null && p.id.toString().toLowerCase().contains(q));
+        final emailMatches = p.email.toLowerCase().contains(q);
+        return nameMatches || phoneMatches || idMatches || emailMatches;
       }).toList();
       // Reset to first page when searching
     }
@@ -388,7 +409,7 @@ class _PatientsViewState extends State<PatientsView> {
                       fontWeight: FontWeight.w500,
                     ),
                     decoration: const InputDecoration(
-                      hintText: 'Search patients by name or phone...',
+                      hintText: 'Search by Patient ID, name, or phone...',
                       hintStyle: TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 14,
@@ -460,8 +481,7 @@ class _PatientsViewState extends State<PatientsView> {
                     ? double.infinity
                     : (MediaQuery.of(context).size.width - 34) / 2,
                 child: ElevatedButton.icon(
-                  onPressed: () =>
-                      setState(() => _isFilterVisible = !_isFilterVisible),
+                  onPressed: _toggleFilterVisibility,
                   icon: Icon(
                     _isFilterVisible
                         ? Icons.filter_list_off
@@ -520,7 +540,7 @@ class _PatientsViewState extends State<PatientsView> {
                           }),
                           decoration: const InputDecoration(
                             hintText:
-                                'Search by name, mobile number, department...',
+                                'Search by Patient ID, name, mobile number...',
                             hintStyle: TextStyle(
                               color: AppTheme.textSecondaryColor,
                               fontSize: 13,
@@ -582,7 +602,7 @@ class _PatientsViewState extends State<PatientsView> {
               const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: () =>
-                    setState(() => _isFilterVisible = !_isFilterVisible),
+                    _toggleFilterVisibility,
                 icon: Icon(
                   _isFilterVisible ? Icons.filter_list_off : Icons.filter_list,
                   size: 16,
@@ -634,7 +654,8 @@ class _PatientsViewState extends State<PatientsView> {
                       _currentPage = 0;
                     }),
                     decoration: const InputDecoration(
-                      hintText: 'Search by name or mobile number...',
+                      hintText:
+                          'Search by Patient ID, name, or mobile number...',
                       hintStyle: TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 14,
@@ -694,7 +715,7 @@ class _PatientsViewState extends State<PatientsView> {
           ),
         const SizedBox(width: 12),
         ElevatedButton.icon(
-          onPressed: () => setState(() => _isFilterVisible = !_isFilterVisible),
+          onPressed: _toggleFilterVisibility,
           icon: Icon(
             _isFilterVisible ? Icons.filter_list_off : Icons.filter_list,
             size: 18,
@@ -762,7 +783,7 @@ class _PatientsViewState extends State<PatientsView> {
                 width: 240,
                 child: PatientInfoCard(
                   name: name,
-                  info: '${age}y • $gender',
+                  info: '${patient.shortDisplayAge} • $gender',
                   initials: initials,
                   tags: patient.isQuickRegister ? ['Quick'] : [],
                   onView: () => _viewPatient(patient),
@@ -774,7 +795,7 @@ class _PatientsViewState extends State<PatientsView> {
                 width: 280,
                 child: PatientInfoCard(
                   name: name,
-                  info: '${age}y • $gender',
+                  info: '${patient.shortDisplayAge} • $gender',
                   initials: initials,
                   tags: patient.isQuickRegister ? ['Quick'] : [],
                   onView: () => _viewPatient(patient),
@@ -783,7 +804,7 @@ class _PatientsViewState extends State<PatientsView> {
               )
             : PatientInfoCard(
                 name: name,
-                info: '${age}y • $gender',
+                info: '${patient.shortDisplayAge} • $gender',
                 initials: initials,
                 tags: patient.isQuickRegister ? ['Quick'] : [],
                 onView: () => _viewPatient(patient),
@@ -933,7 +954,7 @@ class _PatientsViewState extends State<PatientsView> {
                     _buildPatientTableRow(
                       patient,
                       name,
-                      patient.age == 0 ? 'Not Provided' : '${patient.age}y',
+                      patient.shortDisplayAge,
                       patient.gender,
                       patient.phone,
                       patient.email,
@@ -962,7 +983,7 @@ class _PatientsViewState extends State<PatientsView> {
 
   Widget _buildPatientCardMobile(PatientModel patient) {
     final String name = patient.name;
-    final String ageStr = patient.age == 0 ? 'Not Prov.' : '${patient.age}y';
+    final String ageStr = patient.shortDisplayAge;
     final bool isQuick = patient.isQuickRegister;
 
     final parts = name
@@ -1807,6 +1828,39 @@ class _PatientsViewState extends State<PatientsView> {
     );
   }
 
+  Widget _buildDialogDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondaryColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value.isNotEmpty ? value : '-',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textPrimaryColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showQuickRegisterDialog(BuildContext context) {
     final PatientController patientController = PatientController();
     String? selectedGender;
@@ -1817,8 +1871,171 @@ class _PatientsViewState extends State<PatientsView> {
     final TextEditingController reasonCtrl = TextEditingController();
     final _formKey = GlobalKey<FormState>();
     bool isSaving = false;
+    bool isSearchingPhone = false;
+    String lastCheckedPhone = '';
     // Live phone error (updates on each keystroke)
     String? phoneError;
+
+    Future<void> checkExistingPatient(String phone, StateSetter setDialogState) async {
+      setDialogState(() {
+        isSearchingPhone = true;
+      });
+
+      try {
+        final patients = await patientController.fetchPatientsByPhone(phone);
+        if (patients.isNotEmpty && context.mounted) {
+          final selectedPatient = await showDialog<PatientModel>(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) {
+              return AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                backgroundColor: Colors.white,
+                title: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      color: AppTheme.primaryColor,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Existing Patient Found',
+                      style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+                content: SizedBox(
+                  width: 480,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        patients.length == 1
+                            ? 'A patient is already registered with this mobile number.'
+                            : 'Multiple patients are registered with this mobile number.',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textPrimaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: patients.map((p) {
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppTheme.borderColor),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildDialogDetailRow('Patient ID', p.patientId ?? '-'),
+                                    _buildDialogDetailRow('Name', p.name),
+                                    _buildDialogDetailRow('Gender / Age', '${p.gender} / ${p.displayAge}'),
+                                    _buildDialogDetailRow('DOB', p.dob),
+                                    _buildDialogDetailRow('Mobile', p.phone),
+                                    if (p.email.isNotEmpty)
+                                      _buildDialogDetailRow('Email', p.email),
+                                    if (p.fullAddress.isNotEmpty)
+                                      _buildDialogDetailRow('Address', p.fullAddress),
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: 40,
+                                      child: ElevatedButton(
+                                        onPressed: () {
+                                          Navigator.of(ctx).pop(p);
+                                        },
+                                        style: AppTheme.primaryButton.copyWith(
+                                          minimumSize: MaterialStateProperty.all(const Size(0, 40)),
+                                          padding: MaterialStateProperty.all(
+                                            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                          ),
+                                        ),
+                                        child: const Text('Load Patient Details'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'This mobile number is already registered. Only one patient is allowed per mobile number. You can load their record or enter a different number.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  OutlinedButton(
+                    onPressed: () {
+                      Navigator.of(ctx).pop('clear');
+                    },
+                    style: AppTheme.cancelButton,
+                    child: const Text('Enter Different Number'),
+                  ),
+                ],
+              );
+            },
+          );
+
+          if (selectedPatient is PatientModel) {
+            setDialogState(() {
+              nameCtrl.text = selectedPatient.name;
+              if (selectedPatient.dob.isNotEmpty) {
+                dobCtrl.text = selectedPatient.dob;
+              }
+              phoneCtrl.text = selectedPatient.phone;
+              if (selectedPatient.email.isNotEmpty) {
+                emailCtrl.text = selectedPatient.email;
+              }
+              if (['Male', 'Female', 'Other'].contains(selectedPatient.gender)) {
+                selectedGender = selectedPatient.gender;
+              }
+              if (selectedPatient.complaints.isNotEmpty) {
+                reasonCtrl.text = selectedPatient.complaints;
+              }
+              phoneError = null;
+            });
+          } else if (selectedPatient == 'clear') {
+            setDialogState(() {
+              phoneCtrl.clear();
+              lastCheckedPhone = '';
+              phoneError = null;
+            });
+          } else {
+            setDialogState(() {
+              phoneError = 'This mobile number is already registered to ${patients.first.name} (${patients.first.patientId ?? ""}).';
+            });
+          }
+        }
+      } catch (e) {
+        print('Error searching patient by phone: $e');
+      } finally {
+        setDialogState(() {
+          isSearchingPhone = false;
+        });
+      }
+    }
 
     showDialog(
       context: context,
@@ -1905,13 +2122,16 @@ class _PatientsViewState extends State<PatientsView> {
                                   hint: 'Enter patient\'s full name',
                                   inputFormatters: [
                                     FilteringTextInputFormatter.allow(
-                                      RegExp(r'[a-zA-Z\s]'),
+                                      RegExp(r'[a-zA-Z\s.]'),
                                     ),
-                                    LengthLimitingTextInputFormatter(30),
+                                    LengthLimitingTextInputFormatter(60),
                                   ],
-                                  validator: (val) => val == null || val.isEmpty
-                                      ? 'Please enter Full Name'
-                                      : null,
+                                  validator: (val) {
+                                    if (val == null || val.trim().isEmpty) return 'Please enter Full Name';
+                                    if (val.trim().length < 3) return 'Name must be at least 3 characters';
+                                    if (val.trim().length > 60) return 'Full Name cannot exceed 60 characters';
+                                    return null;
+                                  },
                                 ),
                                 const SizedBox(height: 16),
                                 _buildQuickFieldLabel('Email Address'),
@@ -1945,16 +2165,18 @@ class _PatientsViewState extends State<PatientsView> {
                                             hint: 'Enter patient\'s full name',
                                             inputFormatters: [
                                               FilteringTextInputFormatter.allow(
-                                                RegExp(r'[a-zA-Z\s]'),
+                                                RegExp(r'[a-zA-Z\s.]'),
                                               ),
                                               LengthLimitingTextInputFormatter(
-                                                30,
+                                                60,
                                               ),
                                             ],
-                                            validator: (val) =>
-                                                val == null || val.isEmpty
-                                                ? 'Please enter Full Name'
-                                                : null,
+                                            validator: (val) {
+                                              if (val == null || val.trim().isEmpty) return 'Please enter Full Name';
+                                              if (val.trim().length < 3) return 'Name must be at least 3 characters';
+                                              if (val.trim().length > 60) return 'Full Name cannot exceed 60 characters';
+                                              return null;
+                                            },
                                           ),
                                         ],
                                       ),
@@ -1973,10 +2195,16 @@ class _PatientsViewState extends State<PatientsView> {
                                             hint: 'Enter Email Address',
                                             keyboardType:
                                                 TextInputType.emailAddress,
+                                            inputFormatters: [
+                                              LengthLimitingTextInputFormatter(100),
+                                            ],
                                             validator: (val) {
                                               if (val == null ||
                                                   val.trim().isEmpty) {
                                                 return 'Please enter Email Address';
+                                              }
+                                              if (val.trim().length > 100) {
+                                                return 'Email address cannot exceed 100 characters';
                                               }
                                               if (!RegExp(
                                                 r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
@@ -2032,24 +2260,36 @@ class _PatientsViewState extends State<PatientsView> {
                                   ],
                                   onChanged: (val) {
                                     setState(() {
-                                      if (val.isEmpty) {
-                                        phoneError =
-                                            'Please enter Mobile Number';
-                                      } else if (val.length < 10) {
-                                        phoneError =
-                                            'Please enter a valid Mobile Number (${val.length}/10)';
+                                      final clean = val.trim();
+                                      if (clean.isEmpty) {
+                                        phoneError = 'Please enter Mobile Number';
+                                        lastCheckedPhone = '';
+                                      } else if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+                                        phoneError = 'Mobile number must start with 6, 7, 8, or 9';
+                                        lastCheckedPhone = '';
+                                      } else if (clean.length < 10) {
+                                        phoneError = 'Please enter a valid Mobile Number (${clean.length}/10)';
+                                        lastCheckedPhone = '';
                                       } else {
                                         phoneError = null;
+                                        if (clean.length == 10 && lastCheckedPhone != clean) {
+                                          lastCheckedPhone = clean;
+                                          checkExistingPatient(clean, setState);
+                                        }
                                       }
                                     });
                                   },
                                   errorText: phoneError,
                                   validator: (val) {
-                                    if (val == null || val.isEmpty) {
+                                    if (val == null || val.trim().isEmpty) {
                                       return 'Please enter Mobile Number';
                                     }
-                                    if (val.length != 10) {
-                                      return 'Please enter a valid Mobile Number';
+                                    final clean = val.trim();
+                                    if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+                                      return 'Mobile number must start with 6, 7, 8, or 9';
+                                    }
+                                    if (clean.length != 10) {
+                                      return 'Mobile number must be exactly 10 digits';
                                     }
                                     return null;
                                   },
@@ -2121,24 +2361,40 @@ class _PatientsViewState extends State<PatientsView> {
                                             ],
                                             onChanged: (val) {
                                               setState(() {
-                                                if (val.isEmpty) {
+                                                final clean = val.trim();
+                                                if (clean.isEmpty) {
                                                   phoneError =
                                                       'Please enter Mobile Number';
-                                                } else if (val.length < 10) {
+                                                  lastCheckedPhone = '';
+                                                } else if (!RegExp(r'^[6-9]').hasMatch(clean)) {
                                                   phoneError =
-                                                      'Please enter a valid Mobile Number (${val.length}/10)';
+                                                      'Mobile number must start with 6, 7, 8, or 9';
+                                                  lastCheckedPhone = '';
+                                                } else if (clean.length < 10) {
+                                                  phoneError =
+                                                      'Please enter a valid Mobile Number (${clean.length}/10)';
+                                                  lastCheckedPhone = '';
                                                 } else {
                                                   phoneError = null;
+                                                  if (clean.length == 10 &&
+                                                      lastCheckedPhone != clean) {
+                                                    lastCheckedPhone = clean;
+                                                    checkExistingPatient(clean, setState);
+                                                  }
                                                 }
                                               });
                                             },
                                             errorText: phoneError,
                                             validator: (val) {
-                                              if (val == null || val.isEmpty) {
+                                              if (val == null || val.trim().isEmpty) {
                                                 return 'Please enter Mobile Number';
                                               }
-                                              if (val.length != 10) {
-                                                return 'Please enter a valid Mobile Number';
+                                              final clean = val.trim();
+                                              if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+                                                return 'Mobile number must start with 6, 7, 8, or 9';
+                                              }
+                                              if (clean.length != 10) {
+                                                return 'Mobile number must be exactly 10 digits';
                                               }
                                               return null;
                                             },
@@ -2200,6 +2456,25 @@ class _PatientsViewState extends State<PatientsView> {
                                 hint:
                                     'Brief description of symptoms or reason...',
                                 maxLines: 3,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                                  ),
+                                  LengthLimitingTextInputFormatter(100),
+                                ],
+                                validator: (val) {
+                                  if (val == null || val.trim().isEmpty) {
+                                    return null;
+                                  }
+                                  final trimmed = val.trim();
+                                  if (trimmed.length > 100) {
+                                    return 'Reason for visit cannot exceed 100 characters';
+                                  }
+                                  if (!RegExp(r'[a-zA-Z]').hasMatch(trimmed)) {
+                                    return 'Reason for visit must contain alphabetical text';
+                                  }
+                                  return null;
+                                },
                               ),
 
                               const SizedBox(height: 24),
@@ -2269,6 +2544,8 @@ class _PatientsViewState extends State<PatientsView> {
                                                             content: Text(
                                                               'Invalid Date Format: ${dobCtrl.text}',
                                                             ),
+                                                            backgroundColor:
+                                                                AppTheme.dangerColor,
                                                           ),
                                                         );
                                                       }
@@ -2357,15 +2634,25 @@ class _PatientsViewState extends State<PatientsView> {
                                                     () => isSaving = false,
                                                   );
                                                   if (context.mounted) {
+                                                    final errorMsg = e
+                                                        .toString()
+                                                        .replaceAll(
+                                                          'Exception: ',
+                                                          '',
+                                                        );
                                                     ScaffoldMessenger.of(
                                                       context,
                                                     ).showSnackBar(
                                                       SnackBar(
                                                         content: Text(
-                                                          'Error: $e',
+                                                          errorMsg,
                                                         ),
                                                         backgroundColor:
-                                                            Colors.redAccent,
+                                                            AppTheme.dangerColor,
+                                                        duration:
+                                                            const Duration(
+                                                              seconds: 4,
+                                                            ),
                                                       ),
                                                     );
                                                   }
@@ -2420,8 +2707,55 @@ class _PatientsViewState extends State<PatientsView> {
                           child: Center(
                             child: InkWell(
                               onTap: () {
+                                int calculatedAge = 0;
+                                if (dobCtrl.text.isNotEmpty) {
+                                  try {
+                                    final dob = DateFormat('dd/MM/yyyy').parse(dobCtrl.text);
+                                    final now = DateTime.now();
+                                    calculatedAge = now.year - dob.year;
+                                    if (now.month < dob.month ||
+                                        (now.month == dob.month && now.day < dob.day)) {
+                                      calculatedAge--;
+                                    }
+                                  } catch (_) {}
+                                }
+                                final partialPatient = PatientModel(
+                                  name: nameCtrl.text.trim(),
+                                  dob: dobCtrl.text.trim(),
+                                  age: calculatedAge,
+                                  gender: selectedGender ?? '',
+                                  phone: phoneCtrl.text.trim(),
+                                  email: emailCtrl.text.trim(),
+                                  complaints: reasonCtrl.text.trim(),
+                                  emergencyContactName: '',
+                                  emergencyContactRelation: '',
+                                  emergencyContactPhone: '',
+                                  address: '',
+                                  addressLine2: '',
+                                  district: '',
+                                  pincode: '',
+                                  height: 0.0,
+                                  weight: 0.0,
+                                  bpSystolic: 0,
+                                  bpDiastolic: 0,
+                                  sugar: 0.0,
+                                  temp: 0.0,
+                                  bloodGroup: '',
+                                  allergies: '',
+                                  chronicConditions: '',
+                                  history: '',
+                                  smokingStatus: '',
+                                  alcoholStatus: '',
+                                  occupation: '',
+                                  hobbies: '',
+                                  foodHabits: '',
+                                  physicalActivity: '',
+                                  isQuickRegister: false,
+                                );
                                 Navigator.pop(context);
-                                widget.onRegisterPatient();
+                                Future.delayed(const Duration(milliseconds: 60), () {
+                                  widget.onRegisterPatient(partialPatient);
+                                });
                               },
                               child: const Text(
                                 'Need full registration with complete details?',
@@ -2510,6 +2844,7 @@ class _PatientsViewState extends State<PatientsView> {
           fontSize: 13,
         ),
         errorText: errorText,
+        errorMaxLines: 2,
         filled: true,
         fillColor: AppTheme.backgroundColor,
         border: OutlineInputBorder(
@@ -2647,8 +2982,10 @@ class _PatientDetailViewState extends State<PatientDetailView>
   final AppointmentController _appointmentController = AppointmentController();
   List<Map<String, dynamic>> _consultations = [];
   List<AppointmentModel> _patientAppointments = [];
+  List<HomeVisitModel> _patientHomeVisits = [];
   bool _isLoadingConsultations = true;
   bool _isLoadingAppointments = false;
+  bool _isLoadingHomeVisits = true;
   bool _isShowingInsights = false;
   bool _isSavingInsights = false;
   final GlobalKey<PatientInsightsFormState> _insightsFormKey =
@@ -2657,12 +2994,39 @@ class _PatientDetailViewState extends State<PatientDetailView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this, initialIndex: 1);
+    _tabController = TabController(length: 5, vsync: this, initialIndex: 1);
     _fetchData();
   }
 
   Future<void> _fetchData() async {
-    await Future.wait([_fetchConsultations(), _fetchPatientAppointments()]);
+    await Future.wait([
+      _fetchConsultations(),
+      _fetchPatientAppointments(),
+      _fetchPatientHomeVisits(),
+    ]);
+  }
+
+  Future<void> _fetchPatientHomeVisits() async {
+    try {
+      if (widget.patient.id == null) {
+        if (mounted) setState(() => _isLoadingHomeVisits = false);
+        return;
+      }
+      setState(() => _isLoadingHomeVisits = true);
+      final visits =
+          await HomeVisitService().getHomeVisits(patientId: widget.patient.id);
+      if (mounted) {
+        setState(() {
+          _patientHomeVisits = visits;
+          _isLoadingHomeVisits = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching patient home visits: $e');
+      if (mounted) {
+        setState(() => _isLoadingHomeVisits = false);
+      }
+    }
   }
 
   Future<void> _fetchPatientAppointments() async {
@@ -3031,7 +3395,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.age} years  •  ${p.gender}  •  Blood Group: ${p.bloodGroup.isNotEmpty ? p.bloodGroup : "N/A"}',
+                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.displayAge}  •  ${p.gender}  •  Blood Group: ${p.bloodGroup.isNotEmpty ? p.bloodGroup : "N/A"}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: isTablet ? 14 : 15,
@@ -3167,7 +3531,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.age} years  •  ${p.gender}',
+                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.displayAge}  •  ${p.gender}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.85),
                       fontSize: 13,
@@ -3350,7 +3714,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
       ),
       _VitalItem(
         label: 'Weight',
-        value: p.weight == 0.0 ? 'Not Provided' : '${p.weight} lbs',
+        value: p.weight == 0.0 ? 'Not Provided' : '${p.weight} kg',
         color: const Color(0xFFF0FFF4), // Light green
         textColor: const Color(0xFF2F855A),
       ),
@@ -3358,7 +3722,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
         label: 'Height',
         value: p.height == 0.0 ? 'Not Provided' : '${p.height} cm',
         color: const Color(0xFFFAF5FF), // Light purple
-        textColor: const Color(0xFF6B46C1),
+        textColor: AppTheme.nurseColor,
       ),
     ];
 
@@ -3491,7 +3855,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
             ),
             child: TabBar(
               controller: _tabController,
-              isScrollable: isMobile,
+              isScrollable: true,
               labelColor: AppTheme.primaryColor,
               unselectedLabelColor: AppTheme.textSecondaryColor,
               indicatorColor: AppTheme.primaryColor,
@@ -3518,6 +3882,16 @@ class _PatientDetailViewState extends State<PatientDetailView>
                       Icon(Icons.timeline_outlined, size: 16),
                       SizedBox(width: 8),
                       Text('Visits Timeline'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.home_work_outlined, size: 16),
+                      SizedBox(width: 8),
+                      Text('Home Visit Timeline'),
                     ],
                   ),
                 ),
@@ -3552,6 +3926,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
               children: [
                 _buildMedicalHistoryTab(p),
                 _buildVisitsTimelineTab(p),
+                _buildHomeVisitTimelineTab(p),
                 _buildConsultationsTab(p),
                 _buildLifestyleTab(p),
               ],
@@ -4058,6 +4433,392 @@ class _PatientDetailViewState extends State<PatientDetailView>
     );
   }
 
+  Widget _buildHomeVisitTimelineTab(PatientModel p) {
+    if (_isLoadingHomeVisits) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_patientHomeVisits.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.home_work_outlined,
+                  size: 40,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'No Home Visit Records Found',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimaryColor,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'There are no home visits recorded for this patient.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondaryColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${_patientHomeVisits.length} Home Visit Record${_patientHomeVisits.length > 1 ? 's' : ''}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 13,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.refresh,
+                  size: 20,
+                  color: AppTheme.primaryColor,
+                ),
+                onPressed: _fetchPatientHomeVisits,
+                tooltip: 'Refresh Home Visits',
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _patientHomeVisits.asMap().entries.map((entry) {
+                final index = entry.key;
+                final visit = entry.value;
+                return _buildHomeVisitTimelineItem(
+                  visit,
+                  index == 0,
+                  index == _patientHomeVisits.length - 1,
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHomeVisitTimelineItem(
+    HomeVisitModel visit,
+    bool isFirst,
+    bool isLast,
+  ) {
+    String formattedDate = visit.scheduledDate;
+    final dt = DateFormatter.toDateTime(visit.scheduledDate);
+    if (dt != null) {
+      formattedDate = DateFormat('MMM dd, yyyy').format(dt);
+    }
+
+    final nurseName = (visit.startNurseName != null &&
+            visit.startNurseName!.trim().isNotEmpty)
+        ? visit.startNurseName!
+        : ((visit.nurseName != null && visit.nurseName!.trim().isNotEmpty)
+            ? visit.nurseName!
+            : 'Nurse Not Assigned');
+
+    final startTime = (visit.startTime != null &&
+            visit.startTime!.trim().isNotEmpty)
+        ? visit.startTime!
+        : (visit.scheduledTime != null && visit.scheduledTime!.trim().isNotEmpty
+            ? visit.scheduledTime!
+            : '9:00 AM');
+
+    String endTime = 'Pending';
+    if (visit.signedAt != null && visit.signedAt!.trim().isNotEmpty) {
+      try {
+        final signedDt = DateTime.parse(visit.signedAt!);
+        endTime = DateFormat('hh:mm a').format(signedDt.toLocal());
+      } catch (_) {
+        endTime = visit.signedAt!;
+      }
+    } else if (visit.status.toLowerCase() == 'completed' ||
+        visit.status.toLowerCase() == 'verified') {
+      endTime = 'Completed';
+    } else if (visit.status.toLowerCase() == 'in-progress' ||
+        visit.status.toLowerCase() == 'in progress') {
+      endTime = 'In Progress';
+    } else if (visit.status.toLowerCase() == 'scheduled') {
+      endTime = 'Not Started';
+    } else if (visit.status.toLowerCase() == 'cancelled') {
+      endTime = 'Cancelled';
+    }
+
+    Color statusBg;
+    Color statusColor;
+    switch (visit.status.toLowerCase()) {
+      case 'completed':
+      case 'verified':
+        statusBg = const Color(0xFFC6F6D5);
+        statusColor = const Color(0xFF22543D);
+        break;
+      case 'in-progress':
+      case 'in progress':
+        statusBg = const Color(0xFFFEEBC8);
+        statusColor = const Color(0xFFC05621);
+        break;
+      case 'cancelled':
+        statusBg = const Color(0xFFFED7D7);
+        statusColor = const Color(0xFF9B2C2C);
+        break;
+      default:
+        statusBg = const Color(0xFFEBF8FF);
+        statusColor = const Color(0xFF2B6CB0);
+        break;
+    }
+
+    final isMobile = MediaQuery.of(context).size.width < 700;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          children: [
+            const SizedBox(height: 5),
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: isFirst ? AppTheme.primaryColor : AppTheme.borderColor,
+                shape: BoxShape.circle,
+                border:
+                    isFirst ? Border.all(color: Colors.white, width: 2) : null,
+                boxShadow: isFirst
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
+              ),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: isMobile ? 140 : 100,
+                color: AppTheme.borderColor.withOpacity(0.3),
+              ),
+          ],
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor,
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.event_note_outlined,
+                          size: 18,
+                          color: AppTheme.primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          formattedDate,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusBg,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        visit.status,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(
+                  height: 20,
+                  thickness: 1,
+                  color: Color(0xFFEDF2F7),
+                ),
+                if (isMobile)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.person_outline,
+                              size: 16, color: Color(0xFF64748B)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Nurse: $nurseName',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF334155),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.play_circle_outline,
+                              size: 16, color: Color(0xFF319795)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Start Time: $startTime',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF334155),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.stop_circle_outlined,
+                              size: 16, color: Color(0xFFD69E2E)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'End Time: $endTime',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF334155),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.person_outline,
+                                size: 16, color: Color(0xFF64748B)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Nurse: $nurseName',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF334155),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.play_circle_outline,
+                                size: 16, color: Color(0xFF319795)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Start Time: $startTime',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF334155),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.stop_circle_outlined,
+                                size: 16, color: Color(0xFFD69E2E)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'End Time: $endTime',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF334155),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildConsultationsTab(PatientModel p) {
     if (_isLoadingConsultations) {
       return const Center(
@@ -4557,6 +5318,7 @@ class PatientInsightsForm extends StatefulWidget {
 }
 
 class PatientInsightsFormState extends State<PatientInsightsForm> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final Map<String, TextEditingController> _controllers = {};
   final PatientController _apiController = PatientController();
   bool _isLoading = true;
@@ -4804,12 +5566,62 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
   Future<bool> saveInsights() async {
     if (widget.patient.id == null) return false;
 
-    final Map<String, String> data = {};
-    _controllers.forEach((key, controller) {
-      if (controller.text.trim().isNotEmpty) {
-        data[key] = controller.text.trim();
+    if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please correct invalid entries before saving.'),
+            backgroundColor: AppTheme.dangerColor,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
-    });
+      return false;
+    }
+
+    final Map<String, String> data = {};
+    for (var entry in _controllers.entries) {
+      final trimmed = entry.value.text.trim();
+      if (trimmed.isNotEmpty) {
+        if (!RegExp(r'[a-zA-Z]').hasMatch(trimmed)) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('All answered questions must contain alphabetic characters.'),
+                backgroundColor: AppTheme.dangerColor,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return false;
+        }
+        if (!RegExp(r'^[a-zA-Z0-9\s.,/#\-\(\):;]+$').hasMatch(trimmed)) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Answers contain invalid special characters.'),
+                backgroundColor: AppTheme.dangerColor,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return false;
+        }
+        if (trimmed.length > 250) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Answers must not exceed 250 characters.'),
+                backgroundColor: AppTheme.dangerColor,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return false;
+        }
+        data[entry.key] = trimmed;
+      }
+    }
 
     if (data.isEmpty) {
       if (mounted) {
@@ -4853,7 +5665,6 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
 
   @override
   void dispose() {
-    // ... (omitted)
     for (var controller in _controllers.values) {
       controller.dispose();
     }
@@ -4877,13 +5688,16 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
         ),
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: insightCategories.length,
-      itemBuilder: (context, index) {
-        final cat = insightCategories[index];
-        return _buildInsightCategory(cat, _controllers);
-      },
+    return Form(
+      key: _formKey,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: insightCategories.length,
+        itemBuilder: (context, index) {
+          final cat = insightCategories[index];
+          return _buildInsightCategory(cat, _controllers);
+        },
+      ),
     );
   }
 
@@ -4982,9 +5796,33 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                TextField(
+                TextFormField(
                   controller: controllers[qKey],
                   maxLines: null,
+                  maxLength: 250,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                    ),
+                    LengthLimitingTextInputFormatter(250),
+                  ],
+                  validator: (val) {
+                    final clean = val?.trim() ?? '';
+                    if (clean.isEmpty) return null;
+                    if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
+                      return 'Must contain alphabetic characters';
+                    }
+                    if (!RegExp(
+                      r'^[a-zA-Z0-9\s.,/#\-\(\):;]+$',
+                    ).hasMatch(clean)) {
+                      return 'Contains invalid special characters';
+                    }
+                    if (clean.length > 250) {
+                      return 'Maximum length is 250 characters';
+                    }
+                    return null;
+                  },
                   decoration: InputDecoration(
                     hintText: 'Type patient\'s response here...',
                     hintStyle: TextStyle(
@@ -5011,6 +5849,21 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
                         color: AppTheme.primaryColor,
                         width: 1.5,
                       ),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(
+                        color: AppTheme.dangerColor,
+                        width: 1.5,
+                      ),
+                    ),
+                    errorStyle: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.dangerColor,
                     ),
                   ),
                   style: const TextStyle(
