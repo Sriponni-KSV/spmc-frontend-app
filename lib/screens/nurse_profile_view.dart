@@ -636,7 +636,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   const SizedBox(height: 20),
                   _buildDetailRow('Full Name', user?.rawFullname ?? '-', Icons.person_outline),
                   _buildDetailRow('Staff ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
-                  _buildDetailRow('Email Address', user?.email ?? '-', Icons.alternate_email),
+                  _buildDetailRow('Email Address', user?.email ?? '-', Icons.mail_outline),
                   _buildDetailRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
                   _buildDetailRow('Bio Summary', user?.bio ?? '-', Icons.description_outlined),
                 ] else ...[
@@ -645,7 +645,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   const SizedBox(height: 20),
                   _buildDetailRow('Full Name', user?.rawFullname ?? '-', Icons.person_outline),
                   _buildDetailRow('Staff ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
-                  _buildDetailRow('Email Address', user?.email ?? '-', Icons.alternate_email),
+                  _buildDetailRow('Email Address', user?.email ?? '-', Icons.mail_outline),
                   _buildDetailRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
                 ],
               ],

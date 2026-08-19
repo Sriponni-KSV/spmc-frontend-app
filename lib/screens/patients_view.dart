@@ -2532,9 +2532,10 @@ class _PatientsViewState extends State<PatientsView> {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
         ),
+        errorMaxLines: 2,
         errorStyle: const TextStyle(
           fontFamily: 'Inter',
-          fontSize: 11,
+          fontSize: 12,
           color: AppTheme.dangerColor,
         ),
         contentPadding: const EdgeInsets.symmetric(
