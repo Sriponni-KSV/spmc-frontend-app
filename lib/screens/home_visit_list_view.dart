@@ -1153,6 +1153,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
           title: const Row(
             children: [
               Icon(Icons.do_not_disturb_on_outlined, color: AppTheme.dangerColor, size: 26),
@@ -1273,8 +1274,46 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     },
                   ),
                 ],
+//           content: SizedBox(
+//             width: 480,
+//             child: Column(
+//             mainAxisSize: MainAxisSize.min,
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               Text(
+//                 'Are you sure you want to stop/discontinue home visit care for ${visit.patientName ?? "Patient #${visit.patientId}"}?',
+//                 style: const TextStyle(fontSize: 13, color: Colors.black87),
+//               ),
+//               const SizedBox(height: 16),
+//               const Text('Select Discontinuation Reason:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+//               const SizedBox(height: 6),
+//               CustomDropdownSearch(
+//                 label: '',
+//                 hint: 'Select Reason',
+//                 dropdownMap: const {
+//                   'Patient Cured / Fully Recovered': 'Patient Cured / Fully Recovered',
+//                   'Patient / Attender Requested Discontinuation': 'Patient / Attender Requested Discontinuation',
+//                   'Admitted to Hospital / IPD Care': 'Admitted to Hospital / IPD Care',
+//                   'Doctor Advice / Care Plan Ended': 'Doctor Advice / Care Plan Ended',
+//                   'Other Reason': 'Other Reason',
+//                 },
+//                 value: selectedReason,
+//                 onChanged: (val) {
+//                   if (val != null) {
+//                     setDialogState(() => selectedReason = val);
+//                   }
+//                 },
+//               ),
+//               const SizedBox(height: 14),
+//               const Text('Additional Notes / Remarks (Optional):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+//               const SizedBox(height: 6),
+//               TextField(
+//                 controller: notesCtrl,
+//                 maxLines: 2,
+//                 decoration: AppTheme.standardInputDecoration(hintText: 'Enter reason notes (e.g. Cured and recovered)...'),
               ),
             ),
+          ),
           ),
           actions: [
             TextButton(

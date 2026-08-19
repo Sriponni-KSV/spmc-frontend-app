@@ -7001,15 +7001,73 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (result == true) _loadMedicationCatalog();
   }
 
-  // Modal Dialog: Edit Medication Catalog Item
-  Future<void> _showEditMedicationDialog(
-    Map<String, dynamic> med,
-    bool isMobile,
-  ) async {
-    final formKey = GlobalKey<FormState>();
-    final nameCtrl = TextEditingController(text: med['name']?.toString() ?? '');
-    final unitCtrl = TextEditingController(
-      text: med['default_unit']?.toString() ?? 'tabs',
+  Future<void> _deleteMedication(Map<String, dynamic> med) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        // Constrain the dialog so a long medicine name can't stretch it off-screen
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                const Text(
+                  'Remove Medication',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 16),
+                // Content with soft-wrap so long names stay inside the box
+                RichText(
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
+                  text: TextSpan(
+                    style: const TextStyle(
+                      color: AppTheme.textPrimaryColor,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                    children: [
+                      const TextSpan(text: 'Are you sure you want to remove '),
+                      TextSpan(
+                        text: '"${med['name']}"',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const TextSpan(
+                        text: ' from the medication catalog? This cannot be undone.',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Action buttons — always visible, right-aligned
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: AppTheme.cancelButton,
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: AppTheme.dangerButton,
+                      child: const Text('Remove'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
     String selectedCategory = med['category']?.toString() ?? 'Medicine';
     bool isControlled = med['is_controlled'] == true;
@@ -11645,37 +11703,51 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       ),
                                       Expanded(
                                         flex: 2,
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            TextButton.icon(
-                                              onPressed: () =>
-                                                  _showEditStandaloneKitItemDialog(
-                                                    item,
-                                                    isMobile,
-                                                  ),
-                                              icon: const Icon(
-                                                Icons.edit_outlined,
-                                                size: 16,
-                                                color: AppTheme.primaryColor,
-                                              ),
-                                              label: const Text(
-                                                'Edit',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: AppTheme.primaryColor,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            TextButton.icon(
-                                              onPressed: () async {
-                                                final confirm =
-                                                    await showDialog<bool>(
-                                                      context: context,
-                                                      builder: (c) => AlertDialog(
-                                                        title: const Text(
-                                                          'Deactivate Kit Item',
+                                        child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: TextButton.icon(
+                                            onPressed: () async {
+                                              final confirm =
+                                                  await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (c) => AlertDialog(
+                                                      title: const Text(
+                                                        'Deactivate Kit Item',
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                      content: ConstrainedBox(
+                                                        constraints: const BoxConstraints(
+                                                          maxWidth: 400,
+                                                        ),
+                                                        child: Text(
+                                                          'Are you sure you want to deactivate "${item['name']}"?',
+                                                          softWrap: true,
+                                                        ),
+                                                      ),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () =>
+                                                              Navigator.pop(
+                                                                c,
+                                                                false,
+                                                              ),
+                                                          child: const Text(
+                                                            'Cancel',
+                                                          ),
+                                                        ),
+                                                        ElevatedButton(
+                                                          onPressed: () =>
+                                                              Navigator.pop(
+                                                                c,
+                                                                true,
+                                                              ),
+                                                          style: AppTheme
+                                                              .dangerButton,
+                                                          child: const Text(
+                                                            'Deactivate',
+                                                          ),
                                                         ),
                                                         content: Text(
                                                           'Are you sure you want to deactivate "${item['name']}"?',

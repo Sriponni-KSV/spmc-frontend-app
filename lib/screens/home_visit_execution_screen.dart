@@ -4748,6 +4748,38 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         Icons.home_work_rounded,
                         color: AppTheme.primaryColor,
                       ),
+//             elevation: 0,
+//             scrolledUnderElevation: 0,
+//             toolbarHeight: 75,
+//             leading: (widget.onBack != null || _selectedSummaryVisitId != null)
+//                 ? Padding(
+//                     padding: const EdgeInsets.only(top: 16.0),
+//                     child: IconButton(
+//                       icon: const Icon(
+//                         Icons.arrow_back,
+//                         color: AppTheme.primaryColor,
+//                       ),
+//                       onPressed: () {
+//                         if (_selectedSummaryVisitId != null) {
+//                           setState(() {
+//                             _selectedSummaryVisitId = null;
+//                           });
+//                         } else {
+//                           widget.onBack?.call();
+//                         }
+//                       },
+//                     ),
+//                   )
+//                 : null,
+//             title: Padding(
+//               padding: const EdgeInsets.only(top: 16.0),
+//               child: Row(
+//                 children: [
+//                   Container(
+//                     padding: const EdgeInsets.all(8),
+//                     decoration: BoxDecoration(
+//                       color: AppTheme.primaryColor.withOpacity(0.1),
+//                       borderRadius: BorderRadius.circular(8),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -12624,23 +12656,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Back to Daily Sessions List Button
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: OutlinedButton.icon(
-              style: AppTheme.outlinedButton,
-              icon: const Icon(Icons.arrow_back, size: 18),
-              label: const Text(
-                'Back to All Daily Care Sessions',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              onPressed: () {
-                setState(() {
-                  _selectedSummaryVisitId = null;
-                });
-              },
-            ),
-          ),
+
 
           // Status Banner (Verified / Cancelled / In-Progress)
           Container(
@@ -13434,6 +13450,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             borderRadius: BorderRadius.circular(16),
           ),
           title: Row(
+//           insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+//           title: const Row(
             children: [
               const Icon(
                 Icons.do_not_disturb_on_outlined,
@@ -13454,135 +13472,58 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
             ],
           ),
-          content: Form(
-            key: formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Clear Session Details Banner
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.borderColor),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          dayNumber != null
-                              ? 'Care Session: Day $dayNumber (${visit.visitNumber})'
-                              : 'Visit Number: ${visit.visitNumber}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Patient: ${visit.patientName ?? "N/A"} (${visit.patientDisplayId ?? ""})',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Scheduled Date: ${_formatDateDDMMYYYY(visit.scheduledDate)} | Status: ${visit.status}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Are you sure you want to stop/discontinue this care session (${visit.visitNumber}) for ${visit.patientName ?? "the patient"}?',
-                    style: const TextStyle(fontSize: 13, color: Colors.black87),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Select Discontinuation Reason:',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  CustomDropdownSearch(
-                    label: '',
-                    hint: 'Search & Select Reason',
-                    allowFreeText: false,
-                    dropdownMap: const {
-                      'Patient Cured / Fully Recovered':
-                          'Patient Cured / Fully Recovered',
-                      'Patient / Attender Requested Discontinuation':
-                          'Patient / Attender Requested Discontinuation',
-                      'Admitted to Hospital / IPD Care':
-                          'Admitted to Hospital / IPD Care',
-                      'Doctor Advice / Care Plan Ended':
-                          'Doctor Advice / Care Plan Ended',
-                      'Other Reason': 'Other Reason',
-                    },
-                    value: selectedReason,
-                    onChanged: (val) {
-                      setDialogState(() => selectedReason = val ?? '');
-                    },
-                    validator: (val) {
-                      const validReasons = [
-                        'Patient Cured / Fully Recovered',
-                        'Patient / Attender Requested Discontinuation',
-                        'Admitted to Hospital / IPD Care',
-                        'Doctor Advice / Care Plan Ended',
-                        'Other Reason',
-                      ];
-                      if (val == null ||
-                          val.trim().isEmpty ||
-                          !validReasons.contains(val.trim())) {
-                        return 'Please select a valid discontinuation reason';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Additional Notes / Remarks (Optional):',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: notesCtrl,
-                    maxLines: 2,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;%+]'),
-                      ),
-                      LengthLimitingTextInputFormatter(250),
-                    ],
-                    decoration: AppTheme.standardInputDecoration(
-                      hintText: 'Enter reason notes (e.g. Cured and recovered)...',
-                    ).copyWith(counterText: ''),
-                    validator: (val) {
-                      if (val != null && val.trim().isNotEmpty) {
-                        final clean = val.trim();
-                        if (clean.length > 250) {
-                          return 'Notes cannot exceed 250 characters';
-                        }
-                        if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
-                          return 'Notes must contain alphabetical characters if provided';
-                        }
-                      }
-                      return null;
-                    },
-                  ),
-                ],
+          content: SizedBox(
+            width: 480,
+            child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Are you sure you want to stop/discontinue home visit care for ${visit.patientName ?? "Patient #${visit.patientId}"}?',
+                style: const TextStyle(fontSize: 13, color: Colors.black87),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Select Discontinuation Reason:',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 6),
+              CustomDropdownSearch(
+                label: '',
+                hint: 'Select Reason',
+                dropdownMap: const {
+                  'Patient Cured / Fully Recovered':
+                      'Patient Cured / Fully Recovered',
+                  'Patient / Attender Requested Discontinuation':
+                      'Patient / Attender Requested Discontinuation',
+                  'Admitted to Hospital / IPD Care':
+                      'Admitted to Hospital / IPD Care',
+                  'Doctor Advice / Care Plan Ended':
+                      'Doctor Advice / Care Plan Ended',
+                  'Other Reason': 'Other Reason',
+                },
+                value: selectedReason,
+                onChanged: (val) {
+                  if (val != null) {
+                    setDialogState(() => selectedReason = val);
+                  }
+                },
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Additional Notes / Remarks (Optional):',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: notesCtrl,
+                maxLines: 2,
+                decoration: AppTheme.standardInputDecoration(
+                  hintText: 'Enter reason notes (e.g. Cured and recovered)...',
+                ),
               ),
             ),
+          ),
           ),
           actions: [
             TextButton(

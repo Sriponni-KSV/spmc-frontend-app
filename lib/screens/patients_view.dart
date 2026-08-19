@@ -2867,9 +2867,10 @@ class _PatientsViewState extends State<PatientsView> {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
         ),
+        errorMaxLines: 2,
         errorStyle: const TextStyle(
           fontFamily: 'Inter',
-          fontSize: 11,
+          fontSize: 12,
           color: AppTheme.dangerColor,
         ),
         contentPadding: const EdgeInsets.symmetric(
@@ -3390,8 +3391,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -3400,6 +3400,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                       color: Colors.white.withOpacity(0.9),
                       fontSize: isTablet ? 14 : 15,
                     ),
+                    softWrap: true,
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -3442,28 +3443,26 @@ class _PatientDetailViewState extends State<PatientDetailView>
         const SizedBox(height: 24),
         const Divider(color: Colors.white24, height: 1),
         const SizedBox(height: 16),
-        // Contact Row
-        Row(
-          mainAxisAlignment: MainAxisAlignment.start,
+        // Contact info — stacked vertically so each full value is visible
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildContactIconItem(
-              Icons.phone_outlined,
-              p.phone.isNotEmpty ? p.phone : 'Not Provided',
-            ),
-            const SizedBox(width: 40),
+            if (p.phone.isNotEmpty)
+              _buildContactIconItem(
+                Icons.phone_outlined,
+                p.phone,
+              ),
+            if (p.phone.isNotEmpty) const SizedBox(height: 8),
             _buildContactIconItem(
               Icons.mail_outline,
               p.email.isNotEmpty ? p.email : 'Not Provided',
             ),
-            const SizedBox(width: 40),
-            Flexible(
-              child: _buildContactIconItem(
+            if (p.fullAddress.isNotEmpty) const SizedBox(height: 8),
+            if (p.fullAddress.isNotEmpty)
+              _buildContactIconItem(
                 Icons.location_on_outlined,
-                p.fullAddress.isNotEmpty
-                    ? p.fullAddress
-                    : 'No Address Provided',
+                p.fullAddress,
               ),
-            ),
           ],
         ),
       ],
@@ -3472,19 +3471,25 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
   Widget _buildContactIconItem(IconData icon, String text) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: Colors.white.withOpacity(0.9)),
+        // Pin icon to top-left, never shrinks
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(icon, size: 20, color: Colors.white.withOpacity(0.9)),
+        ),
         const SizedBox(width: 10),
-        Flexible(
+        // Text expands to fill remaining width and wraps freely
+        Expanded(
           child: Text(
             text,
             style: TextStyle(
               color: Colors.white.withOpacity(0.9),
               fontSize: 14,
               fontWeight: FontWeight.w400,
+              height: 1.4,
             ),
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
           ),
         ),
       ],
