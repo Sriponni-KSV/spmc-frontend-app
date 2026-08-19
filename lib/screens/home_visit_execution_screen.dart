@@ -365,6 +365,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   int _medsPage = 1;
   int _consPage = 1;
   int _carePage = 1;
+  int _procPage = 1;
   final int _pageSize = 6;
 
   List<String> _dbMedicines = [];
@@ -4785,33 +4786,62 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       final currentDayNumber =
                           _calculateVisitDayNumber(visit, controller);
 
+                      final isMobile = MediaQuery.of(ctx).size.width < 700;
+
                       return Padding(
                         padding: const EdgeInsets.only(top: 16.0, right: 16.0),
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.dangerColor,
-                            side: const BorderSide(color: AppTheme.dangerColor),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          icon: const Icon(
-                            Icons.do_not_disturb_on_outlined,
-                            size: 16,
-                          ),
-                          label: Text(
-                            'Stop / Discontinue Day $currentDayNumber Care',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                          onPressed: () => _showDiscontinueDialog(
-                            context,
-                            visit,
-                            dayNumber: currentDayNumber,
-                          ),
-                        ),
+                        child: isMobile
+                            ? IconButton(
+                                tooltip:
+                                    'Stop / Discontinue Day $currentDayNumber Care',
+                                style: IconButton.styleFrom(
+                                  foregroundColor: AppTheme.dangerColor,
+                                  backgroundColor: AppTheme.dangerColor
+                                      .withValues(alpha: 0.1),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: const BorderSide(
+                                      color: AppTheme.dangerColor,
+                                    ),
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  Icons.do_not_disturb_on_outlined,
+                                  size: 20,
+                                ),
+                                onPressed: () => _showDiscontinueDialog(
+                                  context,
+                                  visit,
+                                  dayNumber: currentDayNumber,
+                                ),
+                              )
+                            : OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.dangerColor,
+                                  side: const BorderSide(
+                                    color: AppTheme.dangerColor,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  Icons.do_not_disturb_on_outlined,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  'Stop / Discontinue Day $currentDayNumber Care',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                onPressed: () => _showDiscontinueDialog(
+                                  context,
+                                  visit,
+                                  dayNumber: currentDayNumber,
+                                ),
+                              ),
                       );
                     },
                   ),
@@ -8840,6 +8870,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           return 0;
         });
 
+    final totalProcedures = displayProcedures.length;
+    final totalProcedurePages = (totalProcedures == 0)
+        ? 1
+        : ((totalProcedures - 1) ~/ _pageSize) + 1;
+    final currentProcPage = _procPage.clamp(1, totalProcedurePages);
+    final procStartIdx = (currentProcPage - 1) * _pageSize;
+    final procEndIdx = (procStartIdx + _pageSize < totalProcedures)
+        ? procStartIdx + _pageSize
+        : totalProcedures;
+    final pageProcedures = (procStartIdx < totalProcedures)
+        ? displayProcedures.sublist(procStartIdx, procEndIdx)
+        : <HomeVisitProcedureModel>[];
+
     final proceduresTableCard = Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -9016,11 +9059,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                       for (
                         int idx = 0;
-                        idx < displayProcedures.length;
+                        idx < pageProcedures.length;
                         idx++
                       ) ...[
                         () {
-                          final p = displayProcedures[idx];
+                          final p = pageProcedures[idx];
                           return TableRow(
                             decoration: BoxDecoration(
                               color: idx.isEven
@@ -9183,6 +9226,83 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Showing ${totalProcedures == 0 ? 0 : procStartIdx + 1}-$procEndIdx of $totalProcedures entries',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        minimumSize: const Size(0, 32),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: currentProcPage > 1
+                          ? () => setState(() => _procPage--)
+                          : null,
+                      icon: const Icon(Icons.chevron_left, size: 16),
+                      label: const Text(
+                        'Previous',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Page $currentProcPage of $totalProcedurePages',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        minimumSize: const Size(0, 32),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: currentProcPage < totalProcedurePages
+                          ? () => setState(() => _procPage++)
+                          : null,
+                      icon: const Icon(Icons.chevron_right, size: 16),
+                      label: const Text('Next', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ],
         ],
       ),
@@ -9193,55 +9313,119 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Flexible(
-                child: _buildSectionHeader(
-                  'Log Administered Medicines & Procedures',
-                  Icons.medication_liquid_outlined,
-                ),
-              ),
-              if (!widget.isReadOnlyView) ...[
-                const SizedBox(width: 12),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+          LayoutBuilder(
+            builder: (context, headerConstraints) {
+              final isNarrow = headerConstraints.maxWidth < 800;
+              final headerWidget = _buildSectionHeader(
+                'Log Administered Medicines & Procedures',
+                Icons.medication_liquid_outlined,
+              );
+
+              if (isNarrow) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ElevatedButton.icon(
-                      style: AppTheme.dangerButton,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text(
-                        'Add Medicine',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
+                    headerWidget,
+                    if (!widget.isReadOnlyView) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          ElevatedButton.icon(
+                            style: AppTheme.dangerButton,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text(
+                              'Add Medicine',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            onPressed: () => _showRecordMedicineModal(
+                              context,
+                              visit,
+                              controller,
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            style: AppTheme.dangerButton,
+                            icon: const Icon(
+                              Icons.medical_services_outlined,
+                              size: 18,
+                            ),
+                            label: const Text(
+                              'Add Procedure Item',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            onPressed: () => _showRecordProcedureModal(
+                              context,
+                              visit,
+                              controller,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Flexible(child: headerWidget),
+                  if (!widget.isReadOnlyView) ...[
+                    const SizedBox(width: 12),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ElevatedButton.icon(
+                          style: AppTheme.dangerButton,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text(
+                            'Add Medicine',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: () => _showRecordMedicineModal(
+                            context,
+                            visit,
+                            controller,
+                          ),
                         ),
-                      ),
-                      onPressed: () =>
-                          _showRecordMedicineModal(context, visit, controller),
-                    ),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      style: AppTheme.dangerButton,
-                      icon: const Icon(
-                        Icons.medical_services_outlined,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Add Procedure Item',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
+                        const SizedBox(width: 10),
+                        ElevatedButton.icon(
+                          style: AppTheme.dangerButton,
+                          icon: const Icon(
+                            Icons.medical_services_outlined,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Add Procedure Item',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: () => _showRecordProcedureModal(
+                            context,
+                            visit,
+                            controller,
+                          ),
                         ),
-                      ),
-                      onPressed: () =>
-                          _showRecordProcedureModal(context, visit, controller),
+                      ],
                     ),
                   ],
-                ),
-              ],
-            ],
+                ],
+              );
+            },
           ),
           const SizedBox(height: 20),
           LayoutBuilder(
@@ -11966,23 +12150,26 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ),
                 ),
                 const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Daily Home Nursing Care History - ${currentVisit.patientName ?? "Patient"}',
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Daily Home Nursing Care History - ${currentVisit.patientName ?? "Patient"}',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Patient ID: ${currentVisit.patientDisplayId ?? "N/A"} | Select a Day Session Card below to view full details.',
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        'Patient ID: ${currentVisit.patientDisplayId ?? "N/A"} | Select a Day Session Card below to view full details.',
+                        style:
+                            const TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -12033,7 +12220,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -12043,22 +12230,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ),
                   boxShadow: AppTheme.cardShadow,
                 ),
-                child: Row(
-                  children: [
-                    // Day Badge Box
-                    Container(
-                      width: 65,
-                      height: 65,
+                child: LayoutBuilder(
+                  builder: (context, cardConstraints) {
+                    final isMobileCard = cardConstraints.maxWidth < 680;
+
+                    final dayBadge = Container(
+                      width: 58,
+                      height: 58,
                       decoration: BoxDecoration(
                         color: isCancelled
                             ? AppTheme.dangerColor.withValues(alpha: 0.12)
                             : (isDone
-                                  ? AppTheme.secondaryColor.withValues(
-                                      alpha: 0.12,
-                                    )
-                                  : AppTheme.primaryColor.withValues(
-                                      alpha: 0.1,
-                                    )),
+                                ? AppTheme.secondaryColor.withValues(alpha: 0.12)
+                                : AppTheme.primaryColor.withValues(alpha: 0.1)),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -12072,156 +12256,165 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               color: isCancelled
                                   ? AppTheme.dangerColor
                                   : (isDone
-                                        ? AppTheme.secondaryColor
-                                        : AppTheme.primaryColor),
+                                      ? AppTheme.secondaryColor
+                                      : AppTheme.primaryColor),
                             ),
                           ),
                           Text(
                             '$dayNumber',
                             style: TextStyle(
-                              fontSize: 22,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: isCancelled
                                   ? AppTheme.dangerColor
                                   : (isDone
-                                        ? AppTheme.secondaryColor
-                                        : AppTheme.primaryColor),
+                                      ? AppTheme.secondaryColor
+                                      : AppTheme.primaryColor),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 20),
+                    );
 
-                    // Session Info
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'Day $dayNumber Care Session (${v.visitNumber})',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimaryColor,
-                                ),
+                    final sessionHeader = Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          'Day $dayNumber Care Session (${v.visitNumber})',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimaryColor,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: badgeColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            v.status == 'Verified'
+                                ? 'COMPLETED'
+                                : v.status.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+
+                    final sessionDetails = Wrap(
+                      spacing: 16,
+                      runSpacing: 6,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.calendar_today_outlined,
+                              size: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Date: ${_formatDateDDMMYYYY(v.scheduledDate)}',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: Colors.black87,
                               ),
-                              const SizedBox(width: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: badgeColor,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  v.status == 'Verified'
-                                      ? 'COMPLETED'
-                                      : v.status.toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.person_outline,
+                              size: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 4),
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  const TextSpan(
+                                    text: 'Nurse: ',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      color: AppTheme.nurseColor,
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today_outlined,
-                                size: 14,
-                                color: Colors.grey.shade600,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Date: ${_formatDateDDMMYYYY(v.scheduledDate)}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(width: 20),
-                              Icon(
-                                Icons.person_outline,
-                                size: 14,
-                                color: Colors.grey.shade600,
-                              ),
-                              const SizedBox(width: 4),
-                              Text.rich(
-                                TextSpan(
-                                  children: [
-                                    const TextSpan(
-                                      text: 'Nurse: ',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: AppTheme.nurseColor,
-                                      ),
+                                  TextSpan(
+                                    text: v.nurseName ?? "N/A",
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      color: AppTheme.nurseColor,
                                     ),
-                                    TextSpan(
-                                      text: v.nurseName ?? "N/A",
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppTheme.nurseColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.verified_user_outlined,
-                                size: 14,
-                                color: Colors.grey.shade600,
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.verified_user_outlined,
+                              size: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Attender: ${v.attenderName != null && v.attenderName!.isNotEmpty ? "${v.attenderName} (${v.attenderRelation ?? "Attender"})" : "N/A"}',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: Colors.black87,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Attender: ${v.attenderName != null && v.attenderName!.isNotEmpty ? "${v.attenderName} (${v.attenderRelation ?? "Attender"})" : "N/A"}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.black87,
-                                ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.payments_outlined,
+                              size: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Total Bill: ₹${netAmount.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
                               ),
-                              const SizedBox(width: 20),
-                              Icon(
-                                Icons.payments_outlined,
-                                size: 14,
-                                color: Colors.grey.shade600,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Total Bill: ₹${netAmount.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
 
-                    // Action Buttons for this day's record
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    final actionButtons = Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: isMobileCard
+                          ? WrapAlignment.start
+                          : WrapAlignment.end,
                       children: [
                         ElevatedButton.icon(
                           style: AppTheme.primaryButton,
-                          icon: const Icon(Icons.visibility_outlined, size: 16),
+                          icon: const Icon(Icons.visibility_outlined, size: 15),
                           label: Text('View Day $dayNumber Details'),
                           onPressed: () {
                             setState(() {
@@ -12230,29 +12423,31 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             controller.fetchVisitDetails(v.id);
                           },
                         ),
-                        if (v.status != 'Cancelled' && v.status != 'Verified' && v.status != 'Completed') ...[
-                          const SizedBox(height: 8),
+                        if (v.status != 'Cancelled' &&
+                            v.status != 'Verified' &&
+                            v.status != 'Completed')
                           OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.dangerColor,
-                              side: const BorderSide(color: AppTheme.dangerColor),
+                              side:
+                                  const BorderSide(color: AppTheme.dangerColor),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                                horizontal: 10,
                                 vertical: 8,
                               ),
                             ),
                             icon: const Icon(
                               Icons.do_not_disturb_on_outlined,
-                              size: 15,
+                              size: 14,
                             ),
                             label: Text(
                               'Discontinue Day $dayNumber Care',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                                fontSize: 11.5,
                               ),
                             ),
                             onPressed: () => _showDiscontinueDialog(
@@ -12261,10 +12456,49 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               dayNumber: dayNumber,
                             ),
                           ),
-                        ],
                       ],
-                    ),
-                  ],
+                    );
+
+                    if (isMobileCard) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              dayBadge,
+                              const SizedBox(width: 12),
+                              Expanded(child: sessionHeader),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          sessionDetails,
+                          const SizedBox(height: 14),
+                          actionButtons,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        dayBadge,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              sessionHeader,
+                              const SizedBox(height: 8),
+                              sessionDetails,
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        actionButtons,
+                      ],
+                    );
+                  },
                 ),
               );
             },
