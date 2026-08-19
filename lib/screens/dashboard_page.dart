@@ -716,8 +716,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         drawer: isMobile ? Drawer(child: _buildSidebar(isMobile)) : null,
-
-        floatingActionButton: CustomSpeedDial(children: []),
+        floatingActionButton: null,
         body: Row(
           children: [
             if (!isMobile) _buildSidebar(isMobile),
@@ -1956,6 +1955,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
 
+    final bioText = _bioController.text.trim();
+    if (bioText.isNotEmpty) {
+      if (!RegExp(r'[a-zA-Z]').hasMatch(bioText)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bio / Professional Summary must contain letters and cannot consist only of special characters or numbers.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+      if (!RegExp(r'^[a-zA-Z0-9\s.,\-]+$').hasMatch(bioText)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Special characters are not allowed in Bio / Professional Summary.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+      if (bioText.length > 255) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bio / Professional Summary cannot exceed 255 characters.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+    }
+
     // Auto-calculate weekly off days: any day not selected as available is automatically a weekly off day
     final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     _weeklyOffDays = allDays
@@ -2787,6 +2817,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             focusNode: _bioFocusNode,
                             maxLines: 3,
                             maxLength: 255,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,\-]')),
+                            ],
                             style: const TextStyle(
                               color: AppTheme.textPrimaryColor,
                               fontWeight: FontWeight.normal,
@@ -2794,6 +2827,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Please enter your bio / professional summary';
+                              }
+                              if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
+                                return 'Bio must contain letters and cannot consist only of special characters or numbers';
+                              }
+                              if (!RegExp(r'^[a-zA-Z0-9\s.,\-]+$').hasMatch(value)) {
+                                return 'Special characters are not allowed';
+                              }
+                              if (value.trim().length > 255) {
+                                return 'Bio cannot exceed 255 characters';
                               }
                               return null;
                             },
@@ -2897,6 +2939,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           focusNode: _bioFocusNode,
                           maxLines: 3,
                           maxLength: 255,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,\-]')),
+                          ],
                           style: const TextStyle(
                             color: AppTheme.textPrimaryColor,
                             fontWeight: FontWeight.normal,
@@ -2904,6 +2949,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
                               return 'Please enter your bio / professional summary';
+                            }
+                            if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
+                              return 'Bio must contain letters and cannot consist only of special characters or numbers';
+                            }
+                            if (!RegExp(r'^[a-zA-Z0-9\s.,\-]+$').hasMatch(value)) {
+                              return 'Special characters are not allowed';
+                            }
+                            if (value.trim().length > 255) {
+                              return 'Bio cannot exceed 255 characters';
                             }
                             return null;
                           },
@@ -2955,12 +3009,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       'Qualification (MBBS, MD, etc.)',
                       _qualController,
                       Icons.school_outlined,
-                      maxLength: 100,
+                      maxLength: 30,
                       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .,()]'))],
                       isRequired: true,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'Please enter your qualification';
+                        }
+                        if (value.trim().length > 30) {
+                          return 'Qualification cannot exceed 30 characters';
+                        }
+                        if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
+                          return 'Qualification must contain valid letters';
                         }
                         return null;
                       },
@@ -3046,12 +3106,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             'Qualification (MBBS, MD, etc.)',
                             _qualController,
                             Icons.school_outlined,
-                            maxLength: 100,
+                            maxLength: 30,
                             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .,()]'))],
                             isRequired: true,
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Please enter your qualification';
+                              }
+                              if (value.trim().length > 30) {
+                                return 'Qualification cannot exceed 30 characters';
+                              }
+                              if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
+                                return 'Qualification must contain valid letters';
                               }
                               return null;
                             },

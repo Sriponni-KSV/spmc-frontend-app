@@ -1,8 +1,15 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-void showDocumentViewer(BuildContext context, String url, String title) {
-  final isImage = _isImageUrl(url);
+void showDocumentViewer(
+  BuildContext context,
+  String url,
+  String title, {
+  List<int>? bytes,
+  String? fileName,
+}) {
+  final isImage = _isImage(url: url, fileName: fileName);
 
   showDialog(
     context: context,
@@ -39,14 +46,16 @@ void showDocumentViewer(BuildContext context, String url, String title) {
               Expanded(
                 child: isImage
                     ? InteractiveViewer(
-                        child: Image.network(
-                          url,
-                          fit: BoxFit.contain,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return const Center(child: CircularProgressIndicator());
-                          },
-                        ),
+                        child: bytes != null && bytes.isNotEmpty
+                            ? Image.memory(Uint8List.fromList(bytes), fit: BoxFit.contain)
+                            : Image.network(
+                                url,
+                                fit: BoxFit.contain,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return const Center(child: CircularProgressIndicator());
+                                },
+                              ),
                       )
                     : Center(
                         child: Column(
@@ -54,21 +63,22 @@ void showDocumentViewer(BuildContext context, String url, String title) {
                           children: [
                             const Icon(Icons.picture_as_pdf_outlined, size: 64, color: Colors.red),
                             const SizedBox(height: 16),
-                            const Text(
-                              'PDF Document',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            Text(
+                              title,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 8),
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                final uri = Uri.parse(url);
-                                if (await canLaunchUrl(uri)) {
-                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                }
-                              },
-                              icon: const Icon(Icons.open_in_new),
-                              label: const Text('Open Document'),
-                            ),
+                            if (url.isNotEmpty)
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  final uri = Uri.parse(url);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  }
+                                },
+                                icon: const Icon(Icons.open_in_new),
+                                label: const Text('Open Document'),
+                              ),
                           ],
                         ),
                       ),
@@ -81,11 +91,11 @@ void showDocumentViewer(BuildContext context, String url, String title) {
   );
 }
 
-bool _isImageUrl(String url) {
-  final cleanUrl = url.split('?').first.toLowerCase();
-  return cleanUrl.endsWith('.jpg') ||
-      cleanUrl.endsWith('.jpeg') ||
-      cleanUrl.endsWith('.png') ||
-      cleanUrl.endsWith('.gif') ||
-      cleanUrl.endsWith('.webp');
+bool _isImage({String? url, String? fileName}) {
+  final target = (fileName ?? url ?? '').split('?').first.toLowerCase();
+  return target.endsWith('.jpg') ||
+      target.endsWith('.jpeg') ||
+      target.endsWith('.png') ||
+      target.endsWith('.gif') ||
+      target.endsWith('.webp');
 }

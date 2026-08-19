@@ -1,25 +1,61 @@
+import 'dart:html' as html;
+import 'dart:ui_web' as ui_web;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-/// Web implementation: opens images inline; opens PDFs/docs in a new browser tab.
-/// Uses url_launcher instead of dart:html to avoid DDC compilation crashes
-/// on Flutter SDK 3.11+ where dart:html is deprecated.
-void showDocumentViewer(BuildContext context, String url, String title) {
-  final isImage = _isImageUrl(url);
+int _pdfViewCounter = 0;
+
+/// Web implementation: opens images inline and renders PDFs in embedded browser iframe or new tab.
+void showDocumentViewer(
+  BuildContext context,
+  String url,
+  String title, {
+  List<int>? bytes,
+  String? fileName,
+}) {
+  final isImage = _isImage(url: url, fileName: fileName);
+  final isPdf = _isPdf(url: url, fileName: fileName);
+
+  String? pdfUrl;
+  if (bytes != null && bytes.isNotEmpty) {
+    try {
+      final blob = html.Blob([bytes], isPdf ? 'application/pdf' : 'application/octet-stream');
+      pdfUrl = html.Url.createObjectUrlFromBlob(blob);
+    } catch (_) {}
+  } else if (url.isNotEmpty && url.startsWith('http')) {
+    pdfUrl = url;
+  }
+
+  String? viewType;
+  if (pdfUrl != null && !isImage) {
+    _pdfViewCounter++;
+    viewType = 'pdf-iframe-$_pdfViewCounter';
+    final targetUrl = pdfUrl;
+    ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
+      final iframe = html.IFrameElement()
+        ..src = targetUrl
+        ..style.border = 'none'
+        ..style.width = '100%'
+        ..style.height = '100%';
+      return iframe;
+    });
+  }
 
   showDialog(
     context: context,
     builder: (context) {
       return Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
         child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.7,
-          height: MediaQuery.of(context).size.height * 0.8,
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.85,
           child: Column(
             children: [
               // Header
-              Padding(
-                padding: const EdgeInsets.all(16.0),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 14.0),
+                color: const Color(0xFFF8FAFC),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -27,15 +63,24 @@ void showDocumentViewer(BuildContext context, String url, String title) {
                       child: Text(
                         title,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 17,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF0F5A8E),
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (pdfUrl != null)
+                      IconButton(
+                        tooltip: 'Open in new tab',
+                        icon: const Icon(Icons.open_in_new, color: Color(0xFF0F5A8E), size: 20),
+                        onPressed: () {
+                          html.window.open(pdfUrl!, '_blank');
+                        },
+                      ),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      tooltip: 'Close',
+                      icon: const Icon(Icons.close, size: 22),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
@@ -46,18 +91,47 @@ void showDocumentViewer(BuildContext context, String url, String title) {
               Expanded(
                 child: isImage
                     ? InteractiveViewer(
-                        child: Image.network(
-                          url,
-                          fit: BoxFit.contain,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          },
+                        child: Center(
+                          child: bytes != null && bytes.isNotEmpty
+                              ? Image.memory(
+                                  Uint8List.fromList(bytes),
+                                  fit: BoxFit.contain,
+                                )
+                              : Image.network(
+                                  url,
+                                  fit: BoxFit.contain,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return const Center(child: CircularProgressIndicator());
+                                  },
+                                ),
                         ),
                       )
-                    : _WebDocumentActions(url: url, title: title),
+                    : (viewType != null
+                        ? HtmlElementView(viewType: viewType)
+                        : Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.picture_as_pdf_outlined, size: 64, color: Colors.red),
+                                const SizedBox(height: 16),
+                                Text(
+                                  title,
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                if (pdfUrl != null)
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      html.window.open(pdfUrl!, '_blank');
+                                    },
+                                    icon: const Icon(Icons.open_in_new),
+                                    label: const Text('Open PDF'),
+                                  ),
+                              ],
+                            ),
+                          )),
               ),
             ],
           ),
@@ -67,64 +141,16 @@ void showDocumentViewer(BuildContext context, String url, String title) {
   );
 }
 
-bool _isImageUrl(String url) {
-  final cleanUrl = url.split('?').first.toLowerCase();
-  return cleanUrl.endsWith('.jpg') ||
-      cleanUrl.endsWith('.jpeg') ||
-      cleanUrl.endsWith('.png') ||
-      cleanUrl.endsWith('.gif') ||
-      cleanUrl.endsWith('.webp');
+bool _isImage({String? url, String? fileName}) {
+  final target = (fileName ?? url ?? '').split('?').first.toLowerCase();
+  return target.endsWith('.jpg') ||
+      target.endsWith('.jpeg') ||
+      target.endsWith('.png') ||
+      target.endsWith('.gif') ||
+      target.endsWith('.webp');
 }
 
-/// Displays action buttons to open/download a non-image document on web.
-/// Opens in a new browser tab via url_launcher (no dart:html required).
-class _WebDocumentActions extends StatelessWidget {
-  final String url;
-  final String title;
-
-  const _WebDocumentActions({required this.url, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.picture_as_pdf_outlined,
-            size: 64,
-            color: Colors.red,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Click below to open in a new tab',
-            style: TextStyle(color: Colors.grey, fontSize: 13),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: () async {
-              final uri = Uri.parse(url);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.platformDefault);
-              }
-            },
-            icon: const Icon(Icons.open_in_new),
-            label: const Text('Open Document'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+bool _isPdf({String? url, String? fileName}) {
+  final target = (fileName ?? url ?? '').split('?').first.toLowerCase();
+  return target.endsWith('.pdf');
 }

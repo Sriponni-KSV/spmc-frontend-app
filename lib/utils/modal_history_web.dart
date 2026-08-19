@@ -9,6 +9,7 @@ class ModalHistoryHelper {
   static int _pushedHistoryCount = 0;
   static bool _isHandlingPopState = false;
   static bool _isIgnoringPopState = false;
+  static bool _skipNextBack = false;
   static bool _initialized = false;
   static GlobalKey<NavigatorState>? _navigatorKey;
 
@@ -31,12 +32,12 @@ class ModalHistoryHelper {
           if (_popupRoutes.isNotEmpty) {
             final topRoute = _popupRoutes.last;
             if (topRoute.isActive && topRoute.navigator != null) {
-              topRoute.navigator!.pop();
+              topRoute.navigator!.maybePop();
             } else if (_navigatorKey?.currentState?.canPop() == true) {
-              _navigatorKey!.currentState!.pop();
+              _navigatorKey!.currentState!.maybePop();
             }
           } else if (_navigatorKey?.currentState?.canPop() == true) {
-            _navigatorKey!.currentState!.pop();
+            _navigatorKey!.currentState!.maybePop();
           }
         } catch (_) {}
 
@@ -45,6 +46,13 @@ class ModalHistoryHelper {
         });
       }
     });
+  }
+
+  static void skipNextHistoryBack() {
+    _skipNextBack = true;
+    if (_pushedHistoryCount > 0) {
+      _pushedHistoryCount--;
+    }
   }
 
   static void onPopupPushed(Route<dynamic> route) {
@@ -74,6 +82,11 @@ class ModalHistoryHelper {
 
     if (_isHandlingPopState) {
       // Pop was already triggered and consumed by browser back button popstate
+      return;
+    }
+
+    if (_skipNextBack) {
+      _skipNextBack = false;
       return;
     }
 

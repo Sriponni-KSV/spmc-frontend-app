@@ -156,6 +156,7 @@ class _NewPatientRegistrationViewState
   PatientModel? _matchedExistingPatient;
   String _lastCheckedPhone = '';
   bool _isSearchingPhone = false;
+  String? _phoneDuplicateError;
 
   // Form keys for validation
   final _formKeyStep1 = GlobalKey<FormState>();
@@ -174,12 +175,18 @@ class _NewPatientRegistrationViewState
 
   void _onPhoneChanged() {
     final phone = _phoneController.text.trim();
-    if (phone.length == 10) {
+    if (phone.length == 10 && RegExp(r'^[6-9]\d{9}$').hasMatch(phone)) {
       if (phone != _lastCheckedPhone) {
         _lastCheckedPhone = phone;
         _checkExistingPatient(phone);
       }
     } else {
+      if (_phoneDuplicateError != null || _matchedExistingPatient != null) {
+        setState(() {
+          _phoneDuplicateError = null;
+          _matchedExistingPatient = null;
+        });
+      }
       if (phone.length < 10) {
         _lastCheckedPhone = '';
       }
@@ -187,16 +194,38 @@ class _NewPatientRegistrationViewState
   }
 
   Future<void> _checkExistingPatient(String phone) async {
+    // If editing existing patient with same phone, skip check
+    if (widget.existingPatient != null && widget.existingPatient!.phone == phone) {
+      if (_phoneDuplicateError != null) {
+        setState(() {
+          _phoneDuplicateError = null;
+        });
+      }
+      return;
+    }
+
     setState(() {
       _isSearchingPhone = true;
     });
 
     try {
       final patients = await _patientController.fetchPatientsByPhone(phone);
-      if (patients.isNotEmpty) {
-        if (mounted) {
-          _showExistingPatientsDialog(patients);
-        }
+      final duplicates = patients.where((p) => widget.existingPatient == null || p.id != widget.existingPatient!.id).toList();
+
+      if (duplicates.isNotEmpty && mounted) {
+        final existing = duplicates.first;
+        setState(() {
+          _matchedExistingPatient = existing;
+          _phoneDuplicateError = 'This mobile number is already registered to ${existing.name} (${existing.patientId ?? "ID: N/A"}). Only one patient is allowed per mobile number.';
+        });
+        _formKeyStep1.currentState?.validate();
+        _showExistingPatientsDialog(duplicates);
+      } else if (mounted) {
+        setState(() {
+          _matchedExistingPatient = null;
+          _phoneDuplicateError = null;
+        });
+        _formKeyStep1.currentState?.validate();
       }
     } catch (e) {
       print('Error searching patient by phone: $e');
@@ -214,24 +243,35 @@ class _NewPatientRegistrationViewState
       context: context,
       barrierDismissible: false,
       builder: (context) {
+        final patient = patients.first;
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
           backgroundColor: Colors.white,
           title: Row(
             children: [
-              const Icon(
-                Icons.info_outline,
-                color: AppTheme.primaryColor,
-                size: 24,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppTheme.dangerColor,
+                  size: 24,
+                ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                'Existing Patient Found',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Mobile Number Already Registered',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                    color: AppTheme.textPrimaryColor,
+                  ),
                 ),
               ),
             ],
@@ -242,79 +282,50 @@ class _NewPatientRegistrationViewState
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  patients.length == 1
-                      ? 'A patient is already registered with this mobile number.'
-                      : 'Multiple patients are registered with this mobile number.',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textPrimaryColor,
+                const Text(
+                  'This mobile number is already assigned to a registered patient. Only one patient record is permitted per mobile number.',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: Color(0xFF64748B),
+                    height: 1.4,
                   ),
                 ),
                 const SizedBox(height: 16),
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: patients.map((patient) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppTheme.borderColor),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildDialogDetailRow(
-                                'Patient ID',
-                                patient.patientId ?? '-',
-                              ),
-                              _buildDialogDetailRow('Name', patient.name),
-                              _buildDialogDetailRow(
-                                'Gender / Age',
-                                '${patient.gender} / ${patient.displayAge}',
-                              ),
-                              _buildDialogDetailRow('DOB', patient.dob),
-                              _buildDialogDetailRow(
-                                'Address',
-                                patient.fullAddress,
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                width: double.infinity,
-                                height: 40,
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop(patient);
-                                  },
-                                  style: AppTheme.primaryButton.copyWith(
-                                    minimumSize: MaterialStateProperty.all(
-                                      const Size(0, 40),
-                                    ),
-                                    padding: MaterialStateProperty.all(
-                                      const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 8,
-                                      ),
-                                    ),
-                                  ),
-                                  child: const Text('Load Patient Details'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDialogDetailRow(
+                        'Patient ID',
+                        patient.patientId ?? '-',
+                      ),
+                      _buildDialogDetailRow('Name', patient.name),
+                      _buildDialogDetailRow(
+                        'Gender / Age',
+                        '${patient.gender} / ${patient.displayAge}',
+                      ),
+                      _buildDialogDetailRow('DOB', patient.dob),
+                      _buildDialogDetailRow('Mobile', patient.phone),
+                      if (patient.fullAddress.isNotEmpty)
+                        _buildDialogDetailRow(
+                          'Address',
+                          patient.fullAddress,
+                        ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 const Text(
-                  'Would you like to load their details to edit/complete their profile, or register a new patient instead?',
+                  'Please load this patient\'s record to update their profile or enter a different mobile number for a new registration.',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
                     color: AppTheme.textSecondaryColor,
                   ),
                 ),
@@ -324,21 +335,38 @@ class _NewPatientRegistrationViewState
           actions: [
             OutlinedButton(
               onPressed: () {
-                Navigator.of(context).pop(null);
+                Navigator.of(context).pop('clear');
               },
-              style: AppTheme.cancelButton.copyWith(
-                minimumSize: MaterialStateProperty.all(const Size(180, 48)),
-              ),
-              child: const Text('Register New Patient'),
+              style: AppTheme.cancelButton,
+              child: const Text('Enter Different Number'),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop('load');
+              },
+              style: AppTheme.primaryButton,
+              child: const Text('Load Existing Patient'),
             ),
           ],
         );
       },
-    ).then((selectedPatient) {
-      if (selectedPatient != null && selectedPatient is PatientModel) {
+    ).then((action) {
+      if (action == 'load') {
+        if (patients.isNotEmpty) {
+          final p = patients.first;
+          setState(() {
+            _matchedExistingPatient = p;
+            _phoneDuplicateError = null;
+            _loadMatchedPatient(p);
+          });
+        }
+      } else if (action == 'clear') {
         setState(() {
-          _matchedExistingPatient = selectedPatient;
-          _loadMatchedPatient(selectedPatient);
+          _phoneController.clear();
+          _lastCheckedPhone = '';
+          _phoneDuplicateError = null;
+          _matchedExistingPatient = null;
         });
       }
     });
@@ -744,7 +772,7 @@ class _NewPatientRegistrationViewState
                               (widget.existingPatient != null ||
                                       _matchedExistingPatient != null)
                                   ? 'Update patient information and medical history'
-                                  : 'Register a new patient with AI-powered voice input',
+                                  : 'Fill in patient information and medical history',
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
                                     color: AppTheme.textSecondaryColor,
@@ -1097,9 +1125,48 @@ class _NewPatientRegistrationViewState
                           if (clean.length != 10) {
                             return 'Mobile number must be exactly 10 digits';
                           }
+                          if (_phoneDuplicateError != null) {
+                            return _phoneDuplicateError;
+                          }
                           return null;
                         },
                       ),
+                      if (_phoneDuplicateError != null && _matchedExistingPatient != null) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.dangerColor.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppTheme.dangerColor.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: AppTheme.dangerColor,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Registered to: ${_matchedExistingPatient!.name} (${_matchedExistingPatient!.patientId ?? "ID: N/A"}). Only one patient allowed per mobile number.',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.dangerColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -1418,93 +1485,14 @@ class _NewPatientRegistrationViewState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (isMobile)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Medical Intake',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Text(
-                        'AI Voice Input: ',
-                        style: TextStyle(
-                          color: Color(0xFF4A5568),
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Icons.mic_none_outlined, size: 18),
-                          label: const Text('Start Recording'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D5D9A),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              )
-            else
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Medical Intake',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'AI Voice Input: ',
-                        style: TextStyle(
-                          color: Color(0xFF4A5568),
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.mic_none_outlined, size: 18),
-                        label: const Text('Start Recording'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D5D9A),
-                          foregroundColor: Colors.white,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+            const Text(
+              'Medical Intake',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
               ),
+            ),
             // Vitals Section
             const SizedBox(height: 24),
             const Text(
@@ -3352,6 +3340,121 @@ class _NewPatientRegistrationViewState
       if (existing != null && existing.id != null) {
         await _patientController.updatePatient(existing.id!, patient);
       } else {
+        // Pre-check for duplicate patient records by phone and name/email
+        if (patient.phone != null && patient.phone!.trim().isNotEmpty) {
+          final existingList = await _patientController.fetchPatientsByPhone(patient.phone!.trim());
+          final duplicate = existingList.where((p) {
+            final sameName = p.name != null &&
+                patient.name != null &&
+                p.name!.trim().toLowerCase() == patient.name!.trim().toLowerCase();
+            final sameEmail = patient.email != null &&
+                patient.email!.trim().isNotEmpty &&
+                p.email != null &&
+                p.email!.trim().isNotEmpty &&
+                p.email!.trim().toLowerCase() == patient.email!.trim().toLowerCase();
+            return sameName || sameEmail;
+          }).toList();
+
+          if (duplicate.isNotEmpty && mounted) {
+            final dup = duplicate.first;
+            await showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                title: Row(
+                  children: const [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: AppTheme.dangerColor,
+                      size: 26,
+                    ),
+                    SizedBox(width: 10),
+                    Text(
+                      'Duplicate Patient Record',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'A patient with identical details is already registered in the database:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '• Patient ID: ${dup.patientId ?? "N/A"}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '• Name: ${dup.name ?? "N/A"}',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '• Mobile: ${dup.phone ?? "N/A"}',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          if (dup.email != null && dup.email!.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '• Email: ${dup.email}',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Creating duplicate patient records with identical details is prevented.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.dangerColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  ElevatedButton(
+                    style: AppTheme.primaryButton,
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('OK, Review Details'),
+                  ),
+                ],
+              ),
+            );
+            return;
+          }
+        }
+
         await _patientController.registerPatient(patient);
       }
 
@@ -3369,9 +3472,58 @@ class _NewPatientRegistrationViewState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
+        final errorMsg = e.toString().replaceAll('Exception: ', '');
+        if (errorMsg.toLowerCase().contains('already exists') ||
+            errorMsg.toLowerCase().contains('duplicate')) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: const [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: AppTheme.dangerColor,
+                    size: 26,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Duplicate Patient Record',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: AppTheme.textPrimaryColor,
+                    ),
+                  ),
+                ],
+              ),
+              content: Text(
+                errorMsg,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondaryColor,
+                  height: 1.4,
+                ),
+              ),
+              actions: [
+                ElevatedButton(
+                  style: AppTheme.primaryButton,
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK, Review Form'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $errorMsg'),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);

@@ -23,6 +23,7 @@ import '../widgets/custom_dropdown_search.dart';
 import 'front_desk_admission_counter.dart';
 import '../widgets/user_profile_dialog.dart';
 import 'billing_management_view.dart';
+import '../utils/modal_history_helper.dart';
 
 class FrontDeskDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -129,13 +130,110 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     super.dispose();
   }
 
+  Future<bool> _confirmLeaveRegistration() async {
+    if (!_isRegisteringPatient) {
+      return true;
+    }
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: Colors.white,
+        child: Container(
+          width: 440,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.warning_amber_rounded,
+                      color: AppTheme.dangerColor,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Unsaved Patient Registration',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppTheme.textPrimaryColor,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'You are currently filling the patient registration form. If you navigate away now, any unsaved inputs will be lost.\n\nDo you want to leave this page?',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: Color(0xFF64748B),
+                  height: 1.4,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    style: AppTheme.cancelButton,
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('Stay on Page'),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    style: AppTheme.dangerButton,
+                    onPressed: () {
+                      ModalHistoryHelper.skipNextHistoryBack();
+                      Navigator.of(ctx).pop(true);
+                    },
+                    child: const Text('Leave Page'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return shouldLeave == true;
+  }
+
   void _changePage(
     int index, {
     bool isRegistering = false,
     bool forceBooking = false,
     PatientModel? prefilledPatient,
-  }) {
+  }) async {
     if (!mounted) return;
+    if (_isRegisteringPatient) {
+      if (index == 1 && isRegistering) {
+        return;
+      }
+      final shouldLeave = await _confirmLeaveRegistration();
+      if (!shouldLeave || !mounted) return;
+      setState(() {
+        _isRegisteringPatient = false;
+        _patientToComplete = null;
+        _selectedIndex = index;
+      });
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
     switch (index) {
       case 0:
         context.go(AppRoutes.receptionDashboard);
@@ -205,40 +303,62 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     );
   }
 
+  bool _isFormActive() {
+    if (_isRegisteringPatient ||
+        widget.isRegisteringPatient ||
+        widget.isEditingProfile ||
+        _patientToComplete != null) {
+      return true;
+    }
+    try {
+      final loc = GoRouterState.of(context).matchedLocation;
+      if (loc.contains('new-patient') ||
+          loc.contains('edit-patient') ||
+          loc.contains('book-appointment')) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
+    final bool isFormActive = _isFormActive();
 
     return Scaffold(
       key: const ValueKey('front_desk_dashboard'),
       backgroundColor: AppTheme.backgroundColor,
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
-      floatingActionButton: CustomSpeedDial(
-        children: [
-          if (Provider.of<AuthProvider>(
-                context,
-                listen: false,
-              ).user?.hasPermission('add_patient') ??
-              false)
-            SpeedDialChild(
-              label: 'New Patient',
-              icon: Icons.person_add_alt_1_outlined,
-              color: AppTheme.dangerColor,
-              onTap: () => _changePage(1, isRegistering: true),
+      floatingActionButton: isFormActive
+          ? null
+          : CustomSpeedDial(
+              isVisible: !isFormActive,
+              children: [
+                if (Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    ).user?.hasPermission('add_patient') ??
+                    false)
+                  SpeedDialChild(
+                    label: 'New Patient',
+                    icon: Icons.person_add_alt_1_outlined,
+                    color: AppTheme.dangerColor,
+                    onTap: () => _changePage(1, isRegistering: true),
+                  ),
+                if (Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    ).user?.hasPermission('book_appointment') ??
+                    false)
+                  SpeedDialChild(
+                    label: 'Book Appointment',
+                    icon: Icons.calendar_month_outlined,
+                    color: const Color(0xFF0D5D9A),
+                    onTap: () => _changePage(2, forceBooking: true),
+                  ),
+              ],
             ),
-          if (Provider.of<AuthProvider>(
-                context,
-                listen: false,
-              ).user?.hasPermission('book_appointment') ??
-              false)
-            SpeedDialChild(
-              label: 'Book Appointment',
-              icon: Icons.calendar_month_outlined,
-              color: const Color(0xFF0D5D9A),
-              onTap: () => _changePage(2, forceBooking: true),
-            ),
-        ],
-      ),
       body: Row(
         children: [
           // Sidebar (only on desktop)
@@ -1252,6 +1372,28 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
   }
 
   Future<void> _saveProfile() async {
+    final bioText = _bioController.text.trim();
+    if (bioText.isNotEmpty) {
+      if (!RegExp(r'[a-zA-Z]').hasMatch(bioText)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bio / Professional Summary must contain letters and cannot consist only of special characters or numbers.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+      if (bioText.length > 255) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bio / Professional Summary cannot exceed 255 characters.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+    }
+
     final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     _weeklyOffDays = allDays
         .where((day) => !(_availableDays ?? []).contains(day))
@@ -1658,6 +1800,24 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                         controller: _bioController,
                         maxLines: 3,
                         maxLength: 255,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,\-]')),
+                        ],
+                        validator: (value) {
+                          if (value != null && value.trim().isNotEmpty) {
+                            if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
+                              return 'Bio must contain letters and cannot consist only of special characters or numbers';
+                            }
+                            if (!RegExp(r'^[a-zA-Z0-9\s.,\-]+$').hasMatch(value)) {
+                              return 'Special characters are not allowed';
+                            }
+                            if (value.length > 255) {
+                              return 'Bio cannot exceed 255 characters';
+                            }
+                          }
+                          return null;
+                        },
                         style: const TextStyle(
                           color: AppTheme.textPrimaryColor,
                           fontWeight: FontWeight.normal,

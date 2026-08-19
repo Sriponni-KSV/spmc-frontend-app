@@ -26,6 +26,8 @@ class CustomDropdownSearch extends StatefulWidget {
   final double? hintFontSize;
   final bool allowFreeText;
   final bool readOnly;
+  final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
 
   const CustomDropdownSearch({
     super.key,
@@ -49,6 +51,8 @@ class CustomDropdownSearch extends StatefulWidget {
     this.hintFontSize,
     this.allowFreeText = false,
     this.readOnly = false,
+    this.maxLength = 60,
+    this.inputFormatters,
   });
 
   static bool get isOpen =>
@@ -745,10 +749,29 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                     : SystemMouseCursors.text,
                                 textInputAction: TextInputAction.done,
                                 onTapOutside: (_) {},
+                                maxLength: widget.maxLength,
+                                buildCounter: (
+                                  context, {
+                                  required currentLength,
+                                  required isFocused,
+                                  maxLength,
+                                }) =>
+                                    null,
+                                inputFormatters: widget.inputFormatters ??
+                                    [
+                                      if (widget.maxLength != null)
+                                        LengthLimitingTextInputFormatter(
+                                          widget.maxLength,
+                                        ),
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):]'),
+                                      ),
+                                    ],
                                 decoration: InputDecoration(
                                   filled: false,
                                   fillColor: Colors.transparent,
                                   hintText: _effectiveHint,
+                                  counterText: '',
                                   hintStyle: TextStyle(
                                     fontFamily: 'Inter',
                                     color: const Color(0xFF9CA3AF),

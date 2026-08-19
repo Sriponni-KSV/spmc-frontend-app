@@ -99,6 +99,32 @@ class HomeVisitService {
     }
   }
 
+  // Update recorded medicine item
+  Future<void> updateMedicine(int visitId, int medId, Map<String, dynamic> medData) async {
+    try {
+      final response = await ApiService.put('$baseUrl/home-visits/$visitId/medicines/$medId', medData);
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to update medicine');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Delete recorded medicine item
+  Future<void> deleteMedicine(int visitId, int medId) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/home-visits/$visitId/medicines/$medId');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to delete medicine');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
   // Update medicine daily administration days checklist
   Future<void> updateMedicineAdministeredDays(int visitId, int medId, Map<String, bool> days) async {
     try {
@@ -172,6 +198,19 @@ class HomeVisitService {
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to upload photo evidence');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Delete photo evidence
+  Future<void> deletePhotoEvidence(int visitId, int photoId) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/home-visits/$visitId/photos/$photoId');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to delete photo evidence');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
@@ -267,6 +306,32 @@ class HomeVisitService {
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to record procedure');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Update Procedure Item
+  Future<void> updateProcedure(int visitId, int procId, Map<String, dynamic> procData) async {
+    try {
+      final response = await ApiService.put('$baseUrl/home-visits/$visitId/procedures/$procId', procData);
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to update procedure');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Delete Procedure Item
+  Future<void> deleteProcedure(int visitId, int procId) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/home-visits/$visitId/procedures/$procId');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to delete procedure');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));

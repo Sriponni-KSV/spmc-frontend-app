@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'modal_history_helper.dart';
 
+export 'modal_history_helper.dart';
+
 /// NavigatorObserver that hooks into all route pushes and pops to synchronize
 /// modal popups and dialogs with browser history on Web.
 class ModalHistoryObserver extends NavigatorObserver {

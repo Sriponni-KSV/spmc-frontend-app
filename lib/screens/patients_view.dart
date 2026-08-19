@@ -1976,7 +1976,7 @@ class _PatientsViewState extends State<PatientsView> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Would you like to load their details or continue with new registration?',
+                        'This mobile number is already registered. Only one patient is allowed per mobile number. You can load their record or enter a different number.',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppTheme.textSecondaryColor,
@@ -1988,19 +1988,17 @@ class _PatientsViewState extends State<PatientsView> {
                 actions: [
                   OutlinedButton(
                     onPressed: () {
-                      Navigator.of(ctx).pop(null);
+                      Navigator.of(ctx).pop('clear');
                     },
-                    style: AppTheme.cancelButton.copyWith(
-                      minimumSize: MaterialStateProperty.all(const Size(180, 48)),
-                    ),
-                    child: const Text('Register New Patient'),
+                    style: AppTheme.cancelButton,
+                    child: const Text('Enter Different Number'),
                   ),
                 ],
               );
             },
           );
 
-          if (selectedPatient != null) {
+          if (selectedPatient is PatientModel) {
             setDialogState(() {
               nameCtrl.text = selectedPatient.name;
               if (selectedPatient.dob.isNotEmpty) {
@@ -2016,6 +2014,17 @@ class _PatientsViewState extends State<PatientsView> {
               if (selectedPatient.complaints.isNotEmpty) {
                 reasonCtrl.text = selectedPatient.complaints;
               }
+              phoneError = null;
+            });
+          } else if (selectedPatient == 'clear') {
+            setDialogState(() {
+              phoneCtrl.clear();
+              lastCheckedPhone = '';
+              phoneError = null;
+            });
+          } else {
+            setDialogState(() {
+              phoneError = 'This mobile number is already registered to ${patients.first.name} (${patients.first.patientId ?? ""}).';
             });
           }
         }
@@ -2535,6 +2544,8 @@ class _PatientsViewState extends State<PatientsView> {
                                                             content: Text(
                                                               'Invalid Date Format: ${dobCtrl.text}',
                                                             ),
+                                                            backgroundColor:
+                                                                AppTheme.dangerColor,
                                                           ),
                                                         );
                                                       }
@@ -2623,15 +2634,25 @@ class _PatientsViewState extends State<PatientsView> {
                                                     () => isSaving = false,
                                                   );
                                                   if (context.mounted) {
+                                                    final errorMsg = e
+                                                        .toString()
+                                                        .replaceAll(
+                                                          'Exception: ',
+                                                          '',
+                                                        );
                                                     ScaffoldMessenger.of(
                                                       context,
                                                     ).showSnackBar(
                                                       SnackBar(
                                                         content: Text(
-                                                          'Error: $e',
+                                                          errorMsg,
                                                         ),
                                                         backgroundColor:
-                                                            Colors.redAccent,
+                                                            AppTheme.dangerColor,
+                                                        duration:
+                                                            const Duration(
+                                                              seconds: 4,
+                                                            ),
                                                       ),
                                                     );
                                                   }
