@@ -80,6 +80,41 @@
         this.mediaRecorder.stop();
       }
     };
+
+    // ─── Global Unsaved Form Data Reload Protection ──────────────────────────
+    window.unsavedChanges = {
+      hasUnsavedData: false,
+      setHasUnsavedData: function(flag) {
+        this.hasUnsavedData = !!flag;
+      },
+      reset: function() {
+        this.hasUnsavedData = false;
+      }
+    };
+
+    // Automatically detect user typing in ANY form input/textarea/editable field across the app
+    document.addEventListener('input', function (e) {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
+        var val = e.target.value || e.target.innerText || '';
+        if (val.trim().length > 0) {
+          window.unsavedChanges.hasUnsavedData = true;
+        }
+      }
+    }, true);
+
+    document.addEventListener('change', function (e) {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+        window.unsavedChanges.hasUnsavedData = true;
+      }
+    }, true);
+
+    window.addEventListener('beforeunload', function (e) {
+      if (window.unsavedChanges && window.unsavedChanges.hasUnsavedData) {
+        e.preventDefault();
+        e.returnValue = 'Do you want to refresh? All unsaved data will be lost.';
+        return 'Do you want to refresh? All unsaved data will be lost.';
+      }
+    });
   </script>
   <script>
     // ─── Flutter CanvasKit Hot-Restart Fix ───────────────────────────────────

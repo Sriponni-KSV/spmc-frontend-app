@@ -14,6 +14,7 @@ import '../models/user_model.dart';
 import '../utils/date_formatter.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../utils/unsaved_changes_helper.dart';
 
 class OPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -52,6 +53,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   @override
   void initState() {
     super.initState();
+    UnsavedChangesHelper.setUnsavedChanges(true);
     _tabController = TabController(length: 7, vsync: this);
     _loadData();
     _loadDoctors();
@@ -59,6 +61,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
 
   @override
   void dispose() {
+    UnsavedChangesHelper.setUnsavedChanges(false);
     _tabController.dispose();
     _searchCtrl.dispose();
     super.dispose();

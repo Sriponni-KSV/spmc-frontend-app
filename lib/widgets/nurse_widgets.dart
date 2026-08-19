@@ -292,8 +292,13 @@ class SpeedDialChild {
 
 class CustomSpeedDial extends StatefulWidget {
   final List<SpeedDialChild> children;
+  final bool isVisible;
 
-  const CustomSpeedDial({Key? key, required this.children}) : super(key: key);
+  const CustomSpeedDial({
+    Key? key,
+    required this.children,
+    this.isVisible = true,
+  }) : super(key: key);
 
   @override
   State<CustomSpeedDial> createState() => _CustomSpeedDialState();
@@ -338,6 +343,16 @@ class _CustomSpeedDialState extends State<CustomSpeedDial>
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.isVisible || widget.children.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Automatically suppress FAB if a modal dialog, sheet, or overlay route is active
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,

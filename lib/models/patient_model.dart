@@ -22,6 +22,14 @@ class PatientModel {
     return parts.join(', ');
   }
 
+  String get displayAge {
+    return DateFormatter.formatAge(age, dob: dob);
+  }
+
+  String get shortDisplayAge {
+    return DateFormatter.formatAge(age, dob: dob, shortUnit: true);
+  }
+
   // Emergency Contact
   final String emergencyContactName;
   final String emergencyContactRelation;

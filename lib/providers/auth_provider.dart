@@ -124,22 +124,15 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final user = await _authController.resetPassword(
+      // Call the API but intentionally do NOT set _user or save the token.
+      // The user must log in manually after resetting their password.
+      await _authController.resetPassword(
         email: email,
         newPassword: newPassword,
       );
-
-      if (user != null) {
-        _user = user;
-        await TokenService.saveUser(jsonEncode(user.toJson()));
-        _isLoading = false;
-        notifyListeners();
-        return true;
-      } else {
-        _isLoading = false;
-        notifyListeners();
-        return true; 
-      }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } on NetworkException catch (e) {
       _errorMessage = e.message;
       _isLoading = false;

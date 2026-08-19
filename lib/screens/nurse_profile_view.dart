@@ -1,3 +1,4 @@
+import 'dart:io' as io;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -8,7 +9,6 @@ import '../controllers/nurse/nurse_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../services/media_service.dart';
 import '../widgets/document_view_dialog.dart';
-import 'dart:io' as io;
 import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
 
@@ -49,6 +49,19 @@ class _NurseProfileViewState extends State<NurseProfileView> {
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
+        final fileName = file.name.toLowerCase();
+        final ext = fileName.contains('.') ? fileName.split('.').last : '';
+        const allowedExts = ['pdf', 'jpg', 'jpeg', 'png'];
+        if (!allowedExts.contains(ext)) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Invalid file format. Only PDF, JPG, JPEG, and PNG files are allowed.'),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+          return;
+        }
+
         List<int>? fileBytes = file.bytes;
 
         // Fallback for mobile devices where file.bytes can be null
@@ -62,7 +75,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
             messenger.showSnackBar(
               const SnackBar(
                 content: Text('File exceeds 5MB limit. Please choose a smaller file.'),
-                backgroundColor: Colors.red,
+                backgroundColor: AppTheme.dangerColor,
               ),
             );
             return;
@@ -78,6 +91,27 @@ class _NurseProfileViewState extends State<NurseProfileView> {
       }
     } catch (e) {
       print('Error picking certificate file: $e');
+    }
+  }
+
+  void _previewCertificate() {
+    final certUrl = _regCertController.text;
+    final isLocal = _certFileBytes != null;
+
+    if (isLocal && _certFileBytes != null) {
+      showDocumentViewer(
+        context,
+        '',
+        _certFileName ?? 'Registration Certificate',
+        bytes: _certFileBytes,
+        fileName: _certFileName,
+      );
+    } else if (certUrl.isNotEmpty) {
+      showDocumentViewer(
+        context,
+        certUrl,
+        'Registration Certificate',
+      );
     }
   }
 
@@ -180,6 +214,59 @@ class _NurseProfileViewState extends State<NurseProfileView> {
 
   Future<void> _saveProfile() async {
     final messenger = ScaffoldMessenger.of(context);
+    final bioText = _bioController.text.trim();
+    if (bioText.isNotEmpty) {
+      if (!RegExp(r'[a-zA-Z]').hasMatch(bioText)) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Bio / Professional Summary must contain letters and cannot consist only of special characters or numbers.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+      if (!RegExp(r'^[a-zA-Z0-9\s.,\-]+$').hasMatch(bioText)) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Special characters are not allowed in Bio / Professional Summary.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+      if (bioText.length > 255) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Bio / Professional Summary cannot exceed 255 characters.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+    }
+
+    final qualText = _qualController.text.trim();
+    if (qualText.isNotEmpty) {
+      if (qualText.length > 30) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Qualification cannot exceed 30 characters.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+      if (!RegExp(r'[a-zA-Z]').hasMatch(qualText)) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Qualification must contain valid letters.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+    }
+
     // Auto-calculate weekly off days: any day not selected as a working day is automatically a weekly off day
     final allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     _weeklyOffDays = allDays
@@ -190,6 +277,13 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     try {
       // Upload picked file to Cloudinary if needed during form submit
       if (_certFileBytes != null && _certFileName != null) {
+        final fileName = _certFileName!.toLowerCase();
+        final ext = fileName.contains('.') ? fileName.split('.').last : '';
+        const allowedExts = ['pdf', 'jpg', 'jpeg', 'png'];
+        if (!allowedExts.contains(ext)) {
+          throw Exception('Invalid file format. Only PDF, JPG, JPEG, and PNG files are allowed.');
+        }
+
         final secureUrl = await MediaService.uploadToCloudinary(
           fileBytes: _certFileBytes!,
           fileName: _certFileName!,
@@ -237,7 +331,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     } catch (e) {
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text('Error saving profile: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error saving profile: $e'), backgroundColor: AppTheme.dangerColor),
         );
       }
     } finally {
@@ -348,6 +442,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     final hasCert = certUrl.isNotEmpty;
     final isUrl = hasCert && certUrl.startsWith('http');
     final isLocal = _certFileBytes != null;
+    final hasAnyFile = isUrl || isLocal;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -366,28 +462,30 @@ class _NurseProfileViewState extends State<NurseProfileView> {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  isUrl
-                      ? Uri.decodeFull(certUrl.split('/').last)
-                      : (isLocal ? _certFileName! : 'No certificate uploaded yet'),
-                  style: TextStyle(
-                    color: (isUrl || isLocal) ? Colors.green.shade800 : AppTheme.textSecondaryColor,
-                    fontWeight: (isUrl || isLocal) ? FontWeight.bold : FontWeight.normal,
-                    fontSize: 14,
+                child: InkWell(
+                  onTap: hasAnyFile ? _previewCertificate : null,
+                  child: Text(
+                    isUrl
+                        ? Uri.decodeFull(certUrl.split('/').last)
+                        : (isLocal ? _certFileName! : 'No certificate uploaded yet'),
+                    style: TextStyle(
+                      color: hasAnyFile ? Colors.blue.shade800 : AppTheme.textSecondaryColor,
+                      fontWeight: hasAnyFile ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 14,
+                      decoration: hasAnyFile ? TextDecoration.underline : TextDecoration.none,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (isUrl) ...[
+              if (hasAnyFile) ...[
                 IconButton(
+                  tooltip: 'Preview Document',
                   icon: const Icon(Icons.remove_red_eye_outlined, color: Colors.blue, size: 20),
-                  onPressed: () {
-                    showDocumentViewer(context, certUrl, 'Uploaded Certificate');
-                  },
+                  onPressed: _previewCertificate,
                 ),
-              ],
-              if (isUrl || isLocal) ...[
                 IconButton(
+                  tooltip: 'Remove Document',
                   icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
                   onPressed: () {
                     setState(() {
@@ -636,7 +734,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   const SizedBox(height: 20),
                   _buildDetailRow('Full Name', user?.rawFullname ?? '-', Icons.person_outline),
                   _buildDetailRow('Staff ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
-                  _buildDetailRow('Email Address', user?.email ?? '-', Icons.alternate_email),
+                  _buildDetailRow('Email Address', user?.email ?? '-', Icons.mail_outline),
                   _buildDetailRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
                   _buildDetailRow('Bio Summary', user?.bio ?? '-', Icons.description_outlined),
                 ] else ...[
@@ -645,7 +743,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   const SizedBox(height: 20),
                   _buildDetailRow('Full Name', user?.rawFullname ?? '-', Icons.person_outline),
                   _buildDetailRow('Staff ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
-                  _buildDetailRow('Email Address', user?.email ?? '-', Icons.alternate_email),
+                  _buildDetailRow('Email Address', user?.email ?? '-', Icons.mail_outline),
                   _buildDetailRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
                 ],
               ],
@@ -857,9 +955,24 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                         controller: _bioController,
                         maxLines: 3,
                         maxLength: 255,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         inputFormatters: [
-                          FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,\-]')),
                         ],
+                        validator: (value) {
+                          if (value != null && value.trim().isNotEmpty) {
+                            if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
+                              return 'Bio must contain letters and cannot consist only of special characters or numbers';
+                            }
+                            if (!RegExp(r'^[a-zA-Z0-9\s.,\-]+$').hasMatch(value)) {
+                              return 'Special characters are not allowed';
+                            }
+                            if (value.length > 255) {
+                              return 'Bio cannot exceed 255 characters';
+                            }
+                          }
+                          return null;
+                        },
                         style: const TextStyle(
                           color: AppTheme.textPrimaryColor,
                           fontWeight: FontWeight.normal,
@@ -898,7 +1011,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
             sectionSpacing,
             sectionCard('1', 'Professional Details', const Color(0xFF0D5D9A), [
               if (isMobile) ...[
-                _buildProfileTextField('Qualification', _qualController, Icons.school_outlined, maxLength: 100),
+                _buildProfileTextField('Qualification', _qualController, Icons.school_outlined, maxLength: 30),
                 fieldSpacing,
                  _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true, maxLength: 20),
                 fieldSpacing,
@@ -909,7 +1022,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 Row(
                   children: [
                     Expanded(
-                      child: _buildProfileTextField('Qualification', _qualController, Icons.school_outlined, maxLength: 100),
+                      child: _buildProfileTextField('Qualification', _qualController, Icons.school_outlined, maxLength: 30),
                     ),
                     const SizedBox(width: 16),
                      Expanded(

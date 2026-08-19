@@ -27,6 +27,7 @@ class AppRoutes {
   static const String adminInventory = '/admin/inventory-management';
   static const String adminBilling = '/admin/billing';
   static const String adminHomeVisits = '/admin/home-visits';
+  static const String adminHomeVisitSummary = '/admin/home-visits/summary/:id';
   static const String adminMedicationCatalog = '/admin/medication-catalog';
   static const String adminHomeVisitConsumables = '/admin/home-visit-consumables';
   static const String adminCarriedKitItems = '/admin/carried-kit-items';
