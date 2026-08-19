@@ -6818,45 +6818,69 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _deleteMedication(Map<String, dynamic> med) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => Dialog(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text(
-          'Remove Medication',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: RichText(
-          text: TextSpan(
-            style: const TextStyle(
-              color: AppTheme.textPrimaryColor,
-              fontSize: 14,
-              height: 1.5,
+        // Constrain the dialog so a long medicine name can't stretch it off-screen
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                const Text(
+                  'Remove Medication',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 16),
+                // Content with soft-wrap so long names stay inside the box
+                RichText(
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
+                  text: TextSpan(
+                    style: const TextStyle(
+                      color: AppTheme.textPrimaryColor,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                    children: [
+                      const TextSpan(text: 'Are you sure you want to remove '),
+                      TextSpan(
+                        text: '"${med['name']}"',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const TextSpan(
+                        text: ' from the medication catalog? This cannot be undone.',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Action buttons — always visible, right-aligned
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: AppTheme.cancelButton,
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: AppTheme.dangerButton,
+                      child: const Text('Remove'),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            children: [
-              const TextSpan(text: 'Are you sure you want to remove '),
-              TextSpan(
-                text: '"${med['name']}"',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const TextSpan(
-                text: ' from the medication catalog? This cannot be undone.',
-              ),
-            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            style: AppTheme.cancelButton,
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: AppTheme.dangerButton,
-            child: const Text('Remove'),
-          ),
-        ],
       ),
     );
     if (confirm != true) return;
@@ -9926,9 +9950,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                                     builder: (c) => AlertDialog(
                                                       title: const Text(
                                                         'Deactivate Kit Item',
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
                                                       ),
-                                                      content: Text(
-                                                        'Are you sure you want to deactivate "${item['name']}"?',
+                                                      content: ConstrainedBox(
+                                                        constraints: const BoxConstraints(
+                                                          maxWidth: 400,
+                                                        ),
+                                                        child: Text(
+                                                          'Are you sure you want to deactivate "${item['name']}"?',
+                                                          softWrap: true,
+                                                        ),
                                                       ),
                                                       actions: [
                                                         TextButton(

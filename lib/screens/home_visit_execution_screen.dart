@@ -3246,7 +3246,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             elevation: 0,
             scrolledUnderElevation: 0,
             toolbarHeight: 75,
-            leading: widget.onBack != null
+            leading: (widget.onBack != null || _selectedSummaryVisitId != null)
                 ? Padding(
                     padding: const EdgeInsets.only(top: 16.0),
                     child: IconButton(
@@ -3254,7 +3254,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         Icons.arrow_back,
                         color: AppTheme.primaryColor,
                       ),
-                      onPressed: widget.onBack,
+                      onPressed: () {
+                        if (_selectedSummaryVisitId != null) {
+                          setState(() {
+                            _selectedSummaryVisitId = null;
+                          });
+                        } else {
+                          widget.onBack?.call();
+                        }
+                      },
                     ),
                   )
                 : null,
@@ -9679,23 +9687,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Back to Daily Sessions List Button
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: OutlinedButton.icon(
-              style: AppTheme.outlinedButton,
-              icon: const Icon(Icons.arrow_back, size: 18),
-              label: const Text(
-                'Back to All Daily Care Sessions',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              onPressed: () {
-                setState(() {
-                  _selectedSummaryVisitId = null;
-                });
-              },
-            ),
-          ),
+
 
           // Status Banner (Verified / Cancelled / In-Progress)
           Container(
@@ -10483,6 +10475,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
           title: const Row(
             children: [
               Icon(
@@ -10499,7 +10492,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
             ],
           ),
-          content: Column(
+          content: SizedBox(
+            width: 480,
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -10548,6 +10543,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
             ],
+          ),
           ),
           actions: [
             TextButton(

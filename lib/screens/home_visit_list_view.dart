@@ -1106,6 +1106,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
           title: const Row(
             children: [
               Icon(Icons.do_not_disturb_on_outlined, color: AppTheme.dangerColor, size: 26),
@@ -1118,7 +1119,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               ),
             ],
           ),
-          content: Column(
+          content: SizedBox(
+            width: 480,
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1155,6 +1158,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 decoration: AppTheme.standardInputDecoration(hintText: 'Enter reason notes (e.g. Cured and recovered)...'),
               ),
             ],
+          ),
           ),
           actions: [
             TextButton(
