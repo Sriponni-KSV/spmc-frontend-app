@@ -751,15 +751,15 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       children: [
         // Fixed Top Bar
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+          padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, 20, isMobile ? 16 : 24, 10),
           color: Colors.transparent,
           child: _buildBannerTopBar(isMobile),
         ),
         // Scrollable Content
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24.0,
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16.0 : 24.0,
               vertical: 16.0,
             ),
             child: Column(
@@ -1036,6 +1036,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   Widget _buildBannerTopBar(bool isMobile) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (isMobile) ...[
           Builder(
@@ -1047,49 +1048,37 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           const SizedBox(width: 4),
         ],
 
-        // Search — full bar on desktop, icon-only on mobile
-        if (!isMobile)
-          Expanded(
-            child: InkWell(
-              onTap: _showSearchOverlay,
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                height: 40,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const ClipRect(
-                  child: Row(
-                    children: [
-                      Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Search anything...',
-                          style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
-                    ],
+        // Search Bar
+        Expanded(
+          child: InkWell(
+            onTap: _showSearchOverlay,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Search anything...',
+                      style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
+        ),
 
-        if (isMobile) const Spacer(),
-
-        if (isMobile)
-          IconButton(
-            icon: const Icon(Icons.search, color: Color(0xFF4A5568), size: 22),
-            tooltip: 'Search',
-            onPressed: _showSearchOverlay,
-          ),
-
-        SizedBox(width: isMobile ? 0 : 16),
+        const SizedBox(width: 12),
         Stack(
           clipBehavior: Clip.none,
           children: [
@@ -1111,10 +1100,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           ],
         ),
 
-        const SizedBox(width: 16),
-        const Icon(Icons.settings_outlined, color: Color(0xFF4A5568), size: 22),
-        const SizedBox(width: 16),
-        const LiveClock(isDark: false),
+        if (!isMobile) ...[
+          const SizedBox(width: 16),
+          const Icon(Icons.settings_outlined, color: Color(0xFF4A5568), size: 22),
+          const SizedBox(width: 16),
+          const LiveClock(isDark: false),
+        ],
       ],
     );
   }
@@ -1911,52 +1902,113 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         children: [
           // Header Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            color: AppTheme.primaryColor, // Logo Blue
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.wb_sunny_outlined,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '$currentShift  ·  $wardType',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    timings,
-                    style: const TextStyle(
-                      color: AppTheme.primaryColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 20,
+              vertical: isMobile ? 12 : 14,
             ),
+            color: AppTheme.primaryColor, // Logo Blue
+            child: isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.wb_sunny_outlined,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '$currentShift  ·  $wardType',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.access_time,
+                              size: 12,
+                              color: AppTheme.primaryColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              timings,
+                              style: const TextStyle(
+                                color: AppTheme.primaryColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      const Icon(
+                        Icons.wb_sunny_outlined,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '$currentShift  ·  $wardType',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          timings,
+                          style: const TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
 
           // Body Columns
           Container(
             color: Colors.white,
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(isMobile ? 16 : 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -2237,69 +2237,77 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     return Padding(
       padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 24,
+        horizontal: isMobile ? 12 : 24,
         vertical: isMobile ? 10 : 16,
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Page ${_staffCurrentPage + 1} of $totalPages',
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppTheme.textSecondaryColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 16),
-          OutlinedButton(
-            onPressed: _staffCurrentPage > 0
-                ? () => setState(() => _staffCurrentPage--)
-                : null,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(80, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          Expanded(
+            child: Text(
+              'Page ${_staffCurrentPage + 1} of $totalPages',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondaryColor,
+                fontWeight: FontWeight.w500,
               ),
-              side: BorderSide(
-                color: _staffCurrentPage > 0
-                    ? AppTheme.primaryColor
-                    : AppTheme.borderColor,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.chevron_left, size: 18),
-                Text('Prev'),
-              ],
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: _staffCurrentPage < totalPages - 1
-                ? () => setState(() => _staffCurrentPage++)
-                : null,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(80, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              OutlinedButton(
+                onPressed: _staffCurrentPage > 0
+                    ? () => setState(() => _staffCurrentPage--)
+                    : null,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(64, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  side: BorderSide(
+                    color: _staffCurrentPage > 0
+                        ? AppTheme.primaryColor
+                        : AppTheme.borderColor,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.chevron_left, size: 16),
+                    Text('Prev', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
               ),
-              side: BorderSide(
-                color: _staffCurrentPage < totalPages - 1
-                    ? AppTheme.primaryColor
-                    : AppTheme.borderColor,
+              const SizedBox(width: 6),
+              OutlinedButton(
+                onPressed: _staffCurrentPage < totalPages - 1
+                    ? () => setState(() => _staffCurrentPage++)
+                    : null,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(64, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  side: BorderSide(
+                    color: _staffCurrentPage < totalPages - 1
+                        ? AppTheme.primaryColor
+                        : AppTheme.borderColor,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Text('Next', style: TextStyle(fontSize: 12)),
+                    Icon(Icons.chevron_right, size: 16),
+                  ],
+                ),
               ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text('Next'),
-                Icon(Icons.chevron_right, size: 18),
-              ],
-            ),
+            ],
           ),
         ],
       ),
@@ -2350,12 +2358,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: user.isDeleted
-                  ? Colors.red.withOpacity(0.2)
-                  : AppTheme.borderColor.withOpacity(0.4),
+                  ? Colors.red.withOpacity(0.3)
+                  : AppTheme.borderColor.withOpacity(0.6),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
@@ -2379,11 +2393,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       children: [
                         Row(
                           children: [
-                            Text(
-                              user.fullname,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                            Expanded(
+                              child: Text(
+                                user.fullname,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             if (user.isDeleted) ...[
@@ -3168,11 +3185,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     VoidCallback onViewDetails,
   ) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isMobile ? 12 : 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
         boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
@@ -3181,32 +3198,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: EdgeInsets.all(isMobile ? 7 : 10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.08),
+                  color: color.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: color, size: 22),
+                child: Icon(icon, color: color, size: isMobile ? 18 : 22),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: isMobile ? 8 : 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       value,
-                      style: const TextStyle(
-                        fontSize: 26,
+                      style: TextStyle(
+                        fontSize: isMobile ? 20 : 26,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textPrimaryColor,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppTheme.textSecondaryColor,
-                        fontSize: 11,
+                        fontSize: isMobile ? 10.5 : 11,
                         fontWeight: FontWeight.w500,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -3216,7 +3234,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ],
           ),
-          SizedBox(height: isMobile ? 10 : 16),
+          SizedBox(height: isMobile ? 8 : 16),
           InkWell(
             onTap: onViewDetails,
             child: Row(
@@ -3227,17 +3245,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     'View details',
                     style: TextStyle(
                       color: AppTheme.primaryColor,
-                      fontSize: 12,
+                      fontSize: isMobile ? 11 : 12,
                       fontWeight: FontWeight.bold,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(
+                Icon(
                   Icons.arrow_forward,
                   color: AppTheme.primaryColor,
-                  size: 14,
+                  size: isMobile ? 12 : 14,
                 ),
               ],
             ),
@@ -3262,27 +3280,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.logoRed.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.logoRed.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.report_problem_outlined,
+                        color: AppTheme.logoRed,
+                        size: 18,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.report_problem_outlined,
-                      color: AppTheme.logoRed,
-                      size: 18,
+                    const SizedBox(width: 10),
+                    const Flexible(
+                      child: Text(
+                        'System Alerts',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'System Alerts',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               InkWell(
                 onTap: () {},
                 child: const Text(
@@ -3499,9 +3526,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildSystemStatus() {
+  Widget _buildSystemStatus([bool isMobile = false]) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -3528,7 +3555,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
@@ -3551,41 +3578,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.06),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.show_chart,
-                      color: AppTheme.primaryColor,
-                      size: 40,
-                    ),
-                  ),
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+              if (!isMobile) ...[
+                const SizedBox(width: 16),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.06),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Icons.check_circle,
-                        color: AppTheme.secondaryColor,
-                        size: 24,
+                        Icons.show_chart,
+                        color: AppTheme.primaryColor,
+                        size: 40,
                       ),
                     ),
-                  ),
-                ],
-              ),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.check_circle,
+                          color: AppTheme.secondaryColor,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ],
@@ -3602,35 +3631,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: AppTheme.textPrimaryColor,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.textPrimaryColor,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppTheme.textSecondaryColor,
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondaryColor,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+        const SizedBox(width: 8),
         Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 8,
               height: 8,
               decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
               status,
               style: TextStyle(
@@ -3645,7 +3680,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildStaffOverviewChart() {
+  Widget _buildStaffOverviewChart([bool isMobile = false]) {
     final List<double> weeklyData = [16, 24, 21, 32, 23, 12, 25];
     final List<String> weekdays = [
       'Mon',
@@ -3658,7 +3693,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -3670,10 +3705,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Staff Overview',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              const Expanded(
+                child: Text(
+                  'Staff Overview',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,

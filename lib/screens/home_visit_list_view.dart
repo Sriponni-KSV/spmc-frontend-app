@@ -838,47 +838,59 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
                     : controller.errorMessage != null
                         ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.error_outline, size: 48, color: AppTheme.dangerColor),
-                                const SizedBox(height: 12),
-                                Text(
-                                  controller.errorMessage!,
-                                  style: const TextStyle(fontSize: 14, color: AppTheme.dangerColor),
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton.icon(
-                                  style: AppTheme.primaryButton,
-                                  onPressed: () {
-                                    Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
-                                    _fetchPatients();
-                                  },
-                                  icon: const Icon(Icons.refresh, size: 16),
-                                  label: const Text('Retry Loading Visits'),
-                                ),
-                              ],
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.error_outline, size: 40, color: AppTheme.dangerColor),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    controller.errorMessage!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(fontSize: 14, color: AppTheme.dangerColor),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  ElevatedButton.icon(
+                                    style: AppTheme.primaryButton,
+                                    onPressed: () {
+                                      Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
+                                      _fetchPatients();
+                                    },
+                                    icon: const Icon(Icons.refresh, size: 16),
+                                    label: const Text('Retry Loading Visits'),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
                         : paginatedVisits.isEmpty
-                            ? Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(40),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                                ),
-                                child: const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.home_work, size: 48, color: Colors.grey),
-                                    SizedBox(height: 12),
-                                    Text(
-                                      'No home visits found matching search or filter.',
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
+                            ? Center(
+                                child: SingleChildScrollView(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: const Color(0xFFE2E8F0)),
                                     ),
-                                  ],
+                                    child: const Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.home_work_outlined, size: 40, color: Colors.grey),
+                                        SizedBox(height: 10),
+                                        Text(
+                                          'No home visits found matching search or filter.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               )
                             : ListView.builder(
