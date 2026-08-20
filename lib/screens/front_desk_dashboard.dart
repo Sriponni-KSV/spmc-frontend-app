@@ -228,10 +228,24 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
         _isRegisteringPatient = false;
         _patientToComplete = null;
         _selectedIndex = index;
+        if (index != 2) {
+          _forceBookingForm = false;
+          _selectedPatientForBooking = null;
+          _selectedDoctorForBooking = null;
+        } else if (forceBooking) {
+          _forceBookingForm = true;
+        }
       });
     } else {
       setState(() {
         _selectedIndex = index;
+        if (index != 2) {
+          _forceBookingForm = false;
+          _selectedPatientForBooking = null;
+          _selectedDoctorForBooking = null;
+        } else if (forceBooking) {
+          _forceBookingForm = true;
+        }
       });
     }
     switch (index) {
@@ -384,7 +398,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     if (_isRegisteringPatient) {
       if (user?.hasPermission('add_patient') ?? false) {
         return NewPatientRegistrationView(
-          key: UniqueKey(),
+          key: ValueKey('front_desk_reg_${_patientToComplete?.id ?? 'new'}'),
           existingPatient: _patientToComplete,
           onBack: () {
             final patientToReturn = _patientToComplete;
@@ -438,17 +452,11 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
         return const AccessDeniedWidget();
       case 2:
         if (user?.hasPermission('book_appointment') ?? false) {
-          final showForm = _forceBookingForm;
-          final initialPatient = _selectedPatientForBooking;
-          final initialDoctor = _selectedDoctorForBooking;
-          _forceBookingForm = false; // Reset for next time
-          _selectedPatientForBooking = null; // Clear for next time
-          _selectedDoctorForBooking = null; // Clear for next time
           return AppointmentsView(
-            key: showForm ? UniqueKey() : null,
-            startWithBookingForm: showForm,
-            initialPatient: initialPatient,
-            initialDoctor: initialDoctor,
+            key: const ValueKey('front_desk_appointments_tab_view'),
+            startWithBookingForm: _forceBookingForm || widget.forceBooking,
+            initialPatient: _selectedPatientForBooking,
+            initialDoctor: _selectedDoctorForBooking,
           );
         }
         return const AccessDeniedWidget();

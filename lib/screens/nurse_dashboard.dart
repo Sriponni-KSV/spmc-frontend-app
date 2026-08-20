@@ -462,6 +462,13 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       _selectedHomeVisitId = null;
       _isReadOnlyHomeVisit = false;
       _selectedIndex = index;
+      if (index != 2) {
+        _forceBookingForm = false;
+        _selectedPatientForBooking = null;
+        _selectedDoctorForBooking = null;
+      } else if (forceBooking) {
+        _forceBookingForm = true;
+      }
     });
     switch (index) {
       case 0:
@@ -625,7 +632,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     if (_isRegisteringPatient) {
       if (user?.hasPermission('add_patient') ?? false) {
         return NewPatientRegistrationView(
-          key: UniqueKey(),
+          key: ValueKey('nurse_reg_${_patientToComplete?.id ?? 'new'}'),
           existingPatient: _patientToComplete,
           onBack: () {
             final patientToReturn = _patientToComplete;
@@ -676,17 +683,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return const AccessDeniedWidget();
       case 2:
         if (user?.hasPermission('book_appointment') ?? false) {
-          final showForm = _forceBookingForm;
-          final initialPatient = _selectedPatientForBooking;
-          final initialDoctor = _selectedDoctorForBooking;
-          _forceBookingForm = false; // Reset for next time
-          _selectedPatientForBooking = null; // Clear for next time
-          _selectedDoctorForBooking = null; // Clear for next time
           return AppointmentsView(
-            key: showForm ? UniqueKey() : null,
-            startWithBookingForm: showForm,
-            initialPatient: initialPatient,
-            initialDoctor: initialDoctor,
+            key: const ValueKey('nurse_appointments_tab_view'),
+            startWithBookingForm: _forceBookingForm || widget.forceBooking,
+            initialPatient: _selectedPatientForBooking,
+            initialDoctor: _selectedDoctorForBooking,
           );
         }
         return const AccessDeniedWidget();

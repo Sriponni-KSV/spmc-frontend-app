@@ -600,6 +600,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   bool _isSavingVitals = false;
   bool _isSavingCare = false;
   bool _isVerifying = false;
+  String _vitalsFilter = 'All';
   Timer? _vitalsTimer;
 
   @override
@@ -1378,261 +1379,478 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                         ),
                       const SizedBox(height: 14),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLabel('Qty *'),
-                                _buildQtyStepperField(
-                                  controller: qtyCtrl,
-                                  min: 1,
-                                  max: 999,
-                                  setModalState: setModalState,
-                                ),
-                              ],
-                            ),
+                      if (MediaQuery.of(context).size.width < 600) ...[
+                        _buildLabel('Qty *'),
+                        _buildQtyStepperField(
+                          controller: qtyCtrl,
+                          min: 1,
+                          max: 999,
+                          setModalState: setModalState,
+                        ),
+                        const SizedBox(height: 14),
+                        _buildLabel('Food Relation'),
+                        DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: selectedFoodTiming,
+                          decoration: AppTheme.standardInputDecoration(
+                            hintText: 'Select Food Relation',
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'After Food',
+                              child: Text(
+                                'After Food',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Before Food',
+                              child: Text(
+                                'Before Food',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            DropdownMenuItem(
+                              value: 'With Food',
+                              child: Text(
+                                'With Food',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setModalState(
+                                () => selectedFoodTiming = val,
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        _buildLabel(
+                          localType == 'STAT'
+                              ? 'Frequency'
+                              : 'Frequency (1 - 0 - 1 - 0) *',
+                        ),
+                        if (localType == 'STAT')
+                          Container(
+                            height: 48,
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEEBC8),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFFFBD38D),
+                              ),
+                            ),
+                            child: const Text(
+                              'STAT (Immediate Single Dose)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFC05621),
+                                fontSize: 13,
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.center,
                               children: [
-                                _buildLabel('Food Relation'),
-                                DropdownButtonFormField<String>(
-                                  value: selectedFoodTiming,
-                                  decoration: AppTheme.standardInputDecoration(
-                                    hintText: 'Select Food Relation',
+                                _buildDigitInputSlot(
+                                  f1Ctrl,
+                                  fn1,
+                                  fn2,
+                                  'M',
+                                  updateFreqText,
+                                  setModalState,
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 4,
                                   ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'After Food',
-                                      child: Text(
-                                        'After Food',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
+                                  child: Text(
+                                    '-',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Colors.grey,
                                     ),
-                                    DropdownMenuItem(
-                                      value: 'Before Food',
-                                      child: Text(
-                                        'Before Food',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
+                                  ),
+                                ),
+                                _buildDigitInputSlot(
+                                  f2Ctrl,
+                                  fn2,
+                                  fn3,
+                                  'A',
+                                  updateFreqText,
+                                  setModalState,
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: Text(
+                                    '-',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Colors.grey,
                                     ),
-                                    DropdownMenuItem(
-                                      value: 'With Food',
-                                      child: Text(
-                                        'With Food',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
+                                  ),
+                                ),
+                                _buildDigitInputSlot(
+                                  f3Ctrl,
+                                  fn3,
+                                  fn4,
+                                  'E',
+                                  updateFreqText,
+                                  setModalState,
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: Text(
+                                    '-',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Colors.grey,
                                     ),
-                                  ],
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      setModalState(
-                                        () => selectedFoodTiming = val,
-                                      );
-                                    }
-                                  },
+                                  ),
+                                ),
+                                _buildDigitInputSlot(
+                                  f4Ctrl,
+                                  fn4,
+                                  null,
+                                  'N',
+                                  updateFreqText,
+                                  setModalState,
                                 ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 5,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLabel(
-                                  localType == 'STAT'
-                                      ? 'Frequency'
-                                      : 'Frequency (1 - 0 - 1 - 0) *',
-                                ),
-                                if (localType == 'STAT')
-                                  Container(
-                                    height: 48,
-                                    alignment: Alignment.centerLeft,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFEEBC8),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: const Color(0xFFFBD38D),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'STAT (Immediate Single Dose)',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFC05621),
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  )
-                                else ...[
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF8FAFC),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: const Color(0xFFCBD5E1),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        _buildDigitInputSlot(
-                                          f1Ctrl,
-                                          fn1,
-                                          fn2,
-                                          'M',
-                                          updateFreqText,
-                                          setModalState,
-                                        ),
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                          ),
-                                          child: Text(
-                                            '-',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ),
-                                        _buildDigitInputSlot(
-                                          f2Ctrl,
-                                          fn2,
-                                          fn3,
-                                          'A',
-                                          updateFreqText,
-                                          setModalState,
-                                        ),
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                          ),
-                                          child: Text(
-                                            '-',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ),
-                                        _buildDigitInputSlot(
-                                          f3Ctrl,
-                                          fn3,
-                                          fn4,
-                                          'E',
-                                          updateFreqText,
-                                          setModalState,
-                                        ),
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                          ),
-                                          child: Text(
-                                            '-',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ),
-                                        _buildDigitInputSlot(
-                                          f4Ctrl,
-                                          fn4,
-                                          null,
-                                          'N',
-                                          updateFreqText,
-                                          setModalState,
-                                        ),
-                                      ],
-                                    ),
+                        const SizedBox(height: 14),
+                        _buildLabel(
+                          localType == 'STAT'
+                              ? 'Duration'
+                              : 'Duration *',
+                        ),
+                        if (localType == 'STAT')
+                          Container(
+                            height: 48,
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            child: const Text(
+                              'STAT - Single Dose',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                                fontSize: 12,
+                              ),
+                            ),
+                          )
+                        else
+                          _buildQtyStepperField(
+                            controller: durDaysCtrl,
+                            min: 1,
+                            max: 365,
+                            suffix: 'Days',
+                            setModalState: setModalState,
+                            onChanged: (val) {
+                              durCtrl.text = '$val Days';
+                            },
+                          ),
+                      ] else ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Qty *'),
+                                  _buildQtyStepperField(
+                                    controller: qtyCtrl,
+                                    min: 1,
+                                    max: 999,
+                                    setModalState: setModalState,
                                   ),
                                 ],
-                              ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 4,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLabel(
-                                  localType == 'STAT'
-                                      ? 'Duration'
-                                      : 'Duration *',
-                                ),
-                                if (localType == 'STAT')
-                                  Container(
-                                    height: 48,
-                                    alignment: Alignment.centerLeft,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Food Relation'),
+                                  DropdownButtonFormField<String>(
+                                    value: selectedFoodTiming,
+                                    decoration: AppTheme.standardInputDecoration(
+                                      hintText: 'Select Food Relation',
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF8FAFC),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: const Color(0xFFCBD5E1),
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: 'After Food',
+                                        child: Text(
+                                          'After Food',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    child: const Text(
-                                      'STAT - Single Dose',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.primaryColor,
-                                        fontSize: 12,
+                                      DropdownMenuItem(
+                                        value: 'Before Food',
+                                        child: Text(
+                                          'Before Food',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  )
-                                else
-                                  _buildQtyStepperField(
-                                    controller: durDaysCtrl,
-                                    min: 1,
-                                    max: 365,
-                                    suffix: 'Days',
-                                    setModalState: setModalState,
+                                      DropdownMenuItem(
+                                        value: 'With Food',
+                                        child: Text(
+                                          'With Food',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                     onChanged: (val) {
-                                      durCtrl.text = '$val Days';
+                                      if (val != null) {
+                                        setModalState(
+                                          () => selectedFoodTiming = val,
+                                        );
+                                      }
                                     },
                                   ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel(
+                                    localType == 'STAT'
+                                        ? 'Frequency'
+                                        : 'Frequency (1 - 0 - 1 - 0) *',
+                                  ),
+                                  if (localType == 'STAT')
+                                    Container(
+                                      height: 48,
+                                      alignment: Alignment.centerLeft,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFEEBC8),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: const Color(0xFFFBD38D),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'STAT (Immediate Single Dose)',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFC05621),
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF8FAFC),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: const Color(0xFFCBD5E1),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          _buildDigitInputSlot(
+                                            f1Ctrl,
+                                            fn1,
+                                            fn2,
+                                            'M',
+                                            updateFreqText,
+                                            setModalState,
+                                          ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 4,
+                                            ),
+                                            child: Text(
+                                              '-',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                          _buildDigitInputSlot(
+                                            f2Ctrl,
+                                            fn2,
+                                            fn3,
+                                            'A',
+                                            updateFreqText,
+                                            setModalState,
+                                          ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 4,
+                                            ),
+                                            child: Text(
+                                              '-',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                          _buildDigitInputSlot(
+                                            f3Ctrl,
+                                            fn3,
+                                            fn4,
+                                            'E',
+                                            updateFreqText,
+                                            setModalState,
+                                          ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 4,
+                                            ),
+                                            child: Text(
+                                              '-',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                          _buildDigitInputSlot(
+                                            f4Ctrl,
+                                            fn4,
+                                            null,
+                                            'N',
+                                            updateFreqText,
+                                            setModalState,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 4,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel(
+                                    localType == 'STAT'
+                                        ? 'Duration'
+                                        : 'Duration *',
+                                  ),
+                                  if (localType == 'STAT')
+                                    Container(
+                                      height: 48,
+                                      alignment: Alignment.centerLeft,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF8FAFC),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: const Color(0xFFCBD5E1),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'STAT - Single Dose',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primaryColor,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    _buildQtyStepperField(
+                                      controller: durDaysCtrl,
+                                      min: 1,
+                                      max: 365,
+                                      suffix: 'Days',
+                                      setModalState: setModalState,
+                                      onChanged: (val) {
+                                        durCtrl.text = '$val Days';
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (localType == 'STAT') ...[
                         const SizedBox(height: 14),
                         _buildLabel('Given Time *'),
@@ -2042,11 +2260,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
   Widget _buildTableHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       child: Text(
         title,
         style: const TextStyle(
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: FontWeight.bold,
           color: AppTheme.primaryColor,
         ),
@@ -2553,29 +2771,32 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Procedure Charge Breakdown:',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.primaryColor,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '₹${chargePerProc.toStringAsFixed(0)} per procedure × $selectedFreq',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.primaryColor.withOpacity(
-                                        0.8,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Procedure Charge Breakdown:',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryColor,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '₹${chargePerProc.toStringAsFixed(0)} per procedure × $selectedFreq',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.primaryColor.withOpacity(
+                                          0.8,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+                              const SizedBox(width: 8),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
@@ -2589,7 +2810,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   Text(
                                     '₹${totalProcCharge.toStringAsFixed(2)}',
                                     style: const TextStyle(
-                                      fontSize: 16,
+                                      fontSize: 15,
                                       fontWeight: FontWeight.w800,
                                       color: AppTheme.primaryColor,
                                     ),
@@ -2600,27 +2821,29 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                         ),
                         const SizedBox(height: 14),
-                        const SizedBox(height: 14),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            _buildLabel('Procedure Consumables'),
+                            Expanded(
+                              child: _buildLabel('Procedure Consumables'),
+                            ),
                             TextButton.icon(
                               style: TextButton.styleFrom(
                                 foregroundColor: AppTheme.primaryColor,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
+                                  horizontal: 4,
+                                  vertical: 2,
                                 ),
+                                visualDensity: VisualDensity.compact,
                               ),
                               icon: const Icon(
                                 Icons.add_circle_outline,
-                                size: 16,
+                                size: 15,
                               ),
                               label: const Text(
-                                'Add Consumable Manually',
+                                'Add Manually',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -4812,20 +5035,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
               actions: [
-                if (visit.status != 'Cancelled')
+                if (visit.status != 'Cancelled' && !isCompletedOrVerified)
                   Builder(
                     builder: (ctx) {
-                      final currentDayNumber =
-                          _calculateVisitDayNumber(visit, controller);
-
                       final isMobile = MediaQuery.of(ctx).size.width < 700;
 
                       return Padding(
                         padding: const EdgeInsets.only(top: 16.0, right: 16.0),
                         child: isMobile
                             ? IconButton(
-                                tooltip:
-                                    'Stop / Discontinue Day $currentDayNumber Care',
+                                tooltip: 'Stop / Cancel Home Visit Care Plan',
                                 style: IconButton.styleFrom(
                                   foregroundColor: AppTheme.dangerColor,
                                   backgroundColor: AppTheme.dangerColor
@@ -4844,7 +5063,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 onPressed: () => _showDiscontinueDialog(
                                   context,
                                   visit,
-                                  dayNumber: currentDayNumber,
                                 ),
                               )
                             : OutlinedButton.icon(
@@ -4861,9 +5079,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   Icons.do_not_disturb_on_outlined,
                                   size: 16,
                                 ),
-                                label: Text(
-                                  'Stop / Discontinue Day $currentDayNumber Care',
-                                  style: const TextStyle(
+                                label: const Text(
+                                  'Stop Care Plan',
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),
@@ -4871,7 +5089,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 onPressed: () => _showDiscontinueDialog(
                                   context,
                                   visit,
-                                  dayNumber: currentDayNumber,
                                 ),
                               ),
                       );
@@ -5573,9 +5790,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   void _showAddVitalsModalDialog(
     BuildContext context,
     HomeVisitModel visit,
-    HomeVisitController controller,
-  ) {
+    HomeVisitController controller, {
+    HomeVisitVitals? existingVital,
+  }) {
     _clearVitalsForm();
+    if (existingVital != null) {
+      _sysBpCtrl.text = existingVital.systolicBp?.toString() ?? '';
+      _diaBpCtrl.text = existingVital.diastolicBp?.toString() ?? '';
+      _pulseCtrl.text = existingVital.pulseRate?.toString() ?? '';
+      _tempCtrl.text = existingVital.temperature?.toString() ?? '';
+      _spo2Ctrl.text = existingVital.spo2?.toString() ?? '';
+      _sugarCtrl.text = existingVital.bloodSugar?.toString() ?? '';
+      _weightCtrl.text = existingVital.weight?.toString() ?? '';
+      _heightCtrl.text = existingVital.height?.toString() ?? '';
+    }
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -5589,9 +5819,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16.0),
               ),
+              insetPadding: EdgeInsets.all(isMobile ? 12 : 24),
               child: Container(
-                constraints: const BoxConstraints(maxWidth: 650, maxHeight: 750),
-                padding: const EdgeInsets.all(24.0),
+                constraints: BoxConstraints(
+                  maxWidth: 650,
+                  maxHeight: MediaQuery.of(context).size.height * 0.88,
+                ),
+                padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
                 child: Form(
                   key: _formKeyVitals,
                   autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -5602,48 +5836,53 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       children: [
                         // Header
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(
-                                    Icons.monitor_heart_outlined,
-                                    color: AppTheme.primaryColor,
-                                    size: 26,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Record Patient Vital Signs',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.secondaryColor,
-                                        fontFamily: 'Inter',
-                                      ),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.monitor_heart_outlined,
+                                color: AppTheme.primaryColor,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    existingVital != null
+                                        ? 'Update Patient Vital Signs'
+                                        : 'Record Patient Vital Signs',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.secondaryColor,
+                                      fontFamily: 'Inter',
                                     ),
-                                    Text(
-                                      'Patient: ${visit.patientName ?? "Patient"} (${(visit.patientDisplayId != null && visit.patientDisplayId!.isNotEmpty) ? visit.patientDisplayId : "ID: ${visit.patientId}"})',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    'Patient: ${visit.patientName ?? "Patient"} (${(visit.patientDisplayId != null && visit.patientDisplayId!.isNotEmpty) ? visit.patientDisplayId : "ID: ${visit.patientId}"})',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey,
                                     ),
-                                  ],
-                                ),
-                              ],
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
                             IconButton(
                               icon: const Icon(Icons.close, color: Colors.grey),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
                               onPressed: () {
                                 _clearVitalsForm();
                                 Navigator.of(dialogCtx).pop();
@@ -6001,7 +6240,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             label: Text(
                               _isSavingVitals
                                   ? 'Saving...'
-                                  : 'Save Vitals Entry',
+                                  : existingVital != null
+                                      ? 'Update Vitals Entry'
+                                      : 'Save Vitals Entry',
                             ),
                             onPressed: _isSavingVitals
                                 ? null
@@ -6030,18 +6271,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     setDialogState(
                                       () => _isSavingVitals = true,
                                     );
+                                    final payload = <String, dynamic>{
+                                      if (existingVital != null &&
+                                          existingVital.id != null)
+                                        'vitals_id': existingVital.id,
+                                      'systolic_bp': sys,
+                                      'diastolic_bp': dia,
+                                      'pulse_rate': pulse,
+                                      'temperature': temp,
+                                      'spo2': spo2,
+                                      'blood_sugar': sugar,
+                                      'weight': weight,
+                                      'height': height,
+                                      'bypass_schedule': true,
+                                    };
                                     final success = await controller
-                                        .submitVitals(visit.id, {
-                                          'systolic_bp': sys,
-                                          'diastolic_bp': dia,
-                                          'pulse_rate': pulse,
-                                          'temperature': temp,
-                                          'spo2': spo2,
-                                          'blood_sugar': sugar,
-                                          'weight': weight,
-                                          'height': height,
-                                          'bypass_schedule': true,
-                                        });
+                                        .submitVitals(visit.id, payload);
                                     setDialogState(
                                       () => _isSavingVitals = false,
                                     );
@@ -6052,9 +6297,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       ScaffoldMessenger.of(
                                         context,
                                       ).showSnackBar(
-                                        const SnackBar(
+                                        SnackBar(
                                           content: Text(
-                                            'Patient vitals recorded successfully',
+                                            existingVital != null
+                                                ? 'Patient vitals updated successfully'
+                                                : 'Patient vitals recorded successfully',
                                           ),
                                           backgroundColor: Colors.green,
                                         ),
@@ -6066,9 +6313,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         SnackBar(
                                           content: Text(
                                             controller.errorMessage ??
-                                                'Failed to record vitals',
+                                                'Failed to save vitals',
                                           ),
-                                          backgroundColor: AppTheme.dangerColor,
+                                          backgroundColor: Colors.red,
                                         ),
                                       );
                                     }
@@ -6489,7 +6736,42 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       return b.recordedAt!.compareTo(a.recordedAt!);
     });
 
-    final totalVitals = sortedVitals.length;
+    final filteredVitals = sortedVitals.where((v) {
+      if (_vitalsFilter == 'Today') {
+        if (v.recordedAt == null || v.recordedAt!.isEmpty) return true;
+        try {
+          final formatted = v.recordedAt!.trim().replaceAll(' ', 'T');
+          final dt = DateTime.parse(formatted);
+          final recDate = dt.isUtc ? dt.toLocal() : dt;
+          final today = DateTime.now();
+          return recDate.year == today.year &&
+              recDate.month == today.month &&
+              recDate.day == today.day;
+        } catch (_) {
+          return true;
+        }
+      } else if (_vitalsFilter == 'Abnormal') {
+        final sys = v.systolicBp ?? 120;
+        final dia = v.diastolicBp ?? 80;
+        final pulse = v.pulseRate ?? 72;
+        final temp = v.temperature ?? 98.6;
+        final spo2 = v.spo2 ?? 98;
+        final sugar = v.bloodSugar ?? 100;
+        final isAbnormalBp = sys > 140 || sys < 90 || dia > 90 || dia < 60;
+        final isAbnormalPulse = pulse > 100 || pulse < 60;
+        final isAbnormalTemp = temp > 99.5 || temp < 95.0;
+        final isAbnormalSpo2 = spo2 < 95;
+        final isAbnormalSugar = sugar > 180 || sugar < 70;
+        return isAbnormalBp ||
+            isAbnormalPulse ||
+            isAbnormalTemp ||
+            isAbnormalSpo2 ||
+            isAbnormalSugar;
+      }
+      return true;
+    }).toList();
+
+    final totalVitals = filteredVitals.length;
     final totalVitalsPages = (totalVitals == 0)
         ? 1
         : ((totalVitals - 1) ~/ _vitalsPageSize) + 1;
@@ -6499,7 +6781,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         ? vitalsStartIdx + _vitalsPageSize
         : totalVitals;
     final pageVitals = (vitalsStartIdx < totalVitals)
-        ? sortedVitals.sublist(vitalsStartIdx, vitalsEndIdx)
+        ? filteredVitals.sublist(vitalsStartIdx, vitalsEndIdx)
         : <HomeVisitVitals>[];
 
     final vitalsTableCard = Container(
@@ -6513,10 +6795,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
                     'Patient Vitals History Log',
@@ -6527,11 +6813,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       fontFamily: 'Inter',
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
+                      horizontal: 8,
+                      vertical: 3,
                     ),
                     decoration: BoxDecoration(
                       color: AppTheme.secondaryColor.withOpacity(0.15),
@@ -6540,7 +6826,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     child: Text(
                       '$totalVitals Entry(ies)',
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.secondaryColor,
                       ),
@@ -6548,39 +6834,108 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.filter_list_rounded,
-                      size: 16,
-                      color: Color(0xFF475569),
+              PopupMenuButton<String>(
+                initialValue: _vitalsFilter,
+                tooltip: 'Filter Vitals',
+                onSelected: (val) {
+                  setState(() {
+                    _vitalsFilter = val;
+                    _vitalsPage = 1;
+                  });
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'All',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.list_alt,
+                          size: 18,
+                          color: AppTheme.primaryColor,
+                        ),
+                        SizedBox(width: 8),
+                        Text('All Entries'),
+                      ],
                     ),
-                    SizedBox(width: 6),
-                    Text(
-                      'Filter',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF475569),
+                  ),
+                  const PopupMenuItem(
+                    value: 'Today',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.today,
+                          size: 18,
+                          color: AppTheme.secondaryColor,
+                        ),
+                        SizedBox(width: 8),
+                        Text("Today's Entries"),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'Abnormal',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          size: 18,
+                          color: AppTheme.dangerColor,
+                        ),
+                        SizedBox(width: 8),
+                        Text('Abnormal Vitals'),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _vitalsFilter != 'All'
+                        ? AppTheme.primaryColor.withOpacity(0.08)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _vitalsFilter != 'All'
+                          ? AppTheme.primaryColor
+                          : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.filter_list_rounded,
+                        size: 16,
+                        color: _vitalsFilter != 'All'
+                            ? AppTheme.primaryColor
+                            : const Color(0xFF475569),
                       ),
-                    ),
-                    SizedBox(width: 4),
-                    Icon(
-                      Icons.keyboard_arrow_down,
-                      size: 16,
-                      color: Color(0xFF475569),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Text(
+                        _vitalsFilter == 'All'
+                            ? 'Filter'
+                            : 'Filter: $_vitalsFilter',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _vitalsFilter != 'All'
+                              ? AppTheme.primaryColor
+                              : const Color(0xFF475569),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 16,
+                        color: _vitalsFilter != 'All'
+                            ? AppTheme.primaryColor
+                            : const Color(0xFF475569),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -6605,20 +6960,25 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: LayoutBuilder(
-                  builder: (context, tableConstraints) {
-                    return SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minWidth: tableConstraints.maxWidth > 0
-                              ? tableConstraints.maxWidth
-                              : 850,
-                        ),
-                        child: Table(
-                          defaultColumnWidth: const FlexColumnWidth(),
-                          defaultVerticalAlignment:
-                              TableCellVerticalAlignment.middle,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 1050),
+                    child: Table(
+                      columnWidths: const {
+                        0: FixedColumnWidth(170),
+                        1: FixedColumnWidth(140),
+                        2: FixedColumnWidth(110),
+                        3: FixedColumnWidth(100),
+                        4: FixedColumnWidth(100),
+                        5: FixedColumnWidth(90),
+                        6: FixedColumnWidth(110),
+                        7: FixedColumnWidth(100),
+                        8: FixedColumnWidth(100),
+                        9: FixedColumnWidth(90),
+                      },
+                      defaultVerticalAlignment:
+                          TableCellVerticalAlignment.middle,
                           children: [
                             TableRow(
                               decoration: const BoxDecoration(
@@ -6934,27 +7294,134 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       ),
                                     ),
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 10,
-                                      ),
-                                      child: Container(
-                                        width: 32,
-                                        height: 32,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF8FAFC),
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: const Color(0xFFE2E8F0),
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.more_vert,
-                                          color: Color(0xFF475569),
-                                          size: 18,
-                                        ),
-                                      ),
-                                    ),
+                                     padding: const EdgeInsets.symmetric(
+                                       horizontal: 12,
+                                       vertical: 6,
+                                     ),
+                                     child: PopupMenuButton<String>(
+                                       icon: Container(
+                                         width: 32,
+                                         height: 32,
+                                         decoration: BoxDecoration(
+                                           color: const Color(0xFFF8FAFC),
+                                           shape: BoxShape.circle,
+                                           border: Border.all(
+                                             color: const Color(0xFFE2E8F0),
+                                           ),
+                                         ),
+                                         child: const Icon(
+                                           Icons.more_vert,
+                                           color: Color(0xFF475569),
+                                           size: 18,
+                                         ),
+                                       ),
+                                       padding: EdgeInsets.zero,
+                                       tooltip: 'Actions',
+                                       onSelected: (val) async {
+                                         if (val == 'edit') {
+                                           _showAddVitalsModalDialog(
+                                             context,
+                                             visit,
+                                             controller,
+                                             existingVital: v,
+                                           );
+                                         } else if (val == 'delete') {
+                                           final confirm =
+                                               await showDialog<bool>(
+                                                 context: context,
+                                                 builder: (ctx) =>
+                                                     AlertDialog(
+                                                       title: const Text(
+                                                         'Delete Vitals Entry',
+                                                       ),
+                                                       content: const Text(
+                                                         'Are you sure you want to delete this recorded vitals entry?',
+                                                       ),
+                                                       actions: [
+                                                         TextButton(
+                                                           onPressed: () =>
+                                                               Navigator.pop(
+                                                                 ctx,
+                                                                 false,
+                                                               ),
+                                                           child: const Text(
+                                                             'Cancel',
+                                                           ),
+                                                         ),
+                                                         ElevatedButton(
+                                                           style: AppTheme
+                                                               .dangerButton,
+                                                           onPressed: () =>
+                                                               Navigator.pop(
+                                                                 ctx,
+                                                                 true,
+                                                               ),
+                                                           child: const Text(
+                                                             'Delete',
+                                                           ),
+                                                         ),
+                                                       ],
+                                                     ),
+                                               );
+                                           if (confirm == true &&
+                                               v.id != null) {
+                                             final success = await controller
+                                                 .deleteVitalsItem(
+                                                   visit.id,
+                                                   v.id!,
+                                                 );
+                                             if (success && mounted) {
+                                               ScaffoldMessenger.of(
+                                                 context,
+                                               ).showSnackBar(
+                                                 const SnackBar(
+                                                   content: Text(
+                                                     'Vitals entry deleted successfully',
+                                                   ),
+                                                   backgroundColor:
+                                                       AppTheme.primaryColor,
+                                                 ),
+                                               );
+                                             }
+                                           }
+                                         }
+                                       },
+                                       itemBuilder: (ctx) => [
+                                         if (!widget.isReadOnlyView) ...[
+                                           const PopupMenuItem(
+                                             value: 'edit',
+                                             child: Row(
+                                               children: [
+                                                 Icon(
+                                                   Icons.edit_outlined,
+                                                   size: 18,
+                                                   color:
+                                                       AppTheme.primaryColor,
+                                                 ),
+                                                 SizedBox(width: 8),
+                                                 Text('Edit Entry'),
+                                               ],
+                                             ),
+                                           ),
+                                           const PopupMenuItem(
+                                             value: 'delete',
+                                             child: Row(
+                                               children: [
+                                                 Icon(
+                                                   Icons.delete_outline,
+                                                   size: 18,
+                                                   color:
+                                                       AppTheme.dangerColor,
+                                                 ),
+                                                 SizedBox(width: 8),
+                                                 Text('Delete Entry'),
+                                               ],
+                                             ),
+                                           ),
+                                         ],
+                                       ],
+                                     ),
+                                   ),
                                   ],
                                 );
                               }(),
@@ -6962,25 +7429,27 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ],
                         ),
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
-              ),
-            ),
             const SizedBox(height: 16),
 
             // Footer / Pagination Bar
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
                         padding: const EdgeInsets.all(4),
@@ -7006,12 +7475,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ],
                   ),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
+                            horizontal: 10,
+                            vertical: 6,
                           ),
                           side: const BorderSide(color: Color(0xFFE2E8F0)),
                           shape: RoundedRectangleBorder(
@@ -7035,30 +7505,31 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Container(
-                        width: 32,
-                        height: 32,
-                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.secondaryColor,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          '$currentVitalsPage',
+                          '$currentVitalsPage of $totalVitalsPages',
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
+                            horizontal: 10,
+                            vertical: 6,
                           ),
                           side: const BorderSide(color: Color(0xFFE2E8F0)),
                           shape: RoundedRectangleBorder(
@@ -8346,8 +8817,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 Text(
                   'Showing ${totalCare == 0 ? 0 : careStartIdx + 1}-$careEndIdx of $totalCare entries',
@@ -8358,12 +8832,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ),
                 ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                          horizontal: 8,
+                          vertical: 4,
                         ),
                         minimumSize: const Size(0, 32),
                         side: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -8380,10 +8855,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         style: TextStyle(fontSize: 12),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
+                        horizontal: 8,
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
@@ -8399,12 +8874,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                          horizontal: 8,
+                          vertical: 4,
                         ),
                         minimumSize: const Size(0, 32),
                         side: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -8416,7 +8891,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ? () => setState(() => _carePage++)
                           : null,
                       icon: const Icon(Icons.chevron_right, size: 16),
-                      label: const Text('Next', style: TextStyle(fontSize: 12)),
+                      label: const Text(
+                        'Next',
+                        style: TextStyle(fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
@@ -8479,65 +8957,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final currentDayNumber =
         _calculateVisitDayNumber(visit, controller);
 
-    final activeMedicines = visit.medicines.where((m) {
-      final isStat =
-          m.medicineType == 'STAT' ||
-          m.frequency == 'STAT' ||
-          (m.duration != null && m.duration!.contains('STAT'));
-
-      if (isStat) {
-        if (m.administeredAt != null && m.administeredAt!.isNotEmpty) {
-          try {
-            final formatted = m.administeredAt!.trim().replaceAll(' ', 'T');
-            final dt = DateTime.parse(formatted);
-            final recDate = dt.isUtc ? dt.toLocal() : dt;
-            final medDateStr =
-                "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
-            if (medDateStr != todayStr && medDateStr != visit.scheduledDate) {
-              return false;
-            }
-          } catch (_) {}
+    final activeMedicines = List<HomeVisitMedicine>.from(visit.medicines)
+      ..sort((a, b) {
+        if (a.id != null && b.id != null && a.id != b.id) {
+          return b.id!.compareTo(a.id!);
         }
-        if (currentDayNumber > 1) {
-          bool administeredOnEarlierDay = false;
-          m.administeredDays.forEach((dayKey, isDone) {
-            final dayInt = int.tryParse(dayKey) ?? 1;
-            if (dayInt < currentDayNumber && isDone) {
-              administeredOnEarlierDay = true;
-            }
-          });
-          if (administeredOnEarlierDay) {
-            return false;
-          }
+        return 0;
+      });
+
+    final activeConsumables = List<HomeVisitConsumable>.from(visit.consumables)
+      ..sort((a, b) {
+        if (a.id != null && b.id != null && a.id != b.id) {
+          return b.id!.compareTo(a.id!);
         }
-      }
-
-      if (m.administeredAt == null || m.administeredAt!.isEmpty) return true;
-      try {
-        final formatted = m.administeredAt!.trim().replaceAll(' ', 'T');
-        final dt = DateTime.parse(formatted);
-        final recDate = dt.isUtc ? dt.toLocal() : dt;
-        final medDateStr =
-            "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
-        return medDateStr == todayStr || medDateStr == visit.scheduledDate;
-      } catch (_) {
-        return true;
-      }
-    }).toList();
-
-    final activeConsumables = visit.consumables.where((c) {
-      if (c.createdAt == null || c.createdAt!.isEmpty) return true;
-      try {
-        final formatted = c.createdAt!.trim().replaceAll(' ', 'T');
-        final dt = DateTime.parse(formatted);
-        final recDate = dt.isUtc ? dt.toLocal() : dt;
-        final consDateStr =
-            "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
-        return consDateStr == todayStr || consDateStr == visit.scheduledDate;
-      } catch (_) {
-        return true;
-      }
-    }).toList();
+        return 0;
+      });
 
     if (_medGivenTimeCtrl.text.isEmpty) {
       _medGivenTimeCtrl.text = _getCurrentFormattedTime();
@@ -8580,17 +9014,30 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              const Text(
-                'Recorded Medicines History',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
-                ),
+              const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.medication_outlined,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Recorded Medicines History',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -8640,164 +9087,329 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            isStat ? Icons.flash_on : Icons.medication,
-                            size: 20,
-                            color: isStat
-                                ? const Color(0xFFDD6B20)
-                                : AppTheme.primaryColor,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
+                      if (MediaQuery.of(context).size.width < 600) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isStat ? Icons.flash_on : Icons.medication,
+                              size: 20,
+                              color: isStat
+                                  ? const Color(0xFFDD6B20)
+                                  : AppTheme.primaryColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
                                       m.medicineName,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 14,
                                       ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isStat
+                                          ? const Color(0xFFFEEBC8)
+                                          : const Color(0xFFEBF8FF),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
                                         color: isStat
-                                            ? const Color(0xFFFEEBC8)
-                                            : const Color(0xFFEBF8FF),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: isStat
-                                              ? const Color(0xFFFBD38D)
-                                              : const Color(0xFFBEE3F8),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        m.medicineType,
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: isStat
-                                              ? const Color(0xFFC05621)
-                                              : AppTheme.primaryColor,
-                                        ),
+                                            ? const Color(0xFFFBD38D)
+                                            : const Color(0xFFBEE3F8),
                                       ),
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Qty: ${m.quantity} | Food: ${m.foodTiming != null && m.foodTiming!.isNotEmpty ? m.foodTiming! : (m.route != null && m.route!.isNotEmpty ? m.route! : "After Food")} | Freq: ${m.frequency != null && m.frequency!.isNotEmpty ? m.frequency! : "N/A"} | Duration: ${m.duration != null && m.duration!.isNotEmpty ? m.duration! : "N/A"}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF475569),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (m.givenTime != null &&
-                                      m.givenTime!.isNotEmpty) ...[
-                                    const Icon(
-                                      Icons.access_time,
-                                      size: 13,
-                                      color: AppTheme.secondaryColor,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      m.givenTime!,
-                                      style: const TextStyle(
-                                        fontSize: 12,
+                                    child: Text(
+                                      m.medicineType,
+                                      style: TextStyle(
+                                        fontSize: 10,
                                         fontWeight: FontWeight.bold,
-                                        color: AppTheme.secondaryColor,
+                                        color: isStat
+                                            ? const Color(0xFFC05621)
+                                            : AppTheme.primaryColor,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                  ],
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.edit_outlined,
-                                      size: 18,
-                                      color: AppTheme.primaryColor,
-                                    ),
-                                    tooltip: 'Edit Medicine',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    onPressed: () {
-                                      _showRecordMedicineModal(
-                                        context,
-                                        visit,
-                                        controller,
-                                        existingMedicine: m,
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      size: 18,
-                                      color: AppTheme.dangerColor,
-                                    ),
-                                    tooltip: 'Delete Medicine',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    onPressed: () async {
-                                      final confirmed =
-                                          await _showConfirmDeleteDialog(
-                                        context,
-                                        title: 'Delete Medicine Record',
-                                        message:
-                                            'Are you sure you want to delete "${m.medicineName}" from this session? This action cannot be undone.',
-                                      );
-                                      if (confirmed && m.id != null) {
-                                        final success = await controller
-                                            .deleteMedicineItem(
-                                          visit.id,
-                                          m.id!,
-                                        );
-                                        if (success && mounted) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Medicine record deleted successfully',
-                                              ),
-                                              backgroundColor:
-                                                  AppTheme.secondaryColor,
-                                            ),
-                                          );
-                                        }
-                                      }
-                                    },
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 4),
-                              _buildTimestampBadge(
-                                m.administeredAt,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ],
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                  tooltip: 'Edit Medicine',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () {
+                                    _showRecordMedicineModal(
+                                      context,
+                                      visit,
+                                      controller,
+                                      existingMedicine: m,
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                    color: AppTheme.dangerColor,
+                                  ),
+                                  tooltip: 'Delete Medicine',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () async {
+                                    final confirmed =
+                                        await _showConfirmDeleteDialog(
+                                      context,
+                                      title: 'Delete Medicine Record',
+                                      message:
+                                          'Are you sure you want to delete "${m.medicineName}" from this session? This action cannot be undone.',
+                                    );
+                                    if (confirmed && m.id != null) {
+                                      final success = await controller
+                                          .deleteMedicineItem(
+                                        visit.id,
+                                        m.id!,
+                                      );
+                                      if (success && mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Medicine record deleted successfully',
+                                            ),
+                                            backgroundColor:
+                                                AppTheme.secondaryColor,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Qty: ${m.quantity} | Food: ${m.foodTiming != null && m.foodTiming!.isNotEmpty ? m.foodTiming! : (m.route != null && m.route!.isNotEmpty ? m.route! : "After Food")} | Freq: ${m.frequency != null && m.frequency!.isNotEmpty ? m.frequency! : "N/A"} | Duration: ${m.duration != null && m.duration!.isNotEmpty ? m.duration! : "N/A"}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF475569),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            if (m.givenTime != null &&
+                                m.givenTime!.isNotEmpty)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.access_time,
+                                    size: 13,
+                                    color: AppTheme.secondaryColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    m.givenTime!,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.secondaryColor,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              const SizedBox.shrink(),
+                            _buildTimestampBadge(
+                              m.administeredAt,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              isStat ? Icons.flash_on : Icons.medication,
+                              size: 20,
+                              color: isStat
+                                  ? const Color(0xFFDD6B20)
+                                  : AppTheme.primaryColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        m.medicineName,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isStat
+                                              ? const Color(0xFFFEEBC8)
+                                              : const Color(0xFFEBF8FF),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: isStat
+                                                ? const Color(0xFFFBD38D)
+                                                : const Color(0xFFBEE3F8),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          m.medicineType,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: isStat
+                                                ? const Color(0xFFC05621)
+                                                : AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Qty: ${m.quantity} | Food: ${m.foodTiming != null && m.foodTiming!.isNotEmpty ? m.foodTiming! : (m.route != null && m.route!.isNotEmpty ? m.route! : "After Food")} | Freq: ${m.frequency != null && m.frequency!.isNotEmpty ? m.frequency! : "N/A"} | Duration: ${m.duration != null && m.duration!.isNotEmpty ? m.duration! : "N/A"}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF475569),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (m.givenTime != null &&
+                                        m.givenTime!.isNotEmpty) ...[
+                                      const Icon(
+                                        Icons.access_time,
+                                        size: 13,
+                                        color: AppTheme.secondaryColor,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        m.givenTime!,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.secondaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                    ],
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.edit_outlined,
+                                        size: 18,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                      tooltip: 'Edit Medicine',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () {
+                                        _showRecordMedicineModal(
+                                          context,
+                                          visit,
+                                          controller,
+                                          existingMedicine: m,
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        size: 18,
+                                        color: AppTheme.dangerColor,
+                                      ),
+                                      tooltip: 'Delete Medicine',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () async {
+                                        final confirmed =
+                                            await _showConfirmDeleteDialog(
+                                          context,
+                                          title: 'Delete Medicine Record',
+                                          message:
+                                              'Are you sure you want to delete "${m.medicineName}" from this session? This action cannot be undone.',
+                                        );
+                                        if (confirmed && m.id != null) {
+                                          final success = await controller
+                                              .deleteMedicineItem(
+                                            visit.id,
+                                            m.id!,
+                                          );
+                                          if (success && mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Medicine record deleted successfully',
+                                                ),
+                                                backgroundColor:
+                                                    AppTheme.secondaryColor,
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                _buildTimestampBadge(
+                                  m.administeredAt,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       _buildDailyDoseChecklist(
                         medicine: m,
@@ -8811,8 +9423,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             ],
           ],
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               Text(
                 'Showing ${totalMeds == 0 ? 0 : medsStartIdx + 1}-$medsEndIdx of $totalMeds entries',
@@ -8823,12 +9438,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
+                        horizontal: 8,
+                        vertical: 4,
                       ),
                       minimumSize: const Size(0, 32),
                       side: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -8845,10 +9461,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       style: TextStyle(fontSize: 12),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
+                      horizontal: 8,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
@@ -8864,12 +9480,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
+                        horizontal: 8,
+                        vertical: 4,
                       ),
                       minimumSize: const Size(0, 32),
                       side: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -8881,7 +9497,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ? () => setState(() => _medsPage++)
                         : null,
                     icon: const Icon(Icons.chevron_right, size: 16),
-                    label: const Text('Next', style: TextStyle(fontSize: 12)),
+                    label: const Text(
+                      'Next',
+                      style: TextStyle(fontSize: 12),
+                    ),
                   ),
                 ],
               ),
@@ -8903,10 +9522,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         });
 
     final totalProcedures = displayProcedures.length;
-    final totalProcedurePages = (totalProcedures == 0)
+    final totalProcPages = (totalProcedures == 0)
         ? 1
         : ((totalProcedures - 1) ~/ _pageSize) + 1;
-    final currentProcPage = _procPage.clamp(1, totalProcedurePages);
+    final currentProcPage = _procPage.clamp(1, totalProcPages);
     final procStartIdx = (currentProcPage - 1) * _pageSize;
     final procEndIdx = (procStartIdx + _pageSize < totalProcedures)
         ? procStartIdx + _pageSize
@@ -8926,10 +9545,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               const Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.history_edu_outlined,
@@ -8947,27 +9570,23 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${displayProcedures.length} Procedure(s)',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${displayProcedures.length} Procedure(s)',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
                   ),
-                ],
+                ),
               ),
             ],
           ),
@@ -8991,17 +9610,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Table(
-                    columnWidths: const {
-                      0: FlexColumnWidth(3.0),
-                      1: FlexColumnWidth(2.0),
-                      2: FlexColumnWidth(1.8),
-                      3: FlexColumnWidth(2.0),
-                      4: FlexColumnWidth(1.4),
-                    },
-                    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minWidth: 630,
+                    ),
+                    child: Table(
+                      columnWidths: const {
+                        0: FixedColumnWidth(180),
+                        1: FixedColumnWidth(100),
+                        2: FixedColumnWidth(110),
+                        3: FixedColumnWidth(130),
+                        4: FixedColumnWidth(110),
+                      },
+                      defaultVerticalAlignment:
+                          TableCellVerticalAlignment.middle,
                     children: [
                       TableRow(
                         decoration: const BoxDecoration(
@@ -9182,22 +9806,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               ),
                               Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                   vertical: 8,
                                 ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.edit_outlined,
-                                        size: 18,
-                                        color: AppTheme.primaryColor,
-                                      ),
-                                      tooltip: 'Edit Procedure',
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      onPressed: () {
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(6),
+                                      onTap: () {
                                         _showRecordProcedureModal(
                                           context,
                                           visit,
@@ -9205,18 +9823,24 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           existingProcedure: p,
                                         );
                                       },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryColor
+                                              .withOpacity(0.08),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Icon(
+                                          Icons.edit_outlined,
+                                          size: 16,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
                                     ),
                                     const SizedBox(width: 8),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete_outline,
-                                        size: 18,
-                                        color: AppTheme.dangerColor,
-                                      ),
-                                      tooltip: 'Delete Procedure',
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      onPressed: () async {
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(6),
+                                      onTap: () async {
                                         final confirmed =
                                             await _showConfirmDeleteDialog(
                                           context,
@@ -9245,6 +9869,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           }
                                         }
                                       },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.dangerColor
+                                              .withOpacity(0.08),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Icon(
+                                          Icons.delete_outline,
+                                          size: 16,
+                                          color: AppTheme.dangerColor,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -9258,9 +9895,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          ),
+          const SizedBox(height: 12),
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 Text(
                   'Showing ${totalProcedures == 0 ? 0 : procStartIdx + 1}-$procEndIdx of $totalProcedures entries',
@@ -9271,12 +9912,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ),
                 ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                          horizontal: 8,
+                          vertical: 4,
                         ),
                         minimumSize: const Size(0, 32),
                         side: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -9293,10 +9935,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         style: TextStyle(fontSize: 12),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
+                        horizontal: 8,
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
@@ -9304,7 +9946,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'Page $currentProcPage of $totalProcedurePages',
+                        'Page $currentProcPage of $totalProcPages',
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -9312,12 +9954,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                          horizontal: 8,
+                          vertical: 4,
                         ),
                         minimumSize: const Size(0, 32),
                         side: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -9325,11 +9967,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      onPressed: currentProcPage < totalProcedurePages
+                      onPressed: currentProcPage < totalProcPages
                           ? () => setState(() => _procPage++)
                           : null,
                       icon: const Icon(Icons.chevron_right, size: 16),
-                      label: const Text('Next', style: TextStyle(fontSize: 12)),
+                      label: const Text(
+                        'Next',
+                        style: TextStyle(fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
@@ -9826,7 +10471,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 size: 14,
                                 color: AppTheme.dangerColor,
                               ),
-                              SizedBox(width: 4),
+                              const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
                                   'Photo evidence image file is mandatory. Please choose a file.',
@@ -10618,23 +11263,29 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.draw_outlined,
-                            color: AppTheme.primaryColor,
-                            size: 24,
-                          ),
-                          SizedBox(width: 10),
-                          Text(
-                            'End Visit & Attender Verification',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Row(
+                          children: const [
+                            Icon(
+                              Icons.draw_outlined,
                               color: AppTheme.primaryColor,
+                              size: 22,
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'End Visit & Attender Verification',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryColor,
+                                ),
+                                maxLines: 2,
+                                softWrap: true,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close),
@@ -10701,24 +11352,31 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         children: [
                           if (sigPoints.isEmpty)
                             const Center(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.draw_outlined,
-                                    color: Colors.grey,
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Draw attender signature here with mouse or touch...',
-                                    style: TextStyle(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 16),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.draw_outlined,
                                       color: Colors.grey,
-                                      fontSize: 13,
-                                      fontStyle: FontStyle.italic,
+                                      size: 18,
                                     ),
-                                  ),
-                                ],
+                                    SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
+                                        'Draw attender signature here',
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           GestureDetector(
@@ -10760,103 +11418,118 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          style: AppTheme.cancelButton,
-                          child: const Text('Cancel'),
-                          onPressed: () => Navigator.of(dialogCtx).pop(),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          style: AppTheme.dangerButton,
-                          icon: isSubmitting
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.check_circle_outline,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                          label: Text(
-                            isSubmitting
-                                ? 'Processing...'
-                                : 'Complete Visit & Create Invoice',
+                      ElevatedButton.icon(
+                        style: AppTheme.dangerButton.copyWith(
+                          minimumSize: MaterialStateProperty.all(
+                            const Size(double.infinity, 48),
                           ),
-                          onPressed: isSubmitting
-                              ? null
-                              : () async {
-                                  if (nameCtrl.text.trim().length < 3) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Please enter valid attender name (min 3 chars).',
-                                        ),
-                                        backgroundColor: AppTheme.dangerColor,
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  if (relCtrl.text.trim().isEmpty) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Please enter attender relationship.',
-                                        ),
-                                        backgroundColor: AppTheme.dangerColor,
-                                      ),
-                                    );
-                                    return;
-                                  }
-
-                                  setDialogState(() => isSubmitting = true);
-                                  _attenderNameCtrl.text = nameCtrl.text.trim();
-                                  _attenderRelationCtrl.text = relCtrl.text
-                                      .trim();
-
-                                  final result = await controller.verifyVisit(
-                                    visit.id,
-                                    nameCtrl.text.trim(),
-                                    relCtrl.text.trim(),
-                                    'signature_base64_data_valid',
-                                  );
-                                  await controller.fetchVisits();
-
-                                  if (result != null && mounted) {
-                                    Navigator.of(dialogCtx).pop();
-                                    showDialog(
-                                      context: context,
-                                      builder: (_) => HomeVisitInvoiceDialog(
-                                        invoiceData: result,
-                                        visit: visit,
-                                        onCloseAndComplete: () {
-                                          _handleLeave();
-                                        },
-                                      ),
-                                    );
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          "Today's home visit marked as Completed & invoice generated!",
-                                        ),
-                                        backgroundColor:
-                                            AppTheme.secondaryColor,
-                                      ),
-                                    );
-                                  } else {
-                                    setDialogState(() => isSubmitting = false);
-                                  }
-                                },
                         ),
+                        icon: isSubmitting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.check_circle_outline,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                        label: Text(
+                          isSubmitting
+                              ? 'Processing...'
+                              : 'Complete Visit & Create Invoice',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onPressed: isSubmitting
+                            ? null
+                            : () async {
+                                if (nameCtrl.text.trim().length < 3) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Please enter attender full name (min 3 chars).',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                if (relCtrl.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Please specify attender relationship.',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                if (sigPoints.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Attender signature is required to complete the home visit.',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                setDialogState(() => isSubmitting = true);
+                                _attenderNameCtrl.text = nameCtrl.text.trim();
+                                _attenderRelationCtrl.text = relCtrl.text.trim();
+
+                                final result = await controller.verifyVisit(
+                                  visit.id,
+                                  nameCtrl.text.trim(),
+                                  relCtrl.text.trim(),
+                                  'signature_base64_data_valid',
+                                );
+                                await controller.fetchVisits();
+
+                                if (result != null && context.mounted) {
+                                  Navigator.of(dialogCtx).pop();
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => HomeVisitInvoiceDialog(
+                                      invoiceData: result,
+                                      visit: visit,
+                                      onCloseAndComplete: () {
+                                        _handleLeave();
+                                      },
+                                    ),
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        "Today's home visit marked as Completed & invoice generated!",
+                                      ),
+                                      backgroundColor:
+                                          AppTheme.secondaryColor,
+                                    ),
+                                  );
+                                } else if (context.mounted) {
+                                  setDialogState(() => isSubmitting = false);
+                                }
+                              },
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton(
+                        style: AppTheme.cancelButton.copyWith(
+                          minimumSize: MaterialStateProperty.all(
+                            const Size(double.infinity, 44),
+                          ),
+                        ),
+                        child: const Text('Cancel'),
+                        onPressed: () => Navigator.of(dialogCtx).pop(),
                       ),
                     ],
                   ),
@@ -11927,13 +12600,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       }
     }
 
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
+
     showDialog(
       context: context,
       builder: (dialogCtx) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(24),
+        insetPadding: EdgeInsets.all(isMobile ? 12 : 24),
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 900, maxHeight: 750),
+          constraints: BoxConstraints(
+            maxWidth: 900,
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -11945,50 +12623,53 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               // Header
               Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 14,
+                  horizontal: 16,
+                  vertical: 12,
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.photo_outlined,
-                            color: AppTheme.primaryColor,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              photo.category ?? 'Timestamped Photo Evidence',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                            Text(
-                              'Captured at $timeStr',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.photo_outlined,
+                        color: AppTheme.primaryColor,
+                        size: 20,
+                      ),
                     ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            photo.category ?? 'Timestamped Photo Evidence',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Captured at $timeStr',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         if (!widget.isReadOnlyView &&
                             photo.id != null &&
@@ -11997,8 +12678,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             icon: const Icon(
                               Icons.delete_outline,
                               color: AppTheme.dangerColor,
+                              size: 20,
                             ),
                             tooltip: 'Delete Photo Evidence',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
                             onPressed: () {
                               Navigator.of(dialogCtx).pop();
                               _showDeletePhotoConfirmationDialog(
@@ -12008,11 +12692,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               );
                             },
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 10),
                         ],
                         IconButton(
-                          icon: const Icon(Icons.close, color: Colors.grey),
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
                           tooltip: 'Close Preview',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                           onPressed: () => Navigator.of(dialogCtx).pop(),
                         ),
                       ],
@@ -12475,9 +13165,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               Icons.do_not_disturb_on_outlined,
                               size: 14,
                             ),
-                            label: Text(
-                              'Discontinue Day $dayNumber Care',
-                              style: const TextStyle(
+                            label: const Text(
+                              'Stop Care Plan',
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 11.5,
                               ),
@@ -12485,7 +13175,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             onPressed: () => _showDiscontinueDialog(
                               context,
                               v,
-                              dayNumber: dayNumber,
                             ),
                           ),
                       ],
@@ -12651,682 +13340,911 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final String invoiceNum = invoice['invoice_number'] ?? 'INV-HV-VERIFIED';
     final String payStatus = invoice['payment_status'] ?? 'Unpaid';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 700;
 
-
-          // Status Banner (Verified / Cancelled / In-Progress)
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: visit.status == 'Cancelled'
-                  ? const Color(0xFFFEF2F2)
-                  : const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: visit.status == 'Cancelled'
-                    ? const Color(0xFFFECACA)
-                    : const Color(0xFFBBF7D0),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: visit.status == 'Cancelled'
-                        ? AppTheme.dangerColor.withValues(alpha: 0.15)
-                        : AppTheme.secondaryColor.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    visit.status == 'Cancelled'
-                        ? Icons.do_not_disturb_on_outlined
-                        : Icons.verified,
-                    color: visit.status == 'Cancelled'
-                        ? AppTheme.dangerColor
-                        : AppTheme.secondaryColor,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            visit.status == 'Cancelled'
-                                ? 'Home Visit Care Discontinued / Stopped'
-                                : 'Day $dayNumber Care Session Verified & Billed (${_formatDateDDMMYYYY(visit.scheduledDate)})',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: visit.status == 'Cancelled'
-                                  ? AppTheme.dangerColor
-                                  : Colors.green,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: visit.status == 'Cancelled'
-                                  ? AppTheme.dangerColor
-                                  : AppTheme.secondaryColor,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              visit.status == 'Verified'
-                                  ? 'COMPLETED'
-                                  : visit.status.toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        visit.status == 'Cancelled'
-                            ? (visit.notes != null && visit.notes!.isNotEmpty
-                                  ? visit.notes!
-                                  : 'Care plan stopped/discontinued for this patient.')
-                            : 'All vitals, nursing procedures, medicines, evidence & attender signature are locked & billed for ${_formatDateDDMMYYYY(visit.scheduledDate)}. Execute Visit unlocks at 7:00 AM on the next scheduled date.',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Billing & Invoice Card Banner
-          if (visit.invoice != null) ...[
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: AppTheme.cardShadow,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.receipt_long,
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_selectedSummaryVisitId != null) ...[
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedSummaryVisitId = null;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.arrow_back_rounded,
+                          size: 16,
                           color: AppTheme.primaryColor,
-                          size: 26,
                         ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Back to All Sessions Overview',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Status Banner (Verified / Cancelled / In-Progress)
+              Container(
+                padding: EdgeInsets.all(isMobile ? 14 : 20),
+                decoration: BoxDecoration(
+                  color: visit.status == 'Cancelled'
+                      ? const Color(0xFFFEF2F2)
+                      : const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: visit.status == 'Cancelled'
+                        ? const Color(0xFFFECACA)
+                        : const Color(0xFFBBF7D0),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: visit.status == 'Cancelled'
+                            ? AppTheme.dangerColor.withValues(alpha: 0.15)
+                            : AppTheme.secondaryColor.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 14),
-                      Column(
+                      child: Icon(
+                        visit.status == 'Cancelled'
+                            ? Icons.do_not_disturb_on_outlined
+                            : Icons.verified,
+                        color: visit.status == 'Cancelled'
+                            ? AppTheme.dangerColor
+                            : AppTheme.secondaryColor,
+                        size: isMobile ? 22 : 28,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Invoice #: $invoiceNum',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryColor,
-                            ),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                visit.status == 'Cancelled'
+                                    ? 'Home Visit Care Discontinued / Stopped'
+                                    : 'Day $dayNumber Care Session Verified & Billed (${_formatDateDDMMYYYY(visit.scheduledDate)})',
+                                style: TextStyle(
+                                  fontSize: isMobile ? 14 : 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: visit.status == 'Cancelled'
+                                      ? AppTheme.dangerColor
+                                      : Colors.green,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: visit.status == 'Cancelled'
+                                      ? AppTheme.dangerColor
+                                      : AppTheme.secondaryColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  visit.status == 'Verified'
+                                      ? 'COMPLETED'
+                                      : visit.status.toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 6),
                           Text(
-                            'Payment Status: $payStatus | Total Amount: ₹${netAmount.toStringAsFixed(2)}',
+                            visit.status == 'Cancelled'
+                                ? (visit.notes != null &&
+                                        visit.notes!.isNotEmpty
+                                    ? visit.notes!
+                                    : 'Care plan stopped/discontinued for this patient.')
+                                : 'All vitals, nursing procedures, medicines, evidence & attender signature are locked & billed for ${_formatDateDDMMYYYY(visit.scheduledDate)}. Execute Visit unlocks at 7:00 AM on the next scheduled date.',
                             style: const TextStyle(
-                              fontSize: 13,
+                              fontSize: 12,
                               color: Colors.black87,
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                  ElevatedButton.icon(
-                    style: AppTheme.dangerButton,
-                    icon: const Icon(
-                      Icons.visibility_outlined,
-                      size: 18,
-                      color: Colors.white,
                     ),
-                    label: const Text(
-                      'View Itemized Invoice',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => HomeVisitInvoiceDialog(
-                          invoiceData: {'invoice': visit.invoice},
-                          visit: visit,
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 20),
 
-          // Patient & Attender Overview Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(
-                  'Patient & Attender Overview',
-                  Icons.person_outline,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _summaryTile(
-                        'Patient Name',
-                        visit.patientName ?? 'N/A',
-                      ),
-                    ),
-                    Expanded(
-                      child: _summaryTile(
-                        'Patient ID',
-                        visit.patientDisplayId ?? 'N/A',
-                      ),
-                    ),
-                    Expanded(
-                      child: _summaryTile(
-                        'Scheduled Date',
-                        _formatDateDDMMYYYY(visit.scheduledDate),
-                      ),
-                    ),
-                    Expanded(
-                      child: _summaryTile(
-                        'Assigned Nurse',
-                        visit.nurseName ?? 'Nurse',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _summaryTile(
-                        'Verified Attender',
-                        visit.attenderName ?? 'N/A',
-                      ),
-                    ),
-                    Expanded(
-                      child: _summaryTile(
-                        'Attender Relation',
-                        visit.attenderRelation ?? 'Attender',
-                      ),
-                    ),
-                    Expanded(
-                      child: _summaryTile(
-                        'Signed At',
-                        visit.signedAt ?? 'Completed',
-                      ),
-                    ),
-                    Expanded(
-                      child: _summaryTile(
-                        'Visit Address',
-                        visit.visitAddress ?? 'N/A',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Hourly Vitals History Log Table
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(
-                  'Day $dayNumber Recorded Hourly Vitals Log',
-                  Icons.monitor_heart_outlined,
-                ),
-                const SizedBox(height: 16),
-                if (sessionVitals.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(
-                      'No vitals recorded for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).',
-                      style: const TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                  )
-                else
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Table(
-                      border: TableBorder.all(color: const Color(0xFFE2E8F0)),
-                      children: [
-                        TableRow(
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF1F5F9),
-                          ),
-                          children: [
-                            _tableHeader('Date & Time'),
-                            _tableHeader('BP (mmHg)'),
-                            _tableHeader('Pulse (bpm)'),
-                            _tableHeader('SpO2 (%)'),
-                            _tableHeader('Temp (°F)'),
-                            _tableHeader('Sugar (mg/dL)'),
-                          ],
-                        ),
-                        for (final v in sessionVitals)
-                          TableRow(
-                            children: [
-                              _tableCell(
-                                v.recordedAt != null
-                                    ? () {
-                                        try {
-                                          final dt = DateTime.parse(
-                                            v.recordedAt!,
-                                          ).toLocal();
-                                          final day = dt.day.toString().padLeft(
-                                            2,
-                                            '0',
-                                          );
-                                          final month = dt.month
-                                              .toString()
-                                              .padLeft(2, '0');
-                                          final year = dt.year;
-                                          int h = dt.hour % 12;
-                                          if (h == 0) h = 12;
-                                          final ampm = dt.hour >= 12
-                                              ? 'PM'
-                                              : 'AM';
-                                          final m = dt.minute
-                                              .toString()
-                                              .padLeft(2, '0');
-                                          return '$day-$month-$year • $h:$m $ampm';
-                                        } catch (_) {
-                                          return v.recordedAt!;
-                                        }
-                                      }()
-                                    : 'N/A',
-                              ),
-                              _tableCell(
-                                '${v.systolicBp ?? "-"}/${v.diastolicBp ?? "-"}',
-                              ),
-                              _tableCell('${v.pulseRate ?? "-"}'),
-                              _tableCell('${v.spo2 ?? "-"}'),
-                              _tableCell('${v.temperature ?? "-"}'),
-                              _tableCell('${v.bloodSugar ?? "-"}'),
-                            ],
-                          ),
-                      ],
-                    ),
+              // Billing & Invoice Card Banner
+              if (visit.invoice != null) ...[
+                Container(
+                  padding: EdgeInsets.all(isMobile ? 14 : 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: AppTheme.cardShadow,
                   ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Nursing Care Activities Summary
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(
-                  'Day $dayNumber Nursing Care & Procedure Records',
-                  Icons.edit_note_outlined,
-                ),
-                const SizedBox(height: 16),
-                if (sessionCareHistory.isEmpty &&
-                    (visit.careActivities == null ||
-                        !_isSameDay(
-                          visit.careActivities!.createdAt,
-                          visit.scheduledDate,
-                        )))
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(
-                      'No nursing care notes or dressing procedures recorded for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).',
-                      style: const TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                  )
-                else
-                  for (final care
-                      in (sessionCareHistory.isNotEmpty
-                          ? sessionCareHistory
-                          : [visit.careActivities!])) ...[
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.access_time,
-                                size: 14,
-                                color: AppTheme.primaryColor,
+                  child: isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.receipt_long,
+                                    color: AppTheme.primaryColor,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Invoice #: $invoiceNum',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Status: $payStatus | Total: ₹${netAmount.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                style: AppTheme.dangerButton,
+                                icon: const Icon(
+                                  Icons.visibility_outlined,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                                label: const Text(
+                                  'View Itemized Invoice',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => HomeVisitInvoiceDialog(
+                                      invoiceData: {'invoice': visit.invoice},
+                                      visit: visit,
+                                    ),
+                                  );
+                                },
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Recorded on: ${_formatRecordedAt(care.createdAt)}',
-                                style: const TextStyle(
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.receipt_long,
+                                    color: AppTheme.primaryColor,
+                                    size: 26,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Invoice #: $invoiceNum',
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Payment Status: $payStatus | Total Amount: ₹${netAmount.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            ElevatedButton.icon(
+                              style: AppTheme.dangerButton,
+                              icon: const Icon(
+                                Icons.visibility_outlined,
+                                size: 18,
+                                color: Colors.white,
+                              ),
+                              label: const Text(
+                                'View Itemized Invoice',
+                                style: TextStyle(
+                                  color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
                                 ),
                               ),
-                            ],
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (_) => HomeVisitInvoiceDialog(
+                                    invoiceData: {'invoice': visit.invoice},
+                                    visit: visit,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Patient & Attender Overview Card
+              Container(
+                padding: EdgeInsets.all(isMobile ? 14 : 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(
+                      'Patient & Attender Overview',
+                      Icons.person_outline,
+                    ),
+                    const SizedBox(height: 16),
+                    if (isMobile) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _summaryTile(
+                              'Patient Name',
+                              visit.patientName ?? 'N/A',
+                            ),
                           ),
-                          const Divider(height: 16),
-                          if (care.nursingNotes != null &&
-                              care.nursingNotes!.isNotEmpty)
-                            _detailRow('Nursing Notes', care.nursingNotes!),
-                          if (care.dressingProcedures != null &&
-                              care.dressingProcedures!.isNotEmpty)
-                            _detailRow(
-                              'Dressing Procedure',
-                              care.dressingProcedures!,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _summaryTile(
+                              'Patient ID',
+                              visit.patientDisplayId ?? 'N/A',
                             ),
-                          if (care.nailTrimmingDone)
-                            _detailRow(
-                              'Nail Trimming / Hygiene Care',
-                              'Completed',
-                            ),
-                          if (care.otherCareActivities != null &&
-                              care.otherCareActivities!.isNotEmpty)
-                            _detailRow(
-                              'Other Care Activities',
-                              care.otherCareActivities!,
-                            ),
+                          ),
                         ],
                       ),
-                    ),
-                  ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Administered Medicines & Consumables Summary
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(
-                  'Day $dayNumber Administered Medicines & Consumables',
-                  Icons.medication_liquid_outlined,
-                ),
-                const SizedBox(height: 16),
-                if (sessionMedicines.isEmpty && sessionConsumables.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(
-                      'No medicines or consumables administered for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).',
-                      style: const TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                  )
-                else ...[
-                  if (sessionMedicines.isNotEmpty) ...[
-                    const Text(
-                      'Medicines Administered:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: AppTheme.primaryColor,
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _summaryTile(
+                              'Scheduled Date',
+                              _formatDateDDMMYYYY(visit.scheduledDate),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _summaryTile(
+                              'Assigned Nurse',
+                              visit.nurseName ?? 'Nurse',
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _summaryTile(
+                              'Verified Attender',
+                              visit.attenderName ?? 'N/A',
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _summaryTile(
+                              'Attender Relation',
+                              visit.attenderRelation ?? 'Attender',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _summaryTile(
+                              'Signed At',
+                              visit.signedAt ?? 'Completed',
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _summaryTile(
+                              'Visit Address',
+                              visit.visitAddress ?? 'N/A',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _summaryTile(
+                              'Patient Name',
+                              visit.patientName ?? 'N/A',
+                            ),
+                          ),
+                          Expanded(
+                            child: _summaryTile(
+                              'Patient ID',
+                              visit.patientDisplayId ?? 'N/A',
+                            ),
+                          ),
+                          Expanded(
+                            child: _summaryTile(
+                              'Scheduled Date',
+                              _formatDateDDMMYYYY(visit.scheduledDate),
+                            ),
+                          ),
+                          Expanded(
+                            child: _summaryTile(
+                              'Assigned Nurse',
+                              visit.nurseName ?? 'Nurse',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _summaryTile(
+                              'Verified Attender',
+                              visit.attenderName ?? 'N/A',
+                            ),
+                          ),
+                          Expanded(
+                            child: _summaryTile(
+                              'Attender Relation',
+                              visit.attenderRelation ?? 'Attender',
+                            ),
+                          ),
+                          Expanded(
+                            child: _summaryTile(
+                              'Signed At',
+                              visit.signedAt ?? 'Completed',
+                            ),
+                          ),
+                          Expanded(
+                            child: _summaryTile(
+                              'Visit Address',
+                              visit.visitAddress ?? 'N/A',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Hourly Vitals History Log Table
+              Container(
+                padding: EdgeInsets.all(isMobile ? 14 : 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(
+                      'Day $dayNumber Recorded Hourly Vitals Log',
+                      Icons.monitor_heart_outlined,
                     ),
-                    const SizedBox(height: 8),
-                    for (final m in sessionMedicines)
+                    const SizedBox(height: 16),
+                    if (sessionVitals.isEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text(
+                          'No vitals recorded for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      )
+                    else
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              minWidth: 580,
+                            ),
+                            child: Table(
+                              border: TableBorder.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
+                              children: [
+                                TableRow(
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFF1F5F9),
+                                  ),
+                                  children: [
+                                    _tableHeader('Date & Time'),
+                                    _tableHeader('BP (mmHg)'),
+                                    _tableHeader('Pulse (bpm)'),
+                                    _tableHeader('SpO2 (%)'),
+                                    _tableHeader('Temp (°F)'),
+                                    _tableHeader('Sugar (mg/dL)'),
+                                  ],
+                                ),
+                                for (final v in sessionVitals)
+                                  TableRow(
+                                    children: [
+                                      _tableCell(
+                                        v.recordedAt != null
+                                            ? () {
+                                                try {
+                                                  final dt = DateTime.parse(
+                                                    v.recordedAt!,
+                                                  ).toLocal();
+                                                  final day = dt.day
+                                                      .toString()
+                                                      .padLeft(2, '0');
+                                                  final month = dt.month
+                                                      .toString()
+                                                      .padLeft(2, '0');
+                                                  final year = dt.year;
+                                                  int h = dt.hour % 12;
+                                                  if (h == 0) h = 12;
+                                                  final ampm = dt.hour >= 12
+                                                      ? 'PM'
+                                                      : 'AM';
+                                                  final m = dt.minute
+                                                      .toString()
+                                                      .padLeft(2, '0');
+                                                  return '$day-$month-$year • $h:$m $ampm';
+                                                } catch (_) {
+                                                  return v.recordedAt!;
+                                                }
+                                              }()
+                                            : 'N/A',
+                                      ),
+                                      _tableCell(
+                                        '${v.systolicBp ?? "-"}/${v.diastolicBp ?? "-"}',
+                                      ),
+                                      _tableCell('${v.pulseRate ?? "-"}'),
+                                      _tableCell('${v.spo2 ?? "-"}'),
+                                      _tableCell('${v.temperature ?? "-"}'),
+                                      _tableCell('${v.bloodSugar ?? "-"}'),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Nursing Care Activities Summary
+              Container(
+                padding: EdgeInsets.all(isMobile ? 14 : 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(
+                      'Day $dayNumber Nursing Care & Procedure Records',
+                      Icons.edit_note_outlined,
+                    ),
+                    const SizedBox(height: 16),
+                    if (sessionCareHistory.isEmpty &&
+                        (visit.careActivities == null ||
+                            !_isSameDay(
+                              visit.careActivities!.createdAt,
+                              visit.scheduledDate,
+                            )))
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text(
+                          'No nursing care notes or dressing procedures recorded for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      )
+                    else
+                      for (final care
+                          in (sessionCareHistory.isNotEmpty
+                              ? sessionCareHistory
+                              : [visit.careActivities!])) ...[
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
-                          child: Row(
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: m.medicineType == 'STAT'
-                                      ? const Color(0xFFFEEBC8)
-                                      : const Color(0xFFEBF8FF),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  m.medicineType,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: m.medicineType == 'STAT'
-                                        ? const Color(0xFFC05621)
-                                        : AppTheme.primaryColor,
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.access_time,
+                                    size: 14,
+                                    color: AppTheme.primaryColor,
                                   ),
-                                ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Recorded on: ${_formatRecordedAt(care.createdAt)}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${m.medicineName}${m.dosage != null && m.dosage!.isNotEmpty ? " (${m.dosage})" : ""} - Qty: ${m.quantity}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Freq: ${m.frequency ?? "N/A"} | Duration: ${m.duration ?? "N/A"}${m.givenTime != null && m.givenTime!.isNotEmpty ? " | Given Time: ${m.givenTime}" : ""}',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF475569),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    _buildDailyDoseChecklist(
-                                      medicine: m,
-                                      currentDayNumber: dayNumber,
-                                      visit: visit,
-                                      controller: controller,
-                                    ),
-                                  ],
+                              const Divider(height: 16),
+                              if (care.nursingNotes != null &&
+                                  care.nursingNotes!.isNotEmpty)
+                                _detailRow('Nursing Notes', care.nursingNotes!),
+                              if (care.dressingProcedures != null &&
+                                  care.dressingProcedures!.isNotEmpty)
+                                _detailRow(
+                                  'Dressing Procedure',
+                                  care.dressingProcedures!,
                                 ),
-                              ),
+                              if (care.nailTrimmingDone)
+                                _detailRow(
+                                  'Nail Trimming / Hygiene Care',
+                                  'Completed',
+                                ),
+                              if (care.otherCareActivities != null &&
+                                  care.otherCareActivities!.isNotEmpty)
+                                _detailRow(
+                                  'Other Care Activities',
+                                  care.otherCareActivities!,
+                                ),
                             ],
                           ),
                         ),
-                      ),
-                    const SizedBox(height: 12),
+                      ],
                   ],
-                  if (sessionConsumables.isNotEmpty) ...[
-                    const Text(
-                      'Consumables Used:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    for (final c in sessionConsumables)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 6.0),
-                        child: Text(
-                          '• ${c.itemName} - Qty: ${c.quantityUsed} | ₹${(c.unitPrice * c.quantityUsed).toStringAsFixed(2)}${(c.createdAt != null && c.createdAt!.isNotEmpty) ? " (${c.createdAt!.split("T")[0]})" : ""}',
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ),
-                  ],
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Timestamped Photo Evidence Gallery
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(
-                  'Day $dayNumber Timestamped Photo Evidence Gallery',
-                  Icons.insert_photo_outlined,
                 ),
-                const SizedBox(height: 16),
-                if (sessionPhotos.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(
-                      'No timestamped photo evidence uploaded for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).',
-                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+
+              // Administered Medicines & Consumables Summary
+              Container(
+                padding: EdgeInsets.all(isMobile ? 14 : 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(
+                      'Day $dayNumber Administered Medicines & Consumables',
+                      Icons.medication_liquid_outlined,
                     ),
-                  )
-                else
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 5,
+                    const SizedBox(height: 16),
+                    if (sessionMedicines.isEmpty && sessionConsumables.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text(
+                          'No medicines or consumables administered for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      )
+                    else ...[
+                      if (sessionMedicines.isNotEmpty) ...[
+                        const Text(
+                          'Medicines Administered:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        for (final m in sessionMedicines)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(8),
+                                border:
+                                    Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: m.medicineType == 'STAT'
+                                          ? const Color(0xFFFEEBC8)
+                                          : const Color(0xFFEBF8FF),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      m.medicineType,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: m.medicineType == 'STAT'
+                                            ? const Color(0xFFC05621)
+                                            : AppTheme.primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${m.medicineName}${m.dosage != null && m.dosage!.isNotEmpty ? " (${m.dosage})" : ""} - Qty: ${m.quantity}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Freq: ${m.frequency ?? "N/A"} | Duration: ${m.duration ?? "N/A"}${m.givenTime != null && m.givenTime!.isNotEmpty ? " | Given Time: ${m.givenTime}" : ""}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF475569),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        _buildDailyDoseChecklist(
+                                          medicine: m,
+                                          currentDayNumber: dayNumber,
+                                          visit: visit,
+                                          controller: controller,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (sessionConsumables.isNotEmpty) ...[
+                        const Text(
+                          'Consumables Used:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        for (final c in sessionConsumables)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6.0),
+                            child: Text(
+                              '• ${c.itemName} - Qty: ${c.quantityUsed} | ₹${(c.unitPrice * c.quantityUsed).toStringAsFixed(2)}${(c.createdAt != null && c.createdAt!.isNotEmpty) ? " (${c.createdAt!.split("T")[0]})" : ""}',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Timestamped Photo Evidence Gallery
+              Container(
+                padding: EdgeInsets.all(isMobile ? 14 : 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(
+                      'Day $dayNumber Timestamped Photo Evidence Gallery',
+                      Icons.insert_photo_outlined,
+                    ),
+                    const SizedBox(height: 16),
+                    if (sessionPhotos.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text(
+                          'No timestamped photo evidence uploaded for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      )
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: isMobile ? 2 : (constraints.maxWidth < 1100 ? 3 : 5),
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
                           childAspectRatio: 1.0,
                         ),
-                    itemCount: sessionPhotos.length,
-                    itemBuilder: (context, idx) {
-                      final p = sessionPhotos[idx];
-                      return InkWell(
-                        onTap: () => _showFullImagePreviewDialog(context, p),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
+                        itemCount: sessionPhotos.length,
+                        itemBuilder: (context, idx) {
+                          final p = sessionPhotos[idx];
+                          return InkWell(
+                            onTap: () =>
+                                _showFullImagePreviewDialog(context, p),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                child: ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(12),
-                                  ),
-                                  child: p.photoUrl.startsWith('http')
-                                      ? Image.network(
-                                          p.photoUrl,
-                                          fit: BoxFit.cover,
-                                        )
-                                      : Container(
-                                          color: const Color(0xFFF1F5F9),
-                                          child: const Icon(
-                                            Icons.image,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                ),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border:
+                                    Border.all(color: const Color(0xFFE2E8F0)),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text(
-                                  p.category ?? 'Evidence',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(12),
+                                      ),
+                                      child: p.photoUrl.startsWith('http')
+                                          ? Image.network(
+                                              p.photoUrl,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Container(
+                                              color: const Color(0xFFF1F5F9),
+                                              child: const Icon(
+                                                Icons.image,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                    ),
                                   ),
-                                ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Text(
+                                      p.category ?? 'Evidence',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-              ],
-            ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -13384,27 +14302,51 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   Widget _detailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 200,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: AppTheme.primaryColor,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 500) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                ),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 180,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
               ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
-            ),
-          ),
-        ],
+              Expanded(
+                child: Text(
+                  value,
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -13435,12 +14377,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
   void _showDiscontinueDialog(
     BuildContext context,
-    HomeVisitModel visit, {
-    int? dayNumber,
-  }) {
+    HomeVisitModel visit,
+  ) {
     String selectedReason = 'Patient Cured / Fully Recovered';
     final notesCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
@@ -13450,121 +14392,186 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             borderRadius: BorderRadius.circular(16),
           ),
           title: Row(
-//           insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-//           title: const Row(
             children: [
-              const Icon(
-                Icons.do_not_disturb_on_outlined,
-                color: AppTheme.dangerColor,
-                size: 26,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.do_not_disturb_on_outlined,
+                  color: AppTheme.dangerColor,
+                  size: 24,
+                ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  dayNumber != null
-                      ? 'Stop / Discontinue Day $dayNumber Care Session'
-                      : 'Stop / Discontinue Home Visit Care',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Stop Home Visit Care',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
+                    Text(
+                      'Terminate & Cancel Care Plan',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
           content: SizedBox(
-            width: 480,
-            child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Are you sure you want to stop/discontinue home visit care for ${visit.patientName ?? "Patient #${visit.patientId}"}?',
-                style: const TextStyle(fontSize: 13, color: Colors.black87),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Select Discontinuation Reason:',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-              const SizedBox(height: 6),
-              CustomDropdownSearch(
-                label: '',
-                hint: 'Select Reason',
-                dropdownMap: const {
-                  'Patient Cured / Fully Recovered':
-                      'Patient Cured / Fully Recovered',
-                  'Patient / Attender Requested Discontinuation':
-                      'Patient / Attender Requested Discontinuation',
-                  'Admitted to Hospital / IPD Care':
-                      'Admitted to Hospital / IPD Care',
-                  'Doctor Advice / Care Plan Ended':
-                      'Doctor Advice / Care Plan Ended',
-                  'Other Reason': 'Other Reason',
-                },
-                value: selectedReason,
-                onChanged: (val) {
-                  if (val != null) {
-                    setDialogState(() => selectedReason = val);
-                  }
-                },
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'Additional Notes / Remarks (Optional):',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: notesCtrl,
-                maxLines: 2,
-                decoration: AppTheme.standardInputDecoration(
-                  hintText: 'Enter reason notes (e.g. Cured and recovered)...',
+            width: 500,
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF1F2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFFECDD3)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            color: AppTheme.dangerColor,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Filling this form will stop all further home visit care for ${visit.patientName ?? "Patient #${visit.patientId}"} and cancel the active care plan.',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF9F1239),
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Select Reason to Stop Care *',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 6),
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: 'Select Reason',
+                      dropdownMap: const {
+                        'Patient Cured / Fully Recovered':
+                            'Patient Cured / Fully Recovered',
+                        'Patient / Attender Requested Discontinuation':
+                            'Patient / Attender Requested Discontinuation',
+                        'Admitted to Hospital / IPD Care':
+                            'Admitted to Hospital / IPD Care',
+                        'Doctor Advice / Care Plan Completed':
+                            'Doctor Advice / Care Plan Completed',
+                        'Patient Relocated / Not Reachable':
+                            'Patient Relocated / Not Reachable',
+                        'Financial / Billing Constraints':
+                            'Financial / Billing Constraints',
+                        'Other Reason': 'Other Reason',
+                      },
+                      value: selectedReason,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() => selectedReason = val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Remarks / Nurse Handover Notes (Optional):',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: notesCtrl,
+                      maxLines: 3,
+                      decoration: AppTheme.standardInputDecoration(
+                        hintText:
+                            'Enter details (e.g., patient recovered after 5 days of care and attender requested stop)...',
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              child:
+                  const Text('Go Back', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton.icon(
               style: AppTheme.dangerButton,
-              icon: const Icon(Icons.check_circle_outline, size: 18),
-              label: Text(
-                dayNumber != null
-                    ? 'Stop Day $dayNumber Care'
-                    : 'Stop Care',
-              ),
-              onPressed: () async {
-                if (formKey.currentState != null && !formKey.currentState!.validate()) {
-                  return;
-                }
-                final homeVisitCtrl = Provider.of<HomeVisitController>(
-                  context,
-                  listen: false,
-                );
-                final success = await homeVisitCtrl.cancelVisit(
-                  visit.id,
-                  selectedReason,
-                  notesCtrl.text.trim(),
-                );
-                if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
-
-                if (success && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Day ${dayNumber ?? ""} care session (${visit.visitNumber}) for ${visit.patientName ?? "Patient"} stopped/discontinued successfully.',
+              icon: isSubmitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
                       ),
-                      backgroundColor: AppTheme.secondaryColor,
-                    ),
-                  );
-                  _handleLeave();
-                }
-              },
+                    )
+                  : const Icon(Icons.check_circle_outline, size: 18),
+              label:
+                  Text(isSubmitting ? 'Stopping Care...' : 'Confirm Stop Care'),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      if (formKey.currentState != null &&
+                          !formKey.currentState!.validate()) {
+                        return;
+                      }
+                      setDialogState(() => isSubmitting = true);
+                      final homeVisitCtrl = Provider.of<HomeVisitController>(
+                        context,
+                        listen: false,
+                      );
+                      final success = await homeVisitCtrl.cancelVisit(
+                        visit.id,
+                        selectedReason,
+                        notesCtrl.text.trim(),
+                      );
+                      setDialogState(() => isSubmitting = false);
+                      if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+
+                      if (success && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Home visit care plan (${visit.visitNumber}) for ${visit.patientName ?? "Patient"} stopped and cancelled successfully.',
+                            ),
+                            backgroundColor: AppTheme.secondaryColor,
+                          ),
+                        );
+                        _handleLeave();
+                      }
+                    },
             ),
           ],
         ),

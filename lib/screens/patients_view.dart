@@ -2867,7 +2867,6 @@ class _PatientsViewState extends State<PatientsView> {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
         ),
-        errorMaxLines: 2,
         errorStyle: const TextStyle(
           fontFamily: 'Inter',
           fontSize: 12,
@@ -3531,10 +3530,21 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.displayAge}  •  ${p.gender}',
+                    'ID: ${p.patientId ?? "N/A"}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.95),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${p.displayAge}  •  ${p.gender}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.85),
-                      fontSize: 13,
+                      fontSize: 12,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -3565,17 +3575,17 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 Icons.calendar_month_outlined,
                 p.age < 18 ? 'Book Pediatric' : 'Book Appt.',
                 onTap: () => widget.onBookAppointment(p),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildHeaderButton(
-                Icons.lightbulb_outline,
-                'Insights',
-                onTap: () => setState(() => _isShowingInsights = true),
+                isPrimary: true,
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        _buildHeaderButton(
+          Icons.lightbulb_outline,
+          'Patient Insights',
+          onTap: () => setState(() => _isShowingInsights = true),
+          isPrimary: false,
         ),
         const SizedBox(height: 16),
         const Divider(color: Colors.white24, height: 1),
@@ -3640,29 +3650,32 @@ class _PatientDetailViewState extends State<PatientDetailView>
       onTap: onTap ?? () {},
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         decoration: BoxDecoration(
           color: isPrimary ? Colors.white : Colors.white.withOpacity(0.2),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              size: 18,
+              size: 16,
               color: isPrimary ? const Color(0xFF3182CE) : Colors.white,
             ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: isPrimary ? const Color(0xFF3182CE) : Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isPrimary ? const Color(0xFF3182CE) : Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

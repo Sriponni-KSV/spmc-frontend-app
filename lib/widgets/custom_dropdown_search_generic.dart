@@ -2,7 +2,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import '../utils/app_theme.dart';
 
 class CustomDropdownSearch extends StatefulWidget {
   final String label;
@@ -263,39 +262,50 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     }
     _closeActiveDropdown = _hideDropdown;
 
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final size = renderBox.size;
-
     _highlightedIndex = 0;
     if (!_searchFocusNode.hasFocus) {
       _searchFocusNode.requestFocus();
     }
 
     _overlayEntry = OverlayEntry(
-      builder: (context) {
-        // Compute available space below and above the field, accounting for keyboard.
-        const double kDropdownMaxHeight = 300;
-        final fieldGlobal = renderBox.localToGlobal(Offset.zero);
+      builder: (overlayContext) {
+        final RenderBox? currentRenderBox =
+            context.findRenderObject() as RenderBox?;
+        if (currentRenderBox == null || !currentRenderBox.attached) {
+          return const SizedBox.shrink();
+        }
+
+        final size = currentRenderBox.size;
+        final fieldGlobal = currentRenderBox.localToGlobal(Offset.zero);
+
+        final mediaQuery = MediaQuery.maybeOf(context);
         final view = WidgetsBinding.instance.platformDispatcher.views.first;
-        final double screenHeight =
-            view.physicalSize.height / view.devicePixelRatio;
-        final double keyboardHeight =
-            view.viewInsets.bottom / view.devicePixelRatio;
+        final double screenHeight = mediaQuery?.size.height ??
+            (view.physicalSize.height / view.devicePixelRatio);
+        final double keyboardHeight = mediaQuery?.viewInsets.bottom ??
+            (view.viewInsets.bottom / view.devicePixelRatio);
+        final double topPadding = mediaQuery?.padding.top ??
+            (view.padding.top / view.devicePixelRatio);
 
-        final spaceBelow =
-            screenHeight - fieldGlobal.dy - size.height - keyboardHeight - 12;
-        final spaceAbove = fieldGlobal.dy - 12;
+        // Calculate available space with safety margins
+        final double spaceBelow =
+            (screenHeight - fieldGlobal.dy - size.height - keyboardHeight - 16)
+                .clamp(0.0, screenHeight);
+        final double spaceAbove =
+            (fieldGlobal.dy - topPadding - 16).clamp(0.0, screenHeight);
 
-        // Flexible placement: show above if space below is tight and there is more space above
-        final showAbove =
-            spaceBelow < kDropdownMaxHeight && spaceAbove > spaceBelow;
+        // Decide direction: prefer below if space >= 140 or more space below
+        final bool showAbove = spaceBelow < 140 && spaceAbove > spaceBelow;
+
+        final double availableHeight = showAbove ? spaceAbove : spaceBelow;
+        // Strictly limit maxHeight to at most availableHeight so it can never overflow status bar or keyboard
+        final double dynamicMaxHeight = availableHeight.clamp(50.0, 200.0);
 
         // When opening upward, anchor the follower's bottom to the target's top.
         final Offset offset = showAbove
             ? const Offset(0, -6) // follower-bottom → target-top minus gap
             : Offset(0, size.height + 6);
-        final Alignment tAnchor =
-            showAbove ? Alignment.topLeft : Alignment.topLeft;
+        final Alignment tAnchor = Alignment.topLeft;
         final Alignment fAnchor =
             showAbove ? Alignment.bottomLeft : Alignment.topLeft;
 
@@ -338,7 +348,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                       ],
                     ),
                     constraints:
-                        const BoxConstraints(maxHeight: kDropdownMaxHeight),
+                        BoxConstraints(maxHeight: dynamicMaxHeight),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [

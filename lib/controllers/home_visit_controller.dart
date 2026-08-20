@@ -79,6 +79,19 @@ class HomeVisitController with ChangeNotifier {
     }
   }
 
+  // Delete Vitals Entry
+  Future<bool> deleteVitalsItem(int visitId, int vitalId) async {
+    try {
+      await _service.deleteVitals(visitId, vitalId);
+      await fetchVisitDetails(visitId);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      notifyListeners();
+      return false;
+    }
+  }
+
   // Record Care Activities
   Future<bool> submitCareActivities(int visitId, Map<String, dynamic> careData) async {
     try {

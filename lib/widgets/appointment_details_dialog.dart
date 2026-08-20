@@ -541,85 +541,151 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
         ),
         child: Column(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _buildVitalInputField(
-                    controller: _systolicCtrl,
-                    label: 'BP Systolic (mmHg) *',
-                    hint: 'e.g. 120',
-                    isNumeric: true,
-                    validator: (val) {
-                      final text = val?.trim() ?? '';
-                      if (text.isEmpty) return 'Please enter BP systolic';
-                      final num = int.tryParse(text);
-                      if (num == null) return 'BP Systolic must be an integer';
-                      if (num == 0) return 'BP Systolic cannot be 0';
-                      if (num < 90 || num > 300) return 'BP Systolic must be between 90 and 300 mmHg';
-                      return null;
-                    },
+            if (isMobile) ...[
+              _buildVitalInputField(
+                controller: _systolicCtrl,
+                label: 'BP Systolic (mmHg) *',
+                hint: 'e.g. 120',
+                isNumeric: true,
+                validator: (val) {
+                  final text = val?.trim() ?? '';
+                  if (text.isEmpty) return 'Please enter BP systolic';
+                  final num = int.tryParse(text);
+                  if (num == null) return 'BP Systolic must be an integer';
+                  if (num == 0) return 'BP Systolic cannot be 0';
+                  if (num < 90 || num > 300) return 'BP Systolic must be between 90 and 300 mmHg';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildVitalInputField(
+                controller: _diastolicCtrl,
+                label: 'BP Diastolic (mmHg) *',
+                hint: 'e.g. 80',
+                isNumeric: true,
+                validator: (val) {
+                  final text = val?.trim() ?? '';
+                  if (text.isEmpty) return 'Please enter BP diastolic';
+                  final num = int.tryParse(text);
+                  if (num == null) return 'BP Diastolic must be an integer';
+                  if (num == 0) return 'BP Diastolic cannot be 0';
+                  if (num < 50 || num > 180) return 'BP Diastolic must be between 50 and 180 mmHg';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildVitalInputField(
+                controller: _sugarCtrl,
+                label: 'Sugar Level (mg/dL) *',
+                hint: 'e.g. 95',
+                isNumeric: true,
+                validator: (val) {
+                  final text = val?.trim() ?? '';
+                  if (text.isEmpty) return 'Please enter sugar level';
+                  final num = double.tryParse(text);
+                  if (num == null) return 'Sugar Level must be a number';
+                  if (num == 0) return 'Sugar Level cannot be 0';
+                  if (num < 30 || num > 600) return 'Sugar Level must be between 30 and 600 mg/dL';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildVitalInputField(
+                controller: _tempCtrl,
+                label: 'Temperature (°F) *',
+                hint: 'e.g. 98.6',
+                isNumeric: true,
+                validator: (val) {
+                  final text = val?.trim() ?? '';
+                  if (text.isEmpty) return 'Please enter temperature';
+                  final num = double.tryParse(text);
+                  if (num == null) return 'Temperature must be a number';
+                  if (num == 0) return 'Temperature cannot be 0';
+                  if (num < 90 || num > 115) return 'Temperature must be between 90 and 115 °F';
+                  return null;
+                },
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildVitalInputField(
+                      controller: _systolicCtrl,
+                      label: 'BP Systolic (mmHg) *',
+                      hint: 'e.g. 120',
+                      isNumeric: true,
+                      validator: (val) {
+                        final text = val?.trim() ?? '';
+                        if (text.isEmpty) return 'Please enter BP systolic';
+                        final num = int.tryParse(text);
+                        if (num == null) return 'BP Systolic must be an integer';
+                        if (num == 0) return 'BP Systolic cannot be 0';
+                        if (num < 90 || num > 300) return 'BP Systolic must be between 90 and 300 mmHg';
+                        return null;
+                      },
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildVitalInputField(
-                    controller: _diastolicCtrl,
-                    label: 'BP Diastolic (mmHg) *',
-                    hint: 'e.g. 80',
-                    isNumeric: true,
-                    validator: (val) {
-                      final text = val?.trim() ?? '';
-                      if (text.isEmpty) return 'Please enter BP diastolic';
-                      final num = int.tryParse(text);
-                      if (num == null) return 'BP Diastolic must be an integer';
-                      if (num == 0) return 'BP Diastolic cannot be 0';
-                      if (num < 50 || num > 180) return 'BP Diastolic must be between 50 and 180 mmHg';
-                      return null;
-                    },
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildVitalInputField(
+                      controller: _diastolicCtrl,
+                      label: 'BP Diastolic (mmHg) *',
+                      hint: 'e.g. 80',
+                      isNumeric: true,
+                      validator: (val) {
+                        final text = val?.trim() ?? '';
+                        if (text.isEmpty) return 'Please enter BP diastolic';
+                        final num = int.tryParse(text);
+                        if (num == null) return 'BP Diastolic must be an integer';
+                        if (num == 0) return 'BP Diastolic cannot be 0';
+                        if (num < 50 || num > 180) return 'BP Diastolic must be between 50 and 180 mmHg';
+                        return null;
+                      },
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildVitalInputField(
-                    controller: _sugarCtrl,
-                    label: 'Sugar Level (mg/dL) *',
-                    hint: 'e.g. 95',
-                    isNumeric: true,
-                    validator: (val) {
-                      final text = val?.trim() ?? '';
-                      if (text.isEmpty) return 'Please enter sugar level';
-                      final num = double.tryParse(text);
-                      if (num == null) return 'Sugar Level must be a number';
-                      if (num == 0) return 'Sugar Level cannot be 0';
-                      if (num < 30 || num > 600) return 'Sugar Level must be between 30 and 600 mg/dL';
-                      return null;
-                    },
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildVitalInputField(
+                      controller: _sugarCtrl,
+                      label: 'Sugar Level (mg/dL) *',
+                      hint: 'e.g. 95',
+                      isNumeric: true,
+                      validator: (val) {
+                        final text = val?.trim() ?? '';
+                        if (text.isEmpty) return 'Please enter sugar level';
+                        final num = double.tryParse(text);
+                        if (num == null) return 'Sugar Level must be a number';
+                        if (num == 0) return 'Sugar Level cannot be 0';
+                        if (num < 30 || num > 600) return 'Sugar Level must be between 30 and 600 mg/dL';
+                        return null;
+                      },
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildVitalInputField(
-                    controller: _tempCtrl,
-                    label: 'Temperature (°F) *',
-                    hint: 'e.g. 98.6',
-                    isNumeric: true,
-                    validator: (val) {
-                      final text = val?.trim() ?? '';
-                      if (text.isEmpty) return 'Please enter temperature';
-                      final num = double.tryParse(text);
-                      if (num == null) return 'Temperature must be a number';
-                      if (num == 0) return 'Temperature cannot be 0';
-                      if (num < 90 || num > 115) return 'Temperature must be between 90 and 115 °F';
-                      return null;
-                    },
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildVitalInputField(
+                      controller: _tempCtrl,
+                      label: 'Temperature (°F) *',
+                      hint: 'e.g. 98.6',
+                      isNumeric: true,
+                      validator: (val) {
+                        final text = val?.trim() ?? '';
+                        if (text.isEmpty) return 'Please enter temperature';
+                        final num = double.tryParse(text);
+                        if (num == null) return 'Temperature must be a number';
+                        if (num == 0) return 'Temperature cannot be 0';
+                        if (num < 90 || num > 115) return 'Temperature must be between 90 and 115 °F';
+                        return null;
+                      },
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
             _buildVitalInputField(
               controller: _complaintsCtrl,
@@ -760,13 +826,17 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
-              borderSide: const BorderSide(color: Color(0xFF0F766E), width: 1.5),
+              borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
-              borderSide: const BorderSide(color: Colors.red, width: 1),
+              borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1),
             ),
-            errorStyle: const TextStyle(fontSize: 10, color: Colors.red),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+            ),
+            errorStyle: const TextStyle(fontSize: 11, color: AppTheme.dangerColor),
           ),
           validator: validator,
         ),
