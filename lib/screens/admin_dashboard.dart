@@ -1008,7 +1008,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     if (_isRegisteringPatient) {
       return NewPatientRegistrationView(
-        key: UniqueKey(),
+        key: ValueKey('admin_reg_${_patientToComplete?.id ?? 'new'}'),
         existingPatient: _patientToComplete,
         onBack: () {
           final patientToReturn = _patientToComplete;

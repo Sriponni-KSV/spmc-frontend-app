@@ -84,13 +84,45 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     if (widget.initialViewMode != null) {
       _currentViewMode = _normalizeViewMode(widget.initialViewMode!);
     }
-    if (widget.startWithBookingForm) {
+    if (widget.startWithBookingForm || widget.initialPatient != null) {
       _isBookingAppointment = true;
+      if (widget.initialPatient != null) {
+        _selectedPatient = widget.initialPatient;
+      }
+      if (widget.initialDoctor != null) {
+        _selectedDoctor = widget.initialDoctor;
+      }
     }
     _fetchData();
     _reasonController.addListener(() {
       setState(() {});
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant AppointmentsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((widget.startWithBookingForm != oldWidget.startWithBookingForm &&
+            widget.startWithBookingForm) ||
+        (widget.initialPatient != oldWidget.initialPatient &&
+            widget.initialPatient != null) ||
+        (widget.initialDoctor != oldWidget.initialDoctor &&
+            widget.initialDoctor != null)) {
+      setState(() {
+        _isBookingAppointment = true;
+        if (widget.initialPatient != null) {
+          _selectedPatient = widget.initialPatient;
+        }
+        if (widget.initialDoctor != null) {
+          _selectedDoctor = widget.initialDoctor;
+        }
+      });
+    } else if (oldWidget.startWithBookingForm && !widget.startWithBookingForm) {
+      setState(() {
+        _isBookingAppointment = false;
+        _clearSelections();
+      });
+    }
   }
 
   String _normalizeViewMode(String mode) {
@@ -549,16 +581,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         // Back Link
         InkWell(
           onTap: () {
+            setState(() {
+              _isBookingAppointment = false;
+              _clearSelections();
+            });
             final path = GoRouterState.of(context).matchedLocation;
             if (path.startsWith('/nurse')) {
               context.go(AppRoutes.nurseAppointments);
             } else if (path.startsWith('/reception')) {
               context.go(AppRoutes.frontDeskAppointments);
-            } else {
-              setState(() {
-                _isBookingAppointment = false;
-                _clearSelections();
-              });
             }
           },
           child: const Row(
@@ -2125,8 +2156,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         counterText: maxLength != null ? '' : null,
         errorMaxLines: 2,
         errorStyle: const TextStyle(
-          fontSize: 10,
-          height: 1.1,
+          fontSize: 11,
+          color: AppTheme.dangerColor,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -2136,6 +2167,20 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(
             color: AppTheme.primaryColor,
+            width: 1.5,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(
+            color: AppTheme.dangerColor,
+            width: 1,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(
+            color: AppTheme.dangerColor,
             width: 1.5,
           ),
         ),

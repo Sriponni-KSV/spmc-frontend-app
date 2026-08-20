@@ -556,7 +556,17 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     );
   }
 
-  Widget _buildProfileTextField(String label, TextEditingController controller, IconData icon, {bool isReadOnly = false, bool isNumeric = false, bool isAlphanumeric = false, int? maxLength, VoidCallback? onTap}) {
+  Widget _buildProfileTextField(
+    String label,
+    TextEditingController controller,
+    IconData icon, {
+    bool isReadOnly = false,
+    bool isNumeric = false,
+    bool isAlphanumeric = false,
+    int? maxLength,
+    VoidCallback? onTap,
+    String? Function(String?)? validator,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -568,6 +578,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
         TextFormField(
           controller: controller,
           readOnly: isReadOnly,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          validator: validator,
           keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
           maxLength: maxLength,
           inputFormatters: isNumeric
@@ -596,8 +608,25 @@ class _NurseProfileViewState extends State<NurseProfileView> {
             suffixIcon: (isReadOnly && onTap == null) ? const Icon(Icons.lock_outline, size: 16, color: Colors.grey) : null,
             fillColor: isReadOnly ? const Color(0xFFF7FAFC) : Colors.white,
             filled: true,
+            errorMaxLines: 2,
+            errorStyle: const TextStyle(
+              fontSize: 11,
+              color: AppTheme.dangerColor,
+            ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.borderColor)),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.borderColor)),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+            ),
           ),
         ),
       ],
@@ -983,6 +1012,11 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                           hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
                           fillColor: AppTheme.backgroundColor,
                           filled: true,
+                          errorMaxLines: 2,
+                          errorStyle: const TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.dangerColor,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
@@ -999,6 +1033,21 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
                               color: AppTheme.primaryColor,
+                              width: 1.5,
+                            ),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: AppTheme.dangerColor,
+                              width: 1,
+                            ),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: AppTheme.dangerColor,
+                              width: 1.5,
                             ),
                           ),
                         ),

@@ -942,7 +942,7 @@ class _NewPatientRegistrationViewState
     return Form(
       key: _formKeyStep1,
       child: Container(
-        padding: EdgeInsets.all(isMobile ? 20 : 32),
+        padding: EdgeInsets.all(isMobile ? 16 : 32),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -966,435 +966,755 @@ class _NewPatientRegistrationViewState
                 color: AppTheme.primaryColor,
               ),
             ),
-            const SizedBox(height: 32),
-
-            // Full Name & Email
-            Row(
-              children: [
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Full Name *'),
-                      _buildTextField(
-                        controller: _nameController,
-                        hint: 'Enter patient\'s full name',
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[a-zA-Z\s.]'),
-                          ),
-                          LengthLimitingTextInputFormatter(60),
-                        ],
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty)
-                            return 'Please enter Full Name';
-                          if (val.trim().length < 3)
-                            return 'Name must be at least 3 characters';
-                          if (val.trim().length > 60)
-                            return 'Full Name cannot exceed 60 characters';
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Email Address *'),
-                      _buildTextField(
-                        controller: _emailController,
-                        hint: 'Enter Email Address',
-                        keyboardType: TextInputType.emailAddress,
-                        inputFormatters: [
-                          LengthLimitingTextInputFormatter(254),
-                        ],
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Please enter Email Address';
-                          }
-                          if (val.trim().length > 254) {
-                            return 'Email address cannot exceed 254 characters';
-                          }
-                          if (!RegExp(
-                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                          ).hasMatch(val.trim())) {
-                            return 'Please enter a valid email address';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: 24),
 
-            // DOB & Gender
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Date of Birth *'),
-                      _buildTextField(
-                        controller: _dobController,
-                        hint: 'dd/mm/yyyy',
-                        icon: Icons.calendar_today_outlined,
-                        onTap: () => _selectDate(context),
-                        readOnly: true,
-                        validator: (val) => val == null || val.isEmpty
-                            ? 'Please enter Date of Birth'
-                            : null,
-                      ),
-                    ],
+            if (isMobile) ...[
+              _buildLabel('Full Name *'),
+              _buildTextField(
+                controller: _nameController,
+                hint: 'Enter patient\'s full name',
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[a-zA-Z\s.]'),
                   ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Gender *'),
-                      _buildDropdownField(
-                        value: _selectedGender,
-                        hint: 'Select gender',
-                        items: ['Male', 'Female', 'Other'],
-                        onChanged: (val) =>
-                            setState(() => _selectedGender = val),
-                        validator: (val) {
-                          if (val == null ||
-                              val.trim().isEmpty ||
-                              !['Male', 'Female', 'Other'].contains(val)) {
-                            return 'Please select gender';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+                  LengthLimitingTextInputFormatter(60),
+                ],
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty)
+                    return 'Please enter Full Name';
+                  if (val.trim().length < 3)
+                    return 'Name must be at least 3 characters';
+                  if (val.trim().length > 60)
+                    return 'Full Name cannot exceed 60 characters';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
 
-            // Phone Number & Emergency Contact
-            Row(
-              children: [
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Mobile Number *'),
-                      _buildTextField(
-                        controller: _phoneController,
-                        hint: 'Enter Mobile Number',
-                        keyboardType: TextInputType.phone,
-                        suffixIcon: _isSearchingPhone
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: Padding(
-                                  padding: EdgeInsets.all(12.0),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              )
-                            : null,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(10),
-                        ],
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Please enter Mobile Number';
-                          }
-                          final clean = val.trim();
-                          if (!RegExp(r'^[6-9]').hasMatch(clean)) {
-                            return 'Mobile number must start with 6, 7, 8, or 9';
-                          }
-                          if (clean.length != 10) {
-                            return 'Mobile number must be exactly 10 digits';
-                          }
-                          if (_phoneDuplicateError != null) {
-                            return _phoneDuplicateError;
-                          }
-                          return null;
-                        },
-                      ),
-                      if (_phoneDuplicateError != null && _matchedExistingPatient != null) ...[
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.dangerColor.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: AppTheme.dangerColor.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: AppTheme.dangerColor,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Registered to: ${_matchedExistingPatient!.name} (${_matchedExistingPatient!.patientId ?? "ID: N/A"}). Only one patient allowed per mobile number.',
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.dangerColor,
-                                  ),
-                                ),
-                              ),
-                            ],
+              _buildLabel('Email Address *'),
+              _buildTextField(
+                controller: _emailController,
+                hint: 'Enter Email Address',
+                keyboardType: TextInputType.emailAddress,
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(254),
+                ],
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter Email Address';
+                  }
+                  if (val.trim().length > 254) {
+                    return 'Email address cannot exceed 254 characters';
+                  }
+                  if (!RegExp(
+                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                  ).hasMatch(val.trim())) {
+                    return 'Please enter a valid email address';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              _buildLabel('Date of Birth *'),
+              _buildTextField(
+                controller: _dobController,
+                hint: 'dd/mm/yyyy',
+                icon: Icons.calendar_today_outlined,
+                onTap: () => _selectDate(context),
+                readOnly: true,
+                validator: (val) => val == null || val.isEmpty
+                    ? 'Please enter Date of Birth'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+
+              _buildLabel('Gender *'),
+              _buildDropdownField(
+                value: _selectedGender,
+                hint: 'Select gender',
+                items: ['Male', 'Female', 'Other'],
+                onChanged: (val) =>
+                    setState(() => _selectedGender = val),
+                validator: (val) {
+                  if (val == null ||
+                      val.trim().isEmpty ||
+                      !['Male', 'Female', 'Other'].contains(val)) {
+                    return 'Please select gender';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              _buildLabel('Mobile Number *'),
+              _buildTextField(
+                controller: _phoneController,
+                hint: 'Enter Mobile Number',
+                keyboardType: TextInputType.phone,
+                suffixIcon: _isSearchingPhone
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: Padding(
+                          padding: EdgeInsets.all(12.0),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.primaryColor,
                           ),
                         ),
-                      ],
-                    ],
+                      )
+                    : null,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ],
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter Mobile Number';
+                  }
+                  final clean = val.trim();
+                  if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+                    return 'Mobile number must start with 6, 7, 8, or 9';
+                  }
+                  if (clean.length != 10) {
+                    return 'Mobile number must be exactly 10 digits';
+                  }
+                  if (_phoneDuplicateError != null) {
+                    return _phoneDuplicateError;
+                  }
+                  return null;
+                },
+              ),
+              if (_phoneDuplicateError != null && _matchedExistingPatient != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
                   ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppTheme.dangerColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
                     children: [
-                      _buildLabel('Emergency Contact Name *'),
-                      _buildTextField(
-                        controller: _emergencyContactNameController,
-                        hint: 'Enter name',
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[a-zA-Z\s.]'),
+                      const Icon(
+                        Icons.error_outline,
+                        color: AppTheme.dangerColor,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Registered to: ${_matchedExistingPatient!.name} (${_matchedExistingPatient!.patientId ?? "ID: N/A"}). Only one patient allowed per mobile number.',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.dangerColor,
                           ),
-                          LengthLimitingTextInputFormatter(60),
-                        ],
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty)
-                            return 'Please enter Emergency Contact Name';
-                          if (val.trim().length < 3)
-                            return 'Name must be at least 3 characters';
-                          if (val.trim().length > 60)
-                            return 'Emergency Contact Name cannot exceed 60 characters';
-                          return null;
-                        },
+                        ),
                       ),
                     ],
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Relation *'),
-                      _buildTextField(
-                        controller: _emergencyContactRelationController,
-                        hint: 'Enter Relationship',
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[a-zA-Z\s]'),
-                          ),
-                          LengthLimitingTextInputFormatter(20),
-                        ],
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty)
-                            return 'Please enter Relation';
-                          if (val.trim().length > 20)
-                            return 'Relation cannot exceed 20 characters';
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Emergency Mobile Number *'),
-                      _buildTextField(
-                        controller: _emergencyContactPhoneController,
-                        hint: 'Enter Mobile Number',
-                        keyboardType: TextInputType.phone,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(10),
-                        ],
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Please enter Emergency Mobile Number';
-                          }
-                          final clean = val.trim();
-                          if (!RegExp(r'^[6-9]').hasMatch(clean)) {
-                            return 'Emergency mobile number must start with 6, 7, 8, or 9';
-                          }
-                          if (clean.length != 10) {
-                            return 'Emergency mobile number must be exactly 10 digits';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-            // Address Section
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Address Line 1 *'),
-                      _buildTextField(
-                        controller: _addressController,
-                        hint: 'Enter Address Line 1',
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):]'),
-                          ),
-                          LengthLimitingTextInputFormatter(150),
-                        ],
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Please enter Address Line 1';
-                          }
-                          if (!RegExp(
-                            r'^[a-zA-Z0-9\s.,/#\-\(\):]+$',
-                          ).hasMatch(val.trim())) {
-                            return 'Address Line 1 contains invalid special characters';
-                          }
-                          if (val.trim().length > 150) {
-                            return 'Address Line 1 cannot exceed 150 characters';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
+              _buildLabel('Emergency Contact Name *'),
+              _buildTextField(
+                controller: _emergencyContactNameController,
+                hint: 'Enter name',
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[a-zA-Z\s.]'),
                   ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Address Line 2'),
-                      _buildTextField(
-                        controller: _addressLine2Controller,
-                        hint: 'Enter Address Line 2',
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):]'),
+                  LengthLimitingTextInputFormatter(60),
+                ],
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty)
+                    return 'Please enter Emergency Contact Name';
+                  if (val.trim().length < 3)
+                    return 'Name must be at least 3 characters';
+                  if (val.trim().length > 60)
+                    return 'Emergency Contact Name cannot exceed 60 characters';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              _buildLabel('Relation *'),
+              _buildTextField(
+                controller: _emergencyContactRelationController,
+                hint: 'Enter Relationship',
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[a-zA-Z\s]'),
+                  ),
+                  LengthLimitingTextInputFormatter(20),
+                ],
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty)
+                    return 'Please enter Relation';
+                  if (val.trim().length > 20)
+                    return 'Relation cannot exceed 20 characters';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              _buildLabel('Emergency Mobile Number *'),
+              _buildTextField(
+                controller: _emergencyContactPhoneController,
+                hint: 'Enter Mobile Number',
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ],
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter Emergency Mobile Number';
+                  }
+                  final clean = val.trim();
+                  if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+                    return 'Emergency mobile number must start with 6, 7, 8, or 9';
+                  }
+                  if (clean.length != 10) {
+                    return 'Emergency mobile number must be exactly 10 digits';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              _buildLabel('Address Line 1 *'),
+              _buildTextField(
+                controller: _addressController,
+                hint: 'Enter Address Line 1',
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):]'),
+                  ),
+                  LengthLimitingTextInputFormatter(150),
+                ],
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter Address Line 1';
+                  }
+                  if (!RegExp(
+                    r'^[a-zA-Z0-9\s.,/#\-\(\):]+$',
+                  ).hasMatch(val.trim())) {
+                    return 'Address Line 1 contains invalid special characters';
+                  }
+                  if (val.trim().length > 150) {
+                    return 'Address Line 1 cannot exceed 150 characters';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              _buildLabel('Address Line 2'),
+              _buildTextField(
+                controller: _addressLine2Controller,
+                hint: 'Enter Address Line 2',
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):]'),
+                  ),
+                  LengthLimitingTextInputFormatter(120),
+                ],
+                validator: (val) {
+                  if (val != null && val.trim().isNotEmpty) {
+                    if (!RegExp(
+                      r'^[a-zA-Z0-9\s.,/#\-\(\):]+$',
+                    ).hasMatch(val.trim())) {
+                      return 'Address Line 2 contains invalid special characters';
+                    }
+                    if (val.trim().length > 120) {
+                      return 'Address Line 2 cannot exceed 120 characters';
+                    }
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              _buildLabel('District *'),
+              _buildDropdownField(
+                value: _selectedDistrict,
+                hint: 'Select district',
+                items: _tamilNaduDistricts,
+                onChanged: (val) =>
+                    setState(() => _selectedDistrict = val),
+                validator: (val) {
+                  if (val == null ||
+                      val.trim().isEmpty ||
+                      !_tamilNaduDistricts.contains(val.trim())) {
+                    return 'Please select a valid District';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              _buildLabel('Pincode *'),
+              _buildTextField(
+                controller: _pincodeController,
+                hint: 'Enter Pincode',
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter Pincode';
+                  }
+                  final clean = val.trim();
+                  if (clean.length != 6) {
+                    return 'Pincode must be exactly 6 digits';
+                  }
+                  if (!clean.startsWith('6')) {
+                    return 'Please enter a valid Tamil Nadu Pincode (starts with 6)';
+                  }
+                  if (!RegExp(r'^6[0-4]\d{4}$').hasMatch(clean)) {
+                    return 'Please enter a valid Tamil Nadu Pincode (starts with 60-64)';
+                  }
+                  return null;
+                },
+              ),
+            ] else ...[
+              // Desktop 2-column layout
+              Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Full Name *'),
+                        _buildTextField(
+                          controller: _nameController,
+                          hint: 'Enter patient\'s full name',
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z\s.]'),
+                            ),
+                            LengthLimitingTextInputFormatter(60),
+                          ],
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty)
+                              return 'Please enter Full Name';
+                            if (val.trim().length < 3)
+                              return 'Name must be at least 3 characters';
+                            if (val.trim().length > 60)
+                              return 'Full Name cannot exceed 60 characters';
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Email Address *'),
+                        _buildTextField(
+                          controller: _emailController,
+                          hint: 'Enter Email Address',
+                          keyboardType: TextInputType.emailAddress,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(254),
+                          ],
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Please enter Email Address';
+                            }
+                            if (val.trim().length > 254) {
+                              return 'Email address cannot exceed 254 characters';
+                            }
+                            if (!RegExp(
+                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                            ).hasMatch(val.trim())) {
+                              return 'Please enter a valid email address';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Date of Birth *'),
+                        _buildTextField(
+                          controller: _dobController,
+                          hint: 'dd/mm/yyyy',
+                          icon: Icons.calendar_today_outlined,
+                          onTap: () => _selectDate(context),
+                          readOnly: true,
+                          validator: (val) => val == null || val.isEmpty
+                              ? 'Please enter Date of Birth'
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Gender *'),
+                        _buildDropdownField(
+                          value: _selectedGender,
+                          hint: 'Select gender',
+                          items: ['Male', 'Female', 'Other'],
+                          onChanged: (val) =>
+                              setState(() => _selectedGender = val),
+                          validator: (val) {
+                            if (val == null ||
+                                val.trim().isEmpty ||
+                                !['Male', 'Female', 'Other'].contains(val)) {
+                              return 'Please select gender';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Mobile Number *'),
+                        _buildTextField(
+                          controller: _phoneController,
+                          hint: 'Enter Mobile Number',
+                          keyboardType: TextInputType.phone,
+                          suffixIcon: _isSearchingPhone
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: Padding(
+                                    padding: EdgeInsets.all(12.0),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                )
+                              : null,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(10),
+                          ],
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Please enter Mobile Number';
+                            }
+                            final clean = val.trim();
+                            if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+                              return 'Mobile number must start with 6, 7, 8, or 9';
+                            }
+                            if (clean.length != 10) {
+                              return 'Mobile number must be exactly 10 digits';
+                            }
+                            if (_phoneDuplicateError != null) {
+                              return _phoneDuplicateError;
+                            }
+                            return null;
+                          },
+                        ),
+                        if (_phoneDuplicateError != null && _matchedExistingPatient != null) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.dangerColor.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: AppTheme.dangerColor.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: AppTheme.dangerColor,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Registered to: ${_matchedExistingPatient!.name} (${_matchedExistingPatient!.patientId ?? "ID: N/A"}). Only one patient allowed per mobile number.',
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.dangerColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          LengthLimitingTextInputFormatter(120),
                         ],
-                        validator: (val) {
-                          if (val != null && val.trim().isNotEmpty) {
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Emergency Contact Name *'),
+                        _buildTextField(
+                          controller: _emergencyContactNameController,
+                          hint: 'Enter name',
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z\s.]'),
+                            ),
+                            LengthLimitingTextInputFormatter(60),
+                          ],
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty)
+                              return 'Please enter Emergency Contact Name';
+                            if (val.trim().length < 3)
+                              return 'Name must be at least 3 characters';
+                            if (val.trim().length > 60)
+                              return 'Emergency Contact Name cannot exceed 60 characters';
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Relation *'),
+                        _buildTextField(
+                          controller: _emergencyContactRelationController,
+                          hint: 'Enter Relationship',
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z\s]'),
+                            ),
+                            LengthLimitingTextInputFormatter(20),
+                          ],
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty)
+                              return 'Please enter Relation';
+                            if (val.trim().length > 20)
+                              return 'Relation cannot exceed 20 characters';
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Emergency Mobile Number *'),
+                        _buildTextField(
+                          controller: _emergencyContactPhoneController,
+                          hint: 'Enter Mobile Number',
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(10),
+                          ],
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Please enter Emergency Mobile Number';
+                            }
+                            final clean = val.trim();
+                            if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+                              return 'Emergency mobile number must start with 6, 7, 8, or 9';
+                            }
+                            if (clean.length != 10) {
+                              return 'Emergency mobile number must be exactly 10 digits';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Address Line 1 *'),
+                        _buildTextField(
+                          controller: _addressController,
+                          hint: 'Enter Address Line 1',
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):]'),
+                            ),
+                            LengthLimitingTextInputFormatter(150),
+                          ],
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Please enter Address Line 1';
+                            }
                             if (!RegExp(
                               r'^[a-zA-Z0-9\s.,/#\-\(\):]+$',
                             ).hasMatch(val.trim())) {
-                              return 'Address Line 2 contains invalid special characters';
+                              return 'Address Line 1 contains invalid special characters';
                             }
-                            if (val.trim().length > 120) {
-                              return 'Address Line 2 cannot exceed 120 characters';
+                            if (val.trim().length > 150) {
+                              return 'Address Line 1 cannot exceed 150 characters';
                             }
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('District *'),
-                      _buildDropdownField(
-                        value: _selectedDistrict,
-                        hint: 'Select district',
-                        items: _tamilNaduDistricts,
-                        onChanged: (val) =>
-                            setState(() => _selectedDistrict = val),
-                        validator: (val) {
-                          if (val == null ||
-                              val.trim().isEmpty ||
-                              !_tamilNaduDistricts.contains(val.trim())) {
-                            return 'Please select a valid District';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Address Line 2'),
+                        _buildTextField(
+                          controller: _addressLine2Controller,
+                          hint: 'Enter Address Line 2',
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):]'),
+                            ),
+                            LengthLimitingTextInputFormatter(120),
+                          ],
+                          validator: (val) {
+                            if (val != null && val.trim().isNotEmpty) {
+                              if (!RegExp(
+                                r'^[a-zA-Z0-9\s.,/#\-\(\):]+$',
+                              ).hasMatch(val.trim())) {
+                                return 'Address Line 2 contains invalid special characters';
+                              }
+                              if (val.trim().length > 120) {
+                                return 'Address Line 2 cannot exceed 120 characters';
+                              }
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Pincode *'),
-                      _buildTextField(
-                        controller: _pincodeController,
-                        hint: 'Enter Pincode',
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(6),
-                        ],
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Please enter Pincode';
-                          }
-                          final clean = val.trim();
-                          if (clean.length != 6) {
-                            return 'Pincode must be exactly 6 digits';
-                          }
-                          if (!clean.startsWith('6')) {
-                            return 'Please enter a valid Tamil Nadu Pincode (starts with 6)';
-                          }
-                          if (!RegExp(r'^6[0-4]\d{4}$').hasMatch(clean)) {
-                            return 'Please enter a valid Tamil Nadu Pincode (starts with 60-64)';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('District *'),
+                        _buildDropdownField(
+                          value: _selectedDistrict,
+                          hint: 'Select district',
+                          items: _tamilNaduDistricts,
+                          onChanged: (val) =>
+                              setState(() => _selectedDistrict = val),
+                          validator: (val) {
+                            if (val == null ||
+                                val.trim().isEmpty ||
+                                !_tamilNaduDistricts.contains(val.trim())) {
+                              return 'Please select a valid District';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Pincode *'),
+                        _buildTextField(
+                          controller: _pincodeController,
+                          hint: 'Enter Pincode',
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(6),
+                          ],
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Please enter Pincode';
+                            }
+                            final clean = val.trim();
+                            if (clean.length != 6) {
+                              return 'Pincode must be exactly 6 digits';
+                            }
+                            if (!clean.startsWith('6')) {
+                              return 'Please enter a valid Tamil Nadu Pincode (starts with 6)';
+                            }
+                            if (!RegExp(r'^6[0-4]\d{4}$').hasMatch(clean)) {
+                              return 'Please enter a valid Tamil Nadu Pincode (starts with 60-64)';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 48),
 
             // Action Buttons
@@ -1433,27 +1753,24 @@ class _NewPatientRegistrationViewState
                         setState(() => _currentStep = 2);
                       }
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.logoRed,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 40,
-                        vertical: 20,
+                    style: AppTheme.logoRedButton.copyWith(
+                      minimumSize: MaterialStateProperty.all(const Size(0, 52)),
+                      padding: MaterialStateProperty.all(
+                        const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 20,
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      minimumSize: const Size(0, 52),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.arrow_forward_rounded, size: 18),
-                        SizedBox(width: 12),
                         Text(
                           'Next',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
+                        SizedBox(width: 12),
+                        Icon(Icons.arrow_forward_rounded, size: 18),
                       ],
                     ),
                   ),

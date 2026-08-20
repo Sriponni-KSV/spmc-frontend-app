@@ -73,6 +73,19 @@ class HomeVisitService {
     }
   }
 
+  // Delete vitals entry
+  Future<void> deleteVitals(int visitId, int vitalId) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/home-visits/$visitId/vitals/$vitalId');
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to delete vitals entry');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
   // Record care activities
   Future<void> recordCareActivities(int visitId, Map<String, dynamic> careData) async {
     try {
