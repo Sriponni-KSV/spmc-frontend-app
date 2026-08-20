@@ -580,7 +580,10 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
             const SizedBox(height: 20),
             Expanded(
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                margin: EdgeInsets.symmetric(
+                  horizontal: widget.isMobile ? 16 : 24,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),

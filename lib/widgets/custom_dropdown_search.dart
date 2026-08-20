@@ -179,25 +179,31 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
   @override
   void didChangeMetrics() {
     // Rebuild overlay so it can reposition when keyboard opens/closes.
-    _overlayEntry?.markNeedsBuild();
+    if (_overlayEntry != null && _overlayEntry!.mounted) {
+      _overlayEntry!.markNeedsBuild();
+    }
   }
 
   KeyEventResult _handleKey(KeyEvent event) {
-    if (_overlayEntry == null) return KeyEventResult.ignored;
+    if (_overlayEntry == null || !_overlayEntry!.mounted) return KeyEventResult.ignored;
 
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
         if (_highlightedIndex < _filteredItems.length - 1) {
           _highlightedIndex++;
           _scrollToHighlight();
-          _overlayEntry?.markNeedsBuild();
+          if (_overlayEntry != null && _overlayEntry!.mounted) {
+            _overlayEntry!.markNeedsBuild();
+          }
         }
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
         if (_highlightedIndex > 0) {
           _highlightedIndex--;
           _scrollToHighlight();
-          _overlayEntry?.markNeedsBuild();
+          if (_overlayEntry != null && _overlayEntry!.mounted) {
+            _overlayEntry!.markNeedsBuild();
+          }
         }
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.enter) {
@@ -450,12 +456,12 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                               const SizedBox(width: 8),
                                               Expanded(
                                                 child: Text(
-                                                  'Use "${_textEditingController.text.trim()}"',
+                                                  'Add "${_textEditingController.text.trim()}"',
                                                   style: const TextStyle(
                                                     fontFamily: 'Inter',
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
                                                     color: AppTheme.primaryColor,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14,
                                                   ),
                                                 ),
                                               ),
@@ -464,129 +470,109 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                         ),
                                       ),
                                     )
-                                  : Padding(
-                                      padding: const EdgeInsets.all(20.0),
+                                  : Container(
+                                      padding: const EdgeInsets.all(16),
+                                      alignment: Alignment.center,
                                       child: Text(
-                                        'No results found',
+                                        'No matching items found',
                                         style: TextStyle(
                                           fontFamily: 'Inter',
                                           color: Colors.grey.shade500,
-                                          fontSize: 14,
+                                          fontSize: 13,
                                         ),
-                                        textAlign: TextAlign.center,
                                       ),
                                     ))
-                              : NotificationListener<ScrollNotification>(
-                                  onNotification: (notification) {
-                                    if (notification
-                                        is ScrollStartNotification) {
-                                      _isScrolling = true;
-                                    } else if (notification
-                                        is ScrollEndNotification) {
-                                      // Small delay before clearing so tap-up at end
-                                      // of scroll doesn't accidentally select.
-                                      Future.delayed(
-                                        const Duration(milliseconds: 150),
-                                        () => _isScrolling = false,
-                                      );
+                              : Listener(
+                                  onPointerSignal: (event) {
+                                    if (event is PointerScrollEvent) {
+                                      _handlePointerScroll(event);
                                     }
-                                    return false;
                                   },
-                                  child: Listener(
-                                    // Intercept pointer scroll signals (trackpad / mouse wheel)
-                                    // so they reach the ScrollController even when the
-                                    // TextField inside the field holds focus.
-                                    onPointerSignal: (event) {
-                                      if (event is PointerScrollEvent) {
-                                        _handlePointerScroll(event);
-                                      }
-                                    },
-                                    child: ScrollConfiguration(
-                                      // Allow trackpad pan gestures to scroll the list.
-                                      behavior: _TrackpadAwareScrollBehavior(),
-                                      child: ListView.builder(
-                                        controller: _scrollController,
-                                        shrinkWrap: true,
-                                        physics: const ClampingScrollPhysics(),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                        itemCount: _filteredItems.length,
-                                        itemBuilder: (context, index) {
-                                          final entry = _filteredItems[index];
-                                          final isHighlighted =
-                                              index == _highlightedIndex;
-                                          final isSelected =
-                                              entry.key == widget.value;
+                                  child: ScrollConfiguration(
+                                    // Allow trackpad pan gestures to scroll the list.
+                                    behavior: _TrackpadAwareScrollBehavior(),
+                                    child: ListView.builder(
+                                      controller: _scrollController,
+                                      shrinkWrap: true,
+                                      physics: const ClampingScrollPhysics(),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      itemCount: _filteredItems.length,
+                                      itemBuilder: (context, index) {
+                                        final entry = _filteredItems[index];
+                                        final isHighlighted =
+                                            index == _highlightedIndex;
+                                        final isSelected =
+                                            entry.key == widget.value;
 
-                                          return Material(
-                                            color: Colors.transparent,
-                                            child: InkWell(
-                                              splashFactory:
-                                                  NoSplash.splashFactory,
-                                              onTap: () {
-                                                // Guard: don't select during/after scroll.
-                                                if (_isScrolling) return;
-                                                if (_fieldKey.currentState !=
-                                                    null) {
-                                                  _selectItem(
-                                                    _fieldKey.currentState!,
-                                                    entry,
-                                                  );
-                                                }
-                                              },
-                                              child: Container(
-                                                width: double.infinity,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  vertical: 10,
-                                                  horizontal: 8,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(6),
-                                                  color: isSelected
-                                                      ? const Color(0xFF302861)
-                                                          .withValues(
-                                                              alpha: 0.06)
-                                                      : (isHighlighted
-                                                          ? Colors.grey.shade100
-                                                          : Colors.transparent),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(
-                                                        entry.value,
-                                                        style:
-                                                            TextStyle(
-                                                          fontFamily: 'Inter',
-                                                          color: isSelected
-                                                              ? const Color(
-                                                                  0xFF302861)
-                                                              : Colors.black87,
-                                                          fontSize: 14,
-                                                          fontWeight: isSelected
-                                                              ? FontWeight.w600
-                                                              : FontWeight.w400,
-                                                        ),
+                                        return Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            splashFactory:
+                                                NoSplash.splashFactory,
+                                            onTap: () {
+                                              // Guard: don't select during/after scroll.
+                                              if (_isScrolling) return;
+                                              if (_fieldKey.currentState !=
+                                                  null) {
+                                                _selectItem(
+                                                  _fieldKey.currentState!,
+                                                  entry,
+                                                );
+                                              }
+                                            },
+                                            child: Container(
+                                              width: double.infinity,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                vertical: 10,
+                                                horizontal: 8,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                color: isSelected
+                                                    ? const Color(0xFF302861)
+                                                        .withValues(
+                                                            alpha: 0.06)
+                                                    : (isHighlighted
+                                                        ? Colors.grey.shade100
+                                                        : Colors.transparent),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      entry.value,
+                                                      style:
+                                                          TextStyle(
+                                                        fontFamily: 'Inter',
+                                                        color: isSelected
+                                                            ? const Color(
+                                                                0xFF302861)
+                                                            : Colors.black87,
+                                                        fontSize: 14,
+                                                        fontWeight: isSelected
+                                                            ? FontWeight.w600
+                                                            : FontWeight.w400,
                                                       ),
                                                     ),
-                                                    if (isSelected)
-                                                      const Icon(
-                                                        Icons.check,
-                                                        size: 16,
-                                                        color:
-                                                            Color(0xFF302861),
-                                                      ),
-                                                  ],
-                                                ),
+                                                  ),
+                                                  if (isSelected)
+                                                    const Icon(
+                                                      Icons.check,
+                                                      size: 16,
+                                                      color:
+                                                          Color(0xFF302861),
+                                                    ),
+                                                ],
                                               ),
                                             ),
-                                          );
-                                        },
-                                      ),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
                                 ),
@@ -602,13 +588,20 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       },
     );
 
-    Overlay.of(context).insert(_overlayEntry!);
-    if (mounted) setState(() {});
+    final overlay = Overlay.maybeOf(context);
+    if (overlay != null && mounted) {
+      overlay.insert(_overlayEntry!);
+      if (mounted) setState(() {});
+    }
   }
 
   void _hideDropdown() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    if (_overlayEntry != null) {
+      if (_overlayEntry!.mounted) {
+        _overlayEntry!.remove();
+      }
+      _overlayEntry = null;
+    }
     if (_closeActiveDropdown == _hideDropdown) {
       _closeActiveDropdown = null;
     }
@@ -621,7 +614,15 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _searchFocusNode.removeListener(_onFocusChange);
-    _overlayEntry?.remove();
+    if (_overlayEntry != null) {
+      if (_overlayEntry!.mounted) {
+        _overlayEntry!.remove();
+      }
+      _overlayEntry = null;
+    }
+    if (_closeActiveDropdown == _hideDropdown) {
+      _closeActiveDropdown = null;
+    }
     _textEditingController.dispose();
     _searchFocusNode.dispose();
     _mainFocusNode.dispose();

@@ -118,25 +118,31 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
   @override
   void didChangeMetrics() {
     // Rebuild overlay so it can reposition when keyboard opens/closes.
-    _overlayEntry?.markNeedsBuild();
+    if (_overlayEntry != null && _overlayEntry!.mounted) {
+      _overlayEntry!.markNeedsBuild();
+    }
   }
 
   KeyEventResult _handleKey(KeyEvent event) {
-    if (_overlayEntry == null) return KeyEventResult.ignored;
+    if (_overlayEntry == null || !_overlayEntry!.mounted) return KeyEventResult.ignored;
 
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
         if (_highlightedIndex < _filteredItems.length - 1) {
           _highlightedIndex++;
           _scrollToHighlight();
-          _overlayEntry?.markNeedsBuild();
+          if (_overlayEntry != null && _overlayEntry!.mounted) {
+            _overlayEntry!.markNeedsBuild();
+          }
         }
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
         if (_highlightedIndex > 0) {
           _highlightedIndex--;
           _scrollToHighlight();
-          _overlayEntry?.markNeedsBuild();
+          if (_overlayEntry != null && _overlayEntry!.mounted) {
+            _overlayEntry!.markNeedsBuild();
+          }
         }
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.enter) {
@@ -232,7 +238,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
             .toList();
       }
     });
-    _overlayEntry?.markNeedsBuild();
+    if (_overlayEntry != null && _overlayEntry!.mounted) {
+      _overlayEntry!.markNeedsBuild();
+    }
   }
 
   void _toggleDropdown(FormFieldState<String> field) {
@@ -492,13 +500,20 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       },
     );
 
-    Overlay.of(context).insert(_overlayEntry!);
-    if (mounted) setState(() {});
+    final overlay = Overlay.maybeOf(context);
+    if (overlay != null && mounted) {
+      overlay.insert(_overlayEntry!);
+      if (mounted) setState(() {});
+    }
   }
 
   void _hideDropdown() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    if (_overlayEntry != null) {
+      if (_overlayEntry!.mounted) {
+        _overlayEntry!.remove();
+      }
+      _overlayEntry = null;
+    }
     if (_closeActiveDropdown == _hideDropdown) {
       _closeActiveDropdown = null;
     }
@@ -511,7 +526,15 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _searchFocusNode.removeListener(_onFocusChange);
-    _overlayEntry?.remove();
+    if (_overlayEntry != null) {
+      if (_overlayEntry!.mounted) {
+        _overlayEntry!.remove();
+      }
+      _overlayEntry = null;
+    }
+    if (_closeActiveDropdown == _hideDropdown) {
+      _closeActiveDropdown = null;
+    }
     _textEditingController.dispose();
     _searchFocusNode.dispose();
     _mainFocusNode.dispose();
