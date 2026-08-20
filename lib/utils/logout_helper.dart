@@ -11,18 +11,19 @@ class LogoutHelper {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
           ),
           backgroundColor: Colors.white,
-          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           title: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.logoRed.withOpacity(0.1),
+                  color: AppTheme.logoRed.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -31,13 +32,16 @@ class LogoutHelper {
                   size: 20,
                 ),
               ),
-              const SizedBox(width: 12),
-              const Text(
-                'Confirm Logout',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimaryColor,
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Confirm Logout',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -45,7 +49,7 @@ class LogoutHelper {
           content: const Text(
             'Are you sure you want to logout?',
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 14,
               color: AppTheme.textSecondaryColor,
             ),
           ),

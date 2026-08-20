@@ -102,7 +102,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             border: Border.all(color: const Color(0xFFE2E8F0)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -113,7 +113,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 22),
@@ -122,12 +122,13 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey,
+                        color: Colors.grey.shade600,
                         fontWeight: FontWeight.w500,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -154,24 +155,67 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 650;
         if (isNarrow) {
-          return Column(
-            children: [
-              Row(
+          Widget buildCompactItem(String label, int count, IconData icon, Color color) {
+            return Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  buildStatCard('Total Visits', totalCount, Icons.home_work_outlined, AppTheme.primaryColor),
-                  const SizedBox(width: 10),
-                  buildStatCard('Scheduled', scheduledCount, Icons.calendar_today_outlined, Colors.orange),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon, color: color, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$count',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  buildStatCard('In-Progress', inProgressCount, Icons.hourglass_top_outlined, AppTheme.primaryColor),
-                  const SizedBox(width: 10),
-                  buildStatCard('Completed', completedCount, Icons.check_circle_outline, AppTheme.secondaryColor),
-                ],
-              ),
-            ],
+            );
+          }
+
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                buildCompactItem('Total', totalCount, Icons.home_work_outlined, AppTheme.primaryColor),
+                Container(height: 22, width: 1, color: const Color(0xFFE2E8F0)),
+                buildCompactItem('Scheduled', scheduledCount, Icons.calendar_today_outlined, Colors.orange.shade700),
+                Container(height: 22, width: 1, color: const Color(0xFFE2E8F0)),
+                buildCompactItem('Active', inProgressCount, Icons.hourglass_top_outlined, const Color(0xFF0284C7)),
+                Container(height: 22, width: 1, color: const Color(0xFFE2E8F0)),
+                buildCompactItem('Completed', completedCount, Icons.check_circle_outline, AppTheme.secondaryColor),
+              ],
+            ),
           );
         }
         return Row(
@@ -229,15 +273,15 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: AppTheme.primaryColor),
               ),
             ),
@@ -249,12 +293,17 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
           child: Row(
             children: [
               ChoiceChip(
+                showCheckmark: false,
                 label: const Text('All Dates', style: TextStyle(fontSize: 12)),
                 selected: _dateFilterType == 'All Dates',
-                selectedColor: AppTheme.primaryColor.withOpacity(0.15),
+                selectedColor: AppTheme.primaryColor,
+                backgroundColor: Colors.white,
                 labelStyle: TextStyle(
-                  color: _dateFilterType == 'All Dates' ? AppTheme.primaryColor : Colors.black87,
-                  fontWeight: _dateFilterType == 'All Dates' ? FontWeight.bold : FontWeight.normal,
+                  color: _dateFilterType == 'All Dates' ? Colors.white : AppTheme.textPrimaryColor,
+                  fontWeight: _dateFilterType == 'All Dates' ? FontWeight.bold : FontWeight.w600,
+                ),
+                side: BorderSide(
+                  color: _dateFilterType == 'All Dates' ? AppTheme.primaryColor : const Color(0xFFCBD5E1),
                 ),
                 onSelected: (val) {
                   if (val) {
@@ -268,12 +317,17 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               ),
               const SizedBox(width: 6),
               ChoiceChip(
+                showCheckmark: false,
                 label: const Text('Today', style: TextStyle(fontSize: 12)),
                 selected: _dateFilterType == 'Today',
-                selectedColor: AppTheme.primaryColor.withOpacity(0.15),
+                selectedColor: AppTheme.primaryColor,
+                backgroundColor: Colors.white,
                 labelStyle: TextStyle(
-                  color: _dateFilterType == 'Today' ? AppTheme.primaryColor : Colors.black87,
-                  fontWeight: _dateFilterType == 'Today' ? FontWeight.bold : FontWeight.normal,
+                  color: _dateFilterType == 'Today' ? Colors.white : AppTheme.textPrimaryColor,
+                  fontWeight: _dateFilterType == 'Today' ? FontWeight.bold : FontWeight.w600,
+                ),
+                side: BorderSide(
+                  color: _dateFilterType == 'Today' ? AppTheme.primaryColor : const Color(0xFFCBD5E1),
                 ),
                 onSelected: (val) {
                   if (val) {
@@ -287,12 +341,17 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               ),
               const SizedBox(width: 6),
               ChoiceChip(
+                showCheckmark: false,
                 label: const Text('Tomorrow', style: TextStyle(fontSize: 12)),
                 selected: _dateFilterType == 'Tomorrow',
-                selectedColor: AppTheme.primaryColor.withOpacity(0.15),
+                selectedColor: AppTheme.primaryColor,
+                backgroundColor: Colors.white,
                 labelStyle: TextStyle(
-                  color: _dateFilterType == 'Tomorrow' ? AppTheme.primaryColor : Colors.black87,
-                  fontWeight: _dateFilterType == 'Tomorrow' ? FontWeight.bold : FontWeight.normal,
+                  color: _dateFilterType == 'Tomorrow' ? Colors.white : AppTheme.textPrimaryColor,
+                  fontWeight: _dateFilterType == 'Tomorrow' ? FontWeight.bold : FontWeight.w600,
+                ),
+                side: BorderSide(
+                  color: _dateFilterType == 'Tomorrow' ? AppTheme.primaryColor : const Color(0xFFCBD5E1),
                 ),
                 onSelected: (val) {
                   if (val) {
@@ -309,7 +368,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 avatar: Icon(
                   Icons.calendar_today,
                   size: 14,
-                  color: _dateFilterType == 'Custom' ? AppTheme.primaryColor : Colors.grey,
+                  color: _dateFilterType == 'Custom' ? Colors.white : Colors.grey.shade700,
                 ),
                 label: Text(
                   _selectedCustomDate != null
@@ -317,13 +376,16 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                       : 'Pick Date',
                   style: TextStyle(
                     fontSize: 12,
-                    color: _dateFilterType == 'Custom' ? AppTheme.primaryColor : Colors.black87,
-                    fontWeight: _dateFilterType == 'Custom' ? FontWeight.bold : FontWeight.normal,
+                    color: _dateFilterType == 'Custom' ? Colors.white : AppTheme.textPrimaryColor,
+                    fontWeight: _dateFilterType == 'Custom' ? FontWeight.bold : FontWeight.w600,
                   ),
                 ),
                 backgroundColor: _dateFilterType == 'Custom'
-                    ? AppTheme.primaryColor.withOpacity(0.15)
+                    ? AppTheme.primaryColor
                     : Colors.white,
+                side: BorderSide(
+                  color: _dateFilterType == 'Custom' ? AppTheme.primaryColor : const Color(0xFFCBD5E1),
+                ),
                 onPressed: () async {
                   final picked = await showDatePicker(
                     context: context,
@@ -340,23 +402,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   }
                 },
               ),
-              if (_dateFilterType != 'All Dates') ...[
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.cancel, size: 18, color: Colors.grey),
-                  tooltip: 'Reset date filter',
-                  onPressed: () {
-                    setState(() {
-                      _dateFilterType = 'All Dates';
-                      _selectedCustomDate = null;
-                      _currentPage = 1;
-                    });
-                  },
-                ),
-              ],
               const SizedBox(width: 4),
               IconButton(
-                icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                icon: const Icon(Icons.refresh, color: AppTheme.primaryColor, size: 20),
                 tooltip: 'Refresh visits',
                 onPressed: () {
                   Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
@@ -392,8 +440,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     if (totalVisits == 0) return const SizedBox.shrink();
 
     return Container(
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -403,23 +451,27 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
         builder: (context, constraints) {
           final isMobile = constraints.maxWidth < 600;
           if (isMobile) {
-            return Column(
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Showing ${startIndex + 1} to $endIndex of $totalVisits visits',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                  '${startIndex + 1}-$endIndex of $totalVisits visits',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 8),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.chevron_left),
+                      icon: const Icon(Icons.chevron_left, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: _currentPage > 1 ? () => setState(() => _currentPage--) : null,
                     ),
-                    Text('Page $_currentPage of $totalPages', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text('$_currentPage / $totalPages', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     IconButton(
-                      icon: const Icon(Icons.chevron_right),
+                      icon: const Icon(Icons.chevron_right, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: _currentPage < totalPages ? () => setState(() => _currentPage++) : null,
                     ),
                   ],
@@ -477,13 +529,13 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 700;
     return Consumer<HomeVisitController>(
       builder: (context, controller, child) {
-        List<HomeVisitModel> visits = controller.visits;
-
-        // 0. Filter by assigned Nurse if user is a Nurse
         final authUser = Provider.of<AuthProvider>(context, listen: false).user;
         final isNurse = authUser != null && authUser.role == 'Nurse';
+
+        List<HomeVisitModel> visits = controller.visits;
         if (isNurse) {
           visits = visits.where((v) {
             final isNurseIdMatch = v.nurseId != null && v.nurseId == authUser.id;
@@ -564,7 +616,10 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
 
         return Container(
           color: AppTheme.backgroundColor,
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 12.0 : 24.0,
+            vertical: isMobile ? 12.0 : 20.0,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -582,7 +637,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                               Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(Icons.home_work_outlined, color: AppTheme.primaryColor, size: 24),
@@ -651,7 +706,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(Icons.home_work_outlined, color: AppTheme.primaryColor, size: 28),
@@ -715,30 +770,53 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     );
                   },
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
               ],
 
               // Summary Stat Cards
               _buildSummaryCards(allVisits),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
 
               // Search & Date Filter Bar
               _buildSearchAndDateFilterBar(),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
               // Filter Chips Row (Status)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: ['All', 'Scheduled', 'In-Progress', 'Completed', 'Cancelled'].map((status) {
+                  children: [
+                    'All',
+                    'Scheduled',
+                    'In-Progress',
+                    'Completed',
+                    'Cancelled',
+                  ].map((status) {
                     final isSelected = _selectedStatusFilter == status;
+                    Color activeColor = AppTheme.primaryColor;
+                    if (status == 'Scheduled') activeColor = Colors.orange.shade700;
+                    if (status == 'In-Progress') activeColor = const Color(0xFF0284C7);
+                    if (status == 'Completed') activeColor = AppTheme.secondaryColor;
+                    if (status == 'Cancelled') activeColor = AppTheme.dangerColor;
+
                     return Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
+                      padding: const EdgeInsets.only(right: 6.0),
                       child: ChoiceChip(
-                        label: Text(status, style: TextStyle(color: isSelected ? Colors.white : AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                        showCheckmark: false,
+                        label: Text(
+                          status,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : activeColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                         selected: isSelected,
-                        selectedColor: AppTheme.primaryColor,
-                        backgroundColor: Colors.white,
+                        selectedColor: activeColor,
+                        backgroundColor: activeColor.withValues(alpha: 0.08),
+                        side: BorderSide(
+                          color: isSelected ? activeColor : activeColor.withValues(alpha: 0.2),
+                        ),
                         onSelected: (val) {
                           if (val) {
                             setState(() {
@@ -752,7 +830,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   }).toList(),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
               // Content Body
               Expanded(
@@ -760,47 +838,59 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
                     : controller.errorMessage != null
                         ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.error_outline, size: 48, color: AppTheme.dangerColor),
-                                const SizedBox(height: 12),
-                                Text(
-                                  controller.errorMessage!,
-                                  style: const TextStyle(fontSize: 14, color: AppTheme.dangerColor),
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton.icon(
-                                  style: AppTheme.primaryButton,
-                                  onPressed: () {
-                                    Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
-                                    _fetchPatients();
-                                  },
-                                  icon: const Icon(Icons.refresh, size: 16),
-                                  label: const Text('Retry Loading Visits'),
-                                ),
-                              ],
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.error_outline, size: 40, color: AppTheme.dangerColor),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    controller.errorMessage!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(fontSize: 14, color: AppTheme.dangerColor),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  ElevatedButton.icon(
+                                    style: AppTheme.primaryButton,
+                                    onPressed: () {
+                                      Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
+                                      _fetchPatients();
+                                    },
+                                    icon: const Icon(Icons.refresh, size: 16),
+                                    label: const Text('Retry Loading Visits'),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
                         : paginatedVisits.isEmpty
-                            ? Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(40),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                                ),
-                                child: const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.home_work, size: 48, color: Colors.grey),
-                                    SizedBox(height: 12),
-                                    Text(
-                                      'No home visits found matching search or filter.',
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
+                            ? Center(
+                                child: SingleChildScrollView(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: const Color(0xFFE2E8F0)),
                                     ),
-                                  ],
+                                    child: const Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.home_work_outlined, size: 40, color: Colors.grey),
+                                        SizedBox(height: 10),
+                                        Text(
+                                          'No home visits found matching search or filter.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               )
                             : ListView.builder(
@@ -1061,8 +1151,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     Expanded(
                       child: ElevatedButton.icon(
                         style: AppTheme.primaryButton.copyWith(
-                          minimumSize: MaterialStateProperty.all(const Size(0, 40)),
-                          padding: MaterialStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
+                          minimumSize: WidgetStateProperty.all(const Size(0, 40)),
+                          padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
                         ),
                         icon: const Icon(Icons.visibility_outlined, size: 14),
                         label: const Text('View Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis),
@@ -1094,8 +1184,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   );
                             final btnStyle = baseStyle.copyWith(
-                              minimumSize: MaterialStateProperty.all(const Size(0, 40)),
-                              padding: MaterialStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
+                              minimumSize: WidgetStateProperty.all(const Size(0, 40)),
+                              padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
                             );
                             return ElevatedButton.icon(
                               style: btnStyle,

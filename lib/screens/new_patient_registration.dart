@@ -625,9 +625,10 @@ class _NewPatientRegistrationViewState
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: Container(
-          width: 440,
-          padding: const EdgeInsets.all(24),
+          width: 420,
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -647,13 +648,15 @@ class _NewPatientRegistrationViewState
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Discard Unsaved Changes?',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppTheme.textPrimaryColor,
-                      fontFamily: 'Inter',
+                  const Expanded(
+                    child: Text(
+                      'Discard Unsaved Changes?',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppTheme.textPrimaryColor,
+                        fontFamily: 'Inter',
+                      ),
                     ),
                   ),
                 ],
@@ -668,26 +671,51 @@ class _NewPatientRegistrationViewState
                   fontFamily: 'Inter',
                 ),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 20),
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  OutlinedButton(
-                    style: AppTheme.cancelButton,
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('Stay on Form'),
+                  Expanded(
+                    child: OutlinedButton(
+                      style: AppTheme.cancelButton.copyWith(
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                        ),
+                        minimumSize: WidgetStateProperty.all(
+                          const Size(0, 44),
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text(
+                        'Stay on Form',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 10),
-                  ElevatedButton(
-                    style: AppTheme.dangerButton,
-                    onPressed: () {
-                      Navigator.of(ctx).pop();
-                      UnsavedChangesHelper.clear();
-                      Future.delayed(const Duration(milliseconds: 60), () {
-                        widget.onBack();
-                      });
-                    },
-                    child: const Text('Discard & Leave'),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: AppTheme.dangerButton.copyWith(
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                        ),
+                        minimumSize: WidgetStateProperty.all(
+                          const Size(0, 44),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        UnsavedChangesHelper.clear();
+                        Future.delayed(const Duration(milliseconds: 60), () {
+                          widget.onBack();
+                        });
+                      },
+                      child: const Text(
+                        'Discard & Leave',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
                   ),
                 ],
               ),

@@ -301,7 +301,9 @@ class _AdminAppointmentManagementState
               ],
             ),
             content: SizedBox(
-              width: 480,
+              width: MediaQuery.of(ctx).size.width > 520
+                  ? 480
+                  : MediaQuery.of(ctx).size.width * 0.9,
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1019,48 +1021,135 @@ class _AdminAppointmentManagementState
         // Stats bar
         Container(
           margin: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-          child: Row(
-            children: [
-              for (final s in [
-                'Confirmed',
-                'Completed',
-                'Cancelled',
-                'No-Show',
-              ])
-                Expanded(
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _statusColor(s).withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _statusColor(s).withOpacity(0.3),
-                      ),
-                    ),
-                    child: Column(
+          child: isMobile
+              ? Column(
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          '${_appointments.where((a) => a.status == s).length}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: _statusColor(s),
+                        for (final s in ['Confirmed', 'Completed'])
+                          Expanded(
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 4,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: _statusColor(s).withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: _statusColor(s).withOpacity(0.3),
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    '${_appointments.where((a) => a.status == s).length}',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: _statusColor(s),
+                                    ),
+                                  ),
+                                  Text(
+                                    s,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: _statusColor(s),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                        Text(
-                          s,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: _statusColor(s),
-                          ),
-                        ),
                       ],
                     ),
-                  ),
+                    Row(
+                      children: [
+                        for (final s in ['Cancelled', 'No-Show'])
+                          Expanded(
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 4,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: _statusColor(s).withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: _statusColor(s).withOpacity(0.3),
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    '${_appointments.where((a) => a.status == s).length}',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: _statusColor(s),
+                                    ),
+                                  ),
+                                  Text(
+                                    s,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: _statusColor(s),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    for (final s in [
+                      'Confirmed',
+                      'Completed',
+                      'Cancelled',
+                      'No-Show',
+                    ])
+                      Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _statusColor(s).withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _statusColor(s).withOpacity(0.3),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                '${_appointments.where((a) => a.status == s).length}',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: _statusColor(s),
+                                ),
+                              ),
+                              Text(
+                                s,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: _statusColor(s),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-            ],
-          ),
         ),
 
         const SizedBox(height: 16),

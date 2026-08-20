@@ -254,16 +254,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         widget.viewPatient != oldWidget.viewPatient ||
         widget.viewingStaffProfile != oldWidget.viewingStaffProfile ||
         widget.selectedHomeVisitId != oldWidget.selectedHomeVisitId) {
-      setState(() {
-        _selectedIndex = widget.initialIndex;
-        _isRegisteringPatient = widget.isRegisteringPatient;
-        _patientToComplete = widget.existingPatient;
-        _viewPatient = widget.viewPatient;
-        _viewingStaffProfile = widget.viewingStaffProfile;
-        _selectedHomeVisitId = widget.selectedHomeVisitId;
-      });
+      _selectedIndex = widget.initialIndex;
+      _isRegisteringPatient = widget.isRegisteringPatient;
+      _patientToComplete = widget.existingPatient;
+      _viewPatient = widget.viewPatient;
+      _viewingStaffProfile = widget.viewingStaffProfile;
+      _selectedHomeVisitId = widget.selectedHomeVisitId;
+
+      if (_selectedIndex == 1) {
+        _staffFuture = _adminController.fetchStaff(showDeleted: _showDeleted);
+      }
       if (_selectedIndex == 8) {
-        _loadShiftData();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _loadShiftData();
+        });
       }
     }
   }
@@ -962,32 +966,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
 
-    return Focus(
-      focusNode: _mainFocusNode,
-      autofocus: true,
-      child: Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
-        drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
-        body: SafeArea(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Sidebar (only on desktop)
-              if (!isMobile) _buildSidebar(context),
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
+      body: SafeArea(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Sidebar (only on desktop)
+            if (!isMobile) _buildSidebar(context),
 
-              // Main Content Area
-              Expanded(
-                child: Column(
-                  children: [
-                    if (_selectedIndex != 0) _buildHeader(context, isMobile),
-                    Expanded(
-                      child: ClipRRect(child: _buildBodyContent(isMobile)),
-                    ),
-                  ],
-                ),
+            // Main Content Area
+            Expanded(
+              child: Column(
+                children: [
+                  if (_selectedIndex != 0) _buildHeader(context, isMobile),
+                  Expanded(
+                    child: ClipRRect(child: _buildBodyContent(isMobile)),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1146,7 +1146,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 if (isMobile) ...[
                   _buildAlertsSection(),
                   const SizedBox(height: 24),
-                  _buildQuickActions(),
+                  _buildQuickActions(isMobile),
                   const SizedBox(height: 24),
                   _buildStaffOverviewChart(),
                   const SizedBox(height: 24),
@@ -1170,7 +1170,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         flex: 1,
                         child: Column(
                           children: [
-                            _buildQuickActions(),
+                            _buildQuickActions(false),
                             const SizedBox(height: 24),
                             _buildSystemStatus(),
                           ],
@@ -1222,11 +1222,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 isMobile ? 16 : 24,
                 0,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
+              child: isMobile
+                  ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -1241,96 +1238,214 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             fontSize: 13,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  if (Provider.of<AuthProvider>(
-                        context,
-                        listen: false,
-                      ).user?.hasPermission('manage_users') ??
-                      false) ...[
-                    const SizedBox(width: 12),
-                    // Show Deleted Toggle
-                    Container(
-                      decoration: BoxDecoration(
-                        color: _showDeleted
-                            ? Colors.red.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: _showDeleted
-                              ? Colors.red.withOpacity(0.3)
-                              : AppTheme.borderColor,
-                        ),
-                      ),
-                      child: InkWell(
-                        onTap: () {
-                          setState(() => _showDeleted = !_showDeleted);
-                          _loadStaff();
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          child: Row(
+                        if (Provider.of<AuthProvider>(
+                              context,
+                              listen: false,
+                            ).user?.hasPermission('manage_users') ??
+                            false) ...[
+                          const SizedBox(height: 12),
+                          Row(
                             children: [
-                              Icon(
-                                _showDeleted
-                                    ? Icons.delete_sweep
-                                    : Icons.delete_outline,
-                                size: 18,
-                                color: _showDeleted
-                                    ? Colors.red
-                                    : AppTheme.textSecondaryColor,
-                              ),
-                              if (!isMobile) ...[
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Show Deleted',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                              // Show Deleted Toggle
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
                                     color: _showDeleted
-                                        ? Colors.red
-                                        : AppTheme.textSecondaryColor,
+                                        ? Colors.red.withOpacity(0.1)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: _showDeleted
+                                          ? Colors.red.withOpacity(0.3)
+                                          : AppTheme.borderColor,
+                                    ),
+                                  ),
+                                  child: InkWell(
+                                    onTap: () {
+                                      setState(() => _showDeleted = !_showDeleted);
+                                      _loadStaff();
+                                    },
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 12,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            _showDeleted
+                                                ? Icons.delete_sweep
+                                                : Icons.delete_outline,
+                                            size: 18,
+                                            color: _showDeleted
+                                                ? Colors.red
+                                                : AppTheme.textSecondaryColor,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Show Deleted',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: _showDeleted
+                                                  ? Colors.red
+                                                  : AppTheme.textSecondaryColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ],
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _showAddUserDialog(context),
+                                  icon: const Icon(
+                                    Icons.person_add_outlined,
+                                    size: 18,
+                                  ),
+                                  label: const Text(
+                                    'Register Staff',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.dangerColor,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    minimumSize: const Size(0, 48),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Staff Management',
+                                style: Theme.of(context).textTheme.displayLarge,
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'View and manage healthcare staff members',
+                                style: TextStyle(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                      ),
+                        if (Provider.of<AuthProvider>(
+                              context,
+                              listen: false,
+                            ).user?.hasPermission('manage_users') ??
+                            false) ...[
+                          const SizedBox(width: 12),
+                          // Show Deleted Toggle
+                          Container(
+                            decoration: BoxDecoration(
+                              color: _showDeleted
+                                  ? Colors.red.withOpacity(0.1)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: _showDeleted
+                                    ? Colors.red.withOpacity(0.3)
+                                    : AppTheme.borderColor,
+                              ),
+                            ),
+                            child: InkWell(
+                              onTap: () {
+                                setState(() => _showDeleted = !_showDeleted);
+                                _loadStaff();
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _showDeleted
+                                          ? Icons.delete_sweep
+                                          : Icons.delete_outline,
+                                      size: 18,
+                                      color: _showDeleted
+                                          ? Colors.red
+                                          : AppTheme.textSecondaryColor,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Show Deleted',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: _showDeleted
+                                            ? Colors.red
+                                            : AppTheme.textSecondaryColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: () => _showAddUserDialog(context),
+                            icon: const Icon(
+                              Icons.person_add_outlined,
+                              size: 18,
+                            ),
+                            label: const Text(
+                              'Register Staff',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.dangerColor,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              minimumSize: const Size(120, 48),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => _showAddUserDialog(context),
-                      icon: const Icon(Icons.person_add_outlined, size: 18),
-                      label: Text(
-                        isMobile ? 'Add' : 'Register Staff',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.dangerColor,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        minimumSize: const Size(120, 48),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
             ),
 
             const SizedBox(height: 20),
@@ -1747,9 +1862,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       return Column(
         children: [
           Expanded(
-            child: SingleChildScrollView(
-              child: _buildStaffCards(paginatedStaff),
-            ),
+            child: _buildStaffCards(paginatedStaff),
           ),
           if (totalPages > 1) ...[
             const Divider(height: 1),
@@ -2123,67 +2236,78 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (totalPages <= 1) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 10 : 16,
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Page ${_staffCurrentPage + 1} of $totalPages',
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppTheme.textSecondaryColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 16),
-          OutlinedButton(
-            onPressed: _staffCurrentPage > 0
-                ? () => setState(() => _staffCurrentPage--)
-                : null,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(80, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          Expanded(
+            child: Text(
+              'Page ${_staffCurrentPage + 1} of $totalPages',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondaryColor,
+                fontWeight: FontWeight.w500,
               ),
-              side: BorderSide(
-                color: _staffCurrentPage > 0
-                    ? AppTheme.primaryColor
-                    : AppTheme.borderColor,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.chevron_left, size: 18),
-                Text('Prev'),
-              ],
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: _staffCurrentPage < totalPages - 1
-                ? () => setState(() => _staffCurrentPage++)
-                : null,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(80, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              OutlinedButton(
+                onPressed: _staffCurrentPage > 0
+                    ? () => setState(() => _staffCurrentPage--)
+                    : null,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(64, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  side: BorderSide(
+                    color: _staffCurrentPage > 0
+                        ? AppTheme.primaryColor
+                        : AppTheme.borderColor,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.chevron_left, size: 16),
+                    Text('Prev', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
               ),
-              side: BorderSide(
-                color: _staffCurrentPage < totalPages - 1
-                    ? AppTheme.primaryColor
-                    : AppTheme.borderColor,
+              const SizedBox(width: 6),
+              OutlinedButton(
+                onPressed: _staffCurrentPage < totalPages - 1
+                    ? () => setState(() => _staffCurrentPage++)
+                    : null,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(64, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  side: BorderSide(
+                    color: _staffCurrentPage < totalPages - 1
+                        ? AppTheme.primaryColor
+                        : AppTheme.borderColor,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Text('Next', style: TextStyle(fontSize: 12)),
+                    Icon(Icons.chevron_right, size: 16),
+                  ],
+                ),
               ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text('Next'),
-                Icon(Icons.chevron_right, size: 18),
-              ],
-            ),
+            ],
           ),
         ],
       ),
@@ -2192,6 +2316,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildStaffCards(List<UserModel> staff) {
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: staff.length,
       itemBuilder: (context, index) {
@@ -2233,12 +2358,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: user.isDeleted
-                  ? Colors.red.withOpacity(0.2)
-                  : AppTheme.borderColor.withOpacity(0.4),
+                  ? Colors.red.withOpacity(0.3)
+                  : AppTheme.borderColor.withOpacity(0.6),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
@@ -2262,11 +2393,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       children: [
                         Row(
                           children: [
-                            Text(
-                              user.fullname,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                            Expanded(
+                              child: Text(
+                                user.fullname,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             if (user.isDeleted) ...[
@@ -2385,37 +2519,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
               const SizedBox(height: 16),
               const Divider(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: () =>
-                        context.go(AppRoutes.adminViewStaff, extra: user),
-                    icon: const Icon(Icons.visibility_outlined, size: 18),
-                    label: const Text('View'),
-                  ),
-                  if (!user.isDeleted && user.role != 'Super Admin') ...[
-                    const SizedBox(width: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
                     TextButton.icon(
-                      onPressed: () => _showEditDialog(context, user),
-                      icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Edit'),
+                      onPressed: () =>
+                          context.go(AppRoutes.adminViewStaff, extra: user),
+                      icon: const Icon(Icons.visibility_outlined, size: 18),
+                      label: const Text('View'),
                     ),
-                    const SizedBox(width: 8),
-                    TextButton.icon(
-                      onPressed: () => _showDeleteConfirmation(context, user),
-                      icon: const Icon(
-                        Icons.delete_outline,
-                        size: 18,
-                        color: Colors.redAccent,
+                    if (!user.isDeleted && user.role != 'Super Admin') ...[
+                      TextButton.icon(
+                        onPressed: () => _showEditDialog(context, user),
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('Edit'),
                       ),
-                      label: const Text(
-                        'Delete',
-                        style: TextStyle(color: Colors.redAccent),
+                      TextButton.icon(
+                        onPressed: () => _showDeleteConfirmation(context, user),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: Colors.redAccent,
+                        ),
+                        label: const Text(
+                          'Delete',
+                          style: TextStyle(color: Colors.redAccent),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ],
           ),
@@ -2888,11 +3025,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ],
           ),
+          const SizedBox(width: 24),
+          // Date & Time
+          const AdminLiveClock(),
         ],
-        const SizedBox(width: 24),
-
-        // Date & Time
-        const AdminLiveClock(),
       ],
     );
   }
@@ -3009,15 +3145,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
 
     if (isMobile) {
-      return Wrap(
-        spacing: 16,
-        runSpacing: 16,
-        children: [
-          FractionallySizedBox(widthFactor: 0.47, child: card1),
-          FractionallySizedBox(widthFactor: 0.47, child: card2),
-          FractionallySizedBox(widthFactor: 0.47, child: card3),
-          FractionallySizedBox(widthFactor: 0.47, child: card4),
-        ],
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final cardWidth = (constraints.maxWidth - 12) / 2;
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SizedBox(width: cardWidth, child: card1),
+              SizedBox(width: cardWidth, child: card2),
+              SizedBox(width: cardWidth, child: card3),
+              SizedBox(width: cardWidth, child: card4),
+            ],
+          );
+        },
       );
     }
 
@@ -3044,11 +3185,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     VoidCallback onViewDetails,
   ) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isMobile ? 12 : 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
         boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
@@ -3057,59 +3198,64 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: EdgeInsets.all(isMobile ? 7 : 10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.08),
+                  color: color.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: color, size: 22),
+                child: Icon(icon, color: color, size: isMobile ? 18 : 22),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: isMobile ? 8 : 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       value,
-                      style: const TextStyle(
-                        fontSize: 26,
+                      style: TextStyle(
+                        fontSize: isMobile ? 20 : 26,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textPrimaryColor,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppTheme.textSecondaryColor,
-                        fontSize: 12,
+                        fontSize: isMobile ? 10.5 : 11,
                         fontWeight: FontWeight.w500,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: isMobile ? 8 : 16),
           InkWell(
             onTap: onViewDetails,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'View details',
-                  style: TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Text(
+                    'View details',
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontSize: isMobile ? 11 : 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(
+                Icon(
                   Icons.arrow_forward,
                   color: AppTheme.primaryColor,
-                  size: 14,
+                  size: isMobile ? 12 : 14,
                 ),
               ],
             ),
@@ -3134,27 +3280,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.logoRed.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.logoRed.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.report_problem_outlined,
+                        color: AppTheme.logoRed,
+                        size: 18,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.report_problem_outlined,
-                      color: AppTheme.logoRed,
-                      size: 18,
+                    const SizedBox(width: 10),
+                    const Flexible(
+                      child: Text(
+                        'System Alerts',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'System Alerts',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               InkWell(
                 onTap: () {},
                 child: const Text(
@@ -3226,7 +3381,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildQuickActions([bool isMobile = false]) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -3261,33 +3416,70 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              _buildActionGridItem(
-                Icons.person_add_outlined,
-                'Register\nNew Staff',
-                () => _showAddUserDialog(context),
-              ),
-              const SizedBox(width: 12),
-              _buildActionGridItem(
-                Icons.settings_suggest_outlined,
-                'System\nConfiguration',
-                () {},
-              ),
-              const SizedBox(width: 12),
-              _buildActionGridItem(
-                Icons.storage_outlined,
-                'Manual\nDatabase Backup',
-                () {},
-              ),
-              const SizedBox(width: 12),
-              _buildActionGridItem(
-                Icons.receipt_long_outlined,
-                'Audit\nLogs',
-                () {},
-              ),
-            ],
-          ),
+          if (isMobile)
+            Column(
+              children: [
+                Row(
+                  children: [
+                    _buildActionGridItem(
+                      Icons.person_add_outlined,
+                      'Register\nNew Staff',
+                      () => _showAddUserDialog(context),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildActionGridItem(
+                      Icons.settings_suggest_outlined,
+                      'System\nConfiguration',
+                      () {},
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _buildActionGridItem(
+                      Icons.storage_outlined,
+                      'Manual\nDatabase Backup',
+                      () {},
+                    ),
+                    const SizedBox(width: 12),
+                    _buildActionGridItem(
+                      Icons.receipt_long_outlined,
+                      'Audit\nLogs',
+                      () {},
+                    ),
+                  ],
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                _buildActionGridItem(
+                  Icons.person_add_outlined,
+                  'Register\nNew Staff',
+                  () => _showAddUserDialog(context),
+                ),
+                const SizedBox(width: 12),
+                _buildActionGridItem(
+                  Icons.settings_suggest_outlined,
+                  'System\nConfiguration',
+                  () {},
+                ),
+                const SizedBox(width: 12),
+                _buildActionGridItem(
+                  Icons.storage_outlined,
+                  'Manual\nDatabase Backup',
+                  () {},
+                ),
+                const SizedBox(width: 12),
+                _buildActionGridItem(
+                  Icons.receipt_long_outlined,
+                  'Audit\nLogs',
+                  () {},
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -3334,9 +3526,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildSystemStatus() {
+  Widget _buildSystemStatus([bool isMobile = false]) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -3363,7 +3555,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
@@ -3386,41 +3578,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.06),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.show_chart,
-                      color: AppTheme.primaryColor,
-                      size: 40,
-                    ),
-                  ),
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+              if (!isMobile) ...[
+                const SizedBox(width: 16),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.06),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Icons.check_circle,
-                        color: AppTheme.secondaryColor,
-                        size: 24,
+                        Icons.show_chart,
+                        color: AppTheme.primaryColor,
+                        size: 40,
                       ),
                     ),
-                  ),
-                ],
-              ),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.check_circle,
+                          color: AppTheme.secondaryColor,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ],
@@ -3437,35 +3631,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: AppTheme.textPrimaryColor,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.textPrimaryColor,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppTheme.textSecondaryColor,
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondaryColor,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+        const SizedBox(width: 8),
         Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 8,
               height: 8,
               decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
               status,
               style: TextStyle(
@@ -3480,7 +3680,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildStaffOverviewChart() {
+  Widget _buildStaffOverviewChart([bool isMobile = false]) {
     final List<double> weeklyData = [16, 24, 21, 32, 23, 12, 25];
     final List<String> weekdays = [
       'Mon',
@@ -3493,7 +3693,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -3505,10 +3705,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Staff Overview',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              const Expanded(
+                child: Text(
+                  'Staff Overview',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -5901,76 +6105,152 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Container(
             padding: EdgeInsets.all(isMobile ? 16 : 24),
             color: Colors.white,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
+            child: isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.home_work_outlined,
-                          color: AppTheme.primaryColor,
-                          size: 28,
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.home_work_outlined,
+                              color: AppTheme.primaryColor,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Home Visit Care & Scheduling',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimaryColor,
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                                Text(
+                                  'Schedule home care visits by assigning nurses & patients',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: ElevatedButton.icon(
+                          style: AppTheme.dangerButton,
+                          icon: const Icon(
+                            Icons.add,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Schedule Home Visit',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Colors.white,
+                            ),
+                          ),
+                          onPressed: () =>
+                              _showAdminScheduleVisitDialog(context),
                         ),
                       ),
-                      const SizedBox(width: 14),
-                      const Flexible(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
                           children: [
-                            Text(
-                              'Home Visit Care & Scheduling',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimaryColor,
-                                fontFamily: 'Inter',
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              overflow: TextOverflow.ellipsis,
+                              child: const Icon(
+                                Icons.home_work_outlined,
+                                color: AppTheme.primaryColor,
+                                size: 28,
+                              ),
                             ),
-                            Text(
-                              'Schedule home care visits by assigning nurses & patients',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey,
-                                fontFamily: 'Inter',
+                            const SizedBox(width: 14),
+                            const Flexible(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Home Visit Care & Scheduling',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textPrimaryColor,
+                                      fontFamily: 'Inter',
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    'Schedule home care visits by assigning nurses & patients',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey,
+                                      fontFamily: 'Inter',
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        height: 42,
+                        child: ElevatedButton.icon(
+                          style: AppTheme.dangerButton,
+                          icon: const Icon(
+                            Icons.add,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Schedule Home Visit',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Colors.white,
+                            ),
+                          ),
+                          onPressed: () =>
+                              _showAdminScheduleVisitDialog(context),
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  height: 42,
-                  child: ElevatedButton.icon(
-                    style: AppTheme.dangerButton,
-                    icon: const Icon(Icons.add, color: Colors.white, size: 18),
-                    label: const Text(
-                      'Schedule Home Visit',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Colors.white,
-                      ),
-                    ),
-                    onPressed: () => _showAdminScheduleVisitDialog(context),
-                  ),
-                ),
-              ],
-            ),
           ),
           Expanded(
             child: HomeVisitListView(
+              showHeader: false,
               showScheduleButton: false,
               showExecuteButton: false,
               onViewSummary: (visitId) {
@@ -6079,7 +6359,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
             content: SingleChildScrollView(
               child: SizedBox(
-                width: 480,
+                width: MediaQuery.of(context).size.width > 520
+                    ? 480
+                    : MediaQuery.of(context).size.width * 0.88,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -8198,6 +8480,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     void addConsumableRow(StateSetter setD) {
       setD(() {
         itemsList.add({
+          'id': 'proc_row_${DateTime.now().microsecondsSinceEpoch}',
           'name_ctrl': TextEditingController(),
           'unit': 'Pc',
           'price_ctrl': TextEditingController(text: '0.00'),
@@ -8211,594 +8494,691 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (dialogCtx, setD) {
-          return AlertDialog(
+          final mediaQuery = MediaQuery.of(dialogCtx);
+          return Dialog(
             backgroundColor: Colors.white,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.medical_services_outlined,
-                    color: AppTheme.primaryColor,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Add Procedure & Mapped Consumables',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 17,
-                      color: AppTheme.textPrimaryColor,
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 32,
+              vertical: 24,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 600,
+                maxHeight: mediaQuery.size.height * (isMobile ? 0.9 : 0.85),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── Dialog Header ──
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.medical_services_outlined,
+                            color: AppTheme.primaryColor,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Add Procedure & Mapped Consumables',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 17,
+                              color: AppTheme.textPrimaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: isMobile ? double.infinity : 580,
-              child: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Section 1: Procedure Details
-                      const Text(
-                        'PROCEDURE DETAILS',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text.rich(
-                        TextSpan(
+                  const Divider(height: 1),
+
+                  // ── Dialog Body ──
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Form(
+                        key: formKey,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            TextSpan(
-                              text: 'Procedure Name ',
+                            // Section 1: Procedure Details
+                            const Text(
+                              'PROCEDURE DETAILS',
                               style: TextStyle(
-                                color: Colors.grey.shade700,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const TextSpan(
-                              text: '*',
-                              style: TextStyle(
-                                color: AppTheme.logoRed,
-                                fontSize: 14,
+                                fontSize: 11,
                                 fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                                letterSpacing: 0.8,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: procNameCtrl,
-                        maxLength: 150,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[a-zA-Z0-9\s\-\(\)]'),
-                          ),
-                        ],
-                        decoration: AppTheme.standardInputDecoration(
-                          label: null,
-                          prefixIcon: Icons.healing_outlined,
-                          hintText: 'e.g. Tracheostomy Care, Wound Dressing',
-                        ).copyWith(counterText: ''),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty)
-                            return 'Procedure name is required';
-                          if (v.trim().length < 3)
-                            return 'Min 3 characters required';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 14),
+                            const SizedBox(height: 10),
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: 'Procedure Name ',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const TextSpan(
+                                    text: '*',
+                                    style: TextStyle(
+                                      color: AppTheme.logoRed,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            TextFormField(
+                              controller: procNameCtrl,
+                              maxLength: 150,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[a-zA-Z0-9\s\-\(\)]'),
+                                ),
+                              ],
+                              decoration: AppTheme.standardInputDecoration(
+                                label: null,
+                                prefixIcon: Icons.healing_outlined,
+                                hintText: 'e.g. Tracheostomy Care, Wound Dressing',
+                              ).copyWith(counterText: ''),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty)
+                                  return 'Procedure name is required';
+                                if (v.trim().length < 3)
+                                  return 'Min 3 characters required';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 14),
 
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: 'Procedure Service Charge (₹) ',
-                              style: TextStyle(
-                                color: Colors.grey.shade700,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: 'Procedure Service Charge (₹) ',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const TextSpan(
+                                    text: '*',
+                                    style: TextStyle(
+                                      color: AppTheme.logoRed,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const TextSpan(
-                              text: '*',
-                              style: TextStyle(
-                                color: AppTheme.logoRed,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                            const SizedBox(height: 6),
+                            TextFormField(
+                              controller: procChargeCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true,
                               ),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'^\d*\.?\d{0,2}'),
+                                ),
+                                LengthLimitingTextInputFormatter(10),
+                              ],
+                              decoration: AppTheme.standardInputDecoration(
+                                label: null,
+                                prefixIcon: Icons.currency_rupee,
+                                hintText: '0.00',
+                              ).copyWith(counterText: ''),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'Procedure service charge is required';
+                                }
+                                final clean = v.trim();
+                                if (clean.length > 10) {
+                                  return 'Charge cannot exceed 10 characters';
+                                }
+                                final val = double.tryParse(clean);
+                                if (val == null || val < 0) {
+                                  return 'Enter a valid non-negative amount';
+                                }
+                                if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(clean)) {
+                                  return 'Decimal value cannot exceed 2 decimal places';
+                                }
+                                return null;
+                              },
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: procChargeCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d{0,2}'),
-                          ),
-                          LengthLimitingTextInputFormatter(10),
-                        ],
-                        decoration: AppTheme.standardInputDecoration(
-                          label: null,
-                          prefixIcon: Icons.currency_rupee,
-                          hintText: '0.00',
-                        ).copyWith(counterText: ''),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'Procedure service charge is required';
-                          }
-                          final clean = v.trim();
-                          if (clean.length > 10) {
-                            return 'Charge cannot exceed 10 characters';
-                          }
-                          final val = double.tryParse(clean);
-                          if (val == null || val < 0) {
-                            return 'Enter a valid non-negative amount';
-                          }
-                          if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(clean)) {
-                            return 'Decimal value cannot exceed 2 decimal places';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 20),
+                            const SizedBox(height: 20),
 
-                      // Section 2: Consumables Mapped to Procedure
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'MAPPED CONSUMABLE ITEMS',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.secondaryColor,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: () => addConsumableRow(setD),
-                            icon: const Icon(
-                              Icons.add_circle_outline,
-                              size: 16,
-                              color: AppTheme.secondaryColor,
-                            ),
-                            label: const Text(
-                              'Add Consumable',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.secondaryColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Define items automatically required & deducted per procedure execution:',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-
-                      if (itemsList.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppTheme.borderColor),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                size: 18,
-                                color: Colors.grey.shade500,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'No consumables mapped yet. Click "Add Consumable" above to attach items.',
+                            // Section 2: Consumables Mapped to Procedure
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                const Text(
+                                  'MAPPED CONSUMABLE ITEMS',
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.secondaryColor,
+                                    letterSpacing: 0.8,
                                   ),
                                 ),
+                                TextButton.icon(
+                                  onPressed: () => addConsumableRow(setD),
+                                  icon: const Icon(
+                                    Icons.add_circle_outline,
+                                    size: 16,
+                                    color: AppTheme.secondaryColor,
+                                  ),
+                                  label: const Text(
+                                    'Add Consumable',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.secondaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Define items automatically required & deducted per procedure execution:',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
                               ),
-                            ],
-                          ),
-                        )
-                      else
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: itemsList.length,
-                          itemBuilder: (rowCtx, idx) {
-                            final row = itemsList[idx];
-                            final nameCtrl =
-                                row['name_ctrl'] as TextEditingController;
-                            final priceCtrl =
-                                row['price_ctrl'] as TextEditingController;
-                            final qtyCtrl =
-                                row['qty_ctrl'] as TextEditingController;
+                            ),
+                            const SizedBox(height: 10),
 
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AppTheme.borderColor),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        'Item #${idx + 1}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
+                            if (itemsList.isEmpty)
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppTheme.borderColor),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 18,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        'No consumables mapped yet. Click "Add Consumable" above to attach items.',
+                                        style: TextStyle(
                                           fontSize: 12,
-                                          color: AppTheme.textPrimaryColor,
+                                          color: Colors.grey.shade600,
                                         ),
                                       ),
-                                      const Spacer(),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          size: 18,
-                                          color: AppTheme.logoRed,
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              Column(
+                                children: itemsList.asMap().entries.map((entry) {
+                                  final idx = entry.key;
+                                  final row = entry.value;
+                                  final rowId = row['id']?.toString() ?? 'row_$idx';
+                                  final nameCtrl =
+                                      row['name_ctrl'] as TextEditingController;
+                                  final priceCtrl =
+                                      row['price_ctrl'] as TextEditingController;
+                                  final qtyCtrl =
+                                      row['qty_ctrl'] as TextEditingController;
+
+                                  return Container(
+                                    key: ValueKey(rowId),
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: AppTheme.borderColor),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Item #${idx + 1}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                                color: AppTheme.textPrimaryColor,
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                size: 18,
+                                                color: AppTheme.logoRed,
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                              onPressed: () {
+                                                setD(() => itemsList.removeAt(idx));
+                                              },
+                                            ),
+                                          ],
                                         ),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                        onPressed: () {
-                                          setD(() => itemsList.removeAt(idx));
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  // Consumable Item Name Dropdown / Searchable Input
-                                  CustomDropdownSearch(
-                                    label: 'Consumable Item',
-                                    requiredMark: true,
-                                    hint: 'Select or type consumable item name',
-                                    value: nameCtrl.text.isEmpty
-                                        ? null
-                                        : nameCtrl.text,
-                                    dropdownItems: _hvConsumablesMasterList
-                                        .map((c) => c['name']?.toString() ?? '')
-                                        .where((n) => n.isNotEmpty)
-                                        .toSet()
-                                        .toList(),
-                                    allowFreeText: true,
-                                    onChanged: (val) {
-                                      if (val != null) {
-                                        setD(() {
-                                          nameCtrl.text = val;
-                                          // Auto-fill unit & unit_price if item matches master list
-                                          final matched =
-                                              _hvConsumablesMasterList
-                                                  .firstWhere(
-                                                    (c) =>
-                                                        (c['name']
-                                                                ?.toString()
-                                                                .toLowerCase() ??
-                                                            '') ==
-                                                        val.toLowerCase(),
-                                                    orElse: () => {},
-                                                  );
-                                          if (matched.isNotEmpty) {
-                                            row['is_master'] = true;
-                                            row['unit'] =
-                                                matched['unit']?.toString() ??
-                                                'Pc';
-                                            priceCtrl.text =
-                                                (double.tryParse(
-                                                          matched['unit_price']
-                                                                  ?.toString() ??
-                                                              '0',
-                                                        ) ??
-                                                        0.0)
-                                                    .toStringAsFixed(2);
-                                          } else {
-                                            row['is_master'] = false;
-                                          }
-                                        });
-                                      }
-                                    },
-                                    validator: (v) {
-                                      if (v == null || v.trim().isEmpty) {
-                                        return 'Consumable item name is required';
-                                      }
-                                      final clean = v.trim().toLowerCase();
-                                      final duplicateCount = itemsList.where((r) {
-                                        final ctrl = r['name_ctrl'] as TextEditingController;
-                                        return ctrl.text.trim().toLowerCase() == clean;
-                                      }).length;
-                                      if (duplicateCount > 1) {
-                                        return 'Duplicate consumable item in procedure';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      // Unit Dropdown
-                                      Expanded(
-                                        flex: 2,
-                                        child: CustomDropdownSearch(
-                                          label: 'Unit',
+                                        const SizedBox(height: 8),
+                                        // Consumable Item Name Dropdown / Searchable Input
+                                        CustomDropdownSearch(
+                                          key: ValueKey('name_$rowId'),
+                                          label: 'Consumable Item',
                                           requiredMark: true,
-                                          hint: 'Unit',
-                                          value: row['unit'] as String,
-                                          isEnabled: row['is_master'] != true,
-                                          dropdownItems: const [
-                                            'Pc',
-                                            'Pair',
-                                            'Pack',
-                                            'Roll',
-                                            'Vial',
-                                            'Box',
-                                            'Strip',
-                                            'ml',
-                                          ],
-                                          onChanged: (v) {
-                                            if (v != null)
-                                              setD(() => row['unit'] = v);
+                                          hint: 'Select or type consumable item name',
+                                          value: nameCtrl.text.isEmpty
+                                              ? null
+                                              : nameCtrl.text,
+                                          dropdownItems: _hvConsumablesMasterList
+                                              .map((c) => c['name']?.toString() ?? '')
+                                              .where((n) => n.isNotEmpty)
+                                              .toSet()
+                                              .toList(),
+                                          allowFreeText: true,
+                                          onChanged: (val) {
+                                            if (val != null) {
+                                              setD(() {
+                                                nameCtrl.text = val;
+                                                // Auto-fill unit & unit_price if item matches master list
+                                                final matched =
+                                                    _hvConsumablesMasterList
+                                                        .firstWhere(
+                                                          (c) =>
+                                                              (c['name']
+                                                                      ?.toString()
+                                                                      .toLowerCase() ??
+                                                                  '') ==
+                                                              val.toLowerCase(),
+                                                          orElse: () => {},
+                                                        );
+                                                if (matched.isNotEmpty) {
+                                                  row['is_master'] = true;
+                                                  row['unit'] =
+                                                      matched['unit']?.toString() ??
+                                                      'Pc';
+                                                  priceCtrl.text =
+                                                      (double.tryParse(
+                                                                matched['unit_price']
+                                                                        ?.toString() ??
+                                                                    '0',
+                                                              ) ??
+                                                              0.0)
+                                                          .toStringAsFixed(2);
+                                                } else {
+                                                  row['is_master'] = false;
+                                                }
+                                              });
+                                            }
                                           },
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // Price
-                                      Expanded(
-                                        flex: 2,
-                                        child: MouseRegion(
-                                          cursor: row['is_master'] == true
-                                              ? SystemMouseCursors.forbidden
-                                              : SystemMouseCursors.text,
-                                          child: TextFormField(
-                                            controller: priceCtrl,
-                                            readOnly: row['is_master'] == true,
-                                            showCursor: row['is_master'] != true,
-                                            canRequestFocus: row['is_master'] != true,
-                                            keyboardType:
-                                                const TextInputType.numberWithOptions(
-                                                  decimal: true,
-                                                ),
-                                            inputFormatters: [
-                                              FilteringTextInputFormatter.allow(
-                                                RegExp(r'^\d*\.?\d{0,2}'),
-                                              ),
-                                              LengthLimitingTextInputFormatter(10),
-                                            ],
-                                            decoration:
-                                                AppTheme.standardInputDecoration(
-                                                  label: null,
-                                                  prefixIcon:
-                                                      Icons.currency_rupee,
-                                                  suffixIcon: row['is_master'] == true
-                                                      ? Tooltip(
-                                                          message:
-                                                              'Price locked to Master Catalog',
-                                                          child: Icon(
-                                                            Icons.lock_outline,
-                                                            size: 16,
-                                                            color: Colors.grey.shade600,
-                                                          ),
-                                                        )
-                                                      : null,
-                                                  hintText: row['is_master'] == true
-                                                      ? 'Locked'
-                                                      : 'Unit Price',
-                                                ).copyWith(
-                                                  fillColor: row['is_master'] == true
-                                                      ? const Color(0xFFF1F5F9)
-                                                      : Colors.white,
-                                                  counterText: '',
-                                                ),
-                                            validator: (v) {
-                                              if (v == null || v.trim().isEmpty) {
-                                                return 'Unit price is required';
-                                              }
-                                              final clean = v.trim();
-                                              if (clean.length > 10) {
-                                                return 'Price cannot exceed 10 characters';
-                                              }
-                                              final val = double.tryParse(clean);
-                                              if (val == null || val < 0) {
-                                                return 'Enter a valid non-negative amount';
-                                              }
-                                              if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(clean)) {
-                                                return 'Decimal value cannot exceed 2 decimal places';
-                                              }
-                                              return null;
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // Qty per procedure
-                                      Expanded(
-                                        flex: 2,
-                                        child: TextFormField(
-                                          controller: qtyCtrl,
-                                          keyboardType: TextInputType.number,
-                                          inputFormatters: [
-                                            FilteringTextInputFormatter.digitsOnly,
-                                            LengthLimitingTextInputFormatter(5),
-                                          ],
-                                          decoration:
-                                              AppTheme.standardInputDecoration(
-                                                label: null,
-                                                prefixIcon: Icons.numbers,
-                                                hintText: 'Qty/Proc',
-                                              ),
                                           validator: (v) {
                                             if (v == null || v.trim().isEmpty) {
-                                              return 'Quantity is required';
+                                              return 'Consumable item name is required';
                                             }
-                                            final val = int.tryParse(v.trim());
-                                            if (val == null || val <= 0) {
-                                              return 'Quantity must be > 0';
-                                            }
-                                            if (v.trim().length > 5) {
-                                              return 'Max 5 digits';
+                                            final clean = v.trim().toLowerCase();
+                                            final duplicateCount = itemsList.where((r) {
+                                              final ctrl = r['name_ctrl'] as TextEditingController;
+                                              return ctrl.text.trim().toLowerCase() == clean;
+                                            }).length;
+                                            if (duplicateCount > 1) {
+                                              return 'Duplicate consumable item in procedure';
                                             }
                                             return null;
                                           },
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            // Unit Dropdown
+                                            Expanded(
+                                              flex: 2,
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Unit',
+                                                    style: TextStyle(
+                                                      fontFamily: 'Manrope',
+                                                      color: Colors.grey.shade700,
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  DropdownButtonFormField<String>(
+                                                    value: (row['unit'] as String?) ?? 'Pc',
+                                                    isExpanded: true,
+                                                    decoration: AppTheme.standardInputDecoration(
+                                                      label: null,
+                                                    ).copyWith(
+                                                      contentPadding: const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 10,
+                                                      ),
+                                                      fillColor: row['is_master'] == true
+                                                          ? const Color(0xFFF1F5F9)
+                                                          : Colors.white,
+                                                    ),
+                                                    items: const [
+                                                      'Pc',
+                                                      'Pair',
+                                                      'Pack',
+                                                      'Roll',
+                                                      'Vial',
+                                                      'Box',
+                                                      'Strip',
+                                                      'ml',
+                                                    ].map((u) => DropdownMenuItem(value: u, child: Text(u, style: const TextStyle(fontSize: 13)))).toList(),
+                                                    onChanged: row['is_master'] == true
+                                                        ? null
+                                                        : (newU) {
+                                                            if (newU != null) {
+                                                              setD(() => row['unit'] = newU);
+                                                            }
+                                                          },
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            // Price
+                                            Expanded(
+                                              flex: 2,
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Price (₹)',
+                                                    style: TextStyle(
+                                                      fontFamily: 'Manrope',
+                                                      color: Colors.grey.shade700,
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  MouseRegion(
+                                                    cursor: row['is_master'] == true
+                                                        ? SystemMouseCursors.forbidden
+                                                        : SystemMouseCursors.text,
+                                                    child: TextFormField(
+                                                      controller: priceCtrl,
+                                                      readOnly: row['is_master'] == true,
+                                                      showCursor: row['is_master'] != true,
+                                                      canRequestFocus: row['is_master'] != true,
+                                                      keyboardType:
+                                                          const TextInputType.numberWithOptions(
+                                                            decimal: true,
+                                                          ),
+                                                      inputFormatters: [
+                                                        FilteringTextInputFormatter.allow(
+                                                          RegExp(r'^\d*\.?\d{0,2}'),
+                                                        ),
+                                                        LengthLimitingTextInputFormatter(10),
+                                                      ],
+                                                      decoration:
+                                                          AppTheme.standardInputDecoration(
+                                                            label: null,
+                                                            prefixIcon:
+                                                                Icons.currency_rupee,
+                                                            suffixIcon: row['is_master'] == true
+                                                                ? Tooltip(
+                                                                    message:
+                                                                        'Price locked to Master Catalog',
+                                                                    child: Icon(
+                                                                      Icons.lock_outline,
+                                                                      size: 16,
+                                                                      color: Colors.grey.shade600,
+                                                                    ),
+                                                                  )
+                                                                : null,
+                                                            hintText: row['is_master'] == true
+                                                                ? 'Locked'
+                                                                : 'Unit Price',
+                                                          ).copyWith(
+                                                            fillColor: row['is_master'] == true
+                                                                ? const Color(0xFFF1F5F9)
+                                                                : Colors.white,
+                                                            counterText: '',
+                                                          ),
+                                                      validator: (v) {
+                                                        if (v == null || v.trim().isEmpty) {
+                                                          return 'Required';
+                                                        }
+                                                        final clean = v.trim();
+                                                        if (clean.length > 10) {
+                                                          return 'Max 10 chars';
+                                                        }
+                                                        final val = double.tryParse(clean);
+                                                        if (val == null || val < 0) {
+                                                          return 'Invalid';
+                                                        }
+                                                        if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(clean)) {
+                                                          return 'Max 2 decimals';
+                                                        }
+                                                        return null;
+                                                      },
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            // Qty per procedure
+                                            Expanded(
+                                              flex: 2,
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Qty/Proc',
+                                                    style: TextStyle(
+                                                      fontFamily: 'Manrope',
+                                                      color: Colors.grey.shade700,
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  TextFormField(
+                                                    controller: qtyCtrl,
+                                                    keyboardType: TextInputType.number,
+                                                    inputFormatters: [
+                                                      FilteringTextInputFormatter.digitsOnly,
+                                                      LengthLimitingTextInputFormatter(5),
+                                                    ],
+                                                    decoration:
+                                                        AppTheme.standardInputDecoration(
+                                                          label: null,
+                                                          prefixIcon: Icons.numbers,
+                                                          hintText: 'Qty',
+                                                        ),
+                                                    validator: (v) {
+                                                      if (v == null || v.trim().isEmpty) {
+                                                        return 'Required';
+                                                      }
+                                                      final val = int.tryParse(v.trim());
+                                                      if (val == null || val <= 0) {
+                                                        return '> 0';
+                                                      }
+                                                      if (v.trim().length > 5) {
+                                                        return 'Max 5 digits';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
                               ),
-                            );
-                          },
+                          ],
                         ),
-                    ],
+                      ),
+                    ),
                   ),
-                ),
+
+                  // ── Dialog Actions ──
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          style: AppTheme.cancelButton,
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: isSaving
+                              ? null
+                              : () async {
+                                  if (!formKey.currentState!.validate()) return;
+                                  final seenNames = <String>{};
+                                  for (final row in itemsList) {
+                                    final cName = (row['name_ctrl'] as TextEditingController)
+                                        .text
+                                        .trim()
+                                        .toLowerCase();
+                                    if (cName.isNotEmpty) {
+                                      if (seenNames.contains(cName)) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Duplicate consumable item "${(row['name_ctrl'] as TextEditingController).text.trim()}" in procedure mapping. Redundant items are not allowed.',
+                                            ),
+                                            backgroundColor: AppTheme.dangerColor,
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      seenNames.add(cName);
+                                    }
+                                  }
+                                  setD(() => isSaving = true);
+                                  try {
+                                    final mappedItems = itemsList.map((row) {
+                                      return {
+                                        'consumable_name':
+                                            (row['name_ctrl'] as TextEditingController)
+                                                .text
+                                                .trim(),
+                                        'unit': row['unit'],
+                                        'unit_price':
+                                            double.tryParse(
+                                              (row['price_ctrl'] as TextEditingController)
+                                                  .text
+                                                  .trim(),
+                                            ) ??
+                                            0.0,
+                                        'qty_per_procedure':
+                                            int.tryParse(
+                                              (row['qty_ctrl'] as TextEditingController)
+                                                  .text
+                                                  .trim(),
+                                            ) ??
+                                            1,
+                                      };
+                                    }).toList();
+
+                                    await HomeVisitService().createProcedureMaster({
+                                      'name': procNameCtrl.text.trim(),
+                                      'procedure_charge':
+                                          double.tryParse(procChargeCtrl.text.trim()) ??
+                                          0.0,
+                                      'items': mappedItems,
+                                    });
+
+                                    if (mounted) Navigator.pop(ctx, true);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: const Text(
+                                            'Procedure and mapped consumables saved successfully',
+                                          ),
+                                          backgroundColor: Colors.green.shade600,
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    setD(() => isSaving = false);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            e.toString().replaceFirst('Exception: ', ''),
+                                          ),
+                                          backgroundColor: AppTheme.dangerColor,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                          style: AppTheme.primaryButton,
+                          child: isSaving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Save Procedure'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                style: AppTheme.cancelButton,
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: isSaving
-                    ? null
-                    : () async {
-                        if (!formKey.currentState!.validate()) return;
-                        final seenNames = <String>{};
-                        for (final row in itemsList) {
-                          final cName = (row['name_ctrl'] as TextEditingController)
-                              .text
-                              .trim()
-                              .toLowerCase();
-                          if (cName.isNotEmpty) {
-                            if (seenNames.contains(cName)) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Duplicate consumable item "${(row['name_ctrl'] as TextEditingController).text.trim()}" in procedure mapping. Redundant items are not allowed.',
-                                  ),
-                                  backgroundColor: AppTheme.dangerColor,
-                                ),
-                              );
-                              return;
-                            }
-                            seenNames.add(cName);
-                          }
-                        }
-                        setD(() => isSaving = true);
-                        try {
-                          final mappedItems = itemsList.map((row) {
-                            return {
-                              'consumable_name':
-                                  (row['name_ctrl'] as TextEditingController)
-                                      .text
-                                      .trim(),
-                              'unit': row['unit'],
-                              'unit_price':
-                                  double.tryParse(
-                                    (row['price_ctrl'] as TextEditingController)
-                                        .text
-                                        .trim(),
-                                  ) ??
-                                  0.0,
-                              'qty_per_procedure':
-                                  int.tryParse(
-                                    (row['qty_ctrl'] as TextEditingController)
-                                        .text
-                                        .trim(),
-                                  ) ??
-                                  1,
-                            };
-                          }).toList();
-
-                          await HomeVisitService().createProcedureMaster({
-                            'name': procNameCtrl.text.trim(),
-                            'procedure_charge':
-                                double.tryParse(procChargeCtrl.text.trim()) ??
-                                0.0,
-                            'items': mappedItems,
-                          });
-
-                          if (mounted) Navigator.pop(ctx, true);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text(
-                                  'Procedure and mapped consumables saved successfully',
-                                ),
-                                backgroundColor: Colors.green.shade600,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          setD(() => isSaving = false);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  e.toString().replaceFirst('Exception: ', ''),
-                                ),
-                                backgroundColor: AppTheme.dangerColor,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                style: AppTheme.primaryButton,
-                child: isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Save Procedure'),
-              ),
-            ],
           );
         },
       ),
@@ -10265,135 +10645,328 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       children: [
         // Header Bar
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 12,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _buildHVConsumablesHeaderTitle(),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  SizedBox(
-                    width: isMobile ? double.infinity : 220,
-                    child: _buildHVConsumablesSearchBar(),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => _showAddProcedureDialog(isMobile),
-                    style: AppTheme.primaryButton,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Procedure'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () =>
-                        _showAddStandaloneConsumableDialog(isMobile),
-                    style: AppTheme.outlinedButton,
-                    icon: const Icon(
-                      Icons.add_shopping_cart,
-                      size: 18,
-                      color: AppTheme.secondaryColor,
-                    ),
-                    label: const Text(
-                      'Add Consumable',
-                      style: TextStyle(
-                        color: AppTheme.secondaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          padding: EdgeInsets.fromLTRB(
+            isMobile ? 16 : 24,
+            isMobile ? 16 : 20,
+            isMobile ? 16 : 24,
+            16,
           ),
+          child: isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHVConsumablesHeaderTitle(),
+                    const SizedBox(height: 12),
+                    _buildHVConsumablesSearchBar(),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: ElevatedButton.icon(
+                              onPressed: () =>
+                                  _showAddProcedureDialog(isMobile),
+                              style: AppTheme.primaryButton.copyWith(
+                                padding: WidgetStateProperty.all(
+                                  const EdgeInsets.symmetric(horizontal: 10),
+                                ),
+                              ),
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text(
+                                'Add Procedure',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: OutlinedButton.icon(
+                              onPressed: () =>
+                                  _showAddStandaloneConsumableDialog(isMobile),
+                              style: AppTheme.outlinedButton.copyWith(
+                                padding: WidgetStateProperty.all(
+                                  const EdgeInsets.symmetric(horizontal: 10),
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.add_shopping_cart,
+                                size: 16,
+                                color: AppTheme.secondaryColor,
+                              ),
+                              label: const Text(
+                                'Add Consumable',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.secondaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              : Wrap(
+                  spacing: 16,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 460),
+                      child: _buildHVConsumablesHeaderTitle(),
+                    ),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 220,
+                          child: _buildHVConsumablesSearchBar(),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () => _showAddProcedureDialog(isMobile),
+                          style: AppTheme.primaryButton,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Add Procedure'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              _showAddStandaloneConsumableDialog(isMobile),
+                          style: AppTheme.outlinedButton,
+                          icon: const Icon(
+                            Icons.add_shopping_cart,
+                            size: 18,
+                            color: AppTheme.secondaryColor,
+                          ),
+                          label: const Text(
+                            'Add Consumable',
+                            style: TextStyle(
+                              color: AppTheme.secondaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
         ),
 
-        // Stats Row
+        // Stats Row (Horizontal scrollable on mobile)
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _buildMedStatChip(
-                Icons.medical_services_outlined,
-                AppTheme.primaryColor,
-                'Total Procedures',
-                '${_hvProceduresMaster.length}',
-              ),
-              _buildMedStatChip(
-                Icons.home_repair_service_outlined,
-                AppTheme.secondaryColor,
-                'Master Consumable Items',
-                '${_hvConsumablesMasterList.length}',
-              ),
-              _buildMedStatChip(
-                Icons.alt_route_outlined,
-                const Color(0xFF8B5CF6),
-                'Active Item Mappings',
-                '$totalMappingsCount',
-              ),
-            ],
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildMedStatChip(
+                  Icons.medical_services_outlined,
+                  AppTheme.primaryColor,
+                  'Total Procedures',
+                  '${_hvProceduresMaster.length}',
+                ),
+                const SizedBox(width: 10),
+                _buildMedStatChip(
+                  Icons.home_repair_service_outlined,
+                  AppTheme.secondaryColor,
+                  'Master Consumable Items',
+                  '${_hvConsumablesMasterList.length}',
+                ),
+                const SizedBox(width: 10),
+                _buildMedStatChip(
+                  Icons.alt_route_outlined,
+                  const Color(0xFF8B5CF6),
+                  'Active Item Mappings',
+                  '$totalMappingsCount',
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 14),
 
-        // Sub-Tab Switcher Row
+        // Sub-Tab Switcher Row (Segmented on mobile, Chips on desktop)
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(
-            children: [
-              ChoiceChip(
-                label: Text(
-                  'Procedures Catalog (${_hvProceduresMaster.length})',
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+          child: isMobile
+              ? Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.all(4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(9),
+                          onTap: () => setState(() => _hvCatalogSelectedTab = 0),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _hvCatalogSelectedTab == 0
+                                  ? Colors.white
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(9),
+                              boxShadow: _hvCatalogSelectedTab == 0
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.06),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.medical_services_outlined,
+                                    size: 15,
+                                    color: _hvCatalogSelectedTab == 0
+                                        ? AppTheme.primaryColor
+                                        : AppTheme.textSecondaryColor,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Procedures (${_hvProceduresMaster.length})',
+                                    style: TextStyle(
+                                      color: _hvCatalogSelectedTab == 0
+                                          ? AppTheme.primaryColor
+                                          : AppTheme.textSecondaryColor,
+                                      fontWeight: _hvCatalogSelectedTab == 0
+                                          ? FontWeight.bold
+                                          : FontWeight.w600,
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(9),
+                          onTap: () => setState(() => _hvCatalogSelectedTab = 1),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _hvCatalogSelectedTab == 1
+                                  ? Colors.white
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(9),
+                              boxShadow: _hvCatalogSelectedTab == 1
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.06),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.inventory_2_outlined,
+                                    size: 15,
+                                    color: _hvCatalogSelectedTab == 1
+                                        ? AppTheme.secondaryColor
+                                        : AppTheme.textSecondaryColor,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Consumables (${_hvConsumablesMasterList.length})',
+                                    style: TextStyle(
+                                      color: _hvCatalogSelectedTab == 1
+                                          ? AppTheme.secondaryColor
+                                          : AppTheme.textSecondaryColor,
+                                      fontWeight: _hvCatalogSelectedTab == 1
+                                          ? FontWeight.bold
+                                          : FontWeight.w600,
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Row(
+                  children: [
+                    ChoiceChip(
+                      label: Text(
+                        'Procedures Catalog (${_hvProceduresMaster.length})',
+                      ),
+                      selected: _hvCatalogSelectedTab == 0,
+                      onSelected: (val) {
+                        if (val) setState(() => _hvCatalogSelectedTab = 0);
+                      },
+                      selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                      labelStyle: TextStyle(
+                        color: _hvCatalogSelectedTab == 0
+                            ? AppTheme.primaryColor
+                            : AppTheme.textSecondaryColor,
+                        fontWeight: _hvCatalogSelectedTab == 0
+                            ? FontWeight.bold
+                            : FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: Text(
+                        'Master Consumable Items (${_hvConsumablesMasterList.length})',
+                      ),
+                      selected: _hvCatalogSelectedTab == 1,
+                      onSelected: (val) {
+                        if (val) setState(() => _hvCatalogSelectedTab = 1);
+                      },
+                      selectedColor:
+                          AppTheme.secondaryColor.withValues(alpha: 0.15),
+                      labelStyle: TextStyle(
+                        color: _hvCatalogSelectedTab == 1
+                            ? AppTheme.secondaryColor
+                            : AppTheme.textSecondaryColor,
+                        fontWeight: _hvCatalogSelectedTab == 1
+                            ? FontWeight.bold
+                            : FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
-                selected: _hvCatalogSelectedTab == 0,
-                onSelected: (val) {
-                  if (val) setState(() => _hvCatalogSelectedTab = 0);
-                },
-                selectedColor: AppTheme.primaryColor.withOpacity(0.15),
-                labelStyle: TextStyle(
-                  color: _hvCatalogSelectedTab == 0
-                      ? AppTheme.primaryColor
-                      : AppTheme.textSecondaryColor,
-                  fontWeight: _hvCatalogSelectedTab == 0
-                      ? FontWeight.bold
-                      : FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: Text(
-                  'Master Consumable Items (${_hvConsumablesMasterList.length})',
-                ),
-                selected: _hvCatalogSelectedTab == 1,
-                onSelected: (val) {
-                  if (val) setState(() => _hvCatalogSelectedTab = 1);
-                },
-                selectedColor: AppTheme.secondaryColor.withOpacity(0.15),
-                labelStyle: TextStyle(
-                  color: _hvCatalogSelectedTab == 1
-                      ? AppTheme.secondaryColor
-                      : AppTheme.textSecondaryColor,
-                  fontWeight: _hvCatalogSelectedTab == 1
-                      ? FontWeight.bold
-                      : FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
         ),
         const SizedBox(height: 14),
 
         // Catalog Content View
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
             child: _isHVConsumableLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _hvConsumableError != null
@@ -10502,225 +11075,403 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppTheme.borderColor),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF8FAFC),
-                border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-              ),
-              child: const Row(
-                children: [
-                  Expanded(
-                    flex: 1,
-                    child: Text(
-                      '#',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 4,
-                    child: Text(
-                      'Consumable Item Name',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Unit',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Unit Price (₹)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Status',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Actions',
-                      textAlign: TextAlign.end,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+    if (isMobile) {
+      return ListView.separated(
+        padding: const EdgeInsets.only(bottom: 24),
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemCount: items.length,
+        itemBuilder: (ctx, i) {
+          final item = items[i];
+          final price =
+              double.tryParse(item['unit_price']?.toString() ?? '0') ?? 0.0;
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.borderColor),
             ),
-            Expanded(
-              child: ListView.separated(
-                separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: AppTheme.borderColor),
-                itemCount: items.length,
-                itemBuilder: (ctx, i) {
-                  final item = items[i];
-                  final price =
-                      double.tryParse(item['unit_price']?.toString() ?? '0') ??
-                      0.0;
-                  return Container(
-                    color: i.isEven ? Colors.white : const Color(0xFFFAFBFC),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${i + 1}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: AppTheme.secondaryColor,
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 1,
-                          child: Text(
-                            '${i + 1}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              color: AppTheme.secondaryColor,
-                            ),
-                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item['name']?.toString() ?? '',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: AppTheme.textPrimaryColor,
                         ),
-                        Expanded(
-                          flex: 4,
-                          child: Text(
-                            item['name']?.toString() ?? '',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: AppTheme.textPrimaryColor,
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            item['unit']?.toString() ?? 'Pc',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textSecondaryColor,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            '₹${price.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.secondaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                item['status']?.toString() ?? 'Active',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.secondaryColor,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            child: Text(
+                              'Unit: ${item['unit']?.toString() ?? 'Pc'}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textSecondaryColor,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '₹${price.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.secondaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              item['status']?.toString() ?? 'Active',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.secondaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: AppTheme.primaryColor,
+                      ),
+                      tooltip: 'Edit Consumable',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      onPressed: () => _showEditStandaloneConsumableDialog(
+                        item,
+                        isMobile,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: AppTheme.dangerColor,
+                      ),
+                      tooltip: 'Deactivate Consumable',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      onPressed: () => _deleteConsumableMaster(item),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableMinWidth = constraints.maxWidth > 650 ? constraints.maxWidth : 650.0;
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: tableMinWidth,
+              maxWidth: tableMinWidth,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: AppTheme.borderColor),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF8FAFC),
+                        border: Border(
+                          bottom: BorderSide(color: AppTheme.borderColor),
                         ),
-                        Expanded(
-                          flex: 2,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit_outlined,
-                                  size: 18,
-                                  color: AppTheme.primaryColor,
-                                ),
-                                tooltip: 'Edit Consumable',
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () =>
-                                    _showEditStandaloneConsumableDialog(
-                                      item,
-                                      isMobile,
+                      ),
+                      child: const Row(
+                        children: [
+                          Expanded(
+                            flex: 1,
+                            child: Text(
+                              '#',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 4,
+                            child: Text(
+                              'Consumable Item Name',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Unit',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Unit Price (₹)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Status',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Actions',
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.separated(
+                        separatorBuilder: (_, __) =>
+                            const Divider(height: 1, color: AppTheme.borderColor),
+                        itemCount: items.length,
+                        itemBuilder: (ctx, i) {
+                          final item = items[i];
+                          final price =
+                              double.tryParse(item['unit_price']?.toString() ?? '0') ??
+                              0.0;
+                          return Container(
+                            color: i.isEven ? Colors.white : const Color(0xFFFAFBFC),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 14,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 1,
+                                  child: Text(
+                                    '${i + 1}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: AppTheme.secondaryColor,
                                     ),
-                              ),
-                              const SizedBox(width: 10),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  size: 18,
-                                  color: AppTheme.dangerColor,
+                                  ),
                                 ),
-                                tooltip: 'Deactivate Consumable',
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () =>
-                                    _deleteConsumableMaster(item),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                                Expanded(
+                                  flex: 4,
+                                  child: Text(
+                                    item['name']?.toString() ?? '',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                      color: AppTheme.textPrimaryColor,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    item['unit']?.toString() ?? 'Pc',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    '₹${price.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.secondaryColor
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        item['status']?.toString() ?? 'Active',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.secondaryColor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit_outlined,
+                                          size: 18,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                        tooltip: 'Edit Consumable',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () =>
+                                            _showEditStandaloneConsumableDialog(
+                                              item,
+                                              isMobile,
+                                            ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          size: 18,
+                                          color: AppTheme.dangerColor,
+                                        ),
+                                        tooltip: 'Deactivate Consumable',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () =>
+                                            _deleteConsumableMaster(item),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -11300,59 +12051,53 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       children: [
         // Header Bar
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 12,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+          padding: EdgeInsets.fromLTRB(
+            isMobile ? 16 : 24,
+            isMobile ? 16 : 20,
+            isMobile ? 16 : 24,
+            16,
+          ),
+          child: isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.inventory_outlined,
+                            color: AppTheme.primaryColor,
+                            size: 20,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.inventory_outlined,
-                          color: AppTheme.primaryColor,
-                          size: 20,
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Carried Kit Items & Equipment Catalog',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimaryColor,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Carried Kit Items & Equipment Catalog',
-                        style: TextStyle(
-                          fontSize: 19,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Manage standard devices, medical equipment, and kits carried by nurses during home visits',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondaryColor,
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  SizedBox(
-                    width: isMobile ? double.infinity : 240,
-                    child: TextField(
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Manage standard devices, medical equipment, and kits carried by nurses during home visits',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
                       controller: _hvKitItemsSearchController,
                       decoration:
                           AppTheme.standardInputDecoration(
@@ -11374,22 +12119,107 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       onChanged: (v) => setState(() => _hvKitItemsSearch = v),
                       onSubmitted: (_) => _loadHomeVisitKitItemsCatalog(),
                     ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => _showAddCarriedKitItemDialog(isMobile),
-                    style: AppTheme.primaryButton,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Carried Kit Item'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showAddCarriedKitItemDialog(isMobile),
+                        style: AppTheme.primaryButton,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Add Carried Kit Item'),
+                      ),
+                    ),
+                  ],
+                )
+              : Wrap(
+                  spacing: 16,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.inventory_outlined,
+                                color: AppTheme.primaryColor,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            const Text(
+                              'Carried Kit Items & Equipment Catalog',
+                              style: TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Manage standard devices, medical equipment, and kits carried by nurses during home visits',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 240,
+                          child: TextField(
+                            controller: _hvKitItemsSearchController,
+                            decoration:
+                                AppTheme.standardInputDecoration(
+                                  label: null,
+                                  prefixIcon: Icons.search,
+                                  hintText: 'Search kit items or equipment...',
+                                ).copyWith(
+                                  suffixIcon: _hvKitItemsSearch.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear, size: 18),
+                                          onPressed: () {
+                                            _hvKitItemsSearchController.clear();
+                                            setState(() => _hvKitItemsSearch = '');
+                                            _loadHomeVisitKitItemsCatalog();
+                                          },
+                                        )
+                                      : null,
+                                ),
+                            onChanged: (v) => setState(() => _hvKitItemsSearch = v),
+                            onSubmitted: (_) => _loadHomeVisitKitItemsCatalog(),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () => _showAddCarriedKitItemDialog(isMobile),
+                          style: AppTheme.primaryButton,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Add Carried Kit Item'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
         ),
 
         // Summary Stats Row
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
           child: Wrap(
             spacing: 12,
             runSpacing: 12,
@@ -11426,7 +12256,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         // Catalog List View
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
             child: _isHVKitItemsLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _hvKitItemsError != null
@@ -11488,262 +12318,435 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ],
                     ),
                   )
-                : ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: AppTheme.borderColor),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 14,
+                : isMobile
+                    ? ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 10),
+                        itemCount: filteredItems.length,
+                        itemBuilder: (ctx, i) {
+                          final item = filteredItems[i];
+                          final itemId =
+                              int.tryParse(item['id']?.toString() ?? '0') ?? 0;
+                          final typeStr =
+                              item['item_type']?.toString() ?? 'Device';
+                          return Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppTheme.borderColor),
                             ),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFF8FAFC),
-                              border: Border(
-                                bottom: BorderSide(color: AppTheme.borderColor),
-                              ),
-                            ),
-                            child: const Row(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  flex: 1,
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        AppTheme.primaryColor.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                   child: Text(
-                                    '#',
-                                    style: TextStyle(
-                                      fontSize: 12,
+                                    '${i + 1}',
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: AppTheme.textSecondaryColor,
+                                      fontSize: 12,
+                                      color: AppTheme.primaryColor,
                                     ),
                                   ),
                                 ),
+                                const SizedBox(width: 12),
                                 Expanded(
-                                  flex: 4,
-                                  child: Text(
-                                    'Kit Item Name',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textSecondaryColor,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    'Type',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textSecondaryColor,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 4,
-                                  child: Text(
-                                    'Description / Specs',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textSecondaryColor,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    'Actions',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textSecondaryColor,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: ListView.separated(
-                              separatorBuilder: (_, __) => const Divider(
-                                height: 1,
-                                color: AppTheme.borderColor,
-                              ),
-                              itemCount: filteredItems.length,
-                              itemBuilder: (ctx, i) {
-                                final item = filteredItems[i];
-                                final itemId =
-                                    int.tryParse(
-                                      item['id']?.toString() ?? '0',
-                                    ) ??
-                                    0;
-                                final typeStr =
-                                    item['item_type']?.toString() ?? 'Device';
-                                return Container(
-                                  color: i.isEven
-                                      ? Colors.white
-                                      : const Color(0xFFFAFBFC),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 14,
-                                  ),
-                                  child: Row(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        flex: 1,
-                                        child: Text(
-                                          '${i + 1}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                            color: AppTheme.primaryColor,
-                                          ),
+                                      Text(
+                                        item['name']?.toString() ?? '',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: AppTheme.textPrimaryColor,
                                         ),
                                       ),
-                                      Expanded(
-                                        flex: 4,
-                                        child: Text(
-                                          item['name']?.toString() ?? '',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                            color: AppTheme.textPrimaryColor,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          typeStr,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            color: AppTheme.primaryColor,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 4,
-                                        child: Text(
-                                          item['description']?.toString() ??
-                                              '--',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: AppTheme.textSecondaryColor,
-                                          ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: TextButton.icon(
-                                            onPressed: () async {
-                                              final confirm =
-                                                  await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (c) => AlertDialog(
-                                                      title: const Text(
-                                                        'Deactivate Kit Item',
-                                                        style: TextStyle(
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      content: ConstrainedBox(
-                                                        constraints: const BoxConstraints(
-                                                          maxWidth: 400,
-                                                        ),
-                                                        child: Text(
-                                                          'Are you sure you want to deactivate "${item['name']}"?',
-                                                          softWrap: true,
-                                                        ),
-                                                      ),
-                                                      actions: [
-                                                        TextButton(
-                                                          onPressed: () =>
-                                                              Navigator.pop(
-                                                                c,
-                                                                false,
-                                                              ),
-                                                          child: const Text(
-                                                            'Cancel',
-                                                          ),
-                                                        ),
-                                                        ElevatedButton(
-                                                          onPressed: () =>
-                                                              Navigator.pop(
-                                                                c,
-                                                                true,
-                                                              ),
-                                                          style: AppTheme
-                                                              .dangerButton,
-                                                          child: const Text(
-                                                            'Deactivate',
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  );
-                                              if (confirm == true &&
-                                                  itemId > 0) {
-                                                try {
-                                                  await HomeVisitService()
-                                                      .deleteKitItemMaster(
-                                                        itemId,
-                                                      );
-                                                  _loadHomeVisitKitItemsCatalog();
-                                                } catch (e) {
-                                                  if (mounted) {
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(
-                                                          e.toString(),
-                                                        ),
-                                                        backgroundColor:
-                                                            AppTheme
-                                                                .dangerColor,
-                                                      ),
-                                                    );
-                                                  }
-                                                }
-                                              }
-                                            },
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                              size: 16,
-                                              color: AppTheme.logoRed,
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 3,
                                             ),
-                                            label: const Text(
-                                              'Remove',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: AppTheme.logoRed,
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.primaryColor
+                                                  .withOpacity(0.08),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              typeStr,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.primaryColor,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                           ),
+                                          if ((item['description']
+                                                      ?.toString() ??
+                                                  '')
+                                              .isNotEmpty)
+                                            Text(
+                                              item['description']?.toString() ??
+                                                  '',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color:
+                                                    AppTheme.textSecondaryColor,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                    color: AppTheme.logoRed,
+                                  ),
+                                  tooltip: 'Remove',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (c) => AlertDialog(
+                                        title: const Text(
+                                          'Deactivate Kit Item',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        content: ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                            maxWidth: 400,
+                                          ),
+                                          child: Text(
+                                            'Are you sure you want to deactivate "${item['name']}"?',
+                                            softWrap: true,
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, true),
+                                            style: AppTheme.dangerButton,
+                                            child: const Text('Deactivate'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true && itemId > 0) {
+                                      try {
+                                        await HomeVisitService()
+                                            .deleteKitItemMaster(itemId);
+                                        _loadHomeVisitKitItemsCatalog();
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(e.toString()),
+                                              backgroundColor:
+                                                  AppTheme.dangerColor,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      )
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: AppTheme.borderColor),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 14,
+                                ),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF8FAFC),
+                                  border: Border(
+                                    bottom: BorderSide(color: AppTheme.borderColor),
+                                  ),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 1,
+                                      child: Text(
+                                        '#',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textSecondaryColor,
                                         ),
                                       ),
+                                    ),
+                                    Expanded(
+                                      flex: 4,
+                                      child: Text(
+                                        'Kit Item Name',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'Type',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 4,
+                                      child: Text(
+                                        'Description / Specs',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'Actions',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
-                              );
-                            },
-                            ),
+                              ),
+                              Expanded(
+                                child: ListView.separated(
+                                  separatorBuilder: (_, __) => const Divider(
+                                    height: 1,
+                                    color: AppTheme.borderColor,
+                                  ),
+                                  itemCount: filteredItems.length,
+                                  itemBuilder: (ctx, i) {
+                                    final item = filteredItems[i];
+                                    final itemId =
+                                        int.tryParse(
+                                          item['id']?.toString() ?? '0',
+                                        ) ??
+                                        0;
+                                    final typeStr =
+                                        item['item_type']?.toString() ?? 'Device';
+                                    return Container(
+                                      color: i.isEven
+                                          ? Colors.white
+                                          : const Color(0xFFFAFBFC),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 14,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 1,
+                                            child: Text(
+                                              '${i + 1}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                                color: AppTheme.primaryColor,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 4,
+                                            child: Text(
+                                              item['name']?.toString() ?? '',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: AppTheme.textPrimaryColor,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              typeStr,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                color: AppTheme.primaryColor,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 4,
+                                            child: Text(
+                                              item['description']?.toString() ??
+                                                  '--',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AppTheme.textSecondaryColor,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 2,
+                                            child: Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: TextButton.icon(
+                                                onPressed: () async {
+                                                  final confirm =
+                                                      await showDialog<bool>(
+                                                        context: context,
+                                                        builder: (c) => AlertDialog(
+                                                          title: const Text(
+                                                            'Deactivate Kit Item',
+                                                            style: TextStyle(
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                          content: ConstrainedBox(
+                                                            constraints: const BoxConstraints(
+                                                              maxWidth: 400,
+                                                            ),
+                                                            child: Text(
+                                                              'Are you sure you want to deactivate "${item['name']}"?',
+                                                              softWrap: true,
+                                                            ),
+                                                          ),
+                                                          actions: [
+                                                            TextButton(
+                                                              onPressed: () =>
+                                                                  Navigator.pop(
+                                                                    c,
+                                                                    false,
+                                                                  ),
+                                                              child: const Text(
+                                                                'Cancel',
+                                                              ),
+                                                            ),
+                                                            ElevatedButton(
+                                                              onPressed: () =>
+                                                                  Navigator.pop(
+                                                                    c,
+                                                                    true,
+                                                                  ),
+                                                              style: AppTheme
+                                                                  .dangerButton,
+                                                              child: const Text(
+                                                                'Deactivate',
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                  if (confirm == true &&
+                                                      itemId > 0) {
+                                                    try {
+                                                      await HomeVisitService()
+                                                          .deleteKitItemMaster(
+                                                            itemId,
+                                                          );
+                                                      _loadHomeVisitKitItemsCatalog();
+                                                    } catch (e) {
+                                                      if (mounted) {
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(
+                                                              e.toString(),
+                                                            ),
+                                                            backgroundColor:
+                                                                AppTheme
+                                                                    .dangerColor,
+                                                          ),
+                                                        );
+                                                      }
+                                                    }
+                                                  }
+                                                },
+                                                icon: const Icon(
+                                                  Icons.delete_outline,
+                                                  size: 16,
+                                                  color: AppTheme.logoRed,
+                                                ),
+                                                label: const Text(
+                                                  'Remove',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppTheme.logoRed,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
           ),
         ),
       ],
@@ -11844,12 +12847,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            const Text(
-              'Home Visit Procedures & Consumables Catalog',
-              style: TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimaryColor,
+            const Expanded(
+              child: Text(
+                'Home Visit Procedures & Consumables Catalog',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimaryColor,
+                ),
               ),
             ),
           ],
@@ -11954,41 +12959,59 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             bottom: BorderSide(color: AppTheme.borderColor),
                           ),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.healing_outlined,
-                          color: AppTheme.primaryColor,
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
+                  child: isMobile
+                      ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Flexible(
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.healing_outlined,
+                                    color: AppTheme.primaryColor,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
                                   child: Text(
                                     proc.name,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                                      fontSize: 15,
                                       color: AppTheme.textPrimaryColor,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
                                   ),
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    isExpanded
+                                        ? Icons.keyboard_arrow_up
+                                        : Icons.keyboard_arrow_down,
+                                    size: 24,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                  tooltip: isExpanded
+                                      ? 'Minimize / Collapse'
+                                      : 'Expand Mapped Consumables',
+                                  onPressed: () {
+                                    setState(() {
+                                      if (isExpanded) {
+                                        _expandedProcedureIds.remove(proc.id);
+                                      } else {
+                                        _expandedProcedureIds.add(proc.id);
+                                      }
+                                    });
+                                  },
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 4),
                             Text(
                               'Status: ${proc.status}  •  ${proc.mappedConsumables.length} mapped consumable items',
                               style: const TextStyle(
@@ -11996,104 +13019,254 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 color: AppTheme.textSecondaryColor,
                               ),
                             ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.secondaryColor
+                                        .withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    'Charge: ₹${proc.procedureCharge.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: AppTheme.secondaryColor,
+                                    ),
+                                  ),
+                                ),
+                                if (proc.mappedConsumables.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor
+                                          .withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'Total Est: ₹${(proc.procedureCharge + totalConsumablesCost).toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.edit_outlined,
+                                        size: 18,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                      tooltip: 'Edit Procedure',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                        minWidth: 32,
+                                        minHeight: 32,
+                                      ),
+                                      onPressed: () => _showEditProcedureDialog(
+                                        proc,
+                                        isMobile,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.add_shopping_cart,
+                                        size: 18,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                      tooltip: 'Map Consumable Item',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                        minWidth: 32,
+                                        minHeight: 32,
+                                      ),
+                                      onPressed: () =>
+                                          _showAddConsumableToProcedureDialog(
+                                            proc,
+                                            isMobile,
+                                          ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        size: 18,
+                                        color: AppTheme.dangerColor,
+                                      ),
+                                      tooltip: 'Deactivate Procedure',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                        minWidth: 32,
+                                        minHeight: 32,
+                                      ),
+                                      onPressed: () =>
+                                          _deleteProcedureMaster(proc),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.healing_outlined,
+                                color: AppTheme.primaryColor,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          proc.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Status: ${proc.status}  •  ${proc.mappedConsumables.length} mapped consumable items',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Charge Badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    AppTheme.secondaryColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Charge: ₹${proc.procedureCharge.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: AppTheme.secondaryColor,
+                                ),
+                              ),
+                            ),
+                            if (proc.mappedConsumables.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'Total Est: ₹${(proc.procedureCharge + totalConsumablesCost).toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(width: 8),
+                            // Action Buttons
+                            IconButton(
+                              icon: const Icon(
+                                Icons.edit_outlined,
+                                size: 20,
+                                color: AppTheme.primaryColor,
+                              ),
+                              tooltip: 'Edit Procedure',
+                              onPressed: () =>
+                                  _showEditProcedureDialog(proc, isMobile),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.add_shopping_cart,
+                                size: 20,
+                                color: AppTheme.primaryColor,
+                              ),
+                              tooltip: 'Map Consumable Item',
+                              onPressed: () =>
+                                  _showAddConsumableToProcedureDialog(
+                                    proc,
+                                    isMobile,
+                                  ),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                size: 20,
+                                color: AppTheme.dangerColor,
+                              ),
+                              tooltip: 'Deactivate Procedure',
+                              onPressed: () => _deleteProcedureMaster(proc),
+                            ),
+                            // Minimize / Expand Toggle Icon
+                            IconButton(
+                              icon: Icon(
+                                isExpanded
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
+                                size: 24,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                              tooltip: isExpanded
+                                  ? 'Minimize / Collapse'
+                                  : 'Expand Mapped Consumables',
+                              onPressed: () {
+                                setState(() {
+                                  if (isExpanded) {
+                                    _expandedProcedureIds.remove(proc.id);
+                                  } else {
+                                    _expandedProcedureIds.add(proc.id);
+                                  }
+                                });
+                              },
+                            ),
                           ],
                         ),
-                      ),
-                      // Charge Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.secondaryColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'Charge: ₹${proc.procedureCharge.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            color: AppTheme.secondaryColor,
-                          ),
-                        ),
-                      ),
-                      if (proc.mappedConsumables.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'Total Est: ₹${(proc.procedureCharge + totalConsumablesCost).toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(width: 8),
-                      // Action Buttons
-                      IconButton(
-                        icon: const Icon(
-                          Icons.edit_outlined,
-                          size: 20,
-                          color: AppTheme.primaryColor,
-                        ),
-                        tooltip: 'Edit Procedure',
-                        onPressed: () =>
-                            _showEditProcedureDialog(proc, isMobile),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.add_shopping_cart,
-                          size: 20,
-                          color: AppTheme.primaryColor,
-                        ),
-                        tooltip: 'Map Consumable Item',
-                        onPressed: () =>
-                            _showAddConsumableToProcedureDialog(proc, isMobile),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          size: 20,
-                          color: AppTheme.dangerColor,
-                        ),
-                        tooltip: 'Deactivate Procedure',
-                        onPressed: () => _deleteProcedureMaster(proc),
-                      ),
-                      // Minimize / Expand Toggle Icon
-                      IconButton(
-                        icon: Icon(
-                          isExpanded
-                              ? Icons.keyboard_arrow_up
-                              : Icons.keyboard_arrow_down,
-                          size: 24,
-                          color: AppTheme.textSecondaryColor,
-                        ),
-                        tooltip: isExpanded
-                            ? 'Minimize / Collapse'
-                            : 'Expand Mapped Consumables',
-                        onPressed: () {
-                          setState(() {
-                            if (isExpanded) {
-                              _expandedProcedureIds.remove(proc.id);
-                            } else {
-                              _expandedProcedureIds.add(proc.id);
-                            }
-                          });
-                        },
-                      ),
-                    ],
-                  ),
                 ),
               ),
 
@@ -12110,15 +13283,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           color: Colors.grey.shade400,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          'No consumable items mapped under this procedure.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade500,
-                            fontStyle: FontStyle.italic,
+                        Expanded(
+                          child: Text(
+                            'No consumable items mapped under this procedure.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade500,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
                         ),
-                        const Spacer(),
                         TextButton.icon(
                           onPressed: () =>
                               _showAddConsumableToProcedureDialog(proc, isMobile),
@@ -12157,111 +13331,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                         ),
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppTheme.borderColor),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Column(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 10,
-                                ),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFF1F5F9),
-                                  borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(9),
-                                  ),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: Text(
-                                        'Item Name',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        'Unit Price',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        'Qty / Procedure',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        'Total Item Cost',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(width: 36),
-                                  ],
-                                ),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minWidth: 550),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppTheme.borderColor),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              ListView.separated(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                separatorBuilder: (_, __) => const Divider(
-                                  height: 1,
-                                  color: AppTheme.borderColor,
-                                ),
-                                itemCount: proc.mappedConsumables.length,
-                                itemBuilder: (cCtx, cIdx) {
-                                  final item = proc.mappedConsumables[cIdx];
-                                  final itemTotalCost =
-                                      item.unitPrice * item.qtyPerProcedure;
-
-                                  return Padding(
+                              child: Column(
+                                children: [
+                                  Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 14,
                                       vertical: 10,
                                     ),
-                                    child: Row(
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(9),
+                                      ),
+                                    ),
+                                    child: const Row(
                                       children: [
                                         Expanded(
                                           flex: 3,
                                           child: Text(
-                                            '${cIdx + 1}.  ${item.consumableName}',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 13,
-                                              color: AppTheme.textPrimaryColor,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            '₹${item.unitPrice.toStringAsFixed(2)} / ${item.unit}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
+                                            'Item Name',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
                                               color: AppTheme.textSecondaryColor,
                                             ),
                                           ),
@@ -12269,52 +13369,146 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                         Expanded(
                                           flex: 2,
                                           child: Text(
-                                            '${item.qtyPerProcedure} ${item.unit}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: AppTheme.textPrimaryColor,
+                                            'Unit Price',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.textSecondaryColor,
                                             ),
                                           ),
                                         ),
                                         Expanded(
                                           flex: 2,
                                           child: Text(
-                                            '₹${itemTotalCost.toStringAsFixed(2)}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
+                                            'Qty / Procedure',
+                                            style: TextStyle(
+                                              fontSize: 11,
                                               fontWeight: FontWeight.bold,
-                                              color: AppTheme.primaryColor,
+                                              color: AppTheme.textSecondaryColor,
                                             ),
                                           ),
                                         ),
-                                        SizedBox(
-                                          width: 36,
-                                          child: IconButton(
-                                            icon: const Icon(
-                                              Icons.close,
-                                              size: 16,
-                                              color: AppTheme.dangerColor,
+                                        Expanded(
+                                          flex: 2,
+                                          child: Text(
+                                            'Total Item Cost',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.textSecondaryColor,
                                             ),
-                                            tooltip: 'Remove consumable mapping',
-                                            onPressed: () =>
-                                                _removeConsumableMapping(
-                                                  proc,
-                                                  item,
-                                                ),
                                           ),
                                         ),
+                                        SizedBox(width: 36),
                                       ],
                                     ),
-                                  );
-                                },
+                                  ),
+                                  Column(
+                                    children: [
+                                      for (int cIdx = 0;
+                                          cIdx < proc.mappedConsumables.length;
+                                          cIdx++) ...[
+                                        if (cIdx > 0)
+                                          const Divider(
+                                            height: 1,
+                                            color: AppTheme.borderColor,
+                                          ),
+                                        Builder(
+                                          builder: (ctx) {
+                                            final item =
+                                                proc.mappedConsumables[cIdx];
+                                            final itemTotalCost =
+                                                item.unitPrice *
+                                                item.qtyPerProcedure;
+
+                                            return Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 14,
+                                                vertical: 10,
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    flex: 3,
+                                                    child: Text(
+                                                      '${cIdx + 1}.  ${item.consumableName}',
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.w600,
+                                                        fontSize: 13,
+                                                        color: AppTheme
+                                                            .textPrimaryColor,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    flex: 2,
+                                                    child: Text(
+                                                      '₹${item.unitPrice.toStringAsFixed(2)} / ${item.unit}',
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color: AppTheme
+                                                            .textSecondaryColor,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    flex: 2,
+                                                    child: Text(
+                                                      '${item.qtyPerProcedure} ${item.unit}',
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: AppTheme
+                                                            .textPrimaryColor,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    flex: 2,
+                                                    child: Text(
+                                                      '₹${itemTotalCost.toStringAsFixed(2)}',
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: AppTheme.primaryColor,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  SizedBox(
+                                                    width: 36,
+                                                    child: IconButton(
+                                                      icon: const Icon(
+                                                        Icons.close,
+                                                        size: 16,
+                                                        color: AppTheme.dangerColor,
+                                                      ),
+                                                      tooltip:
+                                                          'Remove consumable mapping',
+                                                      onPressed: () =>
+                                                          _removeConsumableMapping(
+                                                            proc,
+                                                            item,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
                             Text(
                               'Estimated Consumables Total: ₹${totalConsumablesCost.toStringAsFixed(2)}  |  Total Procedure Billing: ₹${(proc.procedureCharge + totalConsumablesCost).toStringAsFixed(2)}',
@@ -12510,611 +13704,640 @@ class _AddUserDialogState extends State<AddUserDialog> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      title: const Text(
-        'Register New Staff',
-        style: TextStyle(
-          fontFamily: AppTheme.fontFamily,
-          fontWeight: FontWeight.bold,
+  Widget _buildFullNameField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Full Name',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
         ),
-      ),
-      content: SizedBox(
-        width: MediaQuery.of(context).size.width > 640
-            ? 600
-            : MediaQuery.of(context).size.width * 0.9,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            child: Column(
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _nameController,
+          onChanged: (_) {
+            if (_errorMessage != null) setState(() => _errorMessage = null);
+          },
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+            LengthLimitingTextInputFormatter(30),
+          ],
+          decoration: InputDecoration(
+            hintText: 'Enter full name',
+            hintStyle: const TextStyle(
+              color: Color(0xFFCBD5E0),
+              fontSize: 11,
+            ),
+            filled: true,
+            fillColor: AppTheme.backgroundColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppTheme.primaryColor),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          validator: (val) =>
+              val == null || val.isEmpty ? 'Please enter full name' : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmailField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Email Address',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _emailController,
+          onChanged: (_) {
+            if (_errorMessage != null) setState(() => _errorMessage = null);
+          },
+          keyboardType: TextInputType.emailAddress,
+          maxLength: 254,
+          inputFormatters: [
+            FilteringTextInputFormatter.deny(RegExp(r'\s')),
+            LengthLimitingTextInputFormatter(254),
+          ],
+          decoration: InputDecoration(
+            hintText: 'Enter email address',
+            hintStyle: const TextStyle(
+              color: Color(0xFFCBD5E0),
+              fontSize: 11,
+            ),
+            counterText: '',
+            filled: true,
+            fillColor: AppTheme.backgroundColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppTheme.primaryColor),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          validator: (val) {
+            if (val == null || val.trim().isEmpty) {
+              return 'Please enter Email Address';
+            }
+            if (!RegExp(
+              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+            ).hasMatch(val.trim())) {
+              return 'Please enter a valid email address';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Mobile Number',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _mobileController,
+          onChanged: (_) {
+            if (_errorMessage != null) setState(() => _errorMessage = null);
+          },
+          keyboardType: TextInputType.phone,
+          maxLength: 10,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10),
+          ],
+          decoration: InputDecoration(
+            hintText: 'Enter 10-digit number',
+            hintStyle: const TextStyle(
+              color: Color(0xFFCBD5E0),
+              fontSize: 11,
+            ),
+            counterText: '',
+            errorMaxLines: 2,
+            filled: true,
+            fillColor: AppTheme.backgroundColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppTheme.primaryColor),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            errorStyle: const TextStyle(fontSize: 11, color: Colors.red),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          validator: (val) {
+            if (val == null || val.trim().isEmpty) {
+              return 'Please enter mobile number';
+            }
+            final clean = val.trim();
+            if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+              return 'Mobile number must start with 6, 7, 8, or 9';
+            }
+            if (clean.length != 10) {
+              return 'Mobile number must be exactly 10 digits';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Password',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _passwordController,
+          onChanged: (_) {
+            if (_errorMessage != null) setState(() => _errorMessage = null);
+          },
+          obscureText: _obscurePassword,
+          maxLength: 16,
+          inputFormatters: [
+            LengthLimitingTextInputFormatter(16),
+          ],
+          decoration: InputDecoration(
+            counterText: '',
+            hintText: 'Enter password',
+            hintStyle: const TextStyle(
+              color: Color(0xFFCBD5E0),
+              fontSize: 11,
+            ),
+            suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_errorMessage != null)
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.redAccent,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.refresh,
+                    color: AppTheme.primaryColor,
+                    size: 20,
                   ),
-                // ── Patient-form style helper ──
-                // Labels: black, 12px, w600 | Fields: light fill, E2E8F0 border, primaryColor focused, CBD5E0 hint
-
-                // ── Row 1: Full Name | Email ──
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Full Name',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _nameController,
-                            onChanged: (_) {
-                              if (_errorMessage != null)
-                                setState(() => _errorMessage = null);
-                            },
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[a-zA-Z\s]'),
-                              ),
-                              LengthLimitingTextInputFormatter(30),
-                            ],
-                            decoration: InputDecoration(
-                              hintText: 'Enter full name',
-                              hintStyle: const TextStyle(
-                                color: Color(0xFFCBD5E0),
-                                fontSize: 11,
-                              ),
-                              filled: true,
-                              fillColor: AppTheme.backgroundColor,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: Colors.red),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: Colors.red),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                            ),
-                            validator: (val) => val == null || val.isEmpty
-                                ? 'Please enter full name'
-                                : null,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Email Address',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _emailController,
-                            onChanged: (_) {
-                              if (_errorMessage != null)
-                                setState(() => _errorMessage = null);
-                            },
-                            keyboardType: TextInputType.emailAddress,
-                            inputFormatters: [
-                              LengthLimitingTextInputFormatter(100),
-                            ],
-                            decoration: InputDecoration(
-                              hintText: 'Enter email address',
-                              hintStyle: const TextStyle(
-                                color: Color(0xFFCBD5E0),
-                                fontSize: 11,
-                              ),
-                              filled: true,
-                              fillColor: AppTheme.backgroundColor,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: Colors.red),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: Colors.red),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                            ),
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) {
-                                return 'Please enter Email Address';
-                              }
-                              if (!RegExp(
-                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                              ).hasMatch(val.trim())) {
-                                return 'Please enter a valid email address';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  tooltip: 'Regenerate Password',
+                  onPressed: () {
+                    setState(() {
+                      _passwordController.text =
+                          PasswordPolicy.generateSecurePassword();
+                      _obscurePassword = false;
+                    });
+                  },
                 ),
-                const SizedBox(height: 20),
-
-                // ── Row 2: Mobile | Password ──
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Mobile Number',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _mobileController,
-                            onChanged: (_) {
-                              if (_errorMessage != null)
-                                setState(() => _errorMessage = null);
-                            },
-                            keyboardType: TextInputType.phone,
-                            maxLength: 10,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(10),
-                            ],
-                            decoration: InputDecoration(
-                              hintText: 'Enter 10-digit number',
-                              hintStyle: const TextStyle(
-                                color: Color(0xFFCBD5E0),
-                                fontSize: 11,
-                              ),
-                              counterText: '',
-                              errorMaxLines: 2,
-                              filled: true,
-                              fillColor: AppTheme.backgroundColor,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: Colors.red),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: Colors.red),
-                              ),
-                              errorStyle: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.red,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                            ),
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) {
-                                return 'Please enter mobile number';
-                              }
-                              final clean = val.trim();
-                              if (!RegExp(r'^[6-9]').hasMatch(clean)) {
-                                return 'Mobile number must start with 6, 7, 8, or 9';
-                              }
-                              if (clean.length != 10) {
-                                return 'Mobile number must be exactly 10 digits';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Password',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _passwordController,
-                            onChanged: (_) {
-                              if (_errorMessage != null)
-                                setState(() => _errorMessage = null);
-                            },
-                            obscureText: _obscurePassword,
-                            maxLength: 16,
-                            inputFormatters: [
-                              LengthLimitingTextInputFormatter(16),
-                            ],
-                            decoration: InputDecoration(
-                              counterText: '',
-                              hintText: 'Enter password',
-                              hintStyle: const TextStyle(
-                                color: Color(0xFFCBD5E0),
-                                fontSize: 11,
-                              ),
-                              suffixIcon: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.refresh,
-                                      color: AppTheme.primaryColor,
-                                      size: 20,
-                                    ),
-                                    tooltip: 'Regenerate Password',
-                                    onPressed: () {
-                                      setState(() {
-                                        _passwordController.text =
-                                            PasswordPolicy.generateSecurePassword();
-                                        _obscurePassword = false;
-                                      });
-                                    },
-                                  ),
-                                  IconButton(
-                                    icon: Icon(
-                                      _obscurePassword
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                      color: AppTheme.textSecondaryColor,
-                                      size: 20,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _obscurePassword = !_obscurePassword;
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                              filled: true,
-                              fillColor: AppTheme.backgroundColor,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: Colors.red),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: Colors.red),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                            ),
-                            validator: PasswordPolicy.validatePassword,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // ── Row 3: Role (full width) ──
-                const Text(
-                  'Role',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                IconButton(
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: AppTheme.textSecondaryColor,
+                    size: 20,
                   ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
                 ),
-                const SizedBox(height: 10),
-                _isLoadingRoles
-                    ? const Center(child: CircularProgressIndicator())
-                    : CustomDropdownSearch(
-                        label: '', // label shown externally above
-                        hint: 'Select Role',
-                        dropdownItems: _roles,
-                        value: _selectedRole,
-                        fillColor: AppTheme.backgroundColor,
-                        popupBgColor: Colors.white,
-                        borderColor: const Color(0xFFE2E8F0),
-                        focusedBorderColor: AppTheme.primaryColor,
-                        height: 52,
-                        hintFontSize: 11,
-                        onChanged: (val) {
-                          setState(() {
-                            _errorMessage = null;
-                            _selectedRole = val;
-                            if (_selectedRole != 'Doctor') {
-                              _selectedSpecializationId = null;
-                            }
-                          });
-                        },
-                        validator: (val) => val == null || val.isEmpty || !_roles.contains(val)
-                            ? 'Please select a valid role'
-                            : null,
-                      ),
-
-                // ── Row 4: Specialization | Medical License (Doctor only) ──
-                if (_selectedRole == 'Doctor') ...[
-                  const SizedBox(height: 20),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Specialization',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            _isLoadingSpecializations
-                                ? const Center(
-                                    child: CircularProgressIndicator(),
-                                  )
-                                : CustomDropdownSearch(
-                                    label: '',
-                                    hint: 'Select specialization',
-                                    dropdownMap: {
-                                      for (var spec in _specializations)
-                                        spec['id'].toString(): spec['name']
-                                            .toString(),
-                                    },
-                                    value: _selectedSpecializationId
-                                        ?.toString(),
-                                    fillColor: AppTheme.backgroundColor,
-                                    popupBgColor: Colors.white,
-                                    borderColor: const Color(0xFFE2E8F0),
-                                    focusedBorderColor: AppTheme.primaryColor,
-                                    height: 52,
-                                    hintFontSize: 11,
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _selectedSpecializationId = val != null
-                                            ? int.tryParse(val)
-                                            : null;
-                                      });
-                                    },
-                                    validator: (val) {
-                                      if (_selectedRole != 'Doctor') {
-                                        return null;
-                                      }
-                                      if (val == null || val.isEmpty) {
-                                        return 'Please select a specialization';
-                                      }
-                                      final validSpecIds = _specializations
-                                          .map((s) => s['id'].toString())
-                                          .toSet();
-                                      if (!validSpecIds.contains(val)) {
-                                        return 'Please select a valid specialization from the list';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Medical License',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: _licenseController,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                  RegExp(r'[a-zA-Z0-9\-]'),
-                                ),
-                                LengthLimitingTextInputFormatter(30),
-                              ],
-                              decoration: InputDecoration(
-                                hintText: 'Optional',
-                                hintStyle: const TextStyle(
-                                  color: Color(0xFFCBD5E0),
-                                  fontSize: 11,
-                                ),
-                                filled: true,
-                                fillColor: AppTheme.backgroundColor,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFE2E8F0),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFE2E8F0),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
+            ),
+            filled: true,
+            fillColor: AppTheme.backgroundColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppTheme.primaryColor),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          validator: PasswordPolicy.validatePassword,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSpecializationField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Specialization',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _isLoadingSpecializations
+            ? const Center(child: CircularProgressIndicator())
+            : CustomDropdownSearch(
+                label: '',
+                hint: 'Select specialization',
+                dropdownMap: {
+                  for (var spec in _specializations)
+                    spec['id'].toString(): spec['name'].toString(),
+                },
+                value: _selectedSpecializationId?.toString(),
+                fillColor: AppTheme.backgroundColor,
+                popupBgColor: Colors.white,
+                borderColor: const Color(0xFFE2E8F0),
+                focusedBorderColor: AppTheme.primaryColor,
+                height: 52,
+                hintFontSize: 11,
+                onChanged: (val) {
+                  setState(() {
+                    _selectedSpecializationId =
+                        val != null ? int.tryParse(val) : null;
+                  });
+                },
+                validator: (val) {
+                  if (_selectedRole != 'Doctor') {
+                    return null;
+                  }
+                  if (val == null || val.isEmpty) {
+                    return 'Please select a specialization';
+                  }
+                  final validSpecIds =
+                      _specializations.map((s) => s['id'].toString()).toSet();
+                  if (!validSpecIds.contains(val)) {
+                    return 'Please select a valid specialization from the list';
+                  }
+                  return null;
+                },
+              ),
+      ],
+    );
+  }
+
+  Widget _buildLicenseField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Medical License',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _licenseController,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\-]')),
+            LengthLimitingTextInputFormatter(30),
+          ],
+          decoration: InputDecoration(
+            hintText: 'Optional',
+            hintStyle: const TextStyle(
+              color: Color(0xFFCBD5E0),
+              fontSize: 11,
+            ),
+            filled: true,
+            fillColor: AppTheme.backgroundColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppTheme.primaryColor),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
             ),
           ),
         ),
-      ),
-      actions: [
-        OutlinedButton(
-          onPressed: _isLoading ? null : () => Navigator.pop(context),
-          style: AppTheme.cancelButton,
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _createUser,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.logoRed,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(120, 48),
-          ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : const Text('Create Staff'),
-        ),
       ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final screenWidth = mediaQuery.size.width;
+    final isMobile = screenWidth < 640;
+
+    return Dialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 40,
+        vertical: isMobile ? 16 : 24,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 600,
+          maxHeight: mediaQuery.size.height * (isMobile ? 0.9 : 0.85),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 20, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Register New Staff',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: AppTheme.textPrimaryColor,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Scrollable form content
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: _formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_errorMessage != null)
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: Colors.redAccent,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage!,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // Row 1: Full Name | Email
+                      if (isMobile) ...[
+                        _buildFullNameField(),
+                        const SizedBox(height: 16),
+                        _buildEmailField(),
+                      ] else
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _buildFullNameField()),
+                            const SizedBox(width: 16),
+                            Expanded(child: _buildEmailField()),
+                          ],
+                        ),
+                      const SizedBox(height: 20),
+
+                      // Row 2: Mobile | Password
+                      if (isMobile) ...[
+                        _buildMobileField(),
+                        const SizedBox(height: 16),
+                        _buildPasswordField(),
+                      ] else
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _buildMobileField()),
+                            const SizedBox(width: 16),
+                            Expanded(child: _buildPasswordField()),
+                          ],
+                        ),
+                      const SizedBox(height: 20),
+
+                      // Row 3: Role (full width)
+                      const Text(
+                        'Role',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _isLoadingRoles
+                          ? const Center(child: CircularProgressIndicator())
+                          : CustomDropdownSearch(
+                              label: '',
+                              hint: 'Select Role',
+                              dropdownItems: _roles,
+                              value: _selectedRole,
+                              fillColor: AppTheme.backgroundColor,
+                              popupBgColor: Colors.white,
+                              borderColor: const Color(0xFFE2E8F0),
+                              focusedBorderColor: AppTheme.primaryColor,
+                              height: 52,
+                              hintFontSize: 11,
+                              onChanged: (val) {
+                                setState(() {
+                                  _errorMessage = null;
+                                  _selectedRole = val;
+                                  if (_selectedRole != 'Doctor') {
+                                    _selectedSpecializationId = null;
+                                  }
+                                });
+                              },
+                              validator: (val) => val == null ||
+                                      val.isEmpty ||
+                                      !_roles.contains(val)
+                                  ? 'Please select a valid role'
+                                  : null,
+                            ),
+
+                      // Row 4: Specialization | Medical License (Doctor only)
+                      if (_selectedRole == 'Doctor') ...[
+                        const SizedBox(height: 20),
+                        if (isMobile) ...[
+                          _buildSpecializationField(),
+                          const SizedBox(height: 16),
+                          _buildLicenseField(),
+                        ] else
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: _buildSpecializationField()),
+                              const SizedBox(width: 16),
+                              Expanded(child: _buildLicenseField()),
+                            ],
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            // Actions
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    onPressed: _isLoading ? null : () => Navigator.pop(context),
+                    style: AppTheme.cancelButton,
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _createUser,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.logoRed,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(120, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text('Create Staff'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
