@@ -65,10 +65,6 @@ jobs:
 
       # ============================================
       # 7. Create deployment package
-      #
-      # Archive is created outside build/web
-      # so tar does not modify the directory
-      # while reading it.
       # ============================================
       - name: Create deployment package
         run: |
@@ -154,14 +150,18 @@ jobs:
 
 
       # ============================================
-      # 14. Set frontend permissions
+      # 14. Set correct permissions
+      #
+      # ec2-user owns the deployment directory.
+      # Nginx only needs read/execute permission.
       # ============================================
       - name: Set frontend permissions
         run: |
           ssh \
             -i ~/.ssh/ec2_key.pem \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
-            "sudo chown -R nginx:nginx /var/www/flutter"
+            "sudo chown -R ec2-user:ec2-user /var/www/flutter && \
+             sudo chmod -R 755 /var/www/flutter"
 
 
       # ============================================
