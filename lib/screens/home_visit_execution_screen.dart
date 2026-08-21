@@ -4023,7 +4023,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   }
 
   Future<void> _fetchInventoryCatalogs() async {
-    final baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3001/api';
+    final baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api';
     try {
       final medRes = await ApiService.get(
         '$baseUrl/inventory/medicine-catalog',
@@ -4726,7 +4726,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           try {
                             final baseUrl =
                                 dotenv.env['BASE_URL'] ??
-                                'http://localhost:3001/api';
+                                'http://localhost:3000/api';
                             final payload = {
                               'start_time': timeCtrl.text.trim(),
                               'nurse_name': nurseCtrl.text.trim(),

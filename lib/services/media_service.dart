@@ -12,7 +12,7 @@ class MediaService {
     String? folder,
   }) async {
     try {
-      final String baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3001/api';
+      final String baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api';
       final Uri uploadUri = Uri.parse('$baseUrl/media/upload');
 
       // Determine resource type based on file extension (for content-type setting)
