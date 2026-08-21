@@ -4,7 +4,7 @@ import 'api_service.dart';
 
 class HomeVisitService {
   String get baseUrl {
-    final url = dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api';
+    final url = ApiEndpoints.baseUrl;
     return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
   }
 
