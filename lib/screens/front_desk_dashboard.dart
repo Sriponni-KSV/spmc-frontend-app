@@ -321,7 +321,8 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     if (_isRegisteringPatient ||
         widget.isRegisteringPatient ||
         widget.isEditingProfile ||
-        _patientToComplete != null) {
+        _patientToComplete != null ||
+        widget.forceBooking) {
       return true;
     }
     try {

@@ -2139,9 +2139,15 @@ class _PatientsViewState extends State<PatientsView> {
                                   controller: emailCtrl,
                                   hint: 'Enter Email Address',
                                   keyboardType: TextInputType.emailAddress,
+                                  inputFormatters: [
+                                    LengthLimitingTextInputFormatter(100),
+                                  ],
                                   validator: (val) {
                                     if (val == null || val.trim().isEmpty) {
                                       return 'Please enter Email Address';
+                                    }
+                                    if (val.trim().length > 100) {
+                                      return 'Email address cannot exceed 100 characters';
                                     }
                                     if (!RegExp(
                                       r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',

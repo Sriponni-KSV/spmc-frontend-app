@@ -175,11 +175,12 @@ To maintain database and operational consistency, use the following validation a
 | Field Name | Min Length | Max Length | Allowed Character Pattern | Validation Logic |
 | :--- | :--- | :--- | :--- | :--- |
 | **Patient Full Name** | 3 chars | 30 chars | `[a-zA-Z\s]` (Alphabets & spaces only) | Reject numbers/symbols. Mandatory field check. |
-| **Email Address** | N/A | 254 chars | Valid Email Format | Match regex: `^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$`. |
+| **Email Address** | N/A | 100 chars | Valid Email Format | Match regex: `^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$`. |
 | **Mobile Number** | 10 chars | 10 chars | `[0-9]` (Digits only) | Must be exactly 10 digits. |
 | **Relationship / Relation** | N/A | 20 chars | `[a-zA-Z\s]` (Alphabets & spaces only) | Standard relation text. |
 | **Pincode / Zip** | 6 chars | 6 chars | `[0-9]` (Digits only) | Match postal constraints. |
 | **Password** | 8 chars | 16 chars | Mixed Alpha-numeric & Special | Must contain: 1 lowercase, 1 uppercase, 1 digit, 1 special char. |
+| **Consumable Item Name** | 2 chars | 60 chars | `[a-zA-Z0-9\s.,/#\-\(\):;%+]` | Alphabet mandatory. Reject invalid special symbols only. |
 
 ### 7.2 Medical Vitals Validation Checks
 
@@ -191,8 +192,8 @@ Vitals must have strict boundary conditions to avoid data entry issues:
 | **Diastolic BP** | 50 - 180 mmHg | Integer (Non-zero) | Must be between 50 and 180 mmHg |
 | **Sugar Level** | 30 - 600 mg/dL | Double/Number (Non-zero) | Must be between 30 and 600 mg/dL |
 | **Temperature** | 90 - 115 °F | Double/Number (Non-zero) | Must be between 90 and 115 °F |
-| **Height** | > 0 | Double/Number | Height must be positive and non-zero |
-| **Weight** | > 0 | Double/Number | Weight must be positive and non-zero |
+| **Height** | 30 - 300 cm | Double/Number | Height must be between 30 and 300 cm |
+| **Weight** | 0.5 - 500 kg | Double/Number | Weight must be between 0.5 and 500 kg |
 
 ---
 

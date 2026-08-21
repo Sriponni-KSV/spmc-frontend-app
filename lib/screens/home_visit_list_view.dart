@@ -38,7 +38,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
   String _selectedStatusFilter = 'All';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-  String _dateFilterType = 'All Dates';
+  String _dateFilterType = 'Today';
   DateTime? _selectedCustomDate;
   int _currentPage = 1;
   int _itemsPerPage = 10;
@@ -912,16 +912,11 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
   }
 
   Widget _buildVisitCard(BuildContext context, HomeVisitModel visit) {
-    final bool canExecute = _isExecuteButtonEnabled(visit);
+    final bool isCompleted = visit.status.toLowerCase() == 'completed' ||
+        visit.status.toLowerCase() == 'verified';
 
-    String effectiveStatus = visit.status == 'Verified' ? 'Completed' : visit.status;
-    if (canExecute && (visit.status == 'Verified' || visit.status == 'Completed')) {
-      effectiveStatus = 'Scheduled';
-    }
-
-    final now = DateTime.now();
-    final todayFormatted = "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}";
-    final String displayDate = (effectiveStatus == 'Scheduled' && canExecute) ? todayFormatted : visit.formattedScheduledDate;
+    final String effectiveStatus = isCompleted ? 'Completed' : visit.status;
+    final String displayDate = visit.formattedScheduledDate;
 
     Color badgeBg = AppTheme.primaryLight;
     Color badgeText = AppTheme.primaryColor;
@@ -959,18 +954,35 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               final IconData btnIcon = isInProgress ? Icons.play_arrow_outlined : (canExecute ? Icons.medical_services_outlined : Icons.lock_clock_outlined);
 
               final btn = ElevatedButton.icon(
-                style: canExecute
+                style: (canExecute
                     ? AppTheme.secondaryButton
                     : ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFCBD5E1),
                         foregroundColor: const Color(0xFF64748B),
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                icon: Icon(btnIcon, size: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      )).copyWith(
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                  ),
+                  shape: WidgetStateProperty.all(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                icon: Icon(btnIcon, size: 16),
                 label: Text(
                   btnText,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: canExecute ? Colors.white : const Color(0xFF64748B)),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: canExecute
+                        ? Colors.white
+                        : const Color(0xFF64748B),
+                  ),
                 ),
                 onPressed: canExecute
                     ? () => _onExecuteVisitPressed(context, visit)
@@ -1002,24 +1014,49 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             },
           );
 
-          // Wide-mode buttons (compact, natural size)
+          // Wide-mode buttons (compact, natural size with perfect top-aligned baseline)
           final wideButtons = Row(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (visit.status != 'Cancelled') ...[
-                IconButton(
-                  icon: const Icon(Icons.do_not_disturb_on_outlined, color: AppTheme.dangerColor, size: 22),
-                  tooltip: 'Stop / Discontinue Care',
-                  onPressed: () => _showDiscontinueDialog(context, visit),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2.0),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    icon: const Icon(
+                      Icons.do_not_disturb_on_outlined,
+                      color: AppTheme.dangerColor,
+                      size: 22,
+                    ),
+                    tooltip: 'Stop / Discontinue Care',
+                    onPressed: () => _showDiscontinueDialog(context, visit),
+                  ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 6),
               ],
               SizedBox(
                 height: 36,
                 child: ElevatedButton.icon(
-                  style: AppTheme.primaryButton,
-                  icon: const Icon(Icons.visibility_outlined, size: 15),
-                  label: const Text('View Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  style: AppTheme.primaryButton.copyWith(
+                    padding: WidgetStateProperty.all(
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                    ),
+                    shape: WidgetStateProperty.all(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: const Text(
+                    'View Summary',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
                   onPressed: () {
                     if (widget.onViewSummary != null) {
                       widget.onViewSummary!(visit.id);
@@ -1034,7 +1071,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   },
                 ),
               ),
-              if (visit.status != 'Cancelled' && widget.showExecuteButton) ...[
+              if (!isCompleted && visit.status != 'Cancelled' && widget.showExecuteButton) ...[
                 const SizedBox(width: 8),
                 buildExecuteBtn(),
               ],
@@ -1170,7 +1207,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         },
                       ),
                     ),
-                    if (visit.status != 'Cancelled' && widget.showExecuteButton) ...[
+                    if (!isCompleted && visit.status != 'Cancelled' && widget.showExecuteButton) ...[
                       const SizedBox(width: 6),
                       Expanded(
                         child: Builder(
@@ -1669,12 +1706,28 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     HomeVisitModel? activeVisit;
     for (final v in controller.visits) {
       if (v.id != visit.id && v.status.toLowerCase() == 'in-progress') {
-        final bool isSameNurse = (authUser != null && v.nurseId == authUser.id) ||
-            (v.startNurseName != null &&
-                v.startNurseName!.isNotEmpty &&
+        final bool isNurseMatch = (authUser != null && v.nurseId != null && v.nurseId == authUser.id) ||
+            (v.nurseName != null &&
+                v.nurseName!.trim().isNotEmpty &&
                 authUser != null &&
-                v.startNurseName!.toLowerCase() == authUser.fullname.toLowerCase()) ||
-            (authUser != null && (authUser.role == 'Nurse' || authUser.role == 'Head Nurse'));
+                authUser.fullname.trim().isNotEmpty &&
+                v.nurseName!.trim().toLowerCase() == authUser.fullname.trim().toLowerCase()) ||
+            (v.startNurseName != null &&
+                v.startNurseName!.trim().isNotEmpty &&
+                authUser != null &&
+                authUser.fullname.trim().isNotEmpty &&
+                v.startNurseName!.trim().toLowerCase() == authUser.fullname.trim().toLowerCase());
+
+        final bool isVisitNurseMatch = (visit.nurseId != null && v.nurseId != null && visit.nurseId == v.nurseId) ||
+            (visit.nurseName != null &&
+                visit.nurseName!.trim().isNotEmpty &&
+                v.nurseName != null &&
+                v.nurseName!.trim().isNotEmpty &&
+                visit.nurseName!.trim().toLowerCase() == v.nurseName!.trim().toLowerCase());
+
+        final bool isSameNurse = isNurseMatch ||
+            (authUser?.role != 'Nurse' && authUser?.role != 'Head Nurse' && isVisitNurseMatch);
+
         if (isSameNurse) {
           activeVisit = v;
           break;

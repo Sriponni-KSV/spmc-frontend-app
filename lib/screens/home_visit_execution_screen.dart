@@ -19,6 +19,7 @@ import '../widgets/custom_dropdown_search.dart';
 import 'home_visit_invoice_dialog.dart';
 import '../utils/unsaved_changes_helper.dart';
 import '../utils/modal_history_helper.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeVisitExecutionScreen extends StatefulWidget {
   final int visitId;
@@ -189,6 +190,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   final TextEditingController _consPriceCtrl = TextEditingController();
 
   // Kit & Devices Form Controllers
+  bool _isAddingKitItem = false;
   String? _selectedKitDropdown;
   final TextEditingController _customKitNameCtrl = TextEditingController();
   final TextEditingController _kitItemNameCtrl = TextEditingController();
@@ -2140,7 +2142,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       inputFormatters: [
                         LengthLimitingTextInputFormatter(60),
                         FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                          RegExp(r'[a-zA-Z0-9\s]'),
                         ),
                       ],
                       onChanged: (val) {
@@ -2221,12 +2223,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             return;
                           }
                           if (!RegExp(
-                            r'^[a-zA-Z0-9\s.,/#\-\(\):;]+$',
+                            r'^[a-zA-Z0-9\s]+$',
                           ).hasMatch(cName)) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                  'Consumable name contains invalid special characters',
+                                  'Special characters are not allowed in consumable item name',
                                 ),
                                 backgroundColor: AppTheme.dangerColor,
                               ),
@@ -2281,20 +2283,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final qtyCtrl = TextEditingController(text: '1');
     final unitCtrl = TextEditingController(text: 'Pc');
     bool submitAttempted = false;
+    bool isPriceLocked = false;
 
-    const defaultConsumables = [
-      'Diaper',
-      'Gloves',
-      'Disposable Sheet',
-      'Gauze',
-      'Dressing Pad',
-      'Syringe 5ml',
-      'Alcohol Swab',
-      'Antiseptic Solution 100ml',
-      'Sterile Bandage',
-      'IV Cannula 20G',
-      'Adhesive Tape',
-    ];
+    final availableConsumables =
+        _dbConsumables.isNotEmpty ? _dbConsumables : _defaultConsumables;
 
     const defaultPriceMap = {
       'Diaper': 40.0,
@@ -2309,6 +2301,32 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       'IV Cannula 20G': 65.0,
       'Adhesive Tape': 15.0,
     };
+
+    double? getKnownConsumablePrice(String cName) {
+      final key = cName.toLowerCase().trim();
+      if (key.isEmpty) return null;
+      if (_consumablePrices.containsKey(key)) {
+        return _consumablePrices[key];
+      }
+      if (_defaultConsumablePrices.containsKey(key)) {
+        return _defaultConsumablePrices[key];
+      }
+      for (final entry in defaultPriceMap.entries) {
+        if (entry.key.toLowerCase().trim() == key) {
+          return entry.value;
+        }
+      }
+      return null;
+    }
+
+    bool isKnownItem(String cName) {
+      final key = cName.toLowerCase().trim();
+      if (key.isEmpty) return false;
+      return availableConsumables.any((c) => c.toLowerCase().trim() == key) ||
+          _consumablePrices.containsKey(key) ||
+          _defaultConsumablePrices.containsKey(key) ||
+          defaultPriceMap.keys.any((k) => k.toLowerCase().trim() == key);
+    }
 
     showDialog(
       context: context,
@@ -2338,22 +2356,30 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     CustomDropdownSearch(
                       label: '',
                       hint: 'Select or type consumable name',
-                      dropdownItems: defaultConsumables,
+                      dropdownItems: availableConsumables,
                       allowFreeText: true,
                       maxLength: 60,
                       inputFormatters: [
                         LengthLimitingTextInputFormatter(60),
                         FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                          RegExp(r'[a-zA-Z0-9\s]'),
                         ),
                       ],
                       onChanged: (val) {
                         setDlgState(() {
                           nameCtrl.text = val ?? '';
                           submitAttempted = false;
-                          if (defaultPriceMap.containsKey(nameCtrl.text)) {
-                            priceCtrl.text = defaultPriceMap[nameCtrl.text]!
-                                .toStringAsFixed(0);
+                          final knownPrice = getKnownConsumablePrice(nameCtrl.text);
+                          if (knownPrice != null) {
+                            priceCtrl.text = knownPrice
+                                .toStringAsFixed(2)
+                                .replaceAll(RegExp(r'\.00$'), '');
+                            isPriceLocked = true;
+                          } else if (isKnownItem(nameCtrl.text)) {
+                            priceCtrl.text = '20';
+                            isPriceLocked = true;
+                          } else {
+                            isPriceLocked = false;
                           }
                         });
                       },
@@ -2377,9 +2403,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildLabel('Unit Price (₹)'),
+                              Row(
+                                children: [
+                                  _buildLabel('Unit Price (₹)'),
+                                  if (isPriceLocked) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.lock,
+                                      size: 13,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ],
+                                ],
+                              ),
                               TextFormField(
                                 controller: priceCtrl,
+                                readOnly: isPriceLocked,
                                 keyboardType:
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
@@ -2391,7 +2430,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   LengthLimitingTextInputFormatter(7),
                                 ],
                                 decoration: AppTheme.standardInputDecoration(
-                                  hintText: 'Price (Max ₹50,000)',
+                                  hintText: isPriceLocked
+                                      ? 'Locked by catalog'
+                                      : 'Price (Max ₹50,000)',
+                                  suffixIcon: isPriceLocked
+                                      ? const Tooltip(
+                                          message:
+                                              'Price is locked for existing catalog items',
+                                          child: Icon(
+                                            Icons.lock_outline,
+                                            size: 16,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        )
+                                      : null,
                                 ),
                               ),
                             ],
@@ -2420,7 +2472,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               actions: [
                 OutlinedButton(
                   style: AppTheme.cancelButton,
-                  onPressed: () => Navigator.pop(dCtx),
+                  onPressed: () {
+                    ModalHistoryHelper.skipNextHistoryBack();
+                    Navigator.pop(dCtx);
+                  },
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
@@ -2444,6 +2499,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         const SnackBar(
                           content: Text(
                             'Consumable name must contain alphabetical characters and cannot consist solely of numbers or symbols',
+                          ),
+                          backgroundColor: AppTheme.dangerColor,
+                        ),
+                      );
+                      return;
+                    }
+                    if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(cName)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Special characters are not allowed in consumable item name',
                           ),
                           backgroundColor: AppTheme.dangerColor,
                         ),
@@ -2479,6 +2545,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       qtyPerProcedure: qty,
                     );
                     onAdd(item);
+                    ModalHistoryHelper.skipNextHistoryBack();
                     Navigator.pop(dCtx);
                   },
                   child: const Text('Add Consumable'),
@@ -3732,6 +3799,25 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     );
   }
 
+  Future<void> _openPhotoInNewTab(String photoUrl) async {
+    if (photoUrl.isEmpty) return;
+    String fullUrl = photoUrl.trim();
+    if (!fullUrl.startsWith('http://') && !fullUrl.startsWith('https://')) {
+      final baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3001/api';
+      final serverHost = baseUrl.replaceAll(RegExp(r'/api/?$'), '');
+      final cleanPath = fullUrl.startsWith('/') ? fullUrl.substring(1) : fullUrl;
+      fullUrl = '$serverHost/$cleanPath';
+    }
+    final uri = Uri.tryParse(fullUrl);
+    if (uri != null) {
+      try {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (err) {
+        debugPrint('Error launching photo URL: $err');
+      }
+    }
+  }
+
   void _showDeletePhotoConfirmationDialog(
     BuildContext context,
     int visitId,
@@ -3822,7 +3908,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         actions: [
           OutlinedButton(
             style: AppTheme.cancelButton,
-            onPressed: () => Navigator.of(dialogCtx).pop(),
+            onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(dialogCtx).pop();
+            },
             child: const Text('Cancel'),
           ),
           ElevatedButton.icon(
@@ -3830,6 +3919,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             icon: const Icon(Icons.delete_outline, size: 16),
             label: const Text('Delete Photo'),
             onPressed: () async {
+              ModalHistoryHelper.skipNextHistoryBack();
               Navigator.of(dialogCtx).pop();
               final ctrl = Provider.of<HomeVisitController>(
                 context,
@@ -4129,12 +4219,30 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       HomeVisitModel? activeVisit;
       for (final v in ctrl.visits) {
         if (v.id != widget.visitId && v.status.toLowerCase() == 'in-progress') {
-          final bool isSameNurse = (authUser != null && v.nurseId == authUser.id) ||
-              (v.startNurseName != null &&
-                  v.startNurseName!.isNotEmpty &&
+          final bool isNurseMatch = (authUser != null && v.nurseId != null && v.nurseId == authUser.id) ||
+              (v.nurseName != null &&
+                  v.nurseName!.trim().isNotEmpty &&
                   authUser != null &&
-                  v.startNurseName!.toLowerCase() == authUser.fullname.toLowerCase()) ||
-              (authUser != null && (authUser.role == 'Nurse' || authUser.role == 'Head Nurse'));
+                  authUser.fullname.trim().isNotEmpty &&
+                  v.nurseName!.trim().toLowerCase() == authUser.fullname.trim().toLowerCase()) ||
+              (v.startNurseName != null &&
+                  v.startNurseName!.trim().isNotEmpty &&
+                  authUser != null &&
+                  authUser.fullname.trim().isNotEmpty &&
+                  v.startNurseName!.trim().toLowerCase() == authUser.fullname.trim().toLowerCase());
+
+          final bool isVisitNurseMatch = (ctrl.selectedVisit?.nurseId != null &&
+                  v.nurseId != null &&
+                  ctrl.selectedVisit!.nurseId == v.nurseId) ||
+              (ctrl.selectedVisit?.nurseName != null &&
+                  ctrl.selectedVisit!.nurseName!.trim().isNotEmpty &&
+                  v.nurseName != null &&
+                  v.nurseName!.trim().isNotEmpty &&
+                  ctrl.selectedVisit!.nurseName!.trim().toLowerCase() == v.nurseName!.trim().toLowerCase());
+
+          final bool isSameNurse = isNurseMatch ||
+              (authUser?.role != 'Nurse' && authUser?.role != 'Head Nurse' && isVisitNurseMatch);
+
           if (isSameNurse) {
             activeVisit = v;
             break;
@@ -4693,6 +4801,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     : () async {
                         final shouldClose = await confirmCloseVisitSession();
                         if (shouldClose && mounted) {
+                          ModalHistoryHelper.skipNextHistoryBack();
                           Navigator.of(dialogCtx).pop();
                           _handleLeave();
                         }
@@ -4761,6 +4870,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   context,
                                   listen: false,
                                 ).fetchVisitDetails(visit.id);
+                                ModalHistoryHelper.skipNextHistoryBack();
                                 Navigator.of(dialogCtx).pop();
                               }
                             } else {
@@ -5035,7 +5145,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
               actions: [
-                if (visit.status != 'Cancelled' && !isCompletedOrVerified)
+                if (visit.status != 'Cancelled' &&
+                    visit.status != 'Completed' &&
+                    visit.status != 'Verified')
                   Builder(
                     builder: (ctx) {
                       final isMobile = MediaQuery.of(ctx).size.width < 700;
@@ -5233,6 +5345,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   builder: (context, constraints) {
                     final isMobile = constraints.maxWidth < 650;
                     Future<void> addKitItem() async {
+                      if (_isAddingKitItem) return;
+
                       String? name;
                       if (_selectedKitDropdown ==
                           'Other (Type Custom Kit Item...)') {
@@ -5321,37 +5435,61 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         return;
                       }
 
-                      final success = await controller.submitCarriedItem(
-                        visit.id,
-                        {
-                          'item_type': _kitItemType,
-                          'item_name': name,
-                          'quantity_carried': qty,
-                        },
+                      final isDuplicate = visit.carriedItems.any(
+                        (item) =>
+                            item.itemName.trim().toLowerCase() ==
+                            name!.trim().toLowerCase(),
                       );
-                      if (success) {
-                        _clearKitForm();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Kit item / device added successfully',
-                              ),
-                              backgroundColor: AppTheme.secondaryColor,
+                      if (isDuplicate) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '"$name" is already added to this visit. Edit or remove the existing item below.',
                             ),
-                          );
+                            backgroundColor: AppTheme.dangerColor,
+                          ),
+                        );
+                        return;
+                      }
+
+                      setState(() => _isAddingKitItem = true);
+                      try {
+                        final success = await controller.submitCarriedItem(
+                          visit.id,
+                          {
+                            'item_type': _kitItemType,
+                            'item_name': name,
+                            'quantity_carried': qty,
+                          },
+                        );
+                        if (success) {
+                          _clearKitForm();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Kit item / device added successfully',
+                                ),
+                                backgroundColor: AppTheme.secondaryColor,
+                              ),
+                            );
+                          }
+                        } else {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  controller.errorMessage ??
+                                      'Failed to add kit item',
+                                ),
+                                backgroundColor: AppTheme.dangerColor,
+                              ),
+                            );
+                          }
                         }
-                      } else {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                controller.errorMessage ??
-                                    'Failed to add kit item',
-                              ),
-                              backgroundColor: AppTheme.dangerColor,
-                            ),
-                          );
+                      } finally {
+                        if (mounted) {
+                          setState(() => _isAddingKitItem = false);
                         }
                       }
                     }
@@ -5396,9 +5534,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                         ),
                       ),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add Kit Item'),
-                      onPressed: addKitItem,
+                      icon: _isAddingKitItem
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.add, size: 18),
+                      label: Text(
+                        _isAddingKitItem ? 'Adding...' : 'Add Kit Item',
+                      ),
+                      onPressed: _isAddingKitItem ? null : addKitItem,
                     );
 
                     if (isMobile) {
@@ -5598,75 +5747,54 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
           // Empty State Box or Carried Items Grid
           if (visit.carriedItems.isEmpty)
-            Stack(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 36,
-                    horizontal: 24,
-                  ),
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF93C5FD),
-                      width: 1.2,
-                      style: BorderStyle.solid,
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF93C5FD),
+                  width: 1.2,
+                  style: BorderStyle.solid,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE0F2FE),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.medical_services_rounded,
+                      color: Color(0xFF0284C7),
+                      size: 36,
                     ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFE0F2FE),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.medical_services_rounded,
-                          color: Color(0xFF0284C7),
-                          size: 36,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      const Text(
-                        'No kit items or medical devices added yet.',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B),
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Select and add devices using the form above.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF64748B),
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 14),
+                  const Text(
+                    'No kit items or medical devices added yet.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                      fontFamily: 'Inter',
+                    ),
                   ),
-                ),
-                Positioned(
-                  right: 16,
-                  bottom: 16,
-                  child: FloatingActionButton.small(
-                    heroTag: 'add_kit_fab',
-                    elevation: 3,
-                    backgroundColor: const Color(0xFF2563EB),
-                    foregroundColor: Colors.white,
-                    onPressed: () {
-                      // Focus or scroll to form
-                    },
-                    child: const Icon(Icons.add, size: 20),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Select and add devices using the form above.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF64748B),
+                      fontFamily: 'Inter',
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             )
           else
             LayoutBuilder(
@@ -5884,6 +6012,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onPressed: () {
+                                ModalHistoryHelper.skipNextHistoryBack();
                                 _clearVitalsForm();
                                 Navigator.of(dialogCtx).pop();
                               },
@@ -6216,6 +6345,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           OutlinedButton(
                             style: AppTheme.cancelButton,
                             onPressed: () {
+                              ModalHistoryHelper.skipNextHistoryBack();
                               _clearVitalsForm();
                               Navigator.of(dialogCtx).pop();
                             },
@@ -6292,6 +6422,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     );
 
                                     if (success && mounted) {
+                                      ModalHistoryHelper.skipNextHistoryBack();
                                       _clearVitalsForm();
                                       Navigator.of(dialogCtx).pop();
                                       ScaffoldMessenger.of(
@@ -6729,7 +6860,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       ),
     );
 
-    final sortedVitals = List<HomeVisitVitals>.from(visit.vitalsHistory);
+    final todaysVitals = visit.vitalsHistory
+        .where((v) => _isRecordedToday(v.recordedAt))
+        .toList();
+    final sortedVitals = List<HomeVisitVitals>.from(todaysVitals);
     sortedVitals.sort((a, b) {
       if (a.recordedAt == null) return 1;
       if (b.recordedAt == null) return -1;
@@ -6737,20 +6871,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     });
 
     final filteredVitals = sortedVitals.where((v) {
-      if (_vitalsFilter == 'Today') {
-        if (v.recordedAt == null || v.recordedAt!.isEmpty) return true;
-        try {
-          final formatted = v.recordedAt!.trim().replaceAll(' ', 'T');
-          final dt = DateTime.parse(formatted);
-          final recDate = dt.isUtc ? dt.toLocal() : dt;
-          final today = DateTime.now();
-          return recDate.year == today.year &&
-              recDate.month == today.month &&
-              recDate.day == today.day;
-        } catch (_) {
-          return true;
-        }
-      } else if (_vitalsFilter == 'Abnormal') {
+      if (_vitalsFilter == 'Abnormal') {
         final sys = v.systolicBp ?? 120;
         final dia = v.diastolicBp ?? 80;
         final pulse = v.pulseRate ?? 72;
@@ -6941,13 +7062,36 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             ],
           ),
           const SizedBox(height: 16),
-          if (visit.vitalsHistory.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
+          if (filteredVitals.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
               child: Center(
-                child: Text(
-                  'No vital signs recorded yet today.',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.monitor_heart_outlined,
+                      size: 44,
+                      color: Colors.grey.shade300,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'No records found',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'No vital signs recorded yet for this session.',
+                      style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -8283,7 +8427,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
+            onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(dialogCtx).pop();
+            },
             child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
@@ -8295,7 +8442,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 endCtrl.text,
                 interval,
               );
-              if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+              if (dialogCtx.mounted) {
+                ModalHistoryHelper.skipNextHistoryBack();
+                Navigator.of(dialogCtx).pop();
+              }
               if (success && context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -8526,11 +8676,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       ),
     );
 
-    final careList = visit.careActivitiesHistory.isNotEmpty
+    final allCare = visit.careActivitiesHistory.isNotEmpty
         ? visit.careActivitiesHistory
         : (visit.careActivities != null
               ? [visit.careActivities!]
               : <HomeVisitCareActivities>[]);
+    final careList = allCare
+        .where((c) => _isRecordedToday(c.createdAt))
+        .toList();
     final totalCare = careList.length;
     final totalCarePages = (totalCare == 0)
         ? 1
@@ -8588,12 +8741,35 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           ),
           const SizedBox(height: 12),
           if (careList.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
               child: Center(
-                child: Text(
-                  'No nursing care activities recorded yet.',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.assignment_outlined,
+                      size: 44,
+                      color: Colors.grey.shade300,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'No records found',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'No nursing care activities recorded yet for this session.',
+                      style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -8957,7 +9133,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final currentDayNumber =
         _calculateVisitDayNumber(visit, controller);
 
-    final activeMedicines = List<HomeVisitMedicine>.from(visit.medicines)
+    final activeMedicines = visit.medicines
+        .where((m) => _isRecordedToday(m.administeredAt))
+        .toList()
       ..sort((a, b) {
         if (a.id != null && b.id != null && a.id != b.id) {
           return b.id!.compareTo(a.id!);
@@ -8965,7 +9143,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         return 0;
       });
 
-    final activeConsumables = List<HomeVisitConsumable>.from(visit.consumables)
+    final activeConsumables = visit.consumables
+        .where((c) => _isRecordedToday(c.createdAt))
+        .toList()
       ..sort((a, b) {
         if (a.id != null && b.id != null && a.id != b.id) {
           return b.id!.compareTo(a.id!);
@@ -9061,12 +9241,35 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           ),
           const SizedBox(height: 12),
           if (activeMedicines.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 36),
               child: Center(
-                child: Text(
-                  'No medicines recorded yet.',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.medication_outlined,
+                      size: 44,
+                      color: Colors.grey.shade300,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'No records found',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'No medicines recorded yet for this session.',
+                      style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -9510,16 +9713,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       ),
     );
 
-    final displayProcedures =
-        List<HomeVisitProcedureModel>.from(visit.procedures)..sort((a, b) {
-          if (a.id != null && b.id != null && a.id != b.id) {
-            return b.id!.compareTo(a.id!);
-          }
-          if (a.createdAt != null && b.createdAt != null) {
-            return b.createdAt!.compareTo(a.createdAt!);
-          }
-          return 0;
-        });
+    final displayProcedures = visit.procedures
+        .where((p) => _isRecordedToday(p.createdAt))
+        .toList()
+      ..sort((a, b) {
+        if (a.id != null && b.id != null && a.id != b.id) {
+          return b.id!.compareTo(a.id!);
+        }
+        if (a.createdAt != null && b.createdAt != null) {
+          return b.createdAt!.compareTo(a.createdAt!);
+        }
+        return 0;
+      });
 
     final totalProcedures = displayProcedures.length;
     final totalProcPages = (totalProcedures == 0)
@@ -9592,12 +9797,35 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           ),
           const SizedBox(height: 14),
           if (displayProcedures.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 36),
               child: Center(
-                child: Text(
-                  'No procedure items recorded yet.',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.medical_services_outlined,
+                      size: 44,
+                      color: Colors.grey.shade300,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'No records found',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'No procedures recorded yet for this session.',
+                      style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -10135,6 +10363,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
   // 5. Time-based Photo Evidence Tab
   Widget _buildPhotosTab(HomeVisitModel visit, HomeVisitController controller) {
+    final activePhotos = visit.photos
+        .where((p) => _isRecordedToday(p.capturedAt))
+        .toList();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -10516,13 +10748,34 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         _buildLabel('Photo Notes / Caption (Optional)'),
                         TextFormField(
                           controller: _photoCaptionCtrl,
-                          maxLength: 250,
+                          maxLength: 100,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
                           inputFormatters: [
-                            LengthLimitingTextInputFormatter(250),
+                            LengthLimitingTextInputFormatter(100),
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z0-9\s]'),
+                            ),
                           ],
+                          validator: (val) {
+                            final text = val?.trim() ?? '';
+                            if (text.isEmpty) return null;
+                            if (text.length < 3) {
+                              return 'Caption must be at least 3 characters if provided';
+                            }
+                            if (text.length > 100) {
+                              return 'Caption cannot exceed 100 characters';
+                            }
+                            if (!RegExp(r'[a-zA-Z]').hasMatch(text)) {
+                              return 'Caption must contain letters and cannot consist solely of numbers';
+                            }
+                            if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(text)) {
+                              return 'Special characters are not allowed in caption';
+                            }
+                            return null;
+                          },
                           decoration: AppTheme.standardInputDecoration(
                             hintText:
-                                'e.g. Wound cleaned, dressing applied intact... (Max 250 chars)',
+                                'e.g. Wound cleaned and dressing applied intact (Max 100 chars)',
                           ),
                         ),
                       ],
@@ -10608,6 +10861,54 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   return;
                                 }
 
+                                final captionText = _photoCaptionCtrl.text.trim();
+                                if (captionText.isNotEmpty) {
+                                  if (captionText.length < 3) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Caption must be at least 3 characters if provided',
+                                        ),
+                                        backgroundColor: AppTheme.dangerColor,
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  if (captionText.length > 100) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Caption cannot exceed 100 characters',
+                                        ),
+                                        backgroundColor: AppTheme.dangerColor,
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  if (!RegExp(r'[a-zA-Z]').hasMatch(captionText)) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Caption must contain letters and cannot consist solely of numbers',
+                                        ),
+                                        backgroundColor: AppTheme.dangerColor,
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(captionText)) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Special characters are not allowed in caption',
+                                        ),
+                                        backgroundColor: AppTheme.dangerColor,
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                }
+
                                 setState(() => _isUploadingPhoto = true);
                                 String? cloudinaryUrl;
                                 if (_selectedPhotoBytes != null) {
@@ -10676,7 +10977,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
                 const SizedBox(height: 20),
 
-                if (visit.photos.isNotEmpty) ...[
+                if (activePhotos.isNotEmpty) ...[
                   const Text(
                     'Captured Timestamped Photo Evidence Gallery',
                     style: TextStyle(
@@ -10702,9 +11003,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           mainAxisSpacing: 12,
                           childAspectRatio: 1.0,
                         ),
-                        itemCount: visit.photos.length,
+                        itemCount: activePhotos.length,
                         itemBuilder: (context, idx) {
-                          final p = visit.photos[idx];
+                          final p = activePhotos[idx];
                           String timeStr = 'Just now';
                           if (p.capturedAt != null) {
                             try {
@@ -10847,6 +11148,53 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                               ),
                                             ),
 
+                                          // Open in New Tab Button Overlay (Top-Left)
+                                          if (p.photoUrl.isNotEmpty)
+                                            Positioned(
+                                              top: 6,
+                                              left: 6,
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  onTap: () => _openPhotoInNewTab(
+                                                    p.photoUrl,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.all(5),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withValues(
+                                                            alpha: 0.95,
+                                                          ),
+                                                      shape: BoxShape.circle,
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.black
+                                                              .withValues(
+                                                                alpha: 0.2,
+                                                              ),
+                                                          blurRadius: 4,
+                                                          offset: const Offset(
+                                                            0,
+                                                            1,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.open_in_new,
+                                                      color:
+                                                          AppTheme.primaryColor,
+                                                      size: 15,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+
                                           // Delete Button Overlay (Top-Right)
                                           if (!widget.isReadOnlyView &&
                                               p.id != null)
@@ -10980,6 +11328,39 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         },
                       );
                     },
+                  ),
+                ] else ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 36),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.photo_library_outlined,
+                            size: 44,
+                            color: Colors.grey.shade300,
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'No records found',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'No photo evidence uploaded yet for this session.',
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ],
@@ -11496,6 +11877,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 await controller.fetchVisits();
 
                                 if (result != null && context.mounted) {
+                                  ModalHistoryHelper.skipNextHistoryBack();
                                   Navigator.of(dialogCtx).pop();
                                   showDialog(
                                     context: context,
@@ -11529,7 +11911,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                         ),
                         child: const Text('Cancel'),
-                        onPressed: () => Navigator.of(dialogCtx).pop(),
+                        onPressed: () {
+                          ModalHistoryHelper.skipNextHistoryBack();
+                          Navigator.of(dialogCtx).pop();
+                        },
                       ),
                     ],
                   ),
@@ -11554,97 +11939,40 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final currentDayNumber =
         _calculateVisitDayNumber(visit, controller);
 
-    // Filter vitals for TODAY / current scheduled session date ONLY
-    final todayVitals = visit.vitalsHistory.where((v) {
-      if (v.recordedAt == null || v.recordedAt!.isEmpty) return true;
-      try {
-        final formatted = v.recordedAt!.trim().replaceAll(' ', 'T');
-        final dt = DateTime.parse(formatted);
-        final recDate = dt.isUtc ? dt.toLocal() : dt;
-        final dateStr =
-            "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
-        return dateStr == todayStr || dateStr == visit.scheduledDate;
-      } catch (_) {
-        return true;
-      }
-    }).toList();
+    // Filter vitals for TODAY ONLY
+    final todayVitals = visit.vitalsHistory
+        .where((v) => _isRecordedToday(v.recordedAt))
+        .toList();
 
-    // Filter medicines for TODAY / current scheduled session date ONLY
-    final todayMedicines = visit.medicines.where((m) {
-      final isStat =
-          m.medicineType == 'STAT' ||
-          m.frequency == 'STAT' ||
-          (m.duration != null && m.duration!.contains('STAT'));
+    // Filter medicines for TODAY ONLY
+    final todayMedicines = visit.medicines
+        .where((m) => _isRecordedToday(m.administeredAt))
+        .toList();
 
-      if (isStat) {
-        if (m.administeredAt != null && m.administeredAt!.isNotEmpty) {
-          try {
-            final formatted = m.administeredAt!.trim().replaceAll(' ', 'T');
-            final dt = DateTime.parse(formatted);
-            final recDate = dt.isUtc ? dt.toLocal() : dt;
-            final medDateStr =
-                "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
-            if (medDateStr != todayStr && medDateStr != visit.scheduledDate) {
-              return false;
-            }
-          } catch (_) {}
-        }
-        if (currentDayNumber > 1) {
-          bool administeredOnEarlierDay = false;
-          m.administeredDays.forEach((dayKey, isDone) {
-            final dayInt = int.tryParse(dayKey) ?? 1;
-            if (dayInt < currentDayNumber && isDone) {
-              administeredOnEarlierDay = true;
-            }
-          });
-          if (administeredOnEarlierDay) {
-            return false;
-          }
-        }
-      }
+    // Filter consumables for TODAY ONLY
+    final todayConsumables = visit.consumables
+        .where((c) => _isRecordedToday(c.createdAt))
+        .toList();
 
-      if (m.administeredAt == null || m.administeredAt!.isEmpty) return true;
-      try {
-        final formatted = m.administeredAt!.trim().replaceAll(' ', 'T');
-        final dt = DateTime.parse(formatted);
-        final recDate = dt.isUtc ? dt.toLocal() : dt;
-        final dateStr =
-            "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
-        return dateStr == todayStr || dateStr == visit.scheduledDate;
-      } catch (_) {
-        return true;
-      }
-    }).toList();
+    // Filter procedures for TODAY ONLY
+    final todayProcedures = visit.procedures
+        .where((p) => _isRecordedToday(p.createdAt))
+        .toList();
 
-    // Filter consumables for TODAY / current scheduled session date ONLY
-    final todayConsumables = visit.consumables.where((c) {
-      if (c.createdAt == null || c.createdAt!.isEmpty) return true;
-      try {
-        final formatted = c.createdAt!.trim().replaceAll(' ', 'T');
-        final dt = DateTime.parse(formatted);
-        final recDate = dt.isUtc ? dt.toLocal() : dt;
-        final dateStr =
-            "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
-        return dateStr == todayStr || dateStr == visit.scheduledDate;
-      } catch (_) {
-        return true;
-      }
-    }).toList();
+    // Filter photos for TODAY ONLY
+    final todayPhotos = visit.photos
+        .where((p) => _isRecordedToday(p.capturedAt))
+        .toList();
 
-    // Filter photos for TODAY / current scheduled session date ONLY
-    final todayPhotos = visit.photos.where((p) {
-      if (p.capturedAt == null || p.capturedAt!.isEmpty) return true;
-      try {
-        final formatted = p.capturedAt!.trim().replaceAll(' ', 'T');
-        final dt = DateTime.parse(formatted);
-        final recDate = dt.isUtc ? dt.toLocal() : dt;
-        final dateStr =
-            "${recDate.year}-${recDate.month.toString().padLeft(2, '0')}-${recDate.day.toString().padLeft(2, '0')}";
-        return dateStr == todayStr || dateStr == visit.scheduledDate;
-      } catch (_) {
-        return true;
-      }
-    }).toList();
+    // Filter care activities for TODAY ONLY
+    final allCare = visit.careActivitiesHistory.isNotEmpty
+        ? visit.careActivitiesHistory
+        : (visit.careActivities != null
+              ? [visit.careActivities!]
+              : <HomeVisitCareActivities>[]);
+    final todayCare = allCare
+        .where((c) => _isRecordedToday(c.createdAt))
+        .toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -11945,16 +12273,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     _liveSummaryChip(
                       Icons.edit_note,
                       'Care Notes',
-                      (visit.careActivitiesHistory.isNotEmpty ||
-                              visit.careActivities != null)
-                          ? '${visit.careActivitiesHistory.isNotEmpty ? visit.careActivitiesHistory.length : 1} Entry/Entries Recorded'
+                      todayCare.isNotEmpty
+                          ? '${todayCare.length} Entry/Entries Recorded'
                           : 'Pending',
                       Colors.orange,
                     ),
                     _liveSummaryChip(
                       Icons.medication_liquid,
                       'Meds & Procedures',
-                      '${todayMedicines.length} Meds / ${visit.procedures.length} Procedures',
+                      '${todayMedicines.length} Meds / ${todayProcedures.length} Procedures',
                       AppTheme.secondaryColor,
                     ),
                     _liveSummaryChip(
@@ -12135,17 +12462,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   Icons.edit_note_outlined,
                 ),
                 const SizedBox(height: 12),
-                if (visit.careActivitiesHistory.isEmpty &&
-                    visit.careActivities == null)
+                if (todayCare.isEmpty)
                   const Text(
                     'No care activities recorded today in Nursing Care & Dressing tab.',
                     style: TextStyle(color: Colors.grey, fontSize: 13),
                   )
                 else ...[
-                  for (final care
-                      in (visit.careActivitiesHistory.isNotEmpty
-                          ? visit.careActivitiesHistory
-                          : [visit.careActivities!])) ...[
+                  for (final care in todayCare) ...[
                     Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(12),
@@ -12224,7 +12547,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
                 const SizedBox(height: 12),
                 if (todayMedicines.isEmpty &&
-                    visit.procedures.isEmpty &&
+                    todayProcedures.isEmpty &&
                     todayConsumables.isEmpty)
                   const Text(
                     'No medicines or procedures logged today in Meds & Consumables tab.',
@@ -12251,7 +12574,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                     const SizedBox(height: 12),
                   ],
-                  if (visit.procedures.isNotEmpty) ...[
+                  if (todayProcedures.isNotEmpty) ...[
                     const Text(
                       'Recorded Procedures & Consumables:',
                       style: TextStyle(
@@ -12261,14 +12584,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                     ),
                     const SizedBox(height: 6),
-                    for (final p
-                        in List<HomeVisitProcedureModel>.from(visit.procedures)
-                          ..sort(
-                            (a, b) =>
-                                (b.id != null && a.id != null && a.id != b.id)
-                                ? b.id!.compareTo(a.id!)
-                                : 0,
-                          ))
+                    for (final p in todayProcedures)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6.0),
                         child: Text(
@@ -12671,6 +12987,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (photo.photoUrl.isNotEmpty) ...[
+                          IconButton(
+                            icon: const Icon(
+                              Icons.open_in_new,
+                              color: AppTheme.primaryColor,
+                              size: 20,
+                            ),
+                            tooltip: 'Open Image in New Tab',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () =>
+                                _openPhotoInNewTab(photo.photoUrl),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
                         if (!widget.isReadOnlyView &&
                             photo.id != null &&
                             visitId != null) ...[
@@ -12684,6 +13015,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () {
+                              ModalHistoryHelper.skipNextHistoryBack();
                               Navigator.of(dialogCtx).pop();
                               _showDeletePhotoConfirmationDialog(
                                 context,
@@ -12703,7 +13035,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           tooltip: 'Close Preview',
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
-                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                          onPressed: () {
+                            ModalHistoryHelper.skipNextHistoryBack();
+                            Navigator.of(dialogCtx).pop();
+                          },
                         ),
                       ],
                     ),
@@ -12857,43 +13192,86 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               border: Border.all(color: const Color(0xFFE2E8F0)),
               boxShadow: AppTheme.cardShadow,
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.history_outlined,
-                    color: AppTheme.primaryColor,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Daily Home Nursing Care History - ${currentVisit.patientName ?? "Patient"}',
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
+            child: LayoutBuilder(
+              builder: (context, bannerConstraints) {
+                final isNarrowBanner = bannerConstraints.maxWidth < 650;
+                final bool hasActivePlan = patientVisits.any(
+                  (pv) =>
+                      pv.status != 'Cancelled' &&
+                      pv.status != 'Completed' &&
+                      pv.status != 'Verified',
+                );
+
+                return Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.history_outlined,
+                        color: AppTheme.primaryColor,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Daily Home Nursing Care History - ${currentVisit.patientName ?? "Patient"}',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Patient ID: ${currentVisit.patientDisplayId ?? "N/A"} | Select a Day Session Card below to view full details.',
+                            style:
+                                const TextStyle(fontSize: 13, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (hasActivePlan) ...[
+                      const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.dangerColor,
+                          side: const BorderSide(color: AppTheme.dangerColor),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isNarrowBanner ? 10 : 14,
+                            vertical: 10,
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.do_not_disturb_on_outlined,
+                          size: 16,
+                        ),
+                        label: Text(
+                          'Stop Care Plan',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: isNarrowBanner ? 11.5 : 12.5,
+                          ),
+                        ),
+                        onPressed: () => _showDiscontinueDialog(
+                          context,
+                          currentVisit,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Patient ID: ${currentVisit.patientDisplayId ?? "N/A"} | Select a Day Session Card below to view full details.',
-                        style:
-                            const TextStyle(fontSize: 13, color: Colors.grey),
-                      ),
                     ],
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 24),
@@ -13127,57 +13505,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ],
                     );
 
-                    final actionButtons = Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      alignment: isMobileCard
-                          ? WrapAlignment.start
-                          : WrapAlignment.end,
-                      children: [
-                        ElevatedButton.icon(
-                          style: AppTheme.primaryButton,
-                          icon: const Icon(Icons.visibility_outlined, size: 15),
-                          label: Text('View Day $dayNumber Details'),
-                          onPressed: () {
-                            setState(() {
-                              _selectedSummaryVisitId = v.id;
-                            });
-                            controller.fetchVisitDetails(v.id);
-                          },
-                        ),
-                        if (v.status != 'Cancelled' &&
-                            v.status != 'Verified' &&
-                            v.status != 'Completed')
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.dangerColor,
-                              side:
-                                  const BorderSide(color: AppTheme.dangerColor),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                            ),
-                            icon: const Icon(
-                              Icons.do_not_disturb_on_outlined,
-                              size: 14,
-                            ),
-                            label: const Text(
-                              'Stop Care Plan',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11.5,
-                              ),
-                            ),
-                            onPressed: () => _showDiscontinueDialog(
-                              context,
-                              v,
-                            ),
-                          ),
-                      ],
+                    final actionButtons = ElevatedButton.icon(
+                      style: AppTheme.primaryButton,
+                      icon: const Icon(Icons.visibility_outlined, size: 15),
+                      label: Text('View Day $dayNumber Details'),
+                      onPressed: () {
+                        setState(() {
+                          _selectedSummaryVisitId = v.id;
+                        });
+                        controller.fetchVisitDetails(v.id);
+                      },
                     );
 
                     if (isMobileCard) {
@@ -13282,30 +13619,36 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
   bool _isSameDay(String? d1, String? d2) {
     if (d1 == null || d2 == null || d1.trim().isEmpty || d2.trim().isEmpty) {
-      return true;
+      return false;
     }
-    final clean1 = d1.trim().split('T')[0].split(' ')[0];
-    final clean2 = d2.trim().split('T')[0].split(' ')[0];
+    try {
+      final clean1 =
+          d1.trim().split('T')[0].split(' ')[0].replaceAll('/', '-');
+      final clean2 =
+          d2.trim().split('T')[0].split(' ')[0].replaceAll('/', '-');
 
-    final p1 = clean1.split('-');
-    final p2 = clean2.split('-');
+      final p1 = clean1.split('-');
+      final p2 = clean2.split('-');
 
-    if (p1.length == 3 && p2.length == 3) {
-      String y1 = p1[0].length == 4 ? p1[0] : p1[2];
-      String m1 = p1[1].padLeft(2, '0');
-      String day1 = p1[0].length == 4
-          ? p1[2].padLeft(2, '0')
-          : p1[0].padLeft(2, '0');
+      if (p1.length == 3 && p2.length == 3) {
+        String y1 = p1[0].length == 4 ? p1[0] : p1[2];
+        String m1 = p1[1].padLeft(2, '0');
+        String day1 = p1[0].length == 4
+            ? p1[2].padLeft(2, '0')
+            : p1[0].padLeft(2, '0');
 
-      String y2 = p2[0].length == 4 ? p2[0] : p2[2];
-      String m2 = p2[1].padLeft(2, '0');
-      String day2 = p2[0].length == 4
-          ? p2[2].padLeft(2, '0')
-          : p2[0].padLeft(2, '0');
+        String y2 = p2[0].length == 4 ? p2[0] : p2[2];
+        String m2 = p2[1].padLeft(2, '0');
+        String day2 = p2[0].length == 4
+            ? p2[2].padLeft(2, '0')
+            : p2[0].padLeft(2, '0');
 
-      return '$y1-$m1-$day1' == '$y2-$m2-$day2';
+        return '$y1-$m1-$day1' == '$y2-$m2-$day2';
+      }
+      return clean1 == clean2;
+    } catch (_) {
+      return false;
     }
-    return clean1 == clean2;
   }
 
   // Overall Read-Only Summary View for Verified/Completed Home Visits (Step 2)
@@ -14590,22 +14933,44 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     }
   }
 
+  bool _isRecordedToday(String? dateStr) {
+    if (dateStr == null || dateStr.trim().isEmpty) return false;
+    try {
+      final formatted = dateStr.trim().replaceAll(' ', 'T');
+      final dt = DateTime.parse(formatted);
+      final local = dt.isUtc ? dt.toLocal() : dt;
+      final now = DateTime.now();
+      return local.year == now.year &&
+          local.month == now.month &&
+          local.day == now.day;
+    } catch (_) {
+      return false;
+    }
+  }
+
   String _formatTimeGap(
     HomeVisitVitals current,
     List<HomeVisitVitals> allVitals,
   ) {
     if (current.recordedAt == null || current.recordedAt!.isEmpty) return '--';
     try {
-      final dtCurrent = DateTime.parse(current.recordedAt!).toLocal();
+      final rawFormatted = current.recordedAt!.trim().replaceAll(' ', 'T');
+      final dtCurrent = DateTime.parse(rawFormatted).toLocal();
 
       DateTime? dtPrevious;
       for (var v in allVitals) {
         if (v.recordedAt != null && v.recordedAt!.isNotEmpty) {
           try {
-            final dt = DateTime.parse(v.recordedAt!).toLocal();
-            if (dt.isBefore(dtCurrent)) {
-              if (dtPrevious == null || dt.isAfter(dtPrevious)) {
-                dtPrevious = dt;
+            final vRaw = v.recordedAt!.trim().replaceAll(' ', 'T');
+            final dt = DateTime.parse(vRaw).toLocal();
+            // Only consider vitals recorded on the same day as current
+            if (dt.year == dtCurrent.year &&
+                dt.month == dtCurrent.month &&
+                dt.day == dtCurrent.day) {
+              if (dt.isBefore(dtCurrent)) {
+                if (dtPrevious == null || dt.isAfter(dtPrevious)) {
+                  dtPrevious = dt;
+                }
               }
             }
           } catch (_) {}

@@ -556,14 +556,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     if (_isRegisteringPatient ||
         widget.isRegisteringPatient ||
         widget.isEditingProfile ||
-        _patientToComplete != null) {
+        _patientToComplete != null ||
+        _selectedHomeVisitId != null ||
+        _forceBookingForm ||
+        widget.forceBooking) {
       return true;
     }
     try {
       final loc = GoRouterState.of(context).matchedLocation;
       if (loc.contains('new-patient') ||
           loc.contains('edit-patient') ||
-          loc.contains('book-appointment')) {
+          loc.contains('book-appointment') ||
+          loc.contains('home-visits/execute')) {
         return true;
       }
     } catch (_) {}
