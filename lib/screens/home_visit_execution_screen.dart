@@ -21,7 +21,6 @@ import '../utils/unsaved_changes_helper.dart';
 import '../utils/modal_history_helper.dart';
 import '../utils/app_notification.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../config/api_config.dart';
 
 class HomeVisitExecutionScreen extends StatefulWidget {
   final int visitId;
@@ -80,7 +79,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       builder: (ctx) {
         final isMobile = MediaQuery.of(ctx).size.width < 500;
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           backgroundColor: Colors.white,
           insetPadding: EdgeInsets.symmetric(
             horizontal: isMobile ? 16 : 32,
@@ -1866,51 +1867,53 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         TextFormField(
                           controller: givenTimeCtrl,
                           readOnly: true,
-                          decoration: AppTheme.standardInputDecoration(
-                            hintText: 'e.g. 09:30 AM',
-                            prefixIcon: Icons.access_time,
-                          ).copyWith(
-                            suffixIcon: IconButton(
-                              icon: const Icon(
-                                Icons.access_time,
-                                color: AppTheme.primaryColor,
-                              ),
-                              onPressed: () async {
-                                TimeOfDay initTime = TimeOfDay.now();
-                                if (givenTimeCtrl.text.isNotEmpty) {
-                                  final curMins = _parseTimeToMinutes(
-                                    givenTimeCtrl.text,
-                                  );
-                                  if (curMins != null) {
-                                    initTime = TimeOfDay(
-                                      hour: curMins ~/ 60,
-                                      minute: curMins % 60,
-                                    );
-                                  }
-                                }
+                          decoration:
+                              AppTheme.standardInputDecoration(
+                                hintText: 'e.g. 09:30 AM',
+                                prefixIcon: Icons.access_time,
+                              ).copyWith(
+                                suffixIcon: IconButton(
+                                  icon: const Icon(
+                                    Icons.access_time,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                  onPressed: () async {
+                                    TimeOfDay initTime = TimeOfDay.now();
+                                    if (givenTimeCtrl.text.isNotEmpty) {
+                                      final curMins = _parseTimeToMinutes(
+                                        givenTimeCtrl.text,
+                                      );
+                                      if (curMins != null) {
+                                        initTime = TimeOfDay(
+                                          hour: curMins ~/ 60,
+                                          minute: curMins % 60,
+                                        );
+                                      }
+                                    }
 
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: initTime,
-                                );
-                                if (picked != null) {
-                                  final hour = picked.hourOfPeriod == 0
-                                      ? 12
-                                      : picked.hourOfPeriod;
-                                  final minute = picked.minute
-                                      .toString()
-                                      .padLeft(2, '0');
-                                  final period = picked.period == DayPeriod.am
-                                      ? 'AM'
-                                      : 'PM';
-                                  setModalState(() {
-                                    givenTimeCtrl.text =
-                                        '${hour.toString().padLeft(2, '0')}:$minute $period';
-                                  });
-                                }
-                              },
-                            ),
-                          ),
+                                    final picked = await showTimePicker(
+                                      context: context,
+                                      initialTime: initTime,
+                                    );
+                                    if (picked != null) {
+                                      final hour = picked.hourOfPeriod == 0
+                                          ? 12
+                                          : picked.hourOfPeriod;
+                                      final minute = picked.minute
+                                          .toString()
+                                          .padLeft(2, '0');
+                                      final period =
+                                          picked.period == DayPeriod.am
+                                          ? 'AM'
+                                          : 'PM';
+                                      setModalState(() {
+                                        givenTimeCtrl.text =
+                                            '${hour.toString().padLeft(2, '0')}:$minute $period';
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
                         ),
                       ],
                     ],
@@ -1955,35 +1958,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           if (localType == 'STAT') {
                             final givenTimeText = givenTimeCtrl.text.trim();
                             if (givenTimeText.isEmpty) {
-//                               AppNotification.showError(
-//                                 dCtx,
-//                                 'Please select Given Time for STAT medicine',
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Please select Given Time for STAT medicine',
-                                  ),
-                                  backgroundColor: AppTheme.dangerColor,
-                                ),
-                              );
-                              return;
-                            }
-                            final givenMins = _parseTimeToMinutes(
-                              givenTimeText,
-                            );
-                            final startMins = _parseTimeToMinutes(
-                              visit.startTime,
-                            );
-                            if (givenMins != null &&
-                                startMins != null &&
-                                givenMins < startMins) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Given Time cannot be earlier than Visit Start Time (${visit.startTime}). The selected time must be equal to or later than the visit start time.',
-                                  ),
-                                  backgroundColor: AppTheme.dangerColor,
-                                ),
+                              AppNotification.showError(
+                                dCtx,
+                                'Please select Given Time for STAT medicine',
                               );
                               return;
                             }
@@ -2196,9 +2173,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             );
                             return;
                           }
-                          if (!RegExp(
-                            r'^[a-zA-Z0-9\s]+$',
-                          ).hasMatch(cName)) {
+                          if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(cName)) {
                             AppNotification.showError(
                               dialogCtx,
                               'Special characters are not allowed in consumable item name',
@@ -2253,8 +2228,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     bool submitAttempted = false;
     bool isPriceLocked = false;
 
-    final availableConsumables =
-        _dbConsumables.isNotEmpty ? _dbConsumables : _defaultConsumables;
+    final availableConsumables = _dbConsumables.isNotEmpty
+        ? _dbConsumables
+        : _defaultConsumables;
 
     const defaultPriceMap = {
       'Diaper': 40.0,
@@ -2337,7 +2313,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         setDlgState(() {
                           nameCtrl.text = val ?? '';
                           submitAttempted = false;
-                          final knownPrice = getKnownConsumablePrice(nameCtrl.text);
+                          final knownPrice = getKnownConsumablePrice(
+                            nameCtrl.text,
+                          );
                           if (knownPrice != null) {
                             priceCtrl.text = knownPrice
                                 .toStringAsFixed(2)
@@ -3741,9 +3719,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     if (photoUrl.isEmpty) return;
     String fullUrl = photoUrl.trim();
     if (!fullUrl.startsWith('http://') && !fullUrl.startsWith('https://')) {
-      final baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3001/api';
+      final baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api';
       final serverHost = baseUrl.replaceAll(RegExp(r'/api/?$'), '');
-      final cleanPath = fullUrl.startsWith('/') ? fullUrl.substring(1) : fullUrl;
+      final cleanPath = fullUrl.startsWith('/')
+          ? fullUrl.substring(1)
+          : fullUrl;
       fullUrl = '$serverHost/$cleanPath';
     }
     final uri = Uri.tryParse(fullUrl);
@@ -3877,19 +3857,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ctrl.errorMessage ?? 'Failed to delete photo evidence',
                   );
                 }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      success
-                          ? 'Photo evidence deleted successfully'
-                          : (ctrl.errorMessage ??
-                                'Failed to delete photo evidence'),
-                    ),
-                    backgroundColor: success
-                        ? AppTheme.secondaryColor
-                        : AppTheme.dangerColor,
-                  ),
-                );
               }
             },
           ),
@@ -4051,7 +4018,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   }
 
   Future<void> _fetchInventoryCatalogs() async {
-    final baseUrl = ApiEndpoints.baseUrl;
+    final baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api';
     try {
       final medRes = await ApiService.get(
         '$baseUrl/inventory/medicine-catalog',
@@ -4157,36 +4124,40 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       HomeVisitModel? activeVisit;
       for (final v in ctrl.visits) {
         if (v.id != widget.visitId && v.status.toLowerCase() == 'in-progress') {
-          final bool isNurseMatch = (authUser != null && v.nurseId != null && v.nurseId == authUser.id) ||
+          final bool isNurseMatch =
+              (authUser != null &&
+                  v.nurseId != null &&
+                  v.nurseId == authUser.id) ||
               (v.nurseName != null &&
                   v.nurseName!.trim().isNotEmpty &&
                   authUser != null &&
                   authUser.fullname.trim().isNotEmpty &&
-                  v.nurseName!.trim().toLowerCase() == authUser.fullname.trim().toLowerCase()) ||
-          final bool isSameNurse =
-              (authUser != null && v.nurseId == authUser.id) ||
+                  v.nurseName!.trim().toLowerCase() ==
+                      authUser.fullname.trim().toLowerCase()) ||
               (v.startNurseName != null &&
                   v.startNurseName!.trim().isNotEmpty &&
                   authUser != null &&
                   authUser.fullname.trim().isNotEmpty &&
-                  v.startNurseName!.trim().toLowerCase() == authUser.fullname.trim().toLowerCase());
+                  v.startNurseName!.trim().toLowerCase() ==
+                      authUser.fullname.trim().toLowerCase());
 
-          final bool isVisitNurseMatch = (ctrl.selectedVisit?.nurseId != null &&
+          final bool isVisitNurseMatch =
+              (ctrl.selectedVisit?.nurseId != null &&
                   v.nurseId != null &&
                   ctrl.selectedVisit!.nurseId == v.nurseId) ||
               (ctrl.selectedVisit?.nurseName != null &&
                   ctrl.selectedVisit!.nurseName!.trim().isNotEmpty &&
                   v.nurseName != null &&
                   v.nurseName!.trim().isNotEmpty &&
-                  ctrl.selectedVisit!.nurseName!.trim().toLowerCase() == v.nurseName!.trim().toLowerCase());
+                  ctrl.selectedVisit!.nurseName!.trim().toLowerCase() ==
+                      v.nurseName!.trim().toLowerCase());
 
-          final bool isSameNurse = isNurseMatch ||
-              (authUser?.role != 'Nurse' && authUser?.role != 'Head Nurse' && isVisitNurseMatch);
+          final bool isSameNurse =
+              isNurseMatch ||
+              (authUser?.role != 'Nurse' &&
+                  authUser?.role != 'Head Nurse' &&
+                  isVisitNurseMatch);
 
-                  v.startNurseName!.toLowerCase() ==
-                      authUser.fullname.toLowerCase()) ||
-              (authUser != null &&
-                  (authUser.role == 'Nurse' || authUser.role == 'Head Nurse'));
           if (isSameNurse) {
             activeVisit = v;
             break;
@@ -4658,16 +4629,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   .inMinutes;
                             }
 
-                          if (diff < -60 || diff > 60) {
-                            final minStr = DateFormat('hh:mm a')
-                                .format(minAllowedTime);
-                            final maxStr = DateFormat('hh:mm a')
-                                .format(maxAllowedTime);
-                            if (dialogCtx.mounted) {
-                              AppNotification.showError(
-                                dialogCtx,
-                                'Invalid time! Start time must be within 1 hour prior/after current time ($minStr - $maxStr).',
-                              );
                             if (diff < -60 || diff > 60) {
                               final minStr = DateFormat(
                                 'hh:mm a',
@@ -4675,15 +4636,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               final maxStr = DateFormat(
                                 'hh:mm a',
                               ).format(maxAllowedTime);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Invalid time! Start time must be within 1 hour prior/after current time ($minStr - $maxStr).',
-                                    ),
-                                    backgroundColor: AppTheme.dangerColor,
-                                    duration: const Duration(seconds: 3),
-                                  ),
+                              if (dialogCtx.mounted) {
+                                AppNotification.showError(
+                                  dialogCtx,
+                                  'Invalid time! Start time must be within 1 hour prior/after current time ($minStr - $maxStr).',
                                 );
                               }
                               return;
@@ -4772,42 +4728,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
             ),
-          ),
-          actions: [
-            SizedBox(
-              height: 44,
-              child: OutlinedButton(
-                style: AppTheme.cancelButton,
-                onPressed: isSubmitting
-                    ? null
-                    : () async {
-                        final shouldClose = await confirmCloseVisitSession();
-                        if (shouldClose && mounted) {
-                          ModalHistoryHelper.skipNextHistoryBack();
-                          Navigator.of(dialogCtx).pop();
-                          _handleLeave();
-                        }
-                      },
-                child: const Text('Exit Session'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              height: 44,
-              child: ElevatedButton.icon(
-                style: AppTheme.primaryButton,
-                icon: isSubmitting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.arrow_forward, size: 16),
-                label: Text(
-                  isSubmitting ? 'Starting...' : (isInProgress ? 'Submit & Resume Visit' : 'Submit & Start Visit'),
             actions: [
               SizedBox(
                 height: 44,
@@ -4818,6 +4738,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       : () async {
                           final shouldClose = await confirmCloseVisitSession();
                           if (shouldClose && mounted) {
+                            ModalHistoryHelper.skipNextHistoryBack();
                             Navigator.of(dialogCtx).pop();
                             _handleLeave();
                           }
@@ -4853,7 +4774,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           if (formKey.currentState?.validate() == true) {
                             setDialogState(() => isSubmitting = true);
                             try {
-                              final baseUrl = ApiEndpoints.baseUrl;
+                              final baseUrl =
+                                  dotenv.env['BASE_URL'] ??
+                                  'http://localhost:3000/api';
                               final payload = {
                                 'start_time': timeCtrl.text.trim(),
                                 'nurse_name': nurseCtrl.text.trim(),
@@ -4862,28 +4785,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 '$baseUrl/home-visits/${visit.id}/start',
                                 payload,
                               );
-                              body = ApiService.decodeJsonResponse(res);
-                            }
-                            if (body['success'] != true) {
-                              res = await ApiService.post(
-                                '$baseUrl/home-visits/${visit.id}/vitals',
-                                {
-                                  'is_start_only': true,
-                                  'start_time': timeCtrl.text.trim(),
-                                  'nurse_name': nurseCtrl.text.trim(),
-                                  'bypass_schedule': true,
-                                },
-                              );
-                              body = ApiService.decodeJsonResponse(res);
-                            }
-                            if (body['success'] == true) {
-                              if (mounted) {
-                                Provider.of<HomeVisitController>(
-                                  context,
-                                  listen: false,
-                                ).fetchVisitDetails(visit.id);
-                                ModalHistoryHelper.skipNextHistoryBack();
-                                Navigator.of(dialogCtx).pop();
                               var body = ApiService.decodeJsonResponse(res);
                               if (body['success'] != true) {
                                 res = await ApiService.post(
@@ -4910,19 +4811,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     context,
                                     listen: false,
                                   ).fetchVisitDetails(visit.id);
+                                  ModalHistoryHelper.skipNextHistoryBack();
                                   Navigator.of(dialogCtx).pop();
                                 }
                               } else {
                                 setDialogState(() => isSubmitting = false);
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        body['message'] ??
-                                            'Failed to record start time',
-                                      ),
-                                      backgroundColor: AppTheme.dangerColor,
-                                    ),
+                                if (dialogCtx.mounted) {
+                                  AppNotification.showError(
+                                    dialogCtx,
+                                    body['message'] ??
+                                        'Failed to record start time',
                                   );
                                 }
                               }
@@ -4931,25 +4829,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               if (dialogCtx.mounted) {
                                 AppNotification.showError(
                                   dialogCtx,
-                                  body['message'] ??
-                                      'Failed to record start time',
-                                );
-                              }
-                            }
-                          } catch (e) {
-                            setDialogState(() => isSubmitting = false);
-                            if (dialogCtx.mounted) {
-                              AppNotification.showError(
-                                dialogCtx,
-                                'Error starting visit: $e',
-                              );
-                            }
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error starting visit: $e'),
-                                    backgroundColor: AppTheme.dangerColor,
-                                  ),
+                                  'Error starting visit: $e',
                                 );
                               }
                             }
@@ -5483,14 +5363,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
                       setState(() => _isAddingKitItem = true);
                       try {
-                        final success = await controller.submitCarriedItem(
-                          visit.id,
-                          {
-                            'item_type': _kitItemType,
-                            'item_name': name,
-                            'quantity_carried': qty,
-                          },
-                        );
+                        final success = await controller
+                            .submitCarriedItem(visit.id, {
+                              'item_type': _kitItemType,
+                              'item_name': name,
+                              'quantity_carried': qty,
+                            });
                         if (success) {
                           _clearKitForm();
                           if (context.mounted) {
@@ -5507,23 +5385,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   'Failed to add kit item',
                             );
                           }
-                      final success = await controller
-                          .submitCarriedItem(visit.id, {
-                            'item_type': _kitItemType,
-                            'item_name': name,
-                            'quantity_carried': qty,
-                          });
-                      if (success) {
-                        _clearKitForm();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Kit item / device added successfully',
-                              ),
-                              backgroundColor: AppTheme.secondaryColor,
-                            ),
-                          );
                         }
                       } finally {
                         if (mounted) {
@@ -5914,33 +5775,38 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               final confirm = await showDialog<bool>(
                                 context: context,
                                 builder: (ctx) => AlertDialog(
-                                   backgroundColor: Colors.white,
-                                   surfaceTintColor: Colors.transparent,
-                                   shape: RoundedRectangleBorder(
-                                     borderRadius: BorderRadius.circular(14),
-                                   ),
-                                   title: const Text('Remove Kit Item', style: TextStyle(fontWeight: FontWeight.bold)),
-                                   content: SizedBox(
-                                     width: 440,
-                                     child: Text(
-                                       'Are you sure you want to remove "${item.itemName}"?',
-                                       softWrap: true,
-                                     ),
-                                   ),
-                                   actions: [
-                                     TextButton(
-                                       onPressed: () =>
-                                           Navigator.pop(ctx, false),
-                                       style: AppTheme.cancelButton,
-                                       child: const Text('Cancel'),
-                                     ),
-                                     ElevatedButton(
-                                       style: AppTheme.dangerButton,
-                                       onPressed: () => Navigator.pop(ctx, true),
-                                       child: const Text('Remove'),
-                                     ),
-                                   ],
-                                 ),
+                                  backgroundColor: Colors.white,
+                                  surfaceTintColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  title: const Text(
+                                    'Remove Kit Item',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  content: SizedBox(
+                                    width: 440,
+                                    child: Text(
+                                      'Are you sure you want to remove "${item.itemName}"?',
+                                      softWrap: true,
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
+                                      style: AppTheme.cancelButton,
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      style: AppTheme.dangerButton,
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Remove'),
+                                    ),
+                                  ],
+                                ),
                               );
                               if (confirm == true && item.id != null) {
                                 await controller.removeCarriedItem(
@@ -6049,18 +5915,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     fontSize: 11,
                                     color: Colors.grey,
                                   ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close, color: Colors.grey),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () {
-                                ModalHistoryHelper.skipNextHistoryBack();
-                                _clearVitalsForm();
-                                Navigator.of(dialogCtx).pop();
-                              },
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -6072,6 +5926,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () {
+                              ModalHistoryHelper.skipNextHistoryBack();
                               _clearVitalsForm();
                               Navigator.of(dialogCtx).pop();
                             },
@@ -7128,10 +6983,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     const SizedBox(height: 4),
                     const Text(
                       'No vital signs recorded yet for this session.',
-                      style: TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                     ),
                   ],
                 ),
@@ -7505,16 +7357,31 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         final confirm = await showDialog<bool>(
                                           context: context,
                                           builder: (ctx) => AlertDialog(
+                                            backgroundColor: Colors.white,
+                                            surfaceTintColor:
+                                                Colors.transparent,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
                                             title: const Text(
                                               'Delete Vitals Entry',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                            content: const Text(
-                                              'Are you sure you want to delete this recorded vitals entry?',
+                                            content: const SizedBox(
+                                              width: 440,
+                                              child: Text(
+                                                'Are you sure you want to delete this recorded vitals entry?',
+                                                softWrap: true,
+                                              ),
                                             ),
                                             actions: [
                                               TextButton(
                                                 onPressed: () =>
                                                     Navigator.pop(ctx, false),
+                                                style: AppTheme.cancelButton,
                                                 child: const Text('Cancel'),
                                               ),
                                               ElevatedButton(
@@ -7533,16 +7400,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                                 v.id!,
                                               );
                                           if (success && mounted) {
-                                            ScaffoldMessenger.of(
+                                            AppNotification.showSuccess(
                                               context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Vitals entry deleted successfully',
-                                                ),
-                                                backgroundColor:
-                                                    AppTheme.primaryColor,
-                                              ),
+                                              'Vitals entry deleted successfully',
                                             );
                                           }
                                         }
@@ -7578,148 +7438,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                             ],
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                    Padding(
-                                     padding: const EdgeInsets.symmetric(
-                                       horizontal: 12,
-                                       vertical: 6,
-                                     ),
-                                     child: PopupMenuButton<String>(
-                                       icon: Container(
-                                         width: 32,
-                                         height: 32,
-                                         decoration: BoxDecoration(
-                                           color: const Color(0xFFF8FAFC),
-                                           shape: BoxShape.circle,
-                                           border: Border.all(
-                                             color: const Color(0xFFE2E8F0),
-                                           ),
-                                         ),
-                                         child: const Icon(
-                                           Icons.more_vert,
-                                           color: Color(0xFF475569),
-                                           size: 18,
-                                         ),
-                                       ),
-                                       padding: EdgeInsets.zero,
-                                       tooltip: 'Actions',
-                                       onSelected: (val) async {
-                                         if (val == 'edit') {
-                                           _showAddVitalsModalDialog(
-                                             context,
-                                             visit,
-                                             controller,
-                                             existingVital: v,
-                                           );
-                                         } else if (val == 'delete') {
-                                           final confirm =
-                                               await showDialog<bool>(
-                                                 context: context,
-                                                 builder: (ctx) =>
-                                                     AlertDialog(
-                                                       backgroundColor: Colors.white,
-                                                       surfaceTintColor: Colors.transparent,
-                                                       shape: RoundedRectangleBorder(
-                                                         borderRadius: BorderRadius.circular(14),
-                                                       ),
-                                                       title: const Text(
-                                                         'Delete Vitals Entry',
-                                                         style: TextStyle(fontWeight: FontWeight.bold),
-                                                       ),
-                                                       content: const SizedBox(
-                                                         width: 440,
-                                                         child: Text(
-                                                           'Are you sure you want to delete this recorded vitals entry?',
-                                                           softWrap: true,
-                                                         ),
-                                                       ),
-                                                       actions: [
-                                                         TextButton(
-                                                           onPressed: () =>
-                                                               Navigator.pop(
-                                                                 ctx,
-                                                                 false,
-                                                               ),
-                                                           style: AppTheme.cancelButton,
-                                                           child: const Text(
-                                                             'Cancel',
-                                                           ),
-                                                         ),
-                                                         ElevatedButton(
-                                                           style: AppTheme
-                                                               .dangerButton,
-                                                           onPressed: () =>
-                                                               Navigator.pop(
-                                                                 ctx,
-                                                                 true,
-                                                               ),
-                                                           child: const Text(
-                                                             'Delete',
-                                                           ),
-                                                         ),
-                                                       ],
-                                                     ),
-                                               );
-                                           if (confirm == true &&
-                                               v.id != null) {
-                                             final success = await controller
-                                                 .deleteVitalsItem(
-                                                   visit.id,
-                                                   v.id!,
-                                                 );
-                                             if (success && mounted) {
-                                               AppNotification.showSuccess(
-                                                 context,
-                                                 'Vitals entry deleted successfully',
-                                               );
-                                             }
-                                           }
-                                         }
-                                       },
-                                       itemBuilder: (ctx) => [
-                                         if (!widget.isReadOnlyView) ...[
-                                           const PopupMenuItem(
-                                             value: 'edit',
-                                             child: Row(
-                                               children: [
-                                                 Icon(
-                                                   Icons.edit_outlined,
-                                                   size: 18,
-                                                   color:
-                                                       AppTheme.primaryColor,
-                                                 ),
-                                                 SizedBox(width: 8),
-                                                 Text('Edit Entry'),
-                                               ],
-                                             ),
-                                           ),
-                                           const PopupMenuItem(
-                                             value: 'delete',
-                                             child: Row(
-                                               children: [
-                                                 Icon(
-                                                   Icons.delete_outline,
-                                                   size: 18,
-                                                   color:
-                                                       AppTheme.dangerColor,
-                                                 ),
-                                                 SizedBox(width: 8),
-                                                 Text('Delete Entry'),
-                                               ],
-                                             ),
-                                           ),
-                                         ],
-                                       ],
-                                     ),
-                                   ),
-                                  ],
-                                );
-                              }(),
-                            ],
-                          ],
-                        ),
-                      ),
                                       ],
                                     ],
                                   ),
@@ -7941,11 +7659,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('Add Vitals Entry'),
-                      onPressed: () => _showAddVitalsModalDialog(
-                        context,
-                        visit,
-                        controller,
-                      ),
+                      onPressed: () =>
+                          _showAddVitalsModalDialog(context, visit, controller),
                     ),
                   ],
                 ],
@@ -8909,10 +8624,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -8953,10 +8665,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     const SizedBox(height: 4),
                     const Text(
                       'No nursing care activities recorded yet for this session.',
-                      style: TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                     ),
                   ],
                 ),
@@ -9321,25 +9030,25 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
     final currentDayNumber = _calculateVisitDayNumber(visit, controller);
 
-    final activeMedicines = visit.medicines
-        .where((m) => _isRecordedToday(m.administeredAt))
-        .toList()
-      ..sort((a, b) {
-        if (a.id != null && b.id != null && a.id != b.id) {
-          return b.id!.compareTo(a.id!);
-        }
-        return 0;
-      });
+    final activeMedicines =
+        visit.medicines
+            .where((m) => _isRecordedToday(m.administeredAt))
+            .toList()
+          ..sort((a, b) {
+            if (a.id != null && b.id != null && a.id != b.id) {
+              return b.id!.compareTo(a.id!);
+            }
+            return 0;
+          });
 
-    final activeConsumables = visit.consumables
-        .where((c) => _isRecordedToday(c.createdAt))
-        .toList()
-      ..sort((a, b) {
-        if (a.id != null && b.id != null && a.id != b.id) {
-          return b.id!.compareTo(a.id!);
-        }
-        return 0;
-      });
+    final activeConsumables =
+        visit.consumables.where((c) => _isRecordedToday(c.createdAt)).toList()
+          ..sort((a, b) {
+            if (a.id != null && b.id != null && a.id != b.id) {
+              return b.id!.compareTo(a.id!);
+            }
+            return 0;
+          });
 
     if (_medGivenTimeCtrl.text.isEmpty) {
       _medGivenTimeCtrl.text = _getCurrentFormattedTime();
@@ -9403,10 +9112,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -9447,10 +9153,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     const SizedBox(height: 4),
                     const Text(
                       'No medicines recorded yet for this session.',
-                      style: TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                     ),
                   ],
                 ),
@@ -9827,10 +9530,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ? () => setState(() => _medsPage--)
                         : null,
                     icon: const Icon(Icons.chevron_left, size: 14),
-                    label: const Text(
-                      'Prev',
-                      style: TextStyle(fontSize: 11),
-                    ),
+                    label: const Text('Prev', style: TextStyle(fontSize: 11)),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -9866,12 +9566,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ? () => setState(() => _medsPage++)
                         : null,
                     icon: const Icon(Icons.chevron_right, size: 14),
-                    label: const Text(
-                      'Next',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    icon: const Icon(Icons.chevron_right, size: 16),
-                    label: const Text('Next', style: TextStyle(fontSize: 12)),
+                    label: const Text('Next', style: TextStyle(fontSize: 11)),
                   ),
                 ],
               ),
@@ -9881,18 +9576,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       ),
     );
 
-    final displayProcedures = visit.procedures
-        .where((p) => _isRecordedToday(p.createdAt))
-        .toList()
-      ..sort((a, b) {
-        if (a.id != null && b.id != null && a.id != b.id) {
-          return b.id!.compareTo(a.id!);
-        }
-        if (a.createdAt != null && b.createdAt != null) {
-          return b.createdAt!.compareTo(a.createdAt!);
-        }
-        return 0;
-      });
+    final displayProcedures =
+        visit.procedures.where((p) => _isRecordedToday(p.createdAt)).toList()
+          ..sort((a, b) {
+            if (a.id != null && b.id != null && a.id != b.id) {
+              return b.id!.compareTo(a.id!);
+            }
+            if (a.createdAt != null && b.createdAt != null) {
+              return b.createdAt!.compareTo(a.createdAt!);
+            }
+            return 0;
+          });
 
     final totalProcedures = displayProcedures.length;
     final totalProcPages = (totalProcedures == 0)
@@ -9939,10 +9633,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -9983,10 +9674,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     const SizedBox(height: 4),
                     const Text(
                       'No procedures recorded yet for this session.',
-                      style: TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                     ),
                   ],
                 ),
@@ -10103,17 +9791,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   onPressed: () async {
                                     final confirmed =
                                         await _showConfirmDeleteDialog(
-                                      context,
-                                      title: 'Delete Procedure Record',
-                                      message:
-                                          'Are you sure you want to delete "${p.procedureName}" from this session? This action cannot be undone.',
-                                    );
+                                          context,
+                                          title: 'Delete Procedure Record',
+                                          message:
+                                              'Are you sure you want to delete "${p.procedureName}" from this session? This action cannot be undone.',
+                                        );
                                     if (confirmed && p.id != null) {
                                       final success = await controller
-                                          .deleteProcedureItem(
-                                        visit.id,
-                                        p.id!,
-                                      );
+                                          .deleteProcedureItem(visit.id, p.id!);
                                       if (success && mounted) {
                                         AppNotification.showSuccess(
                                           context,
@@ -10189,46 +9874,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               child: Text(
                                 'Total: ₹${grandTotalProc.toStringAsFixed(2)}',
                                 style: const TextStyle(
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 630),
-                    child: Table(
-                      columnWidths: const {
-                        0: FixedColumnWidth(180),
-                        1: FixedColumnWidth(100),
-                        2: FixedColumnWidth(110),
-                        3: FixedColumnWidth(130),
-                        4: FixedColumnWidth(110),
-                      },
-                      defaultVerticalAlignment:
-                          TableCellVerticalAlignment.middle,
-                      children: [
-                        TableRow(
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEDF2F7),
-                            border: Border(
-                              bottom: BorderSide(color: Color(0xFFE2E8F0)),
-                            ),
-                          ),
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              child: Text(
-                                'Procedure Name',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.primaryColor,
@@ -10272,8 +9917,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         ),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFFEBF8FF),
-                                          borderRadius:
-                                              BorderRadius.circular(6),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                           border: Border.all(
                                             color: const Color(0xFFBEE3F8),
                                           ),
@@ -10320,8 +9966,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           ),
                                           decoration: BoxDecoration(
                                             color: const Color(0xFFF1F5F9),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
                                             border: Border.all(
                                               color: const Color(0xFFE2E8F0),
                                             ),
@@ -10353,10 +10000,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         vertical: 3,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.primaryColor
-                                            .withValues(alpha: 0.08),
-                                        borderRadius:
-                                            BorderRadius.circular(6),
+                                        color: AppTheme.primaryColor.withValues(
+                                          alpha: 0.08,
+                                        ),
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
                                         '₹${grandTotalProc.toStringAsFixed(2)}',
@@ -10399,17 +10046,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       onPressed: () async {
                                         final confirmed =
                                             await _showConfirmDeleteDialog(
-                                          context,
-                                          title: 'Delete Procedure Record',
-                                          message:
-                                              'Are you sure you want to delete "${p.procedureName}" from this session? This action cannot be undone.',
-                                        );
+                                              context,
+                                              title: 'Delete Procedure Record',
+                                              message:
+                                                  'Are you sure you want to delete "${p.procedureName}" from this session? This action cannot be undone.',
+                                            );
                                         if (confirmed && p.id != null) {
                                           final success = await controller
                                               .deleteProcedureItem(
-                                            visit.id,
-                                            p.id!,
-                                          );
+                                                visit.id,
+                                                p.id!,
+                                              );
                                           if (success && mounted) {
                                             AppNotification.showSuccess(
                                               context,
@@ -10430,254 +10077,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             ),
                           ],
                         ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 8,
-                              ),
-                              child: Text(
-                                'Frequency',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 8,
-                              ),
-                              child: Text(
-                                'Charge/Proc',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  'Total Charge',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 8,
-                              ),
-                              child: Align(
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'Actions',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        for (
-                          int idx = 0;
-                          idx < pageProcedures.length;
-                          idx++
-                        ) ...[
-                          () {
-                            final p = pageProcedures[idx];
-                            return TableRow(
-                              decoration: BoxDecoration(
-                                color: idx.isEven
-                                    ? Colors.white
-                                    : const Color(0xFFF8FAFC),
-                                border: idx < displayProcedures.length - 1
-                                    ? const Border(
-                                        bottom: BorderSide(
-                                          color: Color(0xFFEDF2F7),
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.medical_services_outlined,
-                                        size: 16,
-                                        color: AppTheme.primaryColor,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          p.procedureName,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 10,
-                                  ),
-                                  child: Text(
-                                    p.frequency,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 10,
-                                  ),
-                                  child: Text(
-                                    '₹${p.chargePerProcedure.toStringAsFixed(2)}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Text(
-                                      '₹${p.totalProcedureCharge.toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: AppTheme.primaryColor,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 8,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      InkWell(
-                                        borderRadius: BorderRadius.circular(6),
-                                        onTap: () {
-                                          _showRecordProcedureModal(
-                                            context,
-                                            visit,
-                                            controller,
-                                            existingProcedure: p,
-                                          );
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.all(6),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.primaryColor
-                                                .withOpacity(0.08),
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.edit_outlined,
-                                            size: 16,
-                                            color: AppTheme.primaryColor,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      InkWell(
-                                        borderRadius: BorderRadius.circular(6),
-                                        onTap: () async {
-                                          final confirmed =
-                                              await _showConfirmDeleteDialog(
-                                                context,
-                                                title:
-                                                    'Delete Procedure Record',
-                                                message:
-                                                    'Are you sure you want to delete "${p.procedureName}" from this session? This action cannot be undone.',
-                                              );
-                                          if (confirmed && p.id != null) {
-                                            final success = await controller
-                                                .deleteProcedureItem(
-                                                  visit.id,
-                                                  p.id!,
-                                                );
-                                            if (success && mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Procedure record deleted successfully',
-                                                  ),
-                                                  backgroundColor:
-                                                      AppTheme.secondaryColor,
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.all(6),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.dangerColor
-                                                .withOpacity(0.08),
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.delete_outline,
-                                            size: 16,
-                                            color: AppTheme.dangerColor,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            );
-                          }(),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
                 );
               }(),
@@ -10696,23 +10097,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   fontSize: 11.5,
                   color: Colors.grey,
                   fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                Text(
-                  'Showing ${totalProcedures == 0 ? 0 : procStartIdx + 1}-$procEndIdx of $totalProcedures entries',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w500,
-                  ),
                 ),
               ),
               Wrap(
@@ -10736,10 +10120,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ? () => setState(() => _procPage--)
                         : null,
                     icon: const Icon(Icons.chevron_left, size: 14),
-                    label: const Text(
-                      'Prev',
-                      style: TextStyle(fontSize: 11),
-                    ),
+                    label: const Text('Prev', style: TextStyle(fontSize: 11)),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -10770,20 +10151,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      onPressed: currentProcPage < totalProcPages
-                          ? () => setState(() => _procPage++)
-                          : null,
-                      icon: const Icon(Icons.chevron_right, size: 16),
-                      label: const Text('Next', style: TextStyle(fontSize: 12)),
                     ),
                     onPressed: currentProcPage < totalProcPages
                         ? () => setState(() => _procPage++)
                         : null,
                     icon: const Icon(Icons.chevron_right, size: 14),
-                    label: const Text(
-                      'Next',
-                      style: TextStyle(fontSize: 11),
-                    ),
+                    label: const Text('Next', style: TextStyle(fontSize: 11)),
                   ),
                 ],
               ),
@@ -11436,7 +10809,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   return;
                                 }
 
-                                final captionText = _photoCaptionCtrl.text.trim();
+                                final captionText = _photoCaptionCtrl.text
+                                    .trim();
                                 if (captionText.isNotEmpty) {
                                   if (captionText.length < 3) {
                                     AppNotification.showError(
@@ -11452,14 +10826,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     );
                                     return;
                                   }
-                                  if (!RegExp(r'[a-zA-Z]').hasMatch(captionText)) {
+                                  if (!RegExp(
+                                    r'[a-zA-Z]',
+                                  ).hasMatch(captionText)) {
                                     AppNotification.showError(
                                       context,
                                       'Caption must contain letters and cannot consist solely of numbers',
                                     );
                                     return;
                                   }
-                                  if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(captionText)) {
+                                  if (!RegExp(
+                                    r'^[a-zA-Z0-9\s]+$',
+                                  ).hasMatch(captionText)) {
                                     AppNotification.showError(
                                       context,
                                       'Special characters are not allowed in caption',
@@ -11711,9 +11089,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                               child: Material(
                                                 color: Colors.transparent,
                                                 child: InkWell(
-                                                  onTap: () => _openPhotoInNewTab(
-                                                    p.photoUrl,
-                                                  ),
+                                                  onTap: () =>
+                                                      _openPhotoInNewTab(
+                                                        p.photoUrl,
+                                                      ),
                                                   borderRadius:
                                                       BorderRadius.circular(16),
                                                   child: Container(
@@ -12429,45 +11808,25 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       return;
                                     }
                                     setDialogState(() => isSubmitting = true);
-                                    _attenderNameCtrl.text =
-                                        nameCtrl.text.trim();
-                                    _attenderRelationCtrl.text =
-                                        relCtrl.text.trim();
+                                    _attenderNameCtrl.text = nameCtrl.text
+                                        .trim();
+                                    _attenderRelationCtrl.text = relCtrl.text
+                                        .trim();
 
-                                    final result =
-                                        await controller.verifyVisit(
+                                    final result = await controller.verifyVisit(
                                       visit.id,
                                       nameCtrl.text.trim(),
                                       relCtrl.text.trim(),
                                       'signature_base64_data_valid',
                                     );
                                     await controller.fetchVisits();
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                setDialogState(() => isSubmitting = true);
-                                _attenderNameCtrl.text = nameCtrl.text.trim();
-                                _attenderRelationCtrl.text = relCtrl.text
-                                    .trim();
-
-                                final result = await controller.verifyVisit(
-                                  visit.id,
-                                  nameCtrl.text.trim(),
-                                  relCtrl.text.trim(),
-                                  'signature_base64_data_valid',
-                                );
-                                await controller.fetchVisits();
 
                                     if (result != null && context.mounted) {
-                                      ModalHistoryHelper
-                                          .skipNextHistoryBack();
+                                      ModalHistoryHelper.skipNextHistoryBack();
                                       Navigator.of(dialogCtx).pop();
                                       showDialog(
                                         context: context,
-                                        builder: (_) =>
-                                            HomeVisitInvoiceDialog(
+                                        builder: (_) => HomeVisitInvoiceDialog(
                                           invoiceData: result,
                                           visit: visit,
                                           onCloseAndComplete: () {
@@ -12481,7 +11840,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       );
                                     } else if (context.mounted) {
                                       setDialogState(
-                                          () => isSubmitting = false);
+                                        () => isSubmitting = false,
+                                      );
                                       AppNotification.showError(
                                         dialogCtx,
                                         controller.errorMessage ??
@@ -12489,20 +11849,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       );
                                     }
                                   },
-                                      ),
-                                      backgroundColor: AppTheme.secondaryColor,
-                                    ),
-                                  );
-                                } else if (context.mounted) {
-                                  setDialogState(() => isSubmitting = false);
-                                }
-                              },
-                      ),
-                      const SizedBox(height: 10),
-                      OutlinedButton(
-                        style: AppTheme.cancelButton.copyWith(
-                          minimumSize: MaterialStateProperty.all(
-                            const Size(double.infinity, 44),
                           ),
                         ),
                       ),
@@ -13589,8 +12935,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             tooltip: 'Open Image in New Tab',
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: () =>
-                                _openPhotoInNewTab(photo.photoUrl),
+                            onPressed: () => _openPhotoInNewTab(photo.photoUrl),
                           ),
                           const SizedBox(width: 10),
                         ],
@@ -13828,8 +13173,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           const SizedBox(height: 2),
                           Text(
                             'Patient ID: ${currentVisit.patientDisplayId ?? "N/A"} | Select a Day Session Card below to view full details.',
-                            style:
-                                const TextStyle(fontSize: 13, color: Colors.grey),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey,
+                            ),
                           ),
                         ],
                       ),
@@ -13859,16 +13206,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             fontSize: isNarrowBanner ? 11.5 : 12.5,
                           ),
                         ),
-                        onPressed: () => _showDiscontinueDialog(
-                          context,
-                          currentVisit,
-                      const SizedBox(height: 2),
-                      Text(
-                        'Patient ID: ${currentVisit.patientDisplayId ?? "N/A"} | Select a Day Session Card below to view full details.',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey,
-                        ),
+                        onPressed: () =>
+                            _showDiscontinueDialog(context, currentVisit),
                       ),
                     ],
                   ],
@@ -14121,55 +13460,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         });
                         controller.fetchVisitDetails(v.id);
                       },
-                    final actionButtons = Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      alignment: isMobileCard
-                          ? WrapAlignment.start
-                          : WrapAlignment.end,
-                      children: [
-                        ElevatedButton.icon(
-                          style: AppTheme.primaryButton,
-                          icon: const Icon(Icons.visibility_outlined, size: 15),
-                          label: Text('View Day $dayNumber Details'),
-                          onPressed: () {
-                            setState(() {
-                              _selectedSummaryVisitId = v.id;
-                            });
-                            controller.fetchVisitDetails(v.id);
-                          },
-                        ),
-                        if (v.status != 'Cancelled' &&
-                            v.status != 'Verified' &&
-                            v.status != 'Completed')
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.dangerColor,
-                              side: const BorderSide(
-                                color: AppTheme.dangerColor,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                            ),
-                            icon: const Icon(
-                              Icons.do_not_disturb_on_outlined,
-                              size: 14,
-                            ),
-                            label: const Text(
-                              'Stop Care Plan',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11.5,
-                              ),
-                            ),
-                            onPressed: () => _showDiscontinueDialog(context, v),
-                          ),
-                      ],
                     );
 
                     if (isMobileCard) {
@@ -14281,10 +13571,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       return false;
     }
     try {
-      final clean1 =
-          d1.trim().split('T')[0].split(' ')[0].replaceAll('/', '-');
-      final clean2 =
-          d2.trim().split('T')[0].split(' ')[0].replaceAll('/', '-');
+      final clean1 = d1.trim().split('T')[0].split(' ')[0].replaceAll('/', '-');
+      final clean2 = d2.trim().split('T')[0].split(' ')[0].replaceAll('/', '-');
 
       final p1 = clean1.split('-');
       final p2 = clean2.split('-');
