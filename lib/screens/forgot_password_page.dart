@@ -508,6 +508,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               if (value == null || value.trim().isEmpty) {
                 return 'Please enter Email Address';
               }
+              if (value.trim().contains(RegExp(r'[A-Z]'))) {
+                return 'Please enter a valid email address';
+              }
               if (!RegExp(
                 r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
               ).hasMatch(value.trim())) {
