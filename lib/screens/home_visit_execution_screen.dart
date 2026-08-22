@@ -879,14 +879,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 4,
+                runSpacing: 2,
                 children: [
                   const Icon(
                     Icons.playlist_add_check,
                     size: 14,
                     color: AppTheme.primaryColor,
                   ),
-                  const SizedBox(width: 4),
                   const Text(
                     'Daily Tablet Administration Checklist:',
                     style: TextStyle(
@@ -895,15 +897,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       color: AppTheme.primaryColor,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      '($totalDays Days Plan | Prescribed/Added: $startDateStr | Current Visit: Day $activeDayNumber)',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF64748B),
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                  Text(
+                    '($totalDays Days Plan | Prescribed/Added: $startDateStr | Current Visit: Day $activeDayNumber)',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF64748B),
                     ),
                   ),
                 ],
@@ -938,35 +936,23 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           behavior: HitTestBehavior.opaque,
                           onTap: () async {
                             if (isFuture) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Day $dayIdx ($dayDateStr) is scheduled for a future visit and cannot be executed today.',
-                                  ),
-                                  duration: const Duration(seconds: 2),
-                                ),
+                              AppNotification.showWarning(
+                                context,
+                                'Day $dayIdx ($dayDateStr) is scheduled for a future visit and cannot be executed today.',
                               );
                               return;
                             }
                             if (isPast && !isChecked) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Day $dayIdx ($dayDateStr) was scheduled for a past visit.',
-                                  ),
-                                  duration: const Duration(seconds: 2),
-                                ),
+                              AppNotification.showInfo(
+                                context,
+                                'Day $dayIdx ($dayDateStr) was scheduled for a past visit.',
                               );
                               return;
                             }
                             if (isChecked) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Dose for this day is already recorded and cannot be unticked.',
-                                  ),
-                                  duration: Duration(seconds: 2),
-                                ),
+                              AppNotification.showInfo(
+                                context,
+                                'Dose for this day is already recorded and cannot be unticked.',
                               );
                               return;
                             }
@@ -1895,80 +1881,51 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         TextFormField(
                           controller: givenTimeCtrl,
                           readOnly: true,
-                          decoration:
-                              AppTheme.standardInputDecoration(
-                                hintText: 'e.g. 09:30 AM',
-                                prefixIcon: Icons.access_time,
-                              ).copyWith(
-                                suffixIcon: IconButton(
-                                  icon: const Icon(
-                                    Icons.access_time,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                  onPressed: () async {
-                                    final startMins = _parseTimeToMinutes(
-                                      visit.startTime,
-                                    );
-                                    TimeOfDay initTime = TimeOfDay.now();
-                                    if (givenTimeCtrl.text.isNotEmpty) {
-                                      final curMins = _parseTimeToMinutes(
-                                        givenTimeCtrl.text,
-                                      );
-                                      if (curMins != null) {
-                                        initTime = TimeOfDay(
-                                          hour: curMins ~/ 60,
-                                          minute: curMins % 60,
-                                        );
-                                      }
-                                    } else if (startMins != null) {
-                                      initTime = TimeOfDay(
-                                        hour: startMins ~/ 60,
-                                        minute: startMins % 60,
-                                      );
-                                    }
-
-                                    final picked = await showTimePicker(
-                                      context: context,
-                                      initialTime: initTime,
-                                    );
-                                    if (picked != null) {
-                                      final pickedMins =
-                                          picked.hour * 60 + picked.minute;
-                                      if (startMins != null &&
-                                          pickedMins < startMins) {
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'Given Time cannot be earlier than Visit Start Time (${visit.startTime}). The selected time must be equal to or later than the visit start time.',
-                                              ),
-                                              backgroundColor:
-                                                  AppTheme.dangerColor,
-                                            ),
-                                          );
-                                        }
-                                        return;
-                                      }
-                                      final hour = picked.hourOfPeriod == 0
-                                          ? 12
-                                          : picked.hourOfPeriod;
-                                      final minute = picked.minute
-                                          .toString()
-                                          .padLeft(2, '0');
-                                      final period =
-                                          picked.period == DayPeriod.am
-                                          ? 'AM'
-                                          : 'PM';
-                                      setModalState(() {
-                                        givenTimeCtrl.text =
-                                            '${hour.toString().padLeft(2, '0')}:$minute $period';
-                                      });
-                                    }
-                                  },
-                                ),
+                          decoration: AppTheme.standardInputDecoration(
+                            hintText: 'e.g. 09:30 AM',
+                            prefixIcon: Icons.access_time,
+                          ).copyWith(
+                            suffixIcon: IconButton(
+                              icon: const Icon(
+                                Icons.access_time,
+                                color: AppTheme.primaryColor,
                               ),
+                              onPressed: () async {
+                                TimeOfDay initTime = TimeOfDay.now();
+                                if (givenTimeCtrl.text.isNotEmpty) {
+                                  final curMins = _parseTimeToMinutes(
+                                    givenTimeCtrl.text,
+                                  );
+                                  if (curMins != null) {
+                                    initTime = TimeOfDay(
+                                      hour: curMins ~/ 60,
+                                      minute: curMins % 60,
+                                    );
+                                  }
+                                }
+
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: initTime,
+                                );
+                                if (picked != null) {
+                                  final hour = picked.hourOfPeriod == 0
+                                      ? 12
+                                      : picked.hourOfPeriod;
+                                  final minute = picked.minute
+                                      .toString()
+                                      .padLeft(2, '0');
+                                  final period = picked.period == DayPeriod.am
+                                      ? 'AM'
+                                      : 'PM';
+                                  setModalState(() {
+                                    givenTimeCtrl.text =
+                                        '${hour.toString().padLeft(2, '0')}:$minute $period';
+                                  });
+                                }
+                              },
+                            ),
+                          ),
                         ),
                       ],
                     ],
@@ -2013,30 +1970,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           if (localType == 'STAT') {
                             final givenTimeText = givenTimeCtrl.text.trim();
                             if (givenTimeText.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Please select Given Time for STAT medicine',
-                                  ),
-                                  backgroundColor: AppTheme.dangerColor,
-                                ),
-                              );
-                              return;
-                            }
-                            final givenMins = _parseTimeToMinutes(givenTimeText);
-                            final startMins = _parseTimeToMinutes(
-                              visit.startTime,
-                            );
-                            if (givenMins != null &&
-                                startMins != null &&
-                                givenMins < startMins) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Given Time cannot be earlier than Visit Start Time (${visit.startTime}). The selected time must be equal to or later than the visit start time.',
-                                  ),
-                                  backgroundColor: AppTheme.dangerColor,
-                                ),
+                              AppNotification.showError(
+                                dCtx,
+                                'Please select Given Time for STAT medicine',
                               );
                               return;
                             }
@@ -2085,21 +2021,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
                           if (context.mounted && dCtx.mounted) {
                             Navigator.pop(dCtx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  success
-                                      ? (existingMedicine != null
-                                            ? 'Medicine updated successfully'
-                                            : 'Medicine logged successfully')
-                                      : (controller.errorMessage ??
-                                            'Failed to save medicine'),
-                                ),
-                                backgroundColor: success
-                                    ? AppTheme.secondaryColor
-                                    : AppTheme.dangerColor,
-                              ),
-                            );
+                            if (success) {
+                              AppNotification.showSuccess(
+                                context,
+                                existingMedicine != null
+                                    ? 'Medicine updated successfully'
+                                    : 'Medicine logged successfully',
+                              );
+                            } else {
+                              AppNotification.showError(
+                                context,
+                                controller.errorMessage ??
+                                    'Failed to save medicine',
+                              );
+                            }
                           }
                         },
                 ),
@@ -3580,21 +3515,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
                           if (context.mounted && dCtx.mounted) {
                             Navigator.pop(dCtx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  success
-                                      ? (existingProcedure != null
-                                            ? 'Procedure updated successfully'
-                                            : 'Procedure recorded successfully')
-                                      : (controller.errorMessage ??
-                                            'Failed to save procedure'),
-                                ),
-                                backgroundColor: success
-                                    ? AppTheme.secondaryColor
-                                    : AppTheme.dangerColor,
-                              ),
-                            );
+                            if (success) {
+                              AppNotification.showSuccess(
+                                context,
+                                existingProcedure != null
+                                    ? 'Procedure updated successfully'
+                                    : 'Procedure recorded successfully',
+                              );
+                            } else {
+                              AppNotification.showError(
+                                context,
+                                controller.errorMessage ??
+                                    'Failed to save procedure',
+                              );
+                            }
                           }
                         },
                 ),
@@ -3918,18 +3852,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 photo.id!,
               );
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      success
-                          ? 'Photo evidence deleted successfully'
-                          : (ctrl.errorMessage ?? 'Failed to delete photo evidence'),
-                    ),
-                    backgroundColor: success
-                        ? AppTheme.secondaryColor
-                        : AppTheme.dangerColor,
-                  ),
-                );
+                if (success) {
+                  AppNotification.showSuccess(
+                    context,
+                    'Photo evidence deleted successfully',
+                  );
+                } else {
+                  AppNotification.showError(
+                    context,
+                    ctrl.errorMessage ?? 'Failed to delete photo evidence',
+                  );
+                }
               }
             },
           ),
@@ -3960,14 +3893,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 'Invalid File Format! "${file.name}" is not a supported image format. Allowed formats: JPG, JPEG, PNG.';
           });
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Invalid File Format! "${file.name}" is not supported. Allowed formats: JPG, JPEG, PNG.',
-                ),
-                backgroundColor: AppTheme.dangerColor,
-                duration: const Duration(seconds: 4),
-              ),
+            AppNotification.showError(
+              context,
+              'Invalid File Format! "${file.name}" is not supported. Allowed formats: JPG, JPEG, PNG.',
             );
           }
           return;
@@ -3983,14 +3911,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 'File size exceeds the 15 MB limit ($sizeStr). Please select an image under 15 MB.';
           });
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'File size exceeds the 15 MB limit ($sizeStr). Please select an image under 15 MB.',
-                ),
-                backgroundColor: AppTheme.dangerColor,
-                duration: const Duration(seconds: 4),
-              ),
+            AppNotification.showError(
+              context,
+              'File size exceeds the 15 MB limit ($sizeStr). Please select an image under 15 MB.',
             );
           }
           return;
@@ -4691,15 +4614,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 .format(minAllowedTime);
                             final maxStr = DateFormat('hh:mm a')
                                 .format(maxAllowedTime);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Invalid time! Start time must be within 1 hour prior/after current time ($minStr - $maxStr).',
-                                  ),
-                                  backgroundColor: AppTheme.dangerColor,
-                                  duration: const Duration(seconds: 3),
-                                ),
+                            if (dialogCtx.mounted) {
+                              AppNotification.showError(
+                                dialogCtx,
+                                'Invalid time! Start time must be within 1 hour prior/after current time ($minStr - $maxStr).',
                               );
                             }
                             return;
@@ -4863,26 +4781,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               }
                             } else {
                               setDialogState(() => isSubmitting = false);
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      body['message'] ??
-                                          'Failed to record start time',
-                                    ),
-                                    backgroundColor: AppTheme.dangerColor,
-                                  ),
+                              if (dialogCtx.mounted) {
+                                AppNotification.showError(
+                                  dialogCtx,
+                                  body['message'] ??
+                                      'Failed to record start time',
                                 );
                               }
                             }
                           } catch (e) {
                             setDialogState(() => isSubmitting = false);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Error starting visit: $e'),
-                                  backgroundColor: AppTheme.dangerColor,
-                                ),
+                            if (dialogCtx.mounted) {
+                              AppNotification.showError(
+                                dialogCtx,
+                                'Error starting visit: $e',
                               );
                             }
                           }
@@ -6393,29 +6305,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       ModalHistoryHelper.skipNextHistoryBack();
                                       _clearVitalsForm();
                                       Navigator.of(dialogCtx).pop();
-                                      ScaffoldMessenger.of(
+                                      AppNotification.showSuccess(
                                         context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            existingVital != null
-                                                ? 'Patient vitals updated successfully'
-                                                : 'Patient vitals recorded successfully',
-                                          ),
-                                          backgroundColor: Colors.green,
-                                        ),
+                                        existingVital != null
+                                            ? 'Patient vitals updated successfully'
+                                            : 'Patient vitals recorded successfully',
                                       );
-                                    } else if (mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            controller.errorMessage ??
-                                                'Failed to save vitals',
-                                          ),
-                                          backgroundColor: Colors.red,
-                                        ),
+                                    } else if (dialogCtx.mounted) {
+                                      AppNotification.showError(
+                                        dialogCtx,
+                                        controller.errorMessage ??
+                                            'Failed to save vitals',
                                       );
                                     }
                                   },
@@ -6801,23 +6701,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
                         if (success) {
                           _clearVitalsForm();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Patient vitals recorded successfully',
-                              ),
-                              backgroundColor: Colors.green,
-                            ),
+                          AppNotification.showSuccess(
+                            context,
+                            'Patient vitals recorded successfully',
                           );
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                controller.errorMessage ??
-                                    'Failed to record vitals',
-                              ),
-                              backgroundColor: AppTheme.dangerColor,
-                            ),
+                          AppNotification.showError(
+                            context,
+                            controller.errorMessage ??
+                                'Failed to record vitals',
                           );
                         }
                       },
@@ -7497,16 +7389,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                                    v.id!,
                                                  );
                                              if (success && mounted) {
-                                               ScaffoldMessenger.of(
+                                               AppNotification.showSuccess(
                                                  context,
-                                               ).showSnackBar(
-                                                 const SnackBar(
-                                                   content: Text(
-                                                     'Vitals entry deleted successfully',
-                                                   ),
-                                                   backgroundColor:
-                                                       AppTheme.primaryColor,
-                                                 ),
+                                                 'Vitals entry deleted successfully',
                                                );
                                              }
                                            }
@@ -8206,15 +8091,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             setDState(() => isSaving = false);
                             if (success && context.mounted) {
                               Navigator.pop(dCtx);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    existingVital != null
-                                        ? 'Vitals for $slotTime updated successfully!'
-                                        : 'Vitals for $slotTime recorded successfully!',
-                                  ),
-                                  backgroundColor: AppTheme.secondaryColor,
-                                ),
+                              AppNotification.showSuccess(
+                                context,
+                                existingVital != null
+                                    ? 'Vitals for $slotTime updated successfully!'
+                                    : 'Vitals for $slotTime recorded successfully!',
                               );
                             }
                           }
@@ -8477,13 +8358,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 Navigator.of(dialogCtx).pop();
               }
               if (success && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Vitals schedule configuration updated successfully!',
-                    ),
-                    backgroundColor: AppTheme.secondaryColor,
-                  ),
+                AppNotification.showSuccess(
+                  context,
+                  'Vitals schedule configuration updated successfully!',
                 );
               }
             },
@@ -9411,16 +9288,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         m.id!,
                                       );
                                       if (success && mounted) {
-                                        ScaffoldMessenger.of(
+                                        AppNotification.showSuccess(
                                           context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Medicine record deleted successfully',
-                                            ),
-                                            backgroundColor:
-                                                AppTheme.secondaryColor,
-                                          ),
+                                          'Medicine record deleted successfully',
                                         );
                                       }
                                     }
@@ -9605,16 +9475,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                             m.id!,
                                           );
                                           if (success && mounted) {
-                                            ScaffoldMessenger.of(
+                                            AppNotification.showSuccess(
                                               context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Medicine record deleted successfully',
-                                                ),
-                                                backgroundColor:
-                                                    AppTheme.secondaryColor,
-                                              ),
+                                              'Medicine record deleted successfully',
                                             );
                                           }
                                         }
@@ -9847,6 +9710,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             for (int idx = 0; idx < pageProcedures.length; idx++) ...[
               () {
                 final p = pageProcedures[idx];
+                final procConsumables = visit.consumables.where((c) {
+                  final nameLower = c.itemName.toLowerCase();
+                  final procLower = p.procedureName.toLowerCase();
+                  return nameLower.contains('($procLower)') ||
+                      nameLower.contains(procLower);
+                }).toList();
+
+                final double consumableCharge = procConsumables.fold(
+                  0.0,
+                  (sum, c) => sum + (c.quantityUsed * c.unitPrice),
+                );
+                final double grandTotalProc =
+                    p.totalProcedureCharge + consumableCharge;
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -9953,16 +9829,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         p.id!,
                                       );
                                       if (success && mounted) {
-                                        ScaffoldMessenger.of(
+                                        AppNotification.showSuccess(
                                           context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Procedure record deleted successfully',
-                                            ),
-                                            backgroundColor:
-                                                AppTheme.secondaryColor,
-                                          ),
+                                          'Procedure record deleted successfully',
                                         );
                                       }
                                     }
@@ -9974,12 +9843,48 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Charge/Proc: ₹${p.chargePerProcedure.toStringAsFixed(2)} | Total Charge: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
+                          consumableCharge > 0
+                              ? 'Procedure: ₹${p.totalProcedureCharge.toStringAsFixed(2)} | Consumables: ₹${consumableCharge.toStringAsFixed(2)}'
+                              : 'Charge/Proc: ₹${p.chargePerProcedure.toStringAsFixed(2)} | Total Charge: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF475569),
                           ),
                         ),
+                        if (procConsumables.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 5,
+                            children: procConsumables.map((c) {
+                              final cleanName = c.itemName
+                                  .replaceAll(RegExp(r'\s*\([^)]*\)'), '')
+                                  .trim();
+                              final totalCost = c.quantityUsed * c.unitPrice;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2.5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: Text(
+                                  '$cleanName (${c.quantityUsed}x) • ₹${totalCost.toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF475569),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
                         const SizedBox(height: 6),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -9996,7 +9901,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                'Total: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
+                                'Total: ₹${grandTotalProc.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -10060,12 +9965,53 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Charge/Proc: ₹${p.chargePerProcedure.toStringAsFixed(2)} | Total Charge: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
+                                    consumableCharge > 0
+                                        ? 'Procedure: ₹${p.totalProcedureCharge.toStringAsFixed(2)} | Consumables: ₹${consumableCharge.toStringAsFixed(2)}'
+                                        : 'Charge/Proc: ₹${p.chargePerProcedure.toStringAsFixed(2)} | Total Charge: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Color(0xFF475569),
                                     ),
                                   ),
+                                  if (procConsumables.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 5,
+                                      children: procConsumables.map((c) {
+                                        final cleanName = c.itemName
+                                            .replaceAll(
+                                              RegExp(r'\s*\([^)]*\)'),
+                                              '',
+                                            )
+                                            .trim();
+                                        final totalCost =
+                                            c.quantityUsed * c.unitPrice;
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 7,
+                                            vertical: 2.5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF1F5F9),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: const Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '$cleanName (${c.quantityUsed}x) • ₹${totalCost.toStringAsFixed(0)}',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xFF475569),
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -10087,7 +10033,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                             BorderRadius.circular(6),
                                       ),
                                       child: Text(
-                                        '₹${p.totalProcedureCharge.toStringAsFixed(2)}',
+                                        '₹${grandTotalProc.toStringAsFixed(2)}',
                                         style: const TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.bold,
@@ -10139,16 +10085,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                             p.id!,
                                           );
                                           if (success && mounted) {
-                                            ScaffoldMessenger.of(
+                                            AppNotification.showSuccess(
                                               context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Procedure record deleted successfully',
-                                                ),
-                                                backgroundColor:
-                                                    AppTheme.secondaryColor,
-                                              ),
+                                              'Procedure record deleted successfully',
                                             );
                                           }
                                         }
@@ -11594,13 +11533,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ? null
                         : () async {
                             if (_attenderNameCtrl.text.trim().length < 3) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Please enter valid attender name (min 3 chars).',
-                                  ),
-                                  backgroundColor: AppTheme.dangerColor,
-                                ),
+                              AppNotification.showError(
+                                context,
+                                'Please enter valid attender name (min 3 chars).',
                               );
                               return;
                             }
@@ -11621,6 +11556,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 builder: (_) => HomeVisitInvoiceDialog(
                                   invoiceData: result,
                                   visit: visit,
+                                  onCloseAndComplete: () {
+                                    _handleLeave();
+                                  },
                                 ),
                               );
                             }
@@ -11819,108 +11757,124 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  Row(
                     children: [
-                      ElevatedButton.icon(
-                        style: AppTheme.dangerButton.copyWith(
-                          minimumSize: MaterialStateProperty.all(
-                            const Size(double.infinity, 48),
+                      Expanded(
+                        flex: 1,
+                        child: SizedBox(
+                          height: 48,
+                          child: OutlinedButton(
+                            style: AppTheme.cancelButton,
+                            child: const Text('Cancel'),
+                            onPressed: isSubmitting
+                                ? null
+                                : () {
+                                    ModalHistoryHelper.skipNextHistoryBack();
+                                    Navigator.of(dialogCtx).pop();
+                                  },
                           ),
                         ),
-                        icon: isSubmitting
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.check_circle_outline,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                        label: Text(
-                          isSubmitting
-                              ? 'Processing...'
-                              : 'Complete Visit & Create Invoice',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        onPressed: isSubmitting
-                            ? null
-                            : () async {
-                                if (nameCtrl.text.trim().length < 3) {
-                                  AppNotification.showError(
-                                    dialogCtx,
-                                    'Please enter attender full name (min 3 chars).',
-                                  );
-                                  return;
-                                }
-                                if (relCtrl.text.trim().isEmpty) {
-                                  AppNotification.showError(
-                                    dialogCtx,
-                                    'Please specify attender relationship.',
-                                  );
-                                  return;
-                                }
-                                if (sigPoints.isEmpty) {
-                                  AppNotification.showError(
-                                    dialogCtx,
-                                    'Attender signature is required to complete the home visit.',
-                                  );
-                                  return;
-                                }
-                                setDialogState(() => isSubmitting = true);
-                                _attenderNameCtrl.text = nameCtrl.text.trim();
-                                _attenderRelationCtrl.text = relCtrl.text.trim();
-
-                                final result = await controller.verifyVisit(
-                                  visit.id,
-                                  nameCtrl.text.trim(),
-                                  relCtrl.text.trim(),
-                                  'signature_base64_data_valid',
-                                );
-                                await controller.fetchVisits();
-
-                                if (result != null && context.mounted) {
-                                  ModalHistoryHelper.skipNextHistoryBack();
-                                  Navigator.of(dialogCtx).pop();
-                                  showDialog(
-                                    context: context,
-                                    builder: (_) => HomeVisitInvoiceDialog(
-                                      invoiceData: result,
-                                      visit: visit,
-                                      onCloseAndComplete: () {
-                                        _handleLeave();
-                                      },
-                                    ),
-                                  );
-                                  AppNotification.showSuccess(
-                                    context,
-                                    "Today's home visit marked as Completed & invoice generated!",
-                                  );
-                                } else if (context.mounted) {
-                                  setDialogState(() => isSubmitting = false);
-                                }
-                              },
                       ),
-                      const SizedBox(height: 10),
-                      OutlinedButton(
-                        style: AppTheme.cancelButton.copyWith(
-                          minimumSize: MaterialStateProperty.all(
-                            const Size(double.infinity, 44),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            style: AppTheme.dangerButton,
+                            icon: isSubmitting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.check_circle_outline,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                            label: Text(
+                              isSubmitting
+                                  ? 'Processing...'
+                                  : 'Complete Visit & Create Invoice',
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            onPressed: isSubmitting
+                                ? null
+                                : () async {
+                                    if (nameCtrl.text.trim().length < 3) {
+                                      AppNotification.showError(
+                                        dialogCtx,
+                                        'Please enter attender full name (min 3 chars).',
+                                      );
+                                      return;
+                                    }
+                                    if (relCtrl.text.trim().isEmpty) {
+                                      AppNotification.showError(
+                                        dialogCtx,
+                                        'Please specify attender relationship.',
+                                      );
+                                      return;
+                                    }
+                                    if (sigPoints.isEmpty) {
+                                      AppNotification.showError(
+                                        dialogCtx,
+                                        'Attender signature is required to complete the home visit.',
+                                      );
+                                      return;
+                                    }
+                                    setDialogState(() => isSubmitting = true);
+                                    _attenderNameCtrl.text =
+                                        nameCtrl.text.trim();
+                                    _attenderRelationCtrl.text =
+                                        relCtrl.text.trim();
+
+                                    final result =
+                                        await controller.verifyVisit(
+                                      visit.id,
+                                      nameCtrl.text.trim(),
+                                      relCtrl.text.trim(),
+                                      'signature_base64_data_valid',
+                                    );
+                                    await controller.fetchVisits();
+
+                                    if (result != null && context.mounted) {
+                                      ModalHistoryHelper
+                                          .skipNextHistoryBack();
+                                      Navigator.of(dialogCtx).pop();
+                                      showDialog(
+                                        context: context,
+                                        builder: (_) =>
+                                            HomeVisitInvoiceDialog(
+                                          invoiceData: result,
+                                          visit: visit,
+                                          onCloseAndComplete: () {
+                                            _handleLeave();
+                                          },
+                                        ),
+                                      );
+                                      AppNotification.showSuccess(
+                                        context,
+                                        "Today's home visit marked as Completed & invoice generated!",
+                                      );
+                                    } else if (context.mounted) {
+                                      setDialogState(
+                                          () => isSubmitting = false);
+                                      AppNotification.showError(
+                                        dialogCtx,
+                                        controller.errorMessage ??
+                                            'Failed to complete visit and generate invoice. Please try again.',
+                                      );
+                                    }
+                                  },
                           ),
                         ),
-                        child: const Text('Cancel'),
-                        onPressed: () {
-                          ModalHistoryHelper.skipNextHistoryBack();
-                          Navigator.of(dialogCtx).pop();
-                        },
                       ),
                     ],
                   ),
@@ -13926,6 +13880,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     builder: (_) => HomeVisitInvoiceDialog(
                                       invoiceData: {'invoice': visit.invoice},
                                       visit: visit,
+                                      onCloseAndComplete: () {
+                                        _handleLeave();
+                                      },
                                     ),
                                   );
                                 },
@@ -13996,6 +13953,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   builder: (_) => HomeVisitInvoiceDialog(
                                     invoiceData: {'invoice': visit.invoice},
                                     visit: visit,
+                                    onCloseAndComplete: () {
+                                      _handleLeave();
+                                    },
                                   ),
                                 );
                               },
@@ -14935,13 +14895,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
 
                       if (success && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Home visit care plan (${visit.visitNumber}) for ${visit.patientName ?? "Patient"} stopped and cancelled successfully.',
-                            ),
-                            backgroundColor: AppTheme.secondaryColor,
-                          ),
+                        AppNotification.showSuccess(
+                          context,
+                          'Home visit care plan (${visit.visitNumber}) for ${visit.patientName ?? "Patient"} stopped and cancelled successfully.',
                         );
                         _handleLeave();
                       }
