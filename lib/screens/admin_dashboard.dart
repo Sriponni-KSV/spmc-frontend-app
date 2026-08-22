@@ -13975,8 +13975,12 @@ class _AddUserDialogState extends State<AddUserDialog> {
                     size: 20,
                   ),
                   onPressed: () {
-                    setState(() {
-                      _obscurePassword = !_obscurePassword;
+                    Future.microtask(() {
+                      if (mounted) {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      }
                     });
                   },
                 ),

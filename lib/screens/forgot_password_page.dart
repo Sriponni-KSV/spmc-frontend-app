@@ -722,7 +722,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       : Icons.visibility_outlined,
                 ),
                 onPressed: () {
-                  setState(() => _obscureNewPassword = !_obscureNewPassword);
+                  Future.microtask(() {
+                    if (mounted) {
+                      setState(() => _obscureNewPassword = !_obscureNewPassword);
+                    }
+                  });
                 },
               ),
             ),
@@ -793,9 +797,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       : Icons.visibility_outlined,
                 ),
                 onPressed: () {
-                  setState(
-                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
-                  );
+                  Future.microtask(() {
+                    if (mounted) {
+                      setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+                    }
+                  });
                 },
               ),
             ),
