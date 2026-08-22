@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../utils/app_theme.dart';
@@ -42,6 +43,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   int _currentStep = 0;
   bool _isLoading = false;
+  Timer? _resendTimer;
+  int _secondsRemaining = 0;
   String? _emailErrorMessage;
   String? _otpErrorMessage;
 
@@ -58,12 +61,62 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _pageController.dispose();
     _emailController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     _confirmPasswordFocus.dispose();
     super.dispose();
+  }
+
+  void _startResendTimer() {
+    _resendTimer?.cancel();
+    setState(() {
+      _secondsRemaining = 120;
+    });
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        if (_secondsRemaining > 0) {
+          _secondsRemaining--;
+        } else {
+          _resendTimer?.cancel();
+        }
+      });
+    });
+  }
+
+  void _resendOtp() async {
+    if (_secondsRemaining > 0 || _isLoading) return;
+    setState(() {
+      _isLoading = true;
+      _otpErrorMessage = null;
+    });
+    try {
+      await _authController.forgotPassword(_emailController.text.trim());
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      _startResendTimer();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('OTP resent successfully.'),
+          backgroundColor: AppTheme.primaryColor,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final errorText = e.toString().replaceAll('Exception: ', '');
+      setState(() {
+        _isLoading = false;
+        _otpErrorMessage = errorText;
+      });
+    }
   }
 
   void _nextStep() async {
@@ -82,6 +135,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             _currentStep = 1;
             _isLoading = false;
           });
+          _startResendTimer();
           _pageController.animateToPage(
             1,
             duration: const Duration(milliseconds: 300),
@@ -195,7 +249,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.of(dialogContext).pop();
-                      context.go(AppRoutes.login);
+                      Future.delayed(Duration.zero, () {
+                        if (context.mounted) {
+                          context.go(AppRoutes.login);
+                        }
+                      });
                     },
                     style: AppTheme.primaryButton.copyWith(
                       minimumSize: MaterialStateProperty.all(
@@ -616,6 +674,40 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   )
                 : const Text('Verify OTP'),
           ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _secondsRemaining > 0 ? "Didn't receive OTP? " : "",
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 14,
+                  color: AppTheme.textSecondaryColor,
+                ),
+              ),
+              TextButton(
+                onPressed: _secondsRemaining == 0 && !_isLoading ? _resendOtp : null,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.primaryColor,
+                  disabledForegroundColor: AppTheme.textSecondaryColor,
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: const TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                child: Text(
+                  _secondsRemaining > 0
+                      ? 'Resend OTP in ${_secondsRemaining}s'
+                      : 'Resend OTP',
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           TextButton(
             onPressed: () {
@@ -722,7 +814,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       : Icons.visibility_outlined,
                 ),
                 onPressed: () {
-                  setState(() => _obscureNewPassword = !_obscureNewPassword);
+                  Future.microtask(() {
+                    if (mounted) {
+                      setState(() => _obscureNewPassword = !_obscureNewPassword);
+                    }
+                  });
                 },
               ),
             ),
@@ -793,9 +889,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       : Icons.visibility_outlined,
                 ),
                 onPressed: () {
-                  setState(
-                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
-                  );
+                  Future.microtask(() {
+                    if (mounted) {
+                      setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+                    }
+                  });
                 },
               ),
             ),

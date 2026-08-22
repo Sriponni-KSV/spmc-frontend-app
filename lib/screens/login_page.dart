@@ -258,12 +258,16 @@ class _LoginScreenState extends State<LoginScreen> {
           obscureText: _obscurePassword,
           textInputAction: TextInputAction.done,
           onToggleVisibility: () {
-            setState(() {
-              _obscurePassword = !_obscurePassword;
+            Future.microtask(() {
+              if (mounted) {
+                setState(() {
+                  _obscurePassword = !_obscurePassword;
+                });
+              }
             });
           },
           onSubmitted: (_) => _handleLogin(),
-          validator: PasswordPolicy.validatePassword,
+          validator: PasswordPolicy.validateLoginPassword,
         ),
         const SizedBox(height: 8),
 

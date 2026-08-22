@@ -357,8 +357,12 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
                         : Icons.visibility_off_outlined,
                   ),
                   onPressed: () {
-                    setState(() {
-                      _obscureNewPassword = !_obscureNewPassword;
+                    Future.microtask(() {
+                      if (mounted) {
+                        setState(() {
+                          _obscureNewPassword = !_obscureNewPassword;
+                        });
+                      }
                     });
                   },
                 ),
@@ -423,8 +427,12 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
                         : Icons.visibility_off_outlined,
                   ),
                   onPressed: () {
-                    setState(() {
-                      _obscureConfirmPassword = !_obscureConfirmPassword;
+                    Future.microtask(() {
+                      if (mounted) {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      }
                     });
                   },
                 ),

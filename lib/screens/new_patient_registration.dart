@@ -1025,14 +1025,14 @@ class _NewPatientRegistrationViewState
                 hint: 'Enter Email Address',
                 keyboardType: TextInputType.emailAddress,
                 inputFormatters: [
-                  LengthLimitingTextInputFormatter(254),
+                  LengthLimitingTextInputFormatter(100),
                 ],
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
                     return 'Please enter Email Address';
                   }
-                  if (val.trim().length > 254) {
-                    return 'Email address cannot exceed 254 characters';
+                  if (val.trim().length > 100) {
+                    return 'Email address cannot exceed 100 characters';
                   }
                   if (!RegExp(
                     r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
@@ -1360,14 +1360,14 @@ class _NewPatientRegistrationViewState
                           hint: 'Enter Email Address',
                           keyboardType: TextInputType.emailAddress,
                           inputFormatters: [
-                            LengthLimitingTextInputFormatter(254),
+                            LengthLimitingTextInputFormatter(100),
                           ],
                           validator: (val) {
                             if (val == null || val.trim().isEmpty) {
                               return 'Please enter Email Address';
                             }
-                            if (val.trim().length > 254) {
-                              return 'Email address cannot exceed 254 characters';
+                            if (val.trim().length > 100) {
+                              return 'Email address cannot exceed 100 characters';
                             }
                             if (!RegExp(
                               r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
@@ -1857,10 +1857,14 @@ class _NewPatientRegistrationViewState
                     child: _buildTextField(
                       controller: _heightController,
                       hint: 'Enter Height (cm)',
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                        LengthLimitingTextInputFormatter(6),
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d*\.?\d{0,2}'),
+                        ),
+                        LengthLimitingTextInputFormatter(5),
                       ],
                       validator: (val) {
                         final text = val?.trim() ?? '';
@@ -1868,6 +1872,9 @@ class _NewPatientRegistrationViewState
                         final num = double.tryParse(text);
                         if (num == null) return 'Height must be a valid number';
                         if (num <= 0) return 'Height must be greater than 0';
+                        if (num < 30 || num > 300) {
+                          return 'Height must be between 30 and 300 cm';
+                        }
                         return null;
                       },
                     ),
@@ -1877,10 +1884,14 @@ class _NewPatientRegistrationViewState
                     child: _buildTextField(
                       controller: _weightController,
                       hint: 'Enter Weight (kg)',
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                        LengthLimitingTextInputFormatter(6),
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d*\.?\d{0,2}'),
+                        ),
+                        LengthLimitingTextInputFormatter(5),
                       ],
                       validator: (val) {
                         final text = val?.trim() ?? '';
@@ -1888,6 +1899,9 @@ class _NewPatientRegistrationViewState
                         final num = double.tryParse(text);
                         if (num == null) return 'Weight must be a valid number';
                         if (num <= 0) return 'Weight must be greater than 0';
+                        if (num < 0.5 || num > 500) {
+                          return 'Weight must be between 0.5 and 500 kg';
+                        }
                         return null;
                       },
                     ),
@@ -2096,12 +2110,15 @@ class _NewPatientRegistrationViewState
                               child: _buildTextField(
                                 controller: _heightController,
                                 hint: 'Enter Height (cm)',
-                                keyboardType: TextInputType.number,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
                                 inputFormatters: [
                                   FilteringTextInputFormatter.allow(
-                                    RegExp(r'[0-9.]'),
+                                    RegExp(r'^\d*\.?\d{0,2}'),
                                   ),
-                                  LengthLimitingTextInputFormatter(6),
+                                  LengthLimitingTextInputFormatter(5),
                                 ],
                                 validator: (val) {
                                   final text = val?.trim() ?? '';
@@ -2109,6 +2126,9 @@ class _NewPatientRegistrationViewState
                                   final num = double.tryParse(text);
                                   if (num == null) return 'Height must be a valid number';
                                   if (num <= 0) return 'Height must be greater than 0';
+                                  if (num < 30 || num > 300) {
+                                    return 'Height must be between 30 and 300 cm';
+                                  }
                                   return null;
                                 },
                               ),
@@ -2118,12 +2138,15 @@ class _NewPatientRegistrationViewState
                               child: _buildTextField(
                                 controller: _weightController,
                                 hint: 'Enter Weight (kg)',
-                                keyboardType: TextInputType.number,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
                                 inputFormatters: [
                                   FilteringTextInputFormatter.allow(
-                                    RegExp(r'[0-9.]'),
+                                    RegExp(r'^\d*\.?\d{0,2}'),
                                   ),
-                                  LengthLimitingTextInputFormatter(6),
+                                  LengthLimitingTextInputFormatter(5),
                                 ],
                                 validator: (val) {
                                   final text = val?.trim() ?? '';
@@ -2131,6 +2154,9 @@ class _NewPatientRegistrationViewState
                                   final num = double.tryParse(text);
                                   if (num == null) return 'Weight must be a valid number';
                                   if (num <= 0) return 'Weight must be greater than 0';
+                                  if (num < 0.5 || num > 500) {
+                                    return 'Weight must be between 0.5 and 500 kg';
+                                  }
                                   return null;
                                 },
                               ),
@@ -3622,11 +3648,17 @@ class _NewPatientRegistrationViewState
       final val = double.tryParse(heightText);
       if (val == null) throw 'Height must be a valid number';
       if (val <= 0) throw 'Height must be greater than 0';
+      if (val < 30 || val > 300) {
+        throw 'Height must be between 30 and 300 cm';
+      }
     }
     if (weightText.isNotEmpty) {
       final val = double.tryParse(weightText);
       if (val == null) throw 'Weight must be a valid number';
       if (val <= 0) throw 'Weight must be greater than 0';
+      if (val < 0.5 || val > 500) {
+        throw 'Weight must be between 0.5 and 500 kg';
+      }
     }
   }
 

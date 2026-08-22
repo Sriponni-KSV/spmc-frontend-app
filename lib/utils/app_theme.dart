@@ -222,15 +222,16 @@ class AppTheme {
 
   static ButtonStyle get cancelButton => OutlinedButton.styleFrom(
     foregroundColor: textSecondaryColor,
-    side: const BorderSide(color: Color(0xFFB0BCC7), width: 1.2),
+    side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
     backgroundColor: Colors.transparent,
-    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-    minimumSize: const Size(130, 48),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(borderRadius),
+    ),
     textStyle: const TextStyle(
       fontFamily: fontFamily,
-      fontSize: 15,
-      fontWeight: FontWeight.bold,
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
     ),
   );
 

@@ -1,6 +1,20 @@
 import 'dart:math';
 
 class PasswordPolicy {
+  /// Validates a password for the login screen.
+  /// Only checks that it is not empty and has a length between 8 and 16 characters.
+  static String? validateLoginPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter Password';
+    }
+    if (value.length < 8) {
+      return 'Password must be at least 8 characters long';
+    }
+    if (value.length > 16) {
+      return 'Password must be at most 16 characters long';
+    }
+    return null;
+  }
   /// Validates a password against the standard policy.
   /// Returns a string with the error message if invalid, or null if valid.
   static String? validatePassword(String? value) {

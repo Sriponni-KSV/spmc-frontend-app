@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/api_service.dart';
 
+import '../config/api_config.dart';
+
 class LabController {
-  String get baseUrl => dotenv.env['BASE_URL']!;
+  String get baseUrl => ApiEndpoints.baseUrl;
 
   /// Fetch all lab requests, with optional filters
   Future<List<Map<String, dynamic>>> fetchLabRequests({String? status, int? patientId}) async {

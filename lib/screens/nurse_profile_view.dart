@@ -99,16 +99,14 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     final isLocal = _certFileBytes != null;
 
     if (isLocal && _certFileBytes != null) {
-      showDocumentViewer(
-        context,
+      openDocumentInNewTab(
         '',
         _certFileName ?? 'Registration Certificate',
         bytes: _certFileBytes,
         fileName: _certFileName,
       );
     } else if (certUrl.isNotEmpty) {
-      showDocumentViewer(
-        context,
+      openDocumentInNewTab(
         certUrl,
         'Registration Certificate',
       );
@@ -410,9 +408,9 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 if (isUrl)
                   OutlinedButton.icon(
                     onPressed: () {
-                      showDocumentViewer(context, certUrl, 'Registration Certificate');
+                      openDocumentInNewTab(certUrl, 'Registration Certificate');
                     },
-                    icon: const Icon(Icons.remove_red_eye_outlined, size: 14, color: Color(0xFF0F5A8E)),
+                    icon: const Icon(Icons.open_in_new, size: 14, color: Color(0xFF0F5A8E)),
                     label: const Text(
                       'view certificate',
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F5A8E)),
@@ -480,8 +478,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
               ),
               if (hasAnyFile) ...[
                 IconButton(
-                  tooltip: 'Preview Document',
-                  icon: const Icon(Icons.remove_red_eye_outlined, color: Colors.blue, size: 20),
+                  tooltip: 'Open in new tab',
+                  icon: const Icon(Icons.open_in_new, color: Colors.blue, size: 20),
                   onPressed: _previewCertificate,
                 ),
                 IconButton(
