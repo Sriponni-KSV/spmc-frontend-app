@@ -1,33 +1,50 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Centralized API Endpoints Configuration
 class ApiEndpoints {
-  /// Enables localhost routing for USB cable debugging (`adb reverse tcp:3001 tcp:3001`) & Web.
+  /// Enables localhost routing for USB cable debugging.
   static bool get useLocalhost => true;
 
   /// Your laptop's local Wi-Fi IP address on the network
   static const String backendIp = '192.168.1.58';
 
-  /// Backend server port
-  static const String port = '3001';
+  /// Backend server port.
+  static const String port = '3000';
 
-  /// Gets the active base URL dynamically for Web and Mobile
+  /// Production/API URL supplied through --dart-define.
+  static const String environmentBaseUrl = String.fromEnvironment(
+    'BASE_URL',
+    defaultValue: '',
+  );
+
+  /// Gets the active base URL dynamically.
   static String get baseUrl {
-    final envUrl = dotenv.env['BASE_URL'];
-    if (envUrl != null && envUrl.isNotEmpty) {
-      return envUrl.endsWith('/') ? envUrl.substring(0, envUrl.length - 1) : envUrl;
+    // 1. --dart-define BASE_URL
+    if (environmentBaseUrl.isNotEmpty) {
+      return environmentBaseUrl.endsWith('/')
+          ? environmentBaseUrl.substring(0, environmentBaseUrl.length - 1)
+          : environmentBaseUrl;
     }
+
+    // 2. Flutter Web local development
     if (kIsWeb) {
-      final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
-      final scheme = Uri.base.scheme.startsWith('https') ? 'https' : 'http';
+      final host = Uri.base.host.isNotEmpty
+          ? Uri.base.host
+          : 'localhost';
+
+      final scheme = Uri.base.scheme.startsWith('https')
+          ? 'https'
+          : 'http';
+
       return '$scheme://$host:$port/api';
     }
+
+    // 3. Mobile local development using adb reverse
     if (useLocalhost) {
-      // USB Cable Debugging (`adb reverse`)
       return 'http://localhost:$port/api';
     }
-    // Standalone APK over Wi-Fi
+
+    // 4. Mobile device over Wi-Fi
     return 'http://$backendIp:$port/api';
   }
 }

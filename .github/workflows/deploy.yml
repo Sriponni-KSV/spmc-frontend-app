@@ -1,0 +1,198 @@
+name: Deploy Flutter Frontend to EC2
+
+on:
+  push:
+    branches:
+      - prod
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy Flutter Web
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ============================================
+      # 1. Checkout source code
+      # ============================================
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+
+      # ============================================
+      # 2. Setup Flutter
+      # ============================================
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+
+      # ============================================
+      # 3. Verify Flutter installation
+      # ============================================
+      - name: Flutter version
+        run: flutter --version
+
+
+      # ============================================
+      # 4. Get Flutter dependencies
+      # ============================================
+      - name: Get dependencies
+        run: flutter pub get
+
+
+      # ============================================
+      # 5. Build Flutter Web
+      #
+      # BASE_URL comes from GitHub Repository Secret
+      # ============================================
+      - name: Build Flutter Web
+        run: |
+          flutter build web --release \
+            --dart-define=BASE_URL="${{ secrets.BASE_URL }}"
+
+
+      # ============================================
+      # 6. Verify Flutter build
+      # ============================================
+      - name: Verify build
+        run: |
+          test -f build/web/index.html
+          echo "Flutter Web build created successfully"
+
+
+      # ============================================
+      # 7. Create deployment package
+      # ============================================
+      - name: Create deployment package
+        run: |
+          tar \
+            -C build/web \
+            -czf /tmp/flutter-web.tar.gz .
+
+
+      # ============================================
+      # 8. Setup SSH
+      # ============================================
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
+
+          chmod 600 ~/.ssh/ec2_key.pem
+
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+
+      # ============================================
+      # 9. Test EC2 connection
+      # ============================================
+      - name: Test EC2 connection
+        run: |
+          ssh \
+            -i ~/.ssh/ec2_key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "echo 'EC2 connection successful'"
+
+
+      # ============================================
+      # 10. Prepare frontend directory
+      # ============================================
+      - name: Prepare frontend directory
+        run: |
+          ssh \
+            -i ~/.ssh/ec2_key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "mkdir -p /var/www/flutter/build/web"
+
+
+      # ============================================
+      # 11. Upload Flutter build
+      # ============================================
+      - name: Upload Flutter build
+        run: |
+          scp \
+            -i ~/.ssh/ec2_key.pem \
+            /tmp/flutter-web.tar.gz \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/flutter-web.tar.gz
+
+
+      # ============================================
+      # 12. Backup current frontend
+      # ============================================
+      - name: Backup current frontend
+        run: |
+          ssh \
+            -i ~/.ssh/ec2_key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "if [ -f /var/www/flutter/build/web/index.html ]; then \
+              rm -rf /var/www/flutter/backup && \
+              mkdir -p /var/www/flutter/backup && \
+              cp -r /var/www/flutter/build/web/. /var/www/flutter/backup/; \
+            fi"
+
+
+      # ============================================
+      # 13. Deploy Flutter build
+      # ============================================
+      - name: Deploy Flutter build
+        run: |
+          ssh \
+            -i ~/.ssh/ec2_key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "rm -rf /var/www/flutter/build/web/* && \
+             tar -xzf /tmp/flutter-web.tar.gz \
+             -C /var/www/flutter/build/web && \
+             rm -f /tmp/flutter-web.tar.gz"
+
+
+      # ============================================
+      # 14. Set correct permissions
+      #
+      # ec2-user owns the deployment directory.
+      # Nginx only needs read/execute permission.
+      # ============================================
+      - name: Set frontend permissions
+        run: |
+          ssh \
+            -i ~/.ssh/ec2_key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "sudo chown -R ec2-user:ec2-user /var/www/flutter && \
+             sudo chmod -R 755 /var/www/flutter"
+
+
+      # ============================================
+      # 15. Test Nginx configuration
+      # ============================================
+      - name: Test Nginx configuration
+        run: |
+          ssh \
+            -i ~/.ssh/ec2_key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "sudo nginx -t"
+
+
+      # ============================================
+      # 16. Reload Nginx
+      # ============================================
+      - name: Reload Nginx
+        run: |
+          ssh \
+            -i ~/.ssh/ec2_key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "sudo systemctl reload nginx"
+
+
+      # ============================================
+      # 17. Verify deployment
+      # ============================================
+      - name: Verify frontend deployment
+        run: |
+          ssh \
+            -i ~/.ssh/ec2_key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "test -f /var/www/flutter/build/web/index.html && \
+             echo 'Flutter frontend deployed successfully'"

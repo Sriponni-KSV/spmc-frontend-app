@@ -1,15 +1,20 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/home_visit_model.dart';
 import 'api_service.dart';
+import '../config/api_config.dart';
 
 class HomeVisitService {
   String get baseUrl {
-    final url = dotenv.env['BASE_URL'] ?? 'http://localhost:3001/api';
+    final url = ApiEndpoints.baseUrl;
     return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
   }
 
   // Fetch list of home visits
-  Future<List<HomeVisitModel>> getHomeVisits({int? nurseId, String? status, int? patientId}) async {
+  Future<List<HomeVisitModel>> getHomeVisits({
+    int? nurseId,
+    String? status,
+    int? patientId,
+  }) async {
     try {
       String endpoint = '$baseUrl/home-visits?';
       if (nurseId != null) endpoint += 'nurse_id=$nurseId&';
@@ -26,7 +31,9 @@ class HomeVisitService {
       }
       return [];
     } catch (e) {
-      throw Exception('Failed to load home visits: ${e.toString().replaceAll("Exception: ", "")}');
+      throw Exception(
+        'Failed to load home visits: ${e.toString().replaceAll("Exception: ", "")}',
+      );
     }
   }
 
@@ -61,9 +68,15 @@ class HomeVisitService {
   }
 
   // Record vitals
-  Future<void> recordVitals(int visitId, Map<String, dynamic> vitalsData) async {
+  Future<void> recordVitals(
+    int visitId,
+    Map<String, dynamic> vitalsData,
+  ) async {
     try {
-      final response = await ApiService.post('$baseUrl/home-visits/$visitId/vitals', vitalsData);
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/$visitId/vitals',
+        vitalsData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to record vitals');
@@ -76,7 +89,9 @@ class HomeVisitService {
   // Delete vitals entry
   Future<void> deleteVitals(int visitId, int vitalId) async {
     try {
-      final response = await ApiService.delete('$baseUrl/home-visits/$visitId/vitals/$vitalId');
+      final response = await ApiService.delete(
+        '$baseUrl/home-visits/$visitId/vitals/$vitalId',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to delete vitals entry');
@@ -87,9 +102,15 @@ class HomeVisitService {
   }
 
   // Record care activities
-  Future<void> recordCareActivities(int visitId, Map<String, dynamic> careData) async {
+  Future<void> recordCareActivities(
+    int visitId,
+    Map<String, dynamic> careData,
+  ) async {
     try {
-      final response = await ApiService.post('$baseUrl/home-visits/$visitId/care-activities', careData);
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/$visitId/care-activities',
+        careData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to record care activities');
@@ -102,7 +123,10 @@ class HomeVisitService {
   // Record medicine administered
   Future<void> recordMedicine(int visitId, Map<String, dynamic> medData) async {
     try {
-      final response = await ApiService.post('$baseUrl/home-visits/$visitId/medicines', medData);
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/$visitId/medicines',
+        medData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to log medicine');
@@ -113,9 +137,16 @@ class HomeVisitService {
   }
 
   // Update recorded medicine item
-  Future<void> updateMedicine(int visitId, int medId, Map<String, dynamic> medData) async {
+  Future<void> updateMedicine(
+    int visitId,
+    int medId,
+    Map<String, dynamic> medData,
+  ) async {
     try {
-      final response = await ApiService.put('$baseUrl/home-visits/$visitId/medicines/$medId', medData);
+      final response = await ApiService.put(
+        '$baseUrl/home-visits/$visitId/medicines/$medId',
+        medData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to update medicine');
@@ -128,7 +159,9 @@ class HomeVisitService {
   // Delete recorded medicine item
   Future<void> deleteMedicine(int visitId, int medId) async {
     try {
-      final response = await ApiService.delete('$baseUrl/home-visits/$visitId/medicines/$medId');
+      final response = await ApiService.delete(
+        '$baseUrl/home-visits/$visitId/medicines/$medId',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to delete medicine');
@@ -139,7 +172,11 @@ class HomeVisitService {
   }
 
   // Update medicine daily administration days checklist
-  Future<void> updateMedicineAdministeredDays(int visitId, int medId, Map<String, bool> days) async {
+  Future<void> updateMedicineAdministeredDays(
+    int visitId,
+    int medId,
+    Map<String, bool> days,
+  ) async {
     try {
       final response = await ApiService.put(
         '$baseUrl/home-visits/$visitId/medicines/$medId/administered-days',
@@ -147,7 +184,9 @@ class HomeVisitService {
       );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to update daily administration status');
+        throw Exception(
+          body['message'] ?? 'Failed to update daily administration status',
+        );
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
@@ -155,15 +194,21 @@ class HomeVisitService {
   }
 
   // Record Carried Item
-  Future<void> recordCarriedItem(int visitId, Map<String, dynamic> itemData) async {
+  Future<void> recordCarriedItem(
+    int visitId,
+    Map<String, dynamic> itemData,
+  ) async {
     try {
-      var response = await ApiService.post('$baseUrl/home-visits/$visitId/carried-items', itemData);
+      var response = await ApiService.post(
+        '$baseUrl/home-visits/$visitId/carried-items',
+        itemData,
+      );
       var body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
-        response = await ApiService.post('$baseUrl/home-visits/$visitId/care-activities', {
-          'is_carried_item': true,
-          'carried_item': itemData,
-        });
+        response = await ApiService.post(
+          '$baseUrl/home-visits/$visitId/care-activities',
+          {'is_carried_item': true, 'carried_item': itemData},
+        );
         body = ApiService.decodeJsonResponse(response);
       }
       if (body['success'] != true) {
@@ -177,7 +222,9 @@ class HomeVisitService {
   // Delete Carried Item
   Future<void> deleteCarriedItem(int visitId, int itemId) async {
     try {
-      final response = await ApiService.delete('$baseUrl/home-visits/$visitId/carried-items/$itemId');
+      final response = await ApiService.delete(
+        '$baseUrl/home-visits/$visitId/carried-items/$itemId',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to delete kit item');
@@ -188,9 +235,15 @@ class HomeVisitService {
   }
 
   // Record consumable item used
-  Future<void> recordConsumable(int visitId, Map<String, dynamic> consData) async {
+  Future<void> recordConsumable(
+    int visitId,
+    Map<String, dynamic> consData,
+  ) async {
     try {
-      final response = await ApiService.post('$baseUrl/home-visits/$visitId/consumables', consData);
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/$visitId/consumables',
+        consData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to log consumable item');
@@ -201,13 +254,17 @@ class HomeVisitService {
   }
 
   // Upload time-based photo evidence
-  Future<void> uploadPhotoEvidence(int visitId, String photoUrl, String category, String caption) async {
+  Future<void> uploadPhotoEvidence(
+    int visitId,
+    String photoUrl,
+    String category,
+    String caption,
+  ) async {
     try {
-      final response = await ApiService.post('$baseUrl/home-visits/$visitId/photos', {
-        'photo_url': photoUrl,
-        'category': category,
-        'caption': caption,
-      });
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/$visitId/photos',
+        {'photo_url': photoUrl, 'category': category, 'caption': caption},
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to upload photo evidence');
@@ -220,7 +277,9 @@ class HomeVisitService {
   // Delete photo evidence
   Future<void> deletePhotoEvidence(int visitId, int photoId) async {
     try {
-      final response = await ApiService.delete('$baseUrl/home-visits/$visitId/photos/$photoId');
+      final response = await ApiService.delete(
+        '$baseUrl/home-visits/$visitId/photos/$photoId',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to delete photo evidence');
@@ -232,34 +291,50 @@ class HomeVisitService {
 
   // Verify visit with attender signature & trigger auto-billing
   Future<Map<String, dynamic>> verifyAndGenerateBill(
-      int visitId, String attenderName, String attenderRelation, String signatureUrl) async {
+    int visitId,
+    String attenderName,
+    String attenderRelation,
+    String signatureUrl,
+  ) async {
     try {
-      final response = await ApiService.post('$baseUrl/home-visits/$visitId/verify-and-bill', {
-        'attender_name': attenderName,
-        'attender_relation': attenderRelation,
-        'attender_signature_url': signatureUrl,
-      });
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/$visitId/verify-and-bill',
+        {
+          'attender_name': attenderName,
+          'attender_relation': attenderRelation,
+          'attender_signature_url': signatureUrl,
+        },
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] == true && body['data'] != null) {
         return body['data'];
       }
-      throw Exception(body['message'] ?? 'Failed to verify visit & generate billing details');
+      throw Exception(
+        body['message'] ?? 'Failed to verify visit & generate billing details',
+      );
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
     }
   }
 
   // Update vitals schedule config
-  Future<void> updateVitalsConfig(String startTime, String endTime, int intervalMinutes) async {
+  Future<void> updateVitalsConfig(
+    String startTime,
+    String endTime,
+    int intervalMinutes,
+  ) async {
     try {
-      final response = await ApiService.put('$baseUrl/home-visits/vitals-config', {
-        'start_time': startTime,
-        'end_time': endTime,
-        'interval_minutes': intervalMinutes,
-      });
+      final response =
+          await ApiService.put('$baseUrl/home-visits/vitals-config', {
+            'start_time': startTime,
+            'end_time': endTime,
+            'interval_minutes': intervalMinutes,
+          });
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to update vitals schedule configuration');
+        throw Exception(
+          body['message'] ?? 'Failed to update vitals schedule configuration',
+        );
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
@@ -269,7 +344,9 @@ class HomeVisitService {
   // Get vitals status for a visit
   Future<VitalsScheduleStatusModel> getVitalsScheduleStatus(int visitId) async {
     try {
-      final response = await ApiService.get('$baseUrl/home-visits/$visitId/vitals-status');
+      final response = await ApiService.get(
+        '$baseUrl/home-visits/$visitId/vitals-status',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] == true && body['data'] != null) {
         return VitalsScheduleStatusModel.fromJson(body['data']);
@@ -283,13 +360,15 @@ class HomeVisitService {
   // Cancel / Discontinue home visit care
   Future<void> cancelHomeVisit(int visitId, String reason, String notes) async {
     try {
-      final response = await ApiService.put('$baseUrl/home-visits/$visitId/cancel', {
-        'reason': reason,
-        'notes': notes,
-      });
+      final response = await ApiService.put(
+        '$baseUrl/home-visits/$visitId/cancel',
+        {'reason': reason, 'notes': notes},
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to discontinue home visit care');
+        throw Exception(
+          body['message'] ?? 'Failed to discontinue home visit care',
+        );
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
@@ -299,7 +378,9 @@ class HomeVisitService {
   // Fetch Procedure Master Catalog List
   Future<List<ProcedureMasterModel>> fetchProceduresMaster() async {
     try {
-      final response = await ApiService.get('$baseUrl/home-visits/procedures-master');
+      final response = await ApiService.get(
+        '$baseUrl/home-visits/procedures-master',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] == true && body['data'] is List) {
         return (body['data'] as List)
@@ -313,9 +394,15 @@ class HomeVisitService {
   }
 
   // Record Procedure Item
-  Future<void> recordProcedure(int visitId, Map<String, dynamic> procedureData) async {
+  Future<void> recordProcedure(
+    int visitId,
+    Map<String, dynamic> procedureData,
+  ) async {
     try {
-      final response = await ApiService.post('$baseUrl/home-visits/$visitId/procedures', procedureData);
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/$visitId/procedures',
+        procedureData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to record procedure');
@@ -326,9 +413,16 @@ class HomeVisitService {
   }
 
   // Update Procedure Item
-  Future<void> updateProcedure(int visitId, int procId, Map<String, dynamic> procData) async {
+  Future<void> updateProcedure(
+    int visitId,
+    int procId,
+    Map<String, dynamic> procData,
+  ) async {
     try {
-      final response = await ApiService.put('$baseUrl/home-visits/$visitId/procedures/$procId', procData);
+      final response = await ApiService.put(
+        '$baseUrl/home-visits/$visitId/procedures/$procId',
+        procData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to update procedure');
@@ -341,7 +435,9 @@ class HomeVisitService {
   // Delete Procedure Item
   Future<void> deleteProcedure(int visitId, int procId) async {
     try {
-      final response = await ApiService.delete('$baseUrl/home-visits/$visitId/procedures/$procId');
+      final response = await ApiService.delete(
+        '$baseUrl/home-visits/$visitId/procedures/$procId',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to delete procedure');
@@ -354,7 +450,9 @@ class HomeVisitService {
   // Fetch Consumables Master List
   Future<List<Map<String, dynamic>>> fetchConsumablesMaster() async {
     try {
-      final response = await ApiService.get('$baseUrl/home-visits/consumables-master');
+      final response = await ApiService.get(
+        '$baseUrl/home-visits/consumables-master',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] == true && body['data'] is List) {
         return List<Map<String, dynamic>>.from(body['data']);
@@ -368,7 +466,10 @@ class HomeVisitService {
   // Create Procedure Master with Mapped Consumable Items
   Future<void> createProcedureMaster(Map<String, dynamic> procedureData) async {
     try {
-      final response = await ApiService.post('$baseUrl/home-visits/procedures-master', procedureData);
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/procedures-master',
+        procedureData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to save procedure');
@@ -379,9 +480,15 @@ class HomeVisitService {
   }
 
   // Add/Map Consumable Item to Existing Procedure
-  Future<void> addConsumableToProcedure(int procedureId, Map<String, dynamic> itemData) async {
+  Future<void> addConsumableToProcedure(
+    int procedureId,
+    Map<String, dynamic> itemData,
+  ) async {
     try {
-      final response = await ApiService.post('$baseUrl/home-visits/procedures-master/$procedureId/consumables', itemData);
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/procedures-master/$procedureId/consumables',
+        itemData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to map consumable item');
@@ -392,9 +499,15 @@ class HomeVisitService {
   }
 
   // Update Procedure Master Entry
-  Future<void> updateProcedureMaster(int procedureId, Map<String, dynamic> procData) async {
+  Future<void> updateProcedureMaster(
+    int procedureId,
+    Map<String, dynamic> procData,
+  ) async {
     try {
-      final response = await ApiService.put('$baseUrl/home-visits/procedures-master/$procedureId', procData);
+      final response = await ApiService.put(
+        '$baseUrl/home-visits/procedures-master/$procedureId',
+        procData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to update procedure');
@@ -407,7 +520,9 @@ class HomeVisitService {
   // Delete/Deactivate Procedure Master
   Future<void> deleteProcedureMaster(int procedureId) async {
     try {
-      final response = await ApiService.delete('$baseUrl/home-visits/procedures-master/$procedureId');
+      final response = await ApiService.delete(
+        '$baseUrl/home-visits/procedures-master/$procedureId',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to deactivate procedure');
@@ -420,7 +535,9 @@ class HomeVisitService {
   // Remove Consumable Mapping from Procedure
   Future<void> removeConsumableMapping(int procedureId, int mappingId) async {
     try {
-      final response = await ApiService.delete('$baseUrl/home-visits/procedures-master/$procedureId/consumables/$mappingId');
+      final response = await ApiService.delete(
+        '$baseUrl/home-visits/procedures-master/$procedureId/consumables/$mappingId',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to remove consumable item');
@@ -433,7 +550,10 @@ class HomeVisitService {
   // Create Consumable Item Master Directly
   Future<void> createConsumableMaster(Map<String, dynamic> itemData) async {
     try {
-      final response = await ApiService.post('$baseUrl/home-visits/consumables-master', itemData);
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/consumables-master',
+        itemData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to save consumable item');
@@ -444,9 +564,15 @@ class HomeVisitService {
   }
 
   // Update Consumable Item Master Entry
-  Future<void> updateConsumableMaster(int id, Map<String, dynamic> itemData) async {
+  Future<void> updateConsumableMaster(
+    int id,
+    Map<String, dynamic> itemData,
+  ) async {
     try {
-      final response = await ApiService.put('$baseUrl/home-visits/consumables-master/$id', itemData);
+      final response = await ApiService.put(
+        '$baseUrl/home-visits/consumables-master/$id',
+        itemData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to update consumable item');
@@ -459,10 +585,14 @@ class HomeVisitService {
   // Soft Delete / Deactivate Consumable Item Master
   Future<void> deleteConsumableMaster(int id) async {
     try {
-      final response = await ApiService.delete('$baseUrl/home-visits/consumables-master/$id');
+      final response = await ApiService.delete(
+        '$baseUrl/home-visits/consumables-master/$id',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to deactivate consumable item');
+        throw Exception(
+          body['message'] ?? 'Failed to deactivate consumable item',
+        );
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
@@ -472,7 +602,9 @@ class HomeVisitService {
   // Fetch Master Carried Kit Items
   Future<List<Map<String, dynamic>>> fetchKitItemsMaster() async {
     try {
-      final response = await ApiService.get('$baseUrl/home-visits/kit-items-master');
+      final response = await ApiService.get(
+        '$baseUrl/home-visits/kit-items-master',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] == true && body['data'] is List) {
         return List<Map<String, dynamic>>.from(body['data']);
@@ -486,7 +618,10 @@ class HomeVisitService {
   // Create or Update Master Carried Kit Item
   Future<void> createKitItemMaster(Map<String, dynamic> itemData) async {
     try {
-      final response = await ApiService.post('$baseUrl/home-visits/kit-items-master', itemData);
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/kit-items-master',
+        itemData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to save kit item');
@@ -497,9 +632,15 @@ class HomeVisitService {
   }
 
   // Update Master Carried Kit Item
-  Future<Map<String, dynamic>> updateKitItemMaster(int id, Map<String, dynamic> itemData) async {
+  Future<Map<String, dynamic>> updateKitItemMaster(
+    int id,
+    Map<String, dynamic> itemData,
+  ) async {
     try {
-      final response = await ApiService.put('$baseUrl/home-visits/kit-items-master/$id', itemData);
+      final response = await ApiService.put(
+        '$baseUrl/home-visits/kit-items-master/$id',
+        itemData,
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] == true) {
         return Map<String, dynamic>.from(body['data'] ?? {});
@@ -514,7 +655,9 @@ class HomeVisitService {
   // Soft Delete / Deactivate Master Carried Kit Item
   Future<void> deleteKitItemMaster(int id) async {
     try {
-      final response = await ApiService.delete('$baseUrl/home-visits/kit-items-master/$id');
+      final response = await ApiService.delete(
+        '$baseUrl/home-visits/kit-items-master/$id',
+      );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to deactivate kit item');
@@ -524,6 +667,3 @@ class HomeVisitService {
     }
   }
 }
-
-
-

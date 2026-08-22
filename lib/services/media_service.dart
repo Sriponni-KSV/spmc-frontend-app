@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import '../config/api_config.dart';
 
 class MediaService {
   /// Uploads file bytes directly to Cloudinary using an unsigned upload preset.
@@ -12,7 +13,7 @@ class MediaService {
     String? folder,
   }) async {
     try {
-      final String baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3001/api';
+      final String baseUrl = ApiEndpoints.baseUrl;
       final Uri uploadUri = Uri.parse('$baseUrl/media/upload');
 
       // Determine resource type based on file extension (for content-type setting)
@@ -23,11 +24,11 @@ class MediaService {
       }
 
       final request = http.MultipartRequest('POST', uploadUri);
-      
+
       if (folder != null && folder.isNotEmpty) {
         request.fields['folder'] = folder;
       }
-      
+
       // Determine content type
       MediaType? contentType;
       if (resourceType == 'image') {
@@ -43,7 +44,7 @@ class MediaService {
         filename: fileName,
         contentType: contentType,
       );
-      
+
       request.files.add(fileUpload);
 
       final streamedResponse = await request.send();
@@ -57,7 +58,9 @@ class MediaService {
           throw Exception(decoded['message'] ?? 'Upload failed');
         }
       } else {
-        throw Exception('Server upload failed (Status: ${response.statusCode})');
+        throw Exception(
+          'Server upload failed (Status: ${response.statusCode})',
+        );
       }
     } catch (e) {
       rethrow;
