@@ -11,6 +11,7 @@ import '../controllers/admin_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/media_service.dart';
 import '../widgets/document_view_dialog.dart';
@@ -264,7 +265,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   Future<void> _loadMedicineCatalog() async {
     try {
-      final baseUrl = dotenv.env['BASE_URL']!;
+      final baseUrl = ApiEndpoints.baseUrl;
       final response = await ApiService.get(
         '$baseUrl/inventory/medicine-catalog',
       );

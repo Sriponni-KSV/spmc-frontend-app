@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/api_service.dart';
 
+import '../config/api_config.dart';
+
 class BillingController {
-  String get baseUrl => dotenv.env['BASE_URL']!;
+  String get baseUrl => ApiEndpoints.baseUrl;
 
   /// Fetch billing services from the catalog
   Future<List<Map<String, dynamic>>> fetchBillingServices() async {

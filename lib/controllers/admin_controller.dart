@@ -3,8 +3,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 
+import '../config/api_config.dart';
+
 class AdminController {
-  String get baseUrl => dotenv.env['BASE_URL']!;
+  String get baseUrl => ApiEndpoints.baseUrl;
 
   Future<void> createStaff({
     required String fullname,

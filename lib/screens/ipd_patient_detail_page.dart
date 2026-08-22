@@ -15,6 +15,7 @@ import '../widgets/custom_dropdown_search.dart';
 import '../services/api_service.dart';
 import '../utils/unsaved_changes_helper.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
 
 class IPDPatientDetailPage extends StatefulWidget {
   final Map<String, dynamic> admission;
@@ -225,7 +226,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
   Future<void> _loadMedicineCatalog() async {
     try {
-      final baseUrl = dotenv.env['BASE_URL']!;
+      final baseUrl = ApiEndpoints.baseUrl;
       final response = await ApiService.get('$baseUrl/inventory/medicine-catalog');
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] == true && mounted) {

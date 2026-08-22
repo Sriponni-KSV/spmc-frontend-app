@@ -5,6 +5,38 @@ import 'package:flutter/material.dart';
 
 int _pdfViewCounter = 0;
 
+/// Opens a document (URL or local blob) directly in a new browser tab.
+void openDocumentInNewTab(
+  String url,
+  String title, {
+  List<int>? bytes,
+  String? fileName,
+}) {
+  final isImage = _isImage(url: url, fileName: fileName);
+  final isPdf = _isPdf(url: url, fileName: fileName);
+
+  String? targetUrl;
+  if (bytes != null && bytes.isNotEmpty) {
+    try {
+      String mimeType = 'application/octet-stream';
+      if (isPdf) {
+        mimeType = 'application/pdf';
+      } else if (isImage) {
+        final ext = (fileName ?? '').split('.').last.toLowerCase();
+        mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';
+      }
+      final blob = html.Blob([bytes], mimeType);
+      targetUrl = html.Url.createObjectUrlFromBlob(blob);
+    } catch (_) {}
+  } else if (url.isNotEmpty) {
+    targetUrl = url;
+  }
+
+  if (targetUrl != null && targetUrl.isNotEmpty) {
+    html.window.open(targetUrl, '_blank');
+  }
+}
+
 /// Web implementation: opens images inline and renders PDFs in embedded browser iframe or new tab.
 void showDocumentViewer(
   BuildContext context,

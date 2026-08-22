@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
 import 'package:intl/intl.dart';
 import '../widgets/custom_dropdown_search.dart';
 
@@ -40,7 +41,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   // Per-item quantity overrides for dispense
   final Map<int, TextEditingController> _qtyControllers = {};
 
-  String get baseUrl => dotenv.env['BASE_URL']!;
+  String get baseUrl => ApiEndpoints.baseUrl;
 
   @override
   void initState() {

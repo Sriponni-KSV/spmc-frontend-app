@@ -13,6 +13,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../utils/modal_history_helper.dart';
+import '../utils/app_notification.dart';
 import '../config/api_config.dart';
 
 class HomeVisitListView extends StatefulWidget {
@@ -39,7 +40,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
   String _selectedStatusFilter = 'All';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-  String _dateFilterType = 'All Dates';
+  String _dateFilterType = 'Today';
   DateTime? _selectedCustomDate;
   int _currentPage = 1;
   int _itemsPerPage = 10;
@@ -544,15 +545,67 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isMobile = constraints.maxWidth < 600;
-          if (isMobile) {
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          final isNarrow = constraints.maxWidth < 650;
+          if (isNarrow) {
+            return Column(
               children: [
                 Text(
+                  'Showing ${startIndex + 1} to $endIndex of $totalVisits visits',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.only(right: 70.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('Rows: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          DropdownButton<int>(
+                            value: _itemsPerPage,
+                            underline: const SizedBox.shrink(),
+                            style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold),
+                            items: [5, 10, 20, 50].map((int val) {
+                              return DropdownMenuItem<int>(
+                                value: val,
+                                child: Text('$val'),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _itemsPerPage = val;
+                                  _currentPage = 1;
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.chevron_left, size: 20),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            onPressed: _currentPage > 1 ? () => setState(() => _currentPage--) : null,
+                          ),
+                          Text('$_currentPage / $totalPages', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right, size: 20),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            onPressed: _currentPage < totalPages ? () => setState(() => _currentPage++) : null,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                   '${startIndex + 1}-$endIndex of $totalVisits visits',
                   style: const TextStyle(
                     fontSize: 12,
@@ -608,6 +661,42 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
+              Padding(
+                padding: const EdgeInsets.only(right: 70.0),
+                child: Row(
+                  children: [
+                    const Text('Rows per page: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    DropdownButton<int>(
+                      value: _itemsPerPage,
+                      underline: const SizedBox.shrink(),
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold),
+                      items: [5, 10, 20, 50].map((int val) {
+                        return DropdownMenuItem<int>(
+                          value: val,
+                          child: Text('$val'),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _itemsPerPage = val;
+                            _currentPage = 1;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 16),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left),
+                      onPressed: _currentPage > 1 ? () => setState(() => _currentPage--) : null,
+                    ),
+                    Text('Page $_currentPage of $totalPages', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right),
+                      onPressed: _currentPage < totalPages ? () => setState(() => _currentPage++) : null,
+                    ),
+                  ],
+                ),
               Row(
                 children: [
                   const Text(
@@ -1179,6 +1268,11 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
   }
 
   Widget _buildVisitCard(BuildContext context, HomeVisitModel visit) {
+    final bool isCompleted = visit.status.toLowerCase() == 'completed' ||
+        visit.status.toLowerCase() == 'verified';
+
+    final String effectiveStatus = isCompleted ? 'Completed' : visit.status;
+    final String displayDate = visit.formattedScheduledDate;
     final bool canExecute = _isExecuteButtonEnabled(visit);
 
     String effectiveStatus = visit.status == 'Verified'
@@ -1241,13 +1335,26 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         : Icons.lock_clock_outlined);
 
               final btn = ElevatedButton.icon(
-                style: canExecute
+                style: (canExecute
                     ? AppTheme.secondaryButton
                     : ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFCBD5E1),
                         foregroundColor: const Color(0xFF64748B),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      )).copyWith(
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                  ),
+                  shape: WidgetStateProperty.all(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                icon: Icon(btnIcon, size: 16),
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
@@ -1257,6 +1364,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
+                    color: canExecute
+                        ? Colors.white
+                        : const Color(0xFF64748B),
                     color: canExecute ? Colors.white : const Color(0xFF64748B),
                   ),
                 ),
@@ -1310,11 +1420,25 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             },
           );
 
-          // Wide-mode buttons (compact, natural size)
+          // Wide-mode buttons (compact, natural size with perfect top-aligned baseline)
           final wideButtons = Row(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (visit.status != 'Cancelled') ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 2.0),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    icon: const Icon(
+                      Icons.do_not_disturb_on_outlined,
+                      color: AppTheme.dangerColor,
+                      size: 22,
+                    ),
+                    tooltip: 'Stop / Discontinue Care',
+                    onPressed: () => _showDiscontinueDialog(context, visit),
+                  ),
                 IconButton(
                   icon: const Icon(
                     Icons.do_not_disturb_on_outlined,
@@ -1324,11 +1448,28 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   tooltip: 'Stop / Discontinue Care',
                   onPressed: () => _showDiscontinueDialog(context, visit),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 6),
               ],
               SizedBox(
                 height: 36,
                 child: ElevatedButton.icon(
+                  style: AppTheme.primaryButton.copyWith(
+                    padding: WidgetStateProperty.all(
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                    ),
+                    shape: WidgetStateProperty.all(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: const Text(
+                    'View Summary',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   style: AppTheme.primaryButton,
                   icon: const Icon(Icons.visibility_outlined, size: 15),
                   label: const Text(
@@ -1354,7 +1495,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   },
                 ),
               ),
-              if (visit.status != 'Cancelled' && widget.showExecuteButton) ...[
+              if (!isCompleted && visit.status != 'Cancelled' && widget.showExecuteButton) ...[
                 const SizedBox(width: 8),
                 buildExecuteBtn(),
               ],
@@ -1566,6 +1707,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         },
                       ),
                     ),
+                    if (!isCompleted && visit.status != 'Cancelled' && widget.showExecuteButton) ...[
                     if (visit.status != 'Cancelled' &&
                         widget.showExecuteButton) ...[
                       const SizedBox(width: 6),
@@ -1696,32 +1838,83 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               ),
             ],
           ),
-          content: Form(
-            key: formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.borderColor),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Care Session: ${visit.visitNumber}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: AppTheme.primaryColor,
+          content: SizedBox(
+            width: 480,
+            child: Form(
+              key: formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Care Session: ${visit.visitNumber}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: AppTheme.primaryColor,
+                            ),
                           ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Patient: ${visit.patientName ?? "N/A"} (${visit.patientDisplayId ?? ""})',
+                            style: const TextStyle(fontSize: 12, color: Colors.black87),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Scheduled Date: ${visit.scheduledDate} | Status: ${visit.status}',
+                            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Are you sure you want to stop/discontinue care session (${visit.visitNumber}) for ${visit.patientName ?? "the patient"}?',
+                      style: const TextStyle(fontSize: 13, color: Colors.black87),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Select Discontinuation Reason:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: 'Search & Select Reason',
+                      allowFreeText: false,
+                      dropdownMap: const {
+                        'Patient Cured / Fully Recovered': 'Patient Cured / Fully Recovered',
+                        'Patient / Attender Requested Discontinuation': 'Patient / Attender Requested Discontinuation',
+                        'Admitted to Hospital / IPD Care': 'Admitted to Hospital / IPD Care',
+                        'Doctor Advice / Care Plan Ended': 'Doctor Advice / Care Plan Ended',
+                        'Other Reason': 'Other Reason',
+                      },
+                      value: selectedReason,
+                      onChanged: (val) {
+                        setDialogState(() => selectedReason = val ?? '');
+                      },
+                      validator: (val) {
+                        const validReasons = [
+                          'Patient Cured / Fully Recovered',
+                          'Patient / Attender Requested Discontinuation',
+                          'Admitted to Hospital / IPD Care',
+                          'Doctor Advice / Care Plan Ended',
+                          'Other Reason',
+                        ];
+                        if (val == null ||
+                            val.trim().isEmpty ||
+                            !validReasons.contains(val.trim())) {
+                          return 'Please select a valid discontinuation reason';
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -1813,14 +2006,40 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         if (clean.length > 250) {
                           return 'Notes cannot exceed 250 characters';
                         }
-                        if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
-                          return 'Notes must contain alphabetical characters if provided';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Additional Notes / Remarks (Optional):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: notesCtrl,
+                      maxLines: 2,
+                      maxLength: 250,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;%+]'),
+                        ),
+                        LengthLimitingTextInputFormatter(250),
+                      ],
+                      decoration: AppTheme.standardInputDecoration(
+                        hintText: 'Enter reason notes (e.g. Cured and recovered)...',
+                      ).copyWith(counterText: ''),
+                      validator: (val) {
+                        if (val != null && val.trim().isNotEmpty) {
+                          final clean = val.trim();
+                          if (clean.length > 250) {
+                            return 'Notes cannot exceed 250 characters';
+                          }
+                          if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
+                            return 'Notes must contain alphabetical characters if provided';
+                          }
                         }
-                      }
-                      return null;
-                    },
-                  ),
-                ],
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1850,6 +2069,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
 
                 if (success && context.mounted) {
+                  AppNotification.showSuccess(
+                    context,
+                    'Care session (${visit.visitNumber}) for ${visit.patientName ?? "Patient"} stopped/discontinued successfully.',
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -1908,6 +2130,13 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               ),
             ],
           ),
+          content: SizedBox(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Select Patient (Name & ID):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2034,7 +2263,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               ),
             ],
           ),
-          actions: [
+        ),
+        actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogCtx).pop(),
               child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
@@ -2046,6 +2276,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     selectedPatient ??
                     (_patientsList.isNotEmpty ? _patientsList.first : null);
                 if (targetPatient == null || targetPatient.id == null) {
+                  AppNotification.showError(
+                    dialogCtx,
+                    'Please select a valid patient to schedule a home visit.',
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
@@ -2078,6 +2311,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 );
 
                 if (existingSameDay) {
+                  AppNotification.showWarning(
+                    dialogCtx,
+                    'A home visit is already scheduled for ${targetPatient.name} on ${dateCtrl.text}. Only 1 visit per patient per day is allowed.',
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -2102,6 +2338,15 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 if (newVisit != null) {
                   await homeVisitCtrl.fetchVisits();
                   if (context.mounted) {
+                    AppNotification.showSuccess(
+                      context,
+                      'Home visit ${newVisit.visitNumber} scheduled successfully!',
+                    );
+                  }
+                } else if (context.mounted) {
+                  AppNotification.showError(
+                    context,
+                    homeVisitCtrl.errorMessage ?? 'Failed to schedule home visit.',
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -2184,11 +2429,30 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     HomeVisitModel? activeVisit;
     for (final v in controller.visits) {
       if (v.id != visit.id && v.status.toLowerCase() == 'in-progress') {
+        final bool isNurseMatch = (authUser != null && v.nurseId != null && v.nurseId == authUser.id) ||
+            (v.nurseName != null &&
+                v.nurseName!.trim().isNotEmpty &&
+                authUser != null &&
+                authUser.fullname.trim().isNotEmpty &&
+                v.nurseName!.trim().toLowerCase() == authUser.fullname.trim().toLowerCase()) ||
         final bool isSameNurse =
             (authUser != null && v.nurseId == authUser.id) ||
             (v.startNurseName != null &&
-                v.startNurseName!.isNotEmpty &&
+                v.startNurseName!.trim().isNotEmpty &&
                 authUser != null &&
+                authUser.fullname.trim().isNotEmpty &&
+                v.startNurseName!.trim().toLowerCase() == authUser.fullname.trim().toLowerCase());
+
+        final bool isVisitNurseMatch = (visit.nurseId != null && v.nurseId != null && visit.nurseId == v.nurseId) ||
+            (visit.nurseName != null &&
+                visit.nurseName!.trim().isNotEmpty &&
+                v.nurseName != null &&
+                v.nurseName!.trim().isNotEmpty &&
+                visit.nurseName!.trim().toLowerCase() == v.nurseName!.trim().toLowerCase());
+
+        final bool isSameNurse = isNurseMatch ||
+            (authUser?.role != 'Nurse' && authUser?.role != 'Head Nurse' && isVisitNurseMatch);
+
                 v.startNurseName!.toLowerCase() ==
                     authUser.fullname.toLowerCase()) ||
             (authUser != null &&
@@ -2255,18 +2519,21 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'You currently have an active home visit in progress. Nurses cannot execute multiple active visits simultaneously.',
-              style: TextStyle(
-                fontSize: 13.5,
-                color: Color(0xFF64748B),
-                height: 1.4,
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'You currently have an active home visit in progress. Nurses cannot execute multiple active visits simultaneously.',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: Color(0xFF64748B),
+                  height: 1.4,
+                ),
+                softWrap: true,
               ),
-            ),
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
@@ -2354,7 +2621,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             ),
           ],
         ),
-        actions: [
+      ),
+      actions: [
           OutlinedButton(
             style: AppTheme.cancelButton,
             onPressed: () => Navigator.of(ctx).pop(),
@@ -2460,6 +2728,12 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               ),
             ],
           ),
+          content: const SizedBox(
+            width: 440,
+            child: Text(
+              'Are you sure you want to close this visit session? Any unsubmitted start time will not be recorded.',
+              style: TextStyle(fontSize: 13.5, color: Color(0xFF64748B), height: 1.4),
+              softWrap: true,
           content: const Text(
             'Are you sure you want to close this visit session? Any unsubmitted start time will not be recorded.',
             style: TextStyle(
@@ -2680,6 +2954,14 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                   .inMinutes;
                             }
 
+                          if (diff < -60 || diff > 60) {
+                            final minStr = DateFormat('hh:mm a').format(minAllowedTime);
+                            final maxStr = DateFormat('hh:mm a').format(maxAllowedTime);
+                            if (dialogCtx.mounted) {
+                              AppNotification.showError(
+                                dialogCtx,
+                                'Invalid time! Start time must be within 1 hour prior/after current time ($minStr - $maxStr).',
+                              );
                             if (diff < -60 || diff > 60) {
                               final minStr = DateFormat(
                                 'hh:mm a',
@@ -2882,6 +3164,21 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                               }
                             } catch (e) {
                               setDialogState(() => isSubmitting = false);
+                              if (dialogCtx.mounted) {
+                                AppNotification.showError(
+                                  dialogCtx,
+                                  body['message'] ?? 'Failed to record start time',
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            setDialogState(() => isSubmitting = false);
+                            if (dialogCtx.mounted) {
+                              AppNotification.showError(
+                                dialogCtx,
+                                'Error starting visit: $e',
+                              );
+                            }
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
