@@ -69,8 +69,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     }
   }
 
-  Future<bool?> _showUnsavedChangesDialog(BuildContext context) {
-    if (_isLeaving || widget.isReadOnlyView) {
+  Future<bool?> _showUnsavedChangesDialog(
+    BuildContext context, {
+    HomeVisitModel? visit,
+  }) {
+    final bool isCompleted = widget.isReadOnlyView ||
+        _isLeaving ||
+        (visit != null &&
+            (visit.status == 'Completed' ||
+                visit.status == 'Verified' ||
+                visit.status == 'Cancelled'));
+
+    if (isCompleted) {
+      _handleLeave();
       return Future.value(true);
     }
     return showDialog<bool>(
@@ -4993,11 +5004,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             });
                             return;
                           }
-                          if (widget.isReadOnlyView) {
+                          final bool isCompleted = widget.isReadOnlyView ||
+                              visit.status == 'Completed' ||
+                              visit.status == 'Verified' ||
+                              visit.status == 'Cancelled' ||
+                              isCompletedOrVerified;
+
+                          if (isCompleted) {
                             _handleLeave();
                             return;
                           }
-                          _showUnsavedChangesDialog(context);
+                          _showUnsavedChangesDialog(context, visit: visit);
                         },
                       ),
                     )
@@ -9189,19 +9206,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Row(
+                              child: Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 6,
+                                runSpacing: 4,
                                 children: [
-                                  Flexible(
-                                    child: Text(
-                                      m.medicineName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                                  Text(
+                                    m.medicineName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
                                     ),
+                                    softWrap: true,
                                   ),
-                                  const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,
@@ -9343,7 +9360,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
+                                  Wrap(
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    spacing: 8,
+                                    runSpacing: 4,
                                     children: [
                                       Text(
                                         m.medicineName,
@@ -9351,8 +9372,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
                                         ),
+                                        softWrap: true,
                                       ),
-                                      const SizedBox(width: 8),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 6,
@@ -9720,19 +9741,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Row(
+                              child: Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 6,
+                                runSpacing: 4,
                                 children: [
-                                  Flexible(
-                                    child: Text(
-                                      p.procedureName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                                  Text(
+                                    p.procedureName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
                                     ),
+                                    softWrap: true,
                                   ),
-                                  const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,
@@ -9900,7 +9921,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
+                                  Wrap(
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    spacing: 8,
+                                    runSpacing: 4,
                                     children: [
                                       Text(
                                         p.procedureName,
@@ -9908,8 +9933,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
                                         ),
+                                        softWrap: true,
                                       ),
-                                      const SizedBox(width: 8),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 6,
@@ -12508,6 +12533,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         child: Text(
                           '• ${m.medicineName} (${m.dosage}) - Qty: ${m.quantity}',
                           style: const TextStyle(fontSize: 13),
+                          softWrap: true,
                         ),
                       ),
                     const SizedBox(height: 12),
@@ -14394,6 +14420,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                             fontWeight: FontWeight.bold,
                                             fontSize: 13,
                                           ),
+                                          softWrap: true,
                                         ),
                                         const SizedBox(height: 2),
                                         Text(

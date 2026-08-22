@@ -642,6 +642,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           if (val == null || val.trim().isEmpty) {
                             return 'Please enter Email Address';
                           }
+                          if (val.trim().contains(RegExp(r'[A-Z]'))) {
+                            return 'Please enter a valid email address';
+                          }
                           if (!RegExp(
                             r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                           ).hasMatch(val.trim())) {
@@ -14202,6 +14205,9 @@ class _AddUserDialogState extends State<AddUserDialog> {
           validator: (val) {
             if (val == null || val.trim().isEmpty) {
               return 'Please enter Email Address';
+            }
+            if (val.trim().contains(RegExp(r'[A-Z]'))) {
+              return 'Please enter a valid email address';
             }
             if (!RegExp(
               r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',

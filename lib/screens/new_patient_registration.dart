@@ -1034,6 +1034,9 @@ class _NewPatientRegistrationViewState
                   if (val.trim().length > 100) {
                     return 'Email address cannot exceed 100 characters';
                   }
+                  if (val.trim().contains(RegExp(r'[A-Z]'))) {
+                    return 'Please enter a valid email address';
+                  }
                   if (!RegExp(
                     r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                   ).hasMatch(val.trim())) {
@@ -1368,6 +1371,9 @@ class _NewPatientRegistrationViewState
                             }
                             if (val.trim().length > 100) {
                               return 'Email address cannot exceed 100 characters';
+                            }
+                            if (val.trim().contains(RegExp(r'[A-Z]'))) {
+                              return 'Please enter a valid email address';
                             }
                             if (!RegExp(
                               r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
