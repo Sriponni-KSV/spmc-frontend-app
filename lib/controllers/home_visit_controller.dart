@@ -245,7 +245,10 @@ class HomeVisitController with ChangeNotifier {
 
     try {
       final res = await _service.verifyAndGenerateBill(visitId, attenderName, attenderRelation, signatureUrl);
-      await fetchVisitDetails(visitId);
+      try {
+        await fetchVisitDetails(visitId);
+        await fetchVisits();
+      } catch (_) {}
       return res;
     } catch (e) {
       _errorMessage = e.toString().replaceAll("Exception: ", "");

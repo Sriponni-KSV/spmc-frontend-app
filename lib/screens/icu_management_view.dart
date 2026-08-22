@@ -198,14 +198,32 @@ class _ICUManagementViewState extends State<ICUManagementView> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Resolve ICU Alerts'),
-        content: Text('Are you sure you want to mark these ${alertIds.length} alert(s) as resolved?'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        title: const Text(
+          'Resolve ICU Alerts',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: SizedBox(
+          width: 440,
+          child: Text(
+            'Are you sure you want to mark these ${alertIds.length} alert(s) as resolved?',
+            softWrap: true,
+          ),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: AppTheme.cancelButton,
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            style: AppTheme.primaryButton,
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Resolve', style: TextStyle(color: Colors.white)),
+            child: const Text('Resolve'),
           ),
         ],
       ),

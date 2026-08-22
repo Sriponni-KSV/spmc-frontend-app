@@ -561,14 +561,32 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Approve & Replenish Stock'),
-        content: const Text('Confirm that this purchase order has arrived, and items should be added back into stock.'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        title: const Text(
+          'Approve & Replenish Stock',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const SizedBox(
+          width: 440,
+          child: Text(
+            'Confirm that this purchase order has arrived, and items should be added back into stock.',
+            softWrap: true,
+          ),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: AppTheme.cancelButton,
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            style: AppTheme.primaryButton,
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Mark Fulfill', style: TextStyle(color: Colors.white)),
+            child: const Text('Mark Fulfill'),
           ),
         ],
       ),

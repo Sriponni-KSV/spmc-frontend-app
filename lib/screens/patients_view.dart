@@ -1491,21 +1491,34 @@ class _PatientsViewState extends State<PatientsView> {
         bool isDeleting = false;
         return StatefulBuilder(
           builder: (ctx, setDialogState) => AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
             title: const Text(
               'Delete Patient',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            content: RichText(
-              text: TextSpan(
-                style: const TextStyle(color: Colors.black87, fontSize: 15),
-                children: [
-                  const TextSpan(text: 'Are you sure you want to delete '),
-                  TextSpan(
-                    text: patient.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+            content: SizedBox(
+              width: 440,
+              child: RichText(
+                softWrap: true,
+                text: TextSpan(
+                  style: const TextStyle(
+                    color: AppTheme.textPrimaryColor,
+                    fontSize: 14,
+                    height: 1.5,
                   ),
-                  const TextSpan(text: '? This action cannot be undone.'),
-                ],
+                  children: [
+                    const TextSpan(text: 'Are you sure you want to delete '),
+                    TextSpan(
+                      text: patient.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const TextSpan(text: '? This action cannot be undone.'),
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -2139,9 +2152,15 @@ class _PatientsViewState extends State<PatientsView> {
                                   controller: emailCtrl,
                                   hint: 'Enter Email Address',
                                   keyboardType: TextInputType.emailAddress,
+                                  inputFormatters: [
+                                    LengthLimitingTextInputFormatter(100),
+                                  ],
                                   validator: (val) {
                                     if (val == null || val.trim().isEmpty) {
                                       return 'Please enter Email Address';
+                                    }
+                                    if (val.trim().length > 100) {
+                                      return 'Email address cannot exceed 100 characters';
                                     }
                                     if (!RegExp(
                                       r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
@@ -3557,35 +3576,31 @@ class _PatientDetailViewState extends State<PatientDetailView>
         const SizedBox(height: 12),
         Wrap(spacing: 8, runSpacing: 6, children: _buildHealthTags(p)),
         const SizedBox(height: 16),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Expanded(
-              child: _buildHeaderButton(
-                p.isQuickRegister
-                    ? Icons.edit_note_outlined
-                    : Icons.edit_outlined,
-                p.isQuickRegister ? 'Complete Profile' : 'Edit Patient',
-                onTap: () => widget.onCompleteProfile(p),
-                isPrimary: true,
-              ),
+            _buildHeaderButton(
+              p.isQuickRegister
+                  ? Icons.edit_note_outlined
+                  : Icons.edit_outlined,
+              p.isQuickRegister ? 'Complete Profile' : 'Edit Patient',
+              onTap: () => widget.onCompleteProfile(p),
+              isPrimary: true,
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildHeaderButton(
-                Icons.calendar_month_outlined,
-                p.age < 18 ? 'Book Pediatric' : 'Book Appt.',
-                onTap: () => widget.onBookAppointment(p),
-                isPrimary: true,
-              ),
+            _buildHeaderButton(
+              Icons.calendar_month_outlined,
+              p.age < 18 ? 'Book Pediatric' : 'Book Appt.',
+              onTap: () => widget.onBookAppointment(p),
+              isPrimary: true,
+            ),
+            _buildHeaderButton(
+              Icons.lightbulb_outline,
+              'Patient Insights',
+              onTap: () => setState(() => _isShowingInsights = true),
+              isPrimary: false,
             ),
           ],
-        ),
-        const SizedBox(height: 8),
-        _buildHeaderButton(
-          Icons.lightbulb_outline,
-          'Patient Insights',
-          onTap: () => setState(() => _isShowingInsights = true),
-          isPrimary: false,
         ),
         const SizedBox(height: 16),
         const Divider(color: Colors.white24, height: 1),
@@ -3933,7 +3948,10 @@ class _PatientDetailViewState extends State<PatientDetailView>
           ),
           // Tab Content
           ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 200, maxHeight: 500),
+            constraints: BoxConstraints(
+              minHeight: 200,
+              maxHeight: isMobile ? 850 : 550,
+            ),
             child: TabBarView(
               controller: _tabController,
               children: [
@@ -4361,8 +4379,11 @@ class _PatientDetailViewState extends State<PatientDetailView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4371,14 +4392,14 @@ class _PatientDetailViewState extends State<PatientDetailView>
                           formattedDate,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 18,
+                            fontSize: 16,
                             color: Color(0xFF1E293B),
                           ),
                         ),
                         Text(
                           time,
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             color: Color(0xFF64748B),
                             fontWeight: FontWeight.w500,
                           ),
@@ -4387,8 +4408,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                        horizontal: 10,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEBF8FF),
@@ -4398,7 +4419,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                         dept,
                         style: const TextStyle(
                           color: Color(0xFF3182CE),
-                          fontSize: 12,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -4663,22 +4684,26 @@ class _PatientDetailViewState extends State<PatientDetailView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(
                           Icons.event_note_outlined,
-                          size: 18,
+                          size: 16,
                           color: AppTheme.primaryColor,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Text(
                           formattedDate,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontSize: 15,
                             color: Color(0xFF1E293B),
                           ),
                         ),
@@ -4686,8 +4711,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 5,
+                        horizontal: 10,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: statusBg,
@@ -4697,7 +4722,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                         visit.status,
                         style: TextStyle(
                           color: statusColor,
-                          fontSize: 12,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -4860,18 +4885,17 @@ class _PatientDetailViewState extends State<PatientDetailView>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: [
-              const SizedBox(width: 16),
-              const Text(
-                'Date',
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Text(
+                'Date & Time',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: AppTheme.primaryColor,
                   fontSize: 13,
                 ),
               ),
-              const SizedBox(width: 200),
-              const Text(
+              Text(
                 'Consultation Details',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
@@ -4975,11 +4999,37 @@ class _PatientDetailViewState extends State<PatientDetailView>
     Widget? customValueWidget,
     bool isHeader = false,
   }) {
+    final bool isSmall = MediaQuery.of(context).size.width < 600;
+    if (isSmall) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isHeader ? const Color(0xFF2D3748) : AppTheme.primaryColor,
+              fontSize: 12.5,
+            ),
+          ),
+          const SizedBox(height: 3),
+          customValueWidget ??
+              Text(
+                value ?? '',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isHeader ? FontWeight.w600 : FontWeight.normal,
+                  color: const Color(0xFF2D3748),
+                ),
+              ),
+        ],
+      );
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 150,
+          width: 140,
           child: Text(
             label,
             style: TextStyle(
@@ -4989,7 +5039,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
             ),
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 12),
         Expanded(
           child:
               customValueWidget ??
@@ -5175,9 +5225,16 @@ class _PatientDetailViewState extends State<PatientDetailView>
 
   Widget _buildLifestyleTab(PatientModel p) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
+    final bool isSmallMobile = MediaQuery.of(context).size.width < 500;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        isSmallMobile ? 12 : 20,
+        16,
+        isSmallMobile ? 12 : 20,
+        36,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -5187,13 +5244,15 @@ class _PatientDetailViewState extends State<PatientDetailView>
               p.occupation.isNotEmpty ? p.occupation : 'Not Provided',
               const Color(0xFFEEF2F7),
               const Color(0xFF4A5568),
+              icon: Icons.work_outline,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _buildLifestyleCard(
               'Hobbies',
               p.hobbies.isNotEmpty ? p.hobbies : 'Not Provided',
               const Color(0xFFEEF2F7),
               const Color(0xFF4A5568),
+              icon: Icons.sports_esports_outlined,
             ),
           ] else
             Row(
@@ -5204,40 +5263,45 @@ class _PatientDetailViewState extends State<PatientDetailView>
                     p.occupation.isNotEmpty ? p.occupation : 'Not Provided',
                     const Color(0xFFEEF2F7),
                     const Color(0xFF4A5568),
+                    icon: Icons.work_outline,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
                   child: _buildLifestyleCard(
                     'Hobbies',
                     p.hobbies.isNotEmpty ? p.hobbies : 'Not Provided',
                     const Color(0xFFEEF2F7),
                     const Color(0xFF4A5568),
+                    icon: Icons.sports_esports_outlined,
                   ),
                 ),
               ],
             ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _buildLifestyleCard(
             'Food Habits',
             p.foodHabits.isNotEmpty ? p.foodHabits : 'Not Provided',
             const Color(0xFFEEF2F7),
             const Color(0xFF4A5568),
+            icon: Icons.restaurant_outlined,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           if (isMobile) ...[
             _buildLifestyleCard(
               'Smoking',
               p.smokingStatus.isNotEmpty ? p.smokingStatus : 'Not Provided',
               const Color(0xFFFFF7ED),
               const Color(0xFF9A3412),
+              icon: Icons.smoking_rooms_outlined,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _buildLifestyleCard(
               'Alcohol Usage',
               p.alcoholStatus.isNotEmpty ? p.alcoholStatus : 'Not Provided',
               const Color(0xFFFEFCE8),
               const Color(0xFF713F12),
+              icon: Icons.local_bar_outlined,
             ),
           ] else
             Row(
@@ -5250,9 +5314,10 @@ class _PatientDetailViewState extends State<PatientDetailView>
                         : 'Not Provided',
                     const Color(0xFFFFF7ED),
                     const Color(0xFF9A3412),
+                    icon: Icons.smoking_rooms_outlined,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
                   child: _buildLifestyleCard(
                     'Alcohol Usage',
@@ -5261,17 +5326,20 @@ class _PatientDetailViewState extends State<PatientDetailView>
                         : 'Not Provided',
                     const Color(0xFFFEFCE8),
                     const Color(0xFF713F12),
+                    icon: Icons.local_bar_outlined,
                   ),
                 ),
               ],
             ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _buildLifestyleCard(
             'Physical Activity',
             p.physicalActivity.isNotEmpty ? p.physicalActivity : 'Not Provided',
             const Color(0xFFEEF2F7),
             const Color(0xFF4A5568),
+            icon: Icons.fitness_center_outlined,
           ),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -5281,33 +5349,54 @@ class _PatientDetailViewState extends State<PatientDetailView>
     String label,
     String value,
     Color bgColor,
-    Color labelColor,
-  ) {
+    Color labelColor, {
+    IconData? icon,
+  }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: labelColor.withOpacity(0.65),
-              fontWeight: FontWeight.w500,
+          if (icon != null) ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 18, color: labelColor),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1A202C),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: labelColor.withValues(alpha: 0.8),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A202C),
+                  ),
+                  softWrap: true,
+                ),
+              ],
             ),
           ),
         ],
