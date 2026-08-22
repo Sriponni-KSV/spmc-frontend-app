@@ -883,20 +883,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               'Delete Staff',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            content: RichText(
-              text: TextSpan(
-                style: const TextStyle(color: Colors.black87, fontSize: 15),
-                children: [
-                  const TextSpan(text: 'Are you sure you want to delete '),
-                  TextSpan(
-                    text: user.fullname,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const TextSpan(
-                    text:
-                        '? This will deactivate their account and hide them from active lists.',
-                  ),
-                ],
+            content: SizedBox(
+              width: 440,
+              child: RichText(
+                softWrap: true,
+                text: TextSpan(
+                  style: const TextStyle(color: Colors.black87, fontSize: 15),
+                  children: [
+                    const TextSpan(text: 'Are you sure you want to delete '),
+                    TextSpan(
+                      text: user.fullname,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const TextSpan(
+                      text:
+                          '? This will deactivate their account and hide them from active lists.',
+                    ),
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -4467,11 +4471,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ],
         ),
-        content: Text(
-          'This will automatically assign shifts for the selected week ($weekStartStr - $weekEndStr) '
-          'using the available nurses in the system.\n\n'
-          'Existing assignments in this week will be overwritten.\n\n'
-          'Do you want to proceed?',
+        content: SizedBox(
+          width: 440,
+          child: Text(
+            'This will automatically assign shifts for the selected week ($weekStartStr - $weekEndStr) '
+            'using the available nurses in the system.\n\n'
+            'Existing assignments in this week will be overwritten.\n\n'
+            'Do you want to proceed?',
+            softWrap: true,
+          ),
         ),
         actions: [
           TextButton(
@@ -6858,18 +6866,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Shift'),
-        content: const Text(
-          'Are you sure you want to delete this shift schedule? All associated allocations will be deleted.',
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text(
+          'Delete Shift',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const SizedBox(
+          width: 440,
+          child: Text(
+            'Are you sure you want to delete this shift schedule? All associated allocations will be deleted.',
+            softWrap: true,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
+            style: AppTheme.cancelButton,
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            style: AppTheme.dangerButton,
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -6932,18 +6952,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Allocation'),
-        content: const Text(
-          'Are you sure you want to delete this nurse shift allocation?',
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text(
+          'Delete Allocation',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const SizedBox(
+          width: 440,
+          child: Text(
+            'Are you sure you want to delete this nurse shift allocation?',
+            softWrap: true,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
+            style: AppTheme.cancelButton,
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            style: AppTheme.dangerButton,
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -7615,23 +7647,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           'Remove Medication',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: RichText(
-          text: TextSpan(
-            style: const TextStyle(
-              color: AppTheme.textPrimaryColor,
-              fontSize: 14,
-              height: 1.5,
+        content: SizedBox(
+          width: 440,
+          child: RichText(
+            softWrap: true,
+            text: TextSpan(
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 14,
+                height: 1.5,
+              ),
+              children: [
+                const TextSpan(text: 'Are you sure you want to remove '),
+                TextSpan(
+                  text: '"${med['name']}"',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(
+                  text: ' from the medication catalog? This cannot be undone.',
+                ),
+              ],
             ),
-            children: [
-              const TextSpan(text: 'Are you sure you want to remove '),
-              TextSpan(
-                text: '"${med['name']}"',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const TextSpan(
-                text: ' from the medication catalog? This cannot be undone.',
-              ),
-            ],
           ),
         ),
         actions: [
@@ -10022,23 +10058,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           'Deactivate Procedure',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: RichText(
-          text: TextSpan(
-            style: const TextStyle(
-              color: AppTheme.textPrimaryColor,
-              fontSize: 14,
-              height: 1.5,
+        content: SizedBox(
+          width: 440,
+          child: RichText(
+            softWrap: true,
+            text: TextSpan(
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 14,
+                height: 1.5,
+              ),
+              children: [
+                const TextSpan(text: 'Are you sure you want to deactivate '),
+                TextSpan(
+                  text: '"${proc.name}"',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(
+                  text: '? It will no longer be selectable during home visits.',
+                ),
+              ],
             ),
-            children: [
-              const TextSpan(text: 'Are you sure you want to deactivate '),
-              TextSpan(
-                text: '"${proc.name}"',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const TextSpan(
-                text: '? It will no longer be selectable during home visits.',
-              ),
-            ],
           ),
         ),
         actions: [
@@ -10095,21 +10135,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           'Remove Consumable Item',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: RichText(
-          text: TextSpan(
-            style: const TextStyle(
-              color: AppTheme.textPrimaryColor,
-              fontSize: 14,
-              height: 1.5,
-            ),
-            children: [
-              const TextSpan(text: 'Remove '),
-              TextSpan(
-                text: '"${item.consumableName}"',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+        content: SizedBox(
+          width: 440,
+          child: RichText(
+            softWrap: true,
+            text: TextSpan(
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 14,
+                height: 1.5,
               ),
-              TextSpan(text: ' from procedure "${proc.name}"?'),
-            ],
+              children: [
+                const TextSpan(text: 'Remove '),
+                TextSpan(
+                  text: '"${item.consumableName}"',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(text: ' from procedure "${proc.name}"?'),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -10771,24 +10815,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           'Deactivate Consumable Item',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: RichText(
-          text: TextSpan(
-            style: const TextStyle(
-              color: AppTheme.textPrimaryColor,
-              fontSize: 14,
-              height: 1.5,
+        content: SizedBox(
+          width: 440,
+          child: RichText(
+            softWrap: true,
+            text: TextSpan(
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 14,
+                height: 1.5,
+              ),
+              children: [
+                const TextSpan(text: 'Are you sure you want to deactivate '),
+                TextSpan(
+                  text: '"$name"',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(
+                  text:
+                      '? It will no longer appear in the active master catalog or be selectable for procedures.',
+                ),
+              ],
             ),
-            children: [
-              const TextSpan(text: 'Are you sure you want to deactivate '),
-              TextSpan(
-                text: '"$name"',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const TextSpan(
-                text:
-                    '? It will no longer appear in the active master catalog or be selectable for procedures.',
-              ),
-            ],
           ),
         ),
         actions: [
@@ -12692,16 +12740,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 final confirm = await showDialog<bool>(
                                   context: context,
                                   builder: (c) => AlertDialog(
+                                    backgroundColor: Colors.white,
+                                    surfaceTintColor: Colors.transparent,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
                                     title: const Text(
                                       'Deactivate Kit Item',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    content: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 400,
-                                      ),
+                                    content: SizedBox(
+                                      width: 440,
                                       child: Text(
                                         'Are you sure you want to deactivate "${item['name']}"?',
                                         softWrap: true,
@@ -12909,6 +12960,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                               final confirm = await showDialog<bool>(
                                                 context: context,
                                                 builder: (c) => AlertDialog(
+                                                  backgroundColor: Colors.white,
+                                                  surfaceTintColor:
+                                                      Colors.transparent,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(14),
+                                                  ),
                                                   title: const Text(
                                                     'Deactivate Kit Item',
                                                     style: TextStyle(
@@ -12916,11 +12974,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                                           FontWeight.bold,
                                                     ),
                                                   ),
-                                                  content: ConstrainedBox(
-                                                    constraints:
-                                                        const BoxConstraints(
-                                                          maxWidth: 400,
-                                                        ),
+                                                  content: SizedBox(
+                                                    width: 440,
                                                     child: Text(
                                                       'Are you sure you want to deactivate "${item['name']}"?',
                                                       softWrap: true,
