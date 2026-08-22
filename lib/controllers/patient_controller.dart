@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import '../models/patient_model.dart';
 import '../services/api_service.dart';
 
+import '../config/api_config.dart';
+
 class PatientController {
-  String get baseUrl => dotenv.env['BASE_URL']!;
+  String get baseUrl => ApiEndpoints.baseUrl;
 
   /// Register a new patient
   Future<void> registerPatient(PatientModel patient) async {

@@ -5,8 +5,10 @@ import '../models/patient_model.dart';
 import '../services/api_service.dart';
 import '../screens/ot_management.dart';
 
+import '../config/api_config.dart';
+
 class OtController {
-  String get baseUrl => dotenv.env['BASE_URL']!;
+  String get baseUrl => ApiEndpoints.baseUrl;
 
   /// Fetch all OT Cases from the database
   Future<List<OtCase>> fetchOtCases() async {

@@ -5,6 +5,7 @@ import '../utils/app_theme.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 
@@ -25,7 +26,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
   String? _error;
   String _selectedCategory = 'All';
 
-  String get baseUrl => dotenv.env['BASE_URL']!;
+  String get baseUrl => ApiEndpoints.baseUrl;
 
   @override
   void initState() {

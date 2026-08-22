@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
 
 class ICUManagementView extends StatefulWidget {
   final bool isMobile;
@@ -18,7 +19,7 @@ class _ICUManagementViewState extends State<ICUManagementView> {
   bool _isLoading = true;
   String? _error;
 
-  String get baseUrl => dotenv.env['BASE_URL']!;
+  String get baseUrl => ApiEndpoints.baseUrl;
 
   @override
   void initState() {
