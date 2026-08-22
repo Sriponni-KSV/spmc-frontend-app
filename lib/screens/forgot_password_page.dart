@@ -195,7 +195,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.of(dialogContext).pop();
-                      context.go(AppRoutes.login);
+                      Future.delayed(Duration.zero, () {
+                        if (context.mounted) {
+                          context.go(AppRoutes.login);
+                        }
+                      });
                     },
                     style: AppTheme.primaryButton.copyWith(
                       minimumSize: MaterialStateProperty.all(
