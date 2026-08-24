@@ -40,6 +40,7 @@ import 'home_visit_execution_screen.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
+import '../config/admin_nav_config.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -65,7 +66,7 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
-  bool _isCatalogMenuExpanded = true;
+  bool _isCatalogMenuExpanded = false;
   String _selectedRoleFilter = 'All';
   String _selectedStatusFilter = 'All';
   final AdminController _adminController = AdminController();
@@ -237,6 +238,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _viewPatient = widget.viewPatient;
     _viewingStaffProfile = widget.viewingStaffProfile;
     _selectedHomeVisitId = widget.selectedHomeVisitId;
+    _isCatalogMenuExpanded = widget.initialIndex == 13 ||
+        widget.initialIndex == 14 ||
+        widget.initialIndex == 15;
     _loadStaff();
     _loadRbacData();
     _fetchPatients();
@@ -255,6 +259,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         widget.viewingStaffProfile != oldWidget.viewingStaffProfile ||
         widget.selectedHomeVisitId != oldWidget.selectedHomeVisitId) {
       _selectedIndex = widget.initialIndex;
+      if (widget.initialIndex == 13 ||
+          widget.initialIndex == 14 ||
+          widget.initialIndex == 15) {
+        _isCatalogMenuExpanded = true;
+      }
       _isRegisteringPatient = widget.isRegisteringPatient;
       _patientToComplete = widget.existingPatient;
       _viewPatient = widget.viewPatient;
@@ -2614,67 +2623,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
 
-          // Navigation Items (Scrollable)
+          // Navigation Items (Scrollable driven by AdminNavConfig)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Column(
                 children: [
-                  _buildSidebarItem(
-                    0,
-                    Icons.admin_panel_settings_outlined,
-                    'Dashboard',
-                  ),
-                  _buildSidebarItem(
-                    1,
-                    Icons.people_outline,
-                    'Staff Management',
-                  ),
-                  _buildSidebarItem(2, Icons.sick_outlined, 'Patients'),
-                  if (user?.role == 'Super Admin')
-                    _buildSidebarItem(
-                      3,
-                      Icons.security_outlined,
-                      'Access Control (RBAC)',
+                  ...AdminNavConfig.getVisibleNavItems(user).map(
+                    (item) => _buildSidebarItem(
+                      item.index,
+                      item.icon,
+                      item.label,
                     ),
-                  _buildSidebarItem(
-                    4,
-                    Icons.calendar_month_outlined,
-                    'Appointments',
                   ),
-                  _buildSidebarItem(
-                    5,
-                    Icons.monitor_heart_outlined,
-                    'OPD Management',
-                  ),
-                  _buildSidebarItem(6, Icons.hotel_outlined, 'IPD Management'),
-                  _buildSidebarItem(7, Icons.healing_outlined, 'OT Management'),
-                  _buildSidebarItem(
-                    8,
-                    Icons.schedule_outlined,
-                    'Shift Allocation',
-                  ),
-                  _buildSidebarItem(
-                    9,
-                    Icons.emergency_outlined,
-                    'ICU & Emergency',
-                  ),
-                  _buildSidebarItem(
-                    10,
-                    Icons.receipt_long_outlined,
-                    'Billing & Invoices',
-                  ),
-                  _buildSidebarItem(
-                    11,
-                    Icons.inventory_2_outlined,
-                    'Inventory Management',
-                  ),
-                  _buildSidebarItem(
-                    12,
-                    Icons.home_work_outlined,
-                    'Home Visit Care',
-                  ),
-                  _buildCatalogParentMenu(),
+                  if (AdminNavConfig.showMasterCatalog)
+                    _buildCatalogParentMenu(),
                 ],
               ),
             ),
@@ -2832,26 +2795,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         if (_isCatalogMenuExpanded)
           Column(
-            children: [
-              _buildSidebarItem(
-                13,
-                Icons.medication_outlined,
-                'Medicine Catalog',
-                isSubItem: true,
-              ),
-              _buildSidebarItem(
-                14,
-                Icons.home_repair_service_outlined,
-                'Home Visit Consumables',
-                isSubItem: true,
-              ),
-              _buildSidebarItem(
-                15,
-                Icons.inventory_outlined,
-                'Carried Kit Items',
-                isSubItem: true,
-              ),
-            ],
+            children: AdminNavConfig.getVisibleCatalogSubItems()
+                .map(
+                  (subItem) => _buildSidebarItem(
+                    subItem.index,
+                    subItem.icon,
+                    subItem.label,
+                    isSubItem: true,
+                  ),
+                )
+                .toList(),
           ),
       ],
     );
