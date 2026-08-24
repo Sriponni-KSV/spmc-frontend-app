@@ -73,7 +73,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   void _startResendTimer() {
     _resendTimer?.cancel();
     setState(() {
-      _secondsRemaining = 120;
+      _secondsRemaining = 60;
     });
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {

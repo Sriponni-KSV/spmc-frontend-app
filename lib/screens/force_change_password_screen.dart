@@ -161,6 +161,7 @@ class _ForceChangePasswordScreenState extends State<ForceChangePasswordScreen> {
               backgroundColor: Colors.green,
             ),
           );
+          context.go(AppRoutes.login);
         } catch (e) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
