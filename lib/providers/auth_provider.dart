@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../controllers/auth_controller.dart';
@@ -62,11 +63,37 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    // On cold-start the first request can fail with a transient
+    // ServerUnavailableException / RequestTimeoutException because the
+    // browser or OS connection isn't warmed up yet.  We silently retry
+    // once after a short delay before surfacing an error to the user.
+    bool _retried = false;
+
+    Future<UserModel?> _attemptLogin() async {
+      try {
+        return await _authController.login(
+          email: email,
+          password: password,
+        );
+      } on ServerUnavailableException {
+        if (!_retried) {
+          _retried = true;
+          await Future.delayed(const Duration(seconds: 2));
+          return _attemptLogin();
+        }
+        rethrow;
+      } on RequestTimeoutException {
+        if (!_retried) {
+          _retried = true;
+          await Future.delayed(const Duration(seconds: 2));
+          return _attemptLogin();
+        }
+        rethrow;
+      }
+    }
+
     try {
-      final user = await _authController.login(
-        email: email,
-        password: password,
-      );
+      final user = await _attemptLogin();
 
       if (user != null) {
         _user = user;

@@ -2,6 +2,21 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+/// Opens a document in external application / browser tab on mobile/desktop.
+Future<void> openDocumentInNewTab(
+  String url,
+  String title, {
+  List<int>? bytes,
+  String? fileName,
+}) async {
+  if (url.isNotEmpty) {
+    final uri = Uri.tryParse(url);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+}
+
 void showDocumentViewer(
   BuildContext context,
   String url,

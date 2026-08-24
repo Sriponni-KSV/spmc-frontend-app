@@ -5,8 +5,8 @@ class ApiEndpoints {
   /// Enables localhost routing for USB cable debugging.
   static bool get useLocalhost => true;
 
-  /// Laptop local Wi-Fi IP.
-  static const String backendIp = '192.168.1.5';
+  /// Your laptop's local Wi-Fi IP address on the network
+  static const String backendIp = '192.168.1.58';
 
   /// Backend server port.
   static const String port = '3000';

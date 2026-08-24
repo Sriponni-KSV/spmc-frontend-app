@@ -77,10 +77,6 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
   final FocusNode _mainFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
-  /// When true, the dropdown list is being actively scrolled on a touch
-  /// device. We use this to prevent accidental item selection.
-  bool _isScrolling = false;
-
   List<MapEntry<String, String>> _filteredItems = [];
   int _highlightedIndex = 0;
 
@@ -115,14 +111,6 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
 
     final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
     _textEditingController = TextEditingController(text: displayValue);
-
-    // Track scroll activity so we can suppress accidental selection
-    // during a touch scroll.
-    _scrollController.addListener(() {
-      if (_scrollController.position.isScrollingNotifier.value) {
-        _isScrolling = true;
-      }
-    });
 
     _searchFocusNode.onKeyEvent = (node, event) => _handleKey(event);
     _mainFocusNode.onKeyEvent = (node, event) => _handleKey(event);
@@ -354,8 +342,10 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       _filteredItems = _allEntries.entries.toList();
     }
 
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final size = renderBox.size;
+    final RenderObject? renderObject = context.findRenderObject();
+    if (renderObject == null || renderObject is! RenderBox || !renderObject.attached) {
+      return;
+    }
 
     _highlightedIndex = 0;
     if (!widget.readOnly && !_searchFocusNode.hasFocus) {
@@ -363,10 +353,20 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     }
 
     _overlayEntry = OverlayEntry(
-      builder: (context) {
+      builder: (overlayContext) {
+        if (!mounted) return const SizedBox.shrink();
+        final currentRenderObject = context.findRenderObject();
+        if (currentRenderObject == null ||
+            currentRenderObject is! RenderBox ||
+            !currentRenderObject.attached) {
+          return const SizedBox.shrink();
+        }
+        final RenderBox activeRenderBox = currentRenderObject;
+        final activeSize = activeRenderBox.size;
+        final fieldGlobal = activeRenderBox.localToGlobal(Offset.zero);
+
         // Compute available space below and above the field, accounting for keyboard.
         const double kDropdownMaxHeight = 300;
-        final fieldGlobal = renderBox.localToGlobal(Offset.zero);
         final view = WidgetsBinding.instance.platformDispatcher.views.first;
         final double screenHeight =
             view.physicalSize.height / view.devicePixelRatio;
@@ -374,7 +374,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
             view.viewInsets.bottom / view.devicePixelRatio;
 
         final spaceBelow =
-            screenHeight - fieldGlobal.dy - size.height - keyboardHeight - 12;
+            screenHeight - fieldGlobal.dy - activeSize.height - keyboardHeight - 12;
         final spaceAbove = fieldGlobal.dy - 12;
 
         // Flexible placement: show above if space below is tight and there is more space above
@@ -384,14 +384,14 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
         // When opening upward, anchor the follower's bottom to the target's top.
         final Offset offset = showAbove
             ? const Offset(0, -6) // follower-bottom → target-top minus gap
-            : Offset(0, size.height + 6);
+            : Offset(0, activeSize.height + 6);
         final Alignment tAnchor =
             showAbove ? Alignment.topLeft : Alignment.topLeft;
         final Alignment fAnchor =
             showAbove ? Alignment.bottomLeft : Alignment.topLeft;
 
         return Positioned(
-          width: size.width,
+          width: activeSize.width,
           child: CompositedTransformFollower(
             link: _layerLink,
             showWhenUnlinked: false,
@@ -513,8 +513,6 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                             splashFactory:
                                                 NoSplash.splashFactory,
                                             onTap: () {
-                                              // Guard: don't select during/after scroll.
-                                              if (_isScrolling) return;
                                               if (_fieldKey.currentState !=
                                                   null) {
                                                 _selectItem(
@@ -606,7 +604,6 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       _closeActiveDropdown = null;
     }
     _highlightedIndex = 0;
-    _isScrolling = false;
     if (mounted) setState(() {});
   }
 
