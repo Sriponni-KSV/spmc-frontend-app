@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
@@ -3730,7 +3731,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     if (photoUrl.isEmpty) return;
     String fullUrl = photoUrl.trim();
     if (!fullUrl.startsWith('http://') && !fullUrl.startsWith('https://')) {
-      final baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api';
+      final baseUrl = ApiEndpoints.baseUrl;
       final serverHost = baseUrl.replaceAll(RegExp(r'/api/?$'), '');
       final cleanPath = fullUrl.startsWith('/')
           ? fullUrl.substring(1)
@@ -4029,7 +4030,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   }
 
   Future<void> _fetchInventoryCatalogs() async {
-    final baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api';
+    final baseUrl = ApiEndpoints.baseUrl;
     try {
       final medRes = await ApiService.get(
         '$baseUrl/inventory/medicine-catalog',
@@ -4785,9 +4786,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           if (formKey.currentState?.validate() == true) {
                             setDialogState(() => isSubmitting = true);
                             try {
-                              final baseUrl =
-                                  dotenv.env['BASE_URL'] ??
-                                  'http://localhost:3000/api';
+                              final baseUrl = ApiEndpoints.baseUrl;
                               final payload = {
                                 'start_time': timeCtrl.text.trim(),
                                 'nurse_name': nurseCtrl.text.trim(),

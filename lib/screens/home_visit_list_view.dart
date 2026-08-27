@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -2917,9 +2918,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                           if (formKey.currentState?.validate() == true) {
                             setDialogState(() => isSubmitting = true);
                             try {
-                              final baseUrl =
-                                  dotenv.env['BASE_URL'] ??
-                                  'http://localhost:3000/api';
+                              final baseUrl = ApiEndpoints.baseUrl;
                               final payload = {
                                 'start_time': timeCtrl.text.trim(),
                                 'nurse_name': nurseCtrl.text.trim(),
