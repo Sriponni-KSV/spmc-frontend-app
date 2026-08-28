@@ -517,7 +517,7 @@ class HomeVisitService {
     }
   }
 
-  // Delete/Deactivate Procedure Master
+  // Delete Procedure Master
   Future<void> deleteProcedureMaster(int procedureId) async {
     try {
       final response = await ApiService.delete(
@@ -525,7 +525,7 @@ class HomeVisitService {
       );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to deactivate procedure');
+        throw Exception(body['message'] ?? 'Failed to remove procedure');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
@@ -582,7 +582,7 @@ class HomeVisitService {
     }
   }
 
-  // Soft Delete / Deactivate Consumable Item Master
+  // Delete Consumable Item Master
   Future<void> deleteConsumableMaster(int id) async {
     try {
       final response = await ApiService.delete(
@@ -591,7 +591,7 @@ class HomeVisitService {
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(
-          body['message'] ?? 'Failed to deactivate consumable item',
+          body['message'] ?? 'Failed to remove consumable item',
         );
       }
     } catch (e) {
@@ -652,7 +652,7 @@ class HomeVisitService {
     }
   }
 
-  // Soft Delete / Deactivate Master Carried Kit Item
+  // Delete Master Carried Kit Item
   Future<void> deleteKitItemMaster(int id) async {
     try {
       final response = await ApiService.delete(
@@ -660,7 +660,7 @@ class HomeVisitService {
       );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to deactivate kit item');
+        throw Exception(body['message'] ?? 'Failed to remove kit item');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));

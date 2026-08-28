@@ -1,12 +1,121 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../utils/app_theme.dart';
+import '../widgets/document_view_dialog.dart';
 
 class AdminStaffProfileView extends StatelessWidget {
   final UserModel user;
   final VoidCallback onBack;
 
   const AdminStaffProfileView({Key? key, required this.user, required this.onBack}) : super(key: key);
+
+  Widget _buildDocumentRow(String label, String? docUrl) {
+    final hasDoc = docUrl != null && docUrl.trim().isNotEmpty;
+    final isUrl = hasDoc &&
+        (docUrl.startsWith('http://') ||
+            docUrl.startsWith('https://') ||
+            docUrl.startsWith('data:'));
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F7FF),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              hasDoc ? Icons.description_outlined : Icons.file_present_outlined,
+              size: 20,
+              color: const Color(0xFF0F5A8E),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: Color(0xFF718096),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                if (hasDoc && isUrl)
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      openDocumentInNewTab(docUrl, label);
+                    },
+                    icon: const Icon(
+                      Icons.open_in_new,
+                      size: 14,
+                      color: AppTheme.primaryColor,
+                    ),
+                    label: const Text(
+                      'View Document',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      side: const BorderSide(color: AppTheme.primaryColor),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      backgroundColor: Colors.white,
+                    ),
+                  )
+                else if (hasDoc)
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.check_circle,
+                        size: 16,
+                        color: Colors.green,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          docUrl,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2D3748),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  const Text(
+                    'No document uploaded',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                      color: Color(0xFF718096),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildDetailRow(String label, String value, IconData icon) {
     return Padding(
@@ -327,22 +436,34 @@ class AdminStaffProfileView extends StatelessWidget {
                   Icons.calendar_today_outlined,
                 ),
               ]),
+              sectionSpacing,
+              _buildInfoCard('Uploaded Documents', [
+                _buildDocumentRow('Registration Certificate', user.registrationCertificate),
+              ]),
             ] else ...[
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: _buildInfoCard('Professional Details', [
-                      _buildDetailRow('Qualification', user.qualification ?? '-', Icons.school_outlined),
-                      _buildDetailRow('Nursing Registration Number', user.nursingRegistrationNumber ?? '-', Icons.badge_outlined),
-                      _buildDetailRow(
-                        'Years of Experience',
-                        user.yearsOfExperience == null || user.yearsOfExperience == '0'
-                            ? '-'
-                            : '${user.yearsOfExperience} years',
-                        Icons.work_history_outlined,
-                      ),
-                    ]),
+                    child: Column(
+                      children: [
+                        _buildInfoCard('Professional Details', [
+                          _buildDetailRow('Qualification', user.qualification ?? '-', Icons.school_outlined),
+                          _buildDetailRow('Nursing Registration Number', user.nursingRegistrationNumber ?? '-', Icons.badge_outlined),
+                          _buildDetailRow(
+                            'Years of Experience',
+                            user.yearsOfExperience == null || user.yearsOfExperience == '0'
+                                ? '-'
+                                : '${user.yearsOfExperience} years',
+                            Icons.work_history_outlined,
+                          ),
+                        ]),
+                        sectionSpacing,
+                        _buildInfoCard('Uploaded Documents', [
+                          _buildDocumentRow('Registration Certificate', user.registrationCertificate),
+                        ]),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 24),
                   Expanded(
