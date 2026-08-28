@@ -6271,8 +6271,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}",
     );
     final addressCtrl = TextEditingController(text: '');
-    final timeCtrl = TextEditingController(text: '9:00 AM');
+    String selectedShift = 'Morning Shift (09:00 AM - 06:00 PM)';
+    final timeCtrl = TextEditingController(text: '09:00 AM');
     bool isSubmitting = false;
+
+    final List<Map<String, String>> shiftOptions = [
+      {'label': 'Morning Shift (09:00 AM - 06:00 PM)', 'time': '09:00 AM'},
+      {'label': 'Night Shift (06:00 PM - 09:00 AM)', 'time': '06:00 PM'},
+      {'label': 'Custom Time', 'time': 'Custom'},
+    ];
 
     showDialog(
       context: context,
@@ -6290,7 +6297,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             apiDateStr = "${dateParts[2]}-${dateParts[1]}-${dateParts[0]}";
           }
 
-          // Validation Check: "Once already chosen nurse patient on selected date cannot chosen again."
+          final String targetTime = timeCtrl.text.trim();
+
+          // Validation Check: duplicate nurse or patient on same date and same shift/time
           final bool isDuplicateNursePatient =
               selectedNurse != null &&
               selectedPatient != null &&
@@ -6299,6 +6308,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     v.nurseId == selectedNurse!.id &&
                     v.patientId == selectedPatient!.id &&
                     v.scheduledDate == apiDateStr &&
+                    (v.scheduledTime ?? '09:00 AM').trim().toLowerCase() == targetTime.toLowerCase() &&
                     v.status != 'Cancelled',
               );
 
@@ -6308,6 +6318,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 (v) =>
                     v.patientId == selectedPatient!.id &&
                     v.scheduledDate == apiDateStr &&
+                    (v.scheduledTime ?? '09:00 AM').trim().toLowerCase() == targetTime.toLowerCase() &&
                     v.status != 'Cancelled',
               );
 
@@ -6461,7 +6472,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 4. Scheduled Date
+                    // 3. Scheduled Date
                     const Text(
                       'Scheduled Date:',
                       style: TextStyle(
@@ -6495,6 +6506,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         }
                       },
                     ),
+                    const SizedBox(height: 16),
+
+                    // 4. Shift & Scheduled Time
+                    const Text(
+                      'Shift & Scheduled Time:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: 'Select Shift / Time',
+                      dropdownItems: shiftOptions.map((opt) => opt['label']!).toList(),
+                      value: selectedShift,
+                      onChanged: (val) async {
+                        if (val == null) return;
+                        setDialogState(() => selectedShift = val);
+                        final matched = shiftOptions.firstWhere((o) => o['label'] == val);
+                        if (matched['time'] == 'Custom') {
+                          final TimeOfDay? customPicked = await showTimePicker(
+                            context: context,
+                            initialTime: const TimeOfDay(hour: 9, minute: 0),
+                            helpText: 'Select Custom Scheduled Time',
+                          );
+                          if (customPicked != null) {
+                            final dt = DateTime(2026, 1, 1, customPicked.hour, customPicked.minute);
+                            setDialogState(() {
+                              timeCtrl.text = DateFormat('hh:mm a').format(dt);
+                            });
+                          }
+                        } else {
+                          setDialogState(() {
+                            timeCtrl.text = matched['time']!;
+                          });
+                        }
+                      },
+                      height: 48,
+                      borderColor: const Color(0xFFE2E8F0),
+                      focusedBorderColor: AppTheme.primaryColor,
+                      fillColor: AppTheme.backgroundColor,
+                      popupBgColor: Colors.white,
+                    ),
 
                     // Validation Warning Box
                     if (isDuplicateNursePatient) ...[
@@ -6516,7 +6571,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                '⚠️ Nurse "${selectedNurse?.fullname}" is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text}. Once chosen, this nurse & patient combination on this date cannot be scheduled again.',
+                                '⚠️ Nurse "${selectedNurse?.fullname}" is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text} at ${timeCtrl.text}.',
                                 style: const TextStyle(
                                   color: Colors.red,
                                   fontSize: 12,
@@ -6546,7 +6601,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                '⚠️ A home visit is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text}. Only 1 visit per patient per day is allowed.',
+                                '⚠️ A home visit is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text} at ${timeCtrl.text}. You can schedule another shift (e.g. Night Shift) at a different time.',
                                 style: const TextStyle(
                                   color: Colors.red,
                                   fontSize: 12,
@@ -6591,7 +6646,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           'nurse_id': selectedNurse!.id,
                           'patient_id': selectedPatient!.id,
                           'scheduled_date': apiDateStr,
-                          'scheduled_time': timeCtrl.text,
+                          'scheduled_time': timeCtrl.text.trim(),
                           'visit_address': addressCtrl.text,
                           'carried_items': [],
                         });
@@ -6604,7 +6659,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'Home visit ${newVisit.visitNumber} scheduled for ${selectedPatient!.name} with Nurse ${selectedNurse!.fullname}!',
+                                  'Home visit ${newVisit.visitNumber} (${timeCtrl.text}) scheduled for ${selectedPatient!.name} with Nurse ${selectedNurse!.fullname}!',
                                 ),
                                 backgroundColor: Colors.green,
                               ),
