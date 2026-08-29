@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
@@ -648,6 +649,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   final TextEditingController _attenderNameCtrl = TextEditingController();
   final TextEditingController _attenderRelationCtrl = TextEditingController();
   final List<Offset?> _signaturePoints = [];
+  bool _isSigningSignature = false;
 
   bool _isSavingVitals = false;
   bool _isSavingCare = false;
@@ -11273,6 +11275,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     HomeVisitController controller,
   ) {
     return SingleChildScrollView(
+      physics: _isSigningSignature
+          ? const NeverScrollableScrollPhysics()
+          : const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.symmetric(
         horizontal: MediaQuery.of(context).size.width < 600 ? 12.0 : 24.0,
         vertical: 16.0,
@@ -11382,49 +11387,65 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: Stack(
+                      fit: StackFit.expand,
                       children: [
                         if (_signaturePoints.isEmpty)
-                          const Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.draw_outlined,
-                                  color: Colors.grey,
-                                  size: 20,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Draw attender signature here with mouse or touch...',
-                                  style: TextStyle(
+                          const IgnorePointer(
+                            child: Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.draw_outlined,
                                     color: Colors.grey,
-                                    fontSize: 13,
-                                    fontStyle: FontStyle.italic,
+                                    size: 20,
                                   ),
-                                ),
-                              ],
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Draw attender signature here with mouse or touch...',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 13,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onPanStart: (details) {
-                            setState(() {
-                              _signaturePoints.add(details.localPosition);
-                            });
-                          },
-                          onPanUpdate: (details) {
-                            setState(() {
-                              _signaturePoints.add(details.localPosition);
-                            });
-                          },
-                          onPanEnd: (details) {
-                            setState(() {
-                              _signaturePoints.add(null);
-                            });
-                          },
-                          child: CustomPaint(
-                            painter: SignaturePainter(points: _signaturePoints),
-                            size: Size.infinite,
+                        Positioned.fill(
+                          child: Listener(
+                            behavior: HitTestBehavior.opaque,
+                            onPointerDown: (event) {
+                              FocusScope.of(context).unfocus();
+                              setState(() {
+                                _isSigningSignature = true;
+                                _signaturePoints.add(event.localPosition);
+                              });
+                            },
+                            onPointerMove: (event) {
+                              setState(() {
+                                _signaturePoints.add(event.localPosition);
+                              });
+                            },
+                            onPointerUp: (event) {
+                              setState(() {
+                                _isSigningSignature = false;
+                                _signaturePoints.add(null);
+                              });
+                            },
+                            onPointerCancel: (event) {
+                              setState(() {
+                                _isSigningSignature = false;
+                                _signaturePoints.add(null);
+                              });
+                            },
+                            child: CustomPaint(
+                              painter: SignaturePainter(
+                                points: _signaturePoints,
+                              ),
+                              size: Size.infinite,
+                            ),
                           ),
                         ),
                       ],
@@ -11522,6 +11543,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final relCtrl = TextEditingController(text: _attenderRelationCtrl.text);
     List<Offset?> sigPoints = List.from(_signaturePoints);
     bool isSubmitting = false;
+    bool isDialogSigning = false;
 
     showDialog(
       context: context,
@@ -11535,6 +11557,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             constraints: const BoxConstraints(maxWidth: 600, maxHeight: 720),
             padding: const EdgeInsets.all(24),
             child: SingleChildScrollView(
+              physics: isDialogSigning
+                  ? const NeverScrollableScrollPhysics()
+                  : const ClampingScrollPhysics(),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -11628,54 +11653,70 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: Stack(
+                        fit: StackFit.expand,
                         children: [
                           if (sigPoints.isEmpty)
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 16),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.draw_outlined,
-                                      color: Colors.grey,
-                                      size: 18,
-                                    ),
-                                    SizedBox(width: 6),
-                                    Flexible(
-                                      child: Text(
-                                        'Draw attender signature here',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 12,
-                                          fontStyle: FontStyle.italic,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                            const IgnorePointer(
+                              child: Center(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 16),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.draw_outlined,
+                                        color: Colors.grey,
+                                        size: 18,
                                       ),
-                                    ),
-                                  ],
+                                      SizedBox(width: 6),
+                                      Flexible(
+                                        child: Text(
+                                          'Draw attender signature here',
+                                          style: TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 12,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onPanStart: (details) {
-                              setDialogState(
-                                () => sigPoints.add(details.localPosition),
-                              );
-                            },
-                            onPanUpdate: (details) {
-                              setDialogState(
-                                () => sigPoints.add(details.localPosition),
-                              );
-                            },
-                            onPanEnd: (details) {
-                              setDialogState(() => sigPoints.add(null));
-                            },
-                            child: CustomPaint(
-                              painter: SignaturePainter(points: sigPoints),
-                              size: Size.infinite,
+                          Positioned.fill(
+                            child: Listener(
+                              behavior: HitTestBehavior.opaque,
+                              onPointerDown: (event) {
+                                FocusScope.of(context).unfocus();
+                                setDialogState(() {
+                                  isDialogSigning = true;
+                                  sigPoints.add(event.localPosition);
+                                });
+                              },
+                              onPointerMove: (event) {
+                                setDialogState(() {
+                                  sigPoints.add(event.localPosition);
+                                });
+                              },
+                              onPointerUp: (event) {
+                                setDialogState(() {
+                                  isDialogSigning = false;
+                                  sigPoints.add(null);
+                                });
+                              },
+                              onPointerCancel: (event) {
+                                setDialogState(() {
+                                  isDialogSigning = false;
+                                  sigPoints.add(null);
+                                });
+                              },
+                              child: CustomPaint(
+                                painter: SignaturePainter(points: sigPoints),
+                                size: Size.infinite,
+                              ),
                             ),
                           ),
                         ],
@@ -15036,17 +15077,27 @@ class SignaturePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    Paint paint = Paint()
+    if (points.isEmpty) return;
+
+    final Paint paint = Paint()
       ..color = AppTheme.primaryColor
       ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
       ..strokeWidth = 3.0;
 
     for (int i = 0; i < points.length - 1; i++) {
-      if (points[i] != null && points[i + 1] != null) {
-        canvas.drawLine(points[i]!, points[i + 1]!, paint);
-      } else if (points[i] != null && points[i + 1] == null) {
-        canvas.drawPoints(PointMode.points, [points[i]!], paint);
+      final current = points[i];
+      final next = points[i + 1];
+
+      if (current != null && next != null) {
+        canvas.drawLine(current, next, paint);
+      } else if (current != null && next == null) {
+        canvas.drawCircle(current, 1.5, paint);
       }
+    }
+
+    if (points.length == 1 && points[0] != null) {
+      canvas.drawCircle(points[0]!, 1.5, paint);
     }
   }
 
