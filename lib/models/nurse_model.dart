@@ -54,8 +54,8 @@ class NurseModel {
       shiftType: json['shift_type'] ?? json['shiftType'],
       totalExperience: (json['total_experience'] ?? json['totalExperience'])?.toString(),
       registrationCertificate: json['registration_certificate'] ?? json['registrationCertificate'],
-      weeklyOffDays: _parseList(json['weekly_off_days'] ?? json['weeklyOffDays']),
-      specificLeaveDates: _parseList(json['specific_leave_dates'] ?? json['specificLeaveDates']),
+      weeklyOffDays: _parseList(json['weekly_off_days'] ?? json['weeklyOffDays'] ?? json['nurse_weekly_off_days']),
+      specificLeaveDates: _parseList(json['specific_leave_dates'] ?? json['specificLeaveDates'] ?? json['nurse_specific_leave_dates']),
       bio: json['bio'],
     );
   }

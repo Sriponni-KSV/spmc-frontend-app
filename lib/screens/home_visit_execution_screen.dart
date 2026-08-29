@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
@@ -3730,7 +3731,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     if (photoUrl.isEmpty) return;
     String fullUrl = photoUrl.trim();
     if (!fullUrl.startsWith('http://') && !fullUrl.startsWith('https://')) {
-      final baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api';
+      final baseUrl = ApiEndpoints.baseUrl;
       final serverHost = baseUrl.replaceAll(RegExp(r'/api/?$'), '');
       final cleanPath = fullUrl.startsWith('/')
           ? fullUrl.substring(1)
@@ -4029,7 +4030,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   }
 
   Future<void> _fetchInventoryCatalogs() async {
-    final baseUrl = dotenv.env['BASE_URL'] ?? 'http://localhost:3000/api';
+    final baseUrl = ApiEndpoints.baseUrl;
     try {
       final medRes = await ApiService.get(
         '$baseUrl/inventory/medicine-catalog',
@@ -4610,52 +4611,27 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         controller: timeCtrl,
                         readOnly: true,
                         onTap: () async {
+                          TimeOfDay initialPickerTime = TimeOfDay.now();
+                          try {
+                            if (timeCtrl.text.trim().isNotEmpty) {
+                              final parsed = DateFormat('hh:mm a').parse(timeCtrl.text.trim());
+                              initialPickerTime = TimeOfDay(hour: parsed.hour, minute: parsed.minute);
+                            }
+                          } catch (_) {}
                           final TimeOfDay? picked = await showTimePicker(
                             context: context,
-                            initialTime: TimeOfDay.fromDateTime(
-                              executionClickTime,
-                            ),
-                            helpText: 'Select Start Time (±1 hr window)',
+                            initialTime: initialPickerTime,
+                            helpText: 'Select Visit Start Time',
                           );
                           if (picked != null) {
-                            var dt = DateTime(
-                              executionClickTime.year,
-                              executionClickTime.month,
-                              executionClickTime.day,
+                            final now = DateTime.now();
+                            final dt = DateTime(
+                              now.year,
+                              now.month,
+                              now.day,
                               picked.hour,
                               picked.minute,
                             );
-                            int diff = dt
-                                .difference(executionClickTime)
-                                .inMinutes;
-                            if (diff > 12 * 60) {
-                              dt = dt.subtract(const Duration(days: 1));
-                              diff = dt
-                                  .difference(executionClickTime)
-                                  .inMinutes;
-                            } else if (diff < -12 * 60) {
-                              dt = dt.add(const Duration(days: 1));
-                              diff = dt
-                                  .difference(executionClickTime)
-                                  .inMinutes;
-                            }
-
-                            if (diff < -60 || diff > 60) {
-                              final minStr = DateFormat(
-                                'hh:mm a',
-                              ).format(minAllowedTime);
-                              final maxStr = DateFormat(
-                                'hh:mm a',
-                              ).format(maxAllowedTime);
-                              if (dialogCtx.mounted) {
-                                AppNotification.showError(
-                                  dialogCtx,
-                                  'Invalid time! Start time must be within 1 hour prior/after current time ($minStr - $maxStr).',
-                                );
-                              }
-                              return;
-                            }
-
                             setDialogState(() {
                               timeCtrl.text = DateFormat('hh:mm a').format(dt);
                             });
@@ -4673,59 +4649,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           if (val == null || val.trim().isEmpty) {
                             return 'Start time is required';
                           }
-                          try {
-                            final parsed = DateFormat(
-                              'hh:mm a',
-                            ).parse(val.trim());
-                            var dt = DateTime(
-                              executionClickTime.year,
-                              executionClickTime.month,
-                              executionClickTime.day,
-                              parsed.hour,
-                              parsed.minute,
-                            );
-                            int diff = dt
-                                .difference(executionClickTime)
-                                .inMinutes;
-                            if (diff > 12 * 60) {
-                              dt = dt.subtract(const Duration(days: 1));
-                              diff = dt
-                                  .difference(executionClickTime)
-                                  .inMinutes;
-                            } else if (diff < -12 * 60) {
-                              dt = dt.add(const Duration(days: 1));
-                              diff = dt
-                                  .difference(executionClickTime)
-                                  .inMinutes;
-                            }
-                            if (diff < -60 || diff > 60) {
-                              final minStr = DateFormat(
-                                'hh:mm a',
-                              ).format(minAllowedTime);
-                              final maxStr = DateFormat(
-                                'hh:mm a',
-                              ).format(maxAllowedTime);
-                              return 'Allowed window: $minStr to $maxStr (±1 hr)';
-                            }
-                          } catch (_) {
-                            return 'Invalid time format';
-                          }
                           return null;
                         },
                       ),
                       const SizedBox(height: 6),
-                      Row(
+                      const Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.info_outline,
                             size: 13,
                             color: AppTheme.primaryColor,
                           ),
-                          const SizedBox(width: 5),
+                          SizedBox(width: 5),
                           Expanded(
                             child: Text(
-                              'Allowed window: ${DateFormat('hh:mm a').format(minAllowedTime)} - ${DateFormat('hh:mm a').format(maxAllowedTime)} (±1 hour)',
-                              style: const TextStyle(
+                              'Tap to adjust session start time if needed.',
+                              style: TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF64748B),
                                 fontWeight: FontWeight.w500,
@@ -4785,9 +4724,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           if (formKey.currentState?.validate() == true) {
                             setDialogState(() => isSubmitting = true);
                             try {
-                              final baseUrl =
-                                  dotenv.env['BASE_URL'] ??
-                                  'http://localhost:3000/api';
+                              final baseUrl = ApiEndpoints.baseUrl;
                               final payload = {
                                 'start_time': timeCtrl.text.trim(),
                                 'nurse_name': nurseCtrl.text.trim(),

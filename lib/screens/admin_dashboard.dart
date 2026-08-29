@@ -40,6 +40,7 @@ import 'home_visit_execution_screen.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
+import '../config/admin_nav_config.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -65,7 +66,7 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
-  bool _isCatalogMenuExpanded = true;
+  bool _isCatalogMenuExpanded = false;
   String _selectedRoleFilter = 'All';
   String _selectedStatusFilter = 'All';
   final AdminController _adminController = AdminController();
@@ -237,6 +238,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _viewPatient = widget.viewPatient;
     _viewingStaffProfile = widget.viewingStaffProfile;
     _selectedHomeVisitId = widget.selectedHomeVisitId;
+    _isCatalogMenuExpanded = widget.initialIndex == 13 ||
+        widget.initialIndex == 14 ||
+        widget.initialIndex == 15;
     _loadStaff();
     _loadRbacData();
     _fetchPatients();
@@ -255,6 +259,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         widget.viewingStaffProfile != oldWidget.viewingStaffProfile ||
         widget.selectedHomeVisitId != oldWidget.selectedHomeVisitId) {
       _selectedIndex = widget.initialIndex;
+      if (widget.initialIndex == 13 ||
+          widget.initialIndex == 14 ||
+          widget.initialIndex == 15) {
+        _isCatalogMenuExpanded = true;
+      }
       _isRegisteringPatient = widget.isRegisteringPatient;
       _patientToComplete = widget.existingPatient;
       _viewPatient = widget.viewPatient;
@@ -2614,67 +2623,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
 
-          // Navigation Items (Scrollable)
+          // Navigation Items (Scrollable driven by AdminNavConfig)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Column(
                 children: [
-                  _buildSidebarItem(
-                    0,
-                    Icons.admin_panel_settings_outlined,
-                    'Dashboard',
-                  ),
-                  _buildSidebarItem(
-                    1,
-                    Icons.people_outline,
-                    'Staff Management',
-                  ),
-                  _buildSidebarItem(2, Icons.sick_outlined, 'Patients'),
-                  if (user?.role == 'Super Admin')
-                    _buildSidebarItem(
-                      3,
-                      Icons.security_outlined,
-                      'Access Control (RBAC)',
+                  ...AdminNavConfig.getVisibleNavItems(user).map(
+                    (item) => _buildSidebarItem(
+                      item.index,
+                      item.icon,
+                      item.label,
                     ),
-                  _buildSidebarItem(
-                    4,
-                    Icons.calendar_month_outlined,
-                    'Appointments',
                   ),
-                  _buildSidebarItem(
-                    5,
-                    Icons.monitor_heart_outlined,
-                    'OPD Management',
-                  ),
-                  _buildSidebarItem(6, Icons.hotel_outlined, 'IPD Management'),
-                  _buildSidebarItem(7, Icons.healing_outlined, 'OT Management'),
-                  _buildSidebarItem(
-                    8,
-                    Icons.schedule_outlined,
-                    'Shift Allocation',
-                  ),
-                  _buildSidebarItem(
-                    9,
-                    Icons.emergency_outlined,
-                    'ICU & Emergency',
-                  ),
-                  _buildSidebarItem(
-                    10,
-                    Icons.receipt_long_outlined,
-                    'Billing & Invoices',
-                  ),
-                  _buildSidebarItem(
-                    11,
-                    Icons.inventory_2_outlined,
-                    'Inventory Management',
-                  ),
-                  _buildSidebarItem(
-                    12,
-                    Icons.home_work_outlined,
-                    'Home Visit Care',
-                  ),
-                  _buildCatalogParentMenu(),
+                  if (AdminNavConfig.showMasterCatalog)
+                    _buildCatalogParentMenu(),
                 ],
               ),
             ),
@@ -2832,26 +2795,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         if (_isCatalogMenuExpanded)
           Column(
-            children: [
-              _buildSidebarItem(
-                13,
-                Icons.medication_outlined,
-                'Medicine Catalog',
-                isSubItem: true,
-              ),
-              _buildSidebarItem(
-                14,
-                Icons.home_repair_service_outlined,
-                'Home Visit Consumables',
-                isSubItem: true,
-              ),
-              _buildSidebarItem(
-                15,
-                Icons.inventory_outlined,
-                'Carried Kit Items',
-                isSubItem: true,
-              ),
-            ],
+            children: AdminNavConfig.getVisibleCatalogSubItems()
+                .map(
+                  (subItem) => _buildSidebarItem(
+                    subItem.index,
+                    subItem.icon,
+                    subItem.label,
+                    isSubItem: true,
+                  ),
+                )
+                .toList(),
           ),
       ],
     );
@@ -6318,8 +6271,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}",
     );
     final addressCtrl = TextEditingController(text: '');
-    final timeCtrl = TextEditingController(text: '9:00 AM');
+    String selectedShift = 'Morning Shift (09:00 AM - 06:00 PM)';
+    final timeCtrl = TextEditingController(text: '09:00 AM');
     bool isSubmitting = false;
+
+    final List<Map<String, String>> shiftOptions = [
+      {'label': 'Morning Shift (09:00 AM - 06:00 PM)', 'time': '09:00 AM'},
+      {'label': 'Night Shift (06:00 PM - 09:00 AM)', 'time': '06:00 PM'},
+      {'label': 'Custom Time', 'time': 'Custom'},
+    ];
 
     showDialog(
       context: context,
@@ -6337,7 +6297,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             apiDateStr = "${dateParts[2]}-${dateParts[1]}-${dateParts[0]}";
           }
 
-          // Validation Check: "Once already chosen nurse patient on selected date cannot chosen again."
+          final String targetTime = timeCtrl.text.trim();
+
+          // Validation Check: duplicate nurse or patient on same date and same shift/time
           final bool isDuplicateNursePatient =
               selectedNurse != null &&
               selectedPatient != null &&
@@ -6346,6 +6308,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     v.nurseId == selectedNurse!.id &&
                     v.patientId == selectedPatient!.id &&
                     v.scheduledDate == apiDateStr &&
+                    (v.scheduledTime ?? '09:00 AM').trim().toLowerCase() == targetTime.toLowerCase() &&
                     v.status != 'Cancelled',
               );
 
@@ -6355,6 +6318,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 (v) =>
                     v.patientId == selectedPatient!.id &&
                     v.scheduledDate == apiDateStr &&
+                    (v.scheduledTime ?? '09:00 AM').trim().toLowerCase() == targetTime.toLowerCase() &&
                     v.status != 'Cancelled',
               );
 
@@ -6508,7 +6472,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 4. Scheduled Date
+                    // 3. Scheduled Date
                     const Text(
                       'Scheduled Date:',
                       style: TextStyle(
@@ -6542,6 +6506,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         }
                       },
                     ),
+                    const SizedBox(height: 16),
+
+                    // 4. Shift & Scheduled Time
+                    const Text(
+                      'Shift & Scheduled Time:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: 'Select Shift / Time',
+                      dropdownItems: shiftOptions.map((opt) => opt['label']!).toList(),
+                      value: selectedShift,
+                      onChanged: (val) async {
+                        if (val == null) return;
+                        setDialogState(() => selectedShift = val);
+                        final matched = shiftOptions.firstWhere((o) => o['label'] == val);
+                        if (matched['time'] == 'Custom') {
+                          final TimeOfDay? customPicked = await showTimePicker(
+                            context: context,
+                            initialTime: const TimeOfDay(hour: 9, minute: 0),
+                            helpText: 'Select Custom Scheduled Time',
+                          );
+                          if (customPicked != null) {
+                            final dt = DateTime(2026, 1, 1, customPicked.hour, customPicked.minute);
+                            setDialogState(() {
+                              timeCtrl.text = DateFormat('hh:mm a').format(dt);
+                            });
+                          }
+                        } else {
+                          setDialogState(() {
+                            timeCtrl.text = matched['time']!;
+                          });
+                        }
+                      },
+                      height: 48,
+                      borderColor: const Color(0xFFE2E8F0),
+                      focusedBorderColor: AppTheme.primaryColor,
+                      fillColor: AppTheme.backgroundColor,
+                      popupBgColor: Colors.white,
+                    ),
 
                     // Validation Warning Box
                     if (isDuplicateNursePatient) ...[
@@ -6563,7 +6571,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                '⚠️ Nurse "${selectedNurse?.fullname}" is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text}. Once chosen, this nurse & patient combination on this date cannot be scheduled again.',
+                                '⚠️ Nurse "${selectedNurse?.fullname}" is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text} at ${timeCtrl.text}.',
                                 style: const TextStyle(
                                   color: Colors.red,
                                   fontSize: 12,
@@ -6593,7 +6601,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                '⚠️ A home visit is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text}. Only 1 visit per patient per day is allowed.',
+                                '⚠️ A home visit is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text} at ${timeCtrl.text}. You can schedule another shift (e.g. Night Shift) at a different time.',
                                 style: const TextStyle(
                                   color: Colors.red,
                                   fontSize: 12,
@@ -6638,7 +6646,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           'nurse_id': selectedNurse!.id,
                           'patient_id': selectedPatient!.id,
                           'scheduled_date': apiDateStr,
-                          'scheduled_time': timeCtrl.text,
+                          'scheduled_time': timeCtrl.text.trim(),
                           'visit_address': addressCtrl.text,
                           'carried_items': [],
                         });
@@ -6651,7 +6659,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'Home visit ${newVisit.visitNumber} scheduled for ${selectedPatient!.name} with Nurse ${selectedNurse!.fullname}!',
+                                  'Home visit ${newVisit.visitNumber} (${timeCtrl.text}) scheduled for ${selectedPatient!.name} with Nurse ${selectedNurse!.fullname}!',
                                 ),
                                 backgroundColor: Colors.green,
                               ),
@@ -7007,6 +7015,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String? _medCatalogError;
   String _medCatalogSearch = '';
   String _selectedMedCategoryFilter = 'Total';
+  int _medCatalogCurrentPage = 0;
+  final int _medCatalogItemsPerPage = 10;
   final TextEditingController _medSearchController = TextEditingController();
 
   String get _medBaseUrl => ApiEndpoints.baseUrl;
@@ -7016,6 +7026,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     setState(() {
       _isMedCatalogLoading = true;
       _medCatalogError = null;
+      _medCatalogCurrentPage = 0;
     });
     try {
       final search = _medCatalogSearch.trim();
@@ -7744,12 +7755,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       return matchesSearch && matchesCategory;
     }).toList();
 
+    final totalItems = filtered.length;
+    final totalPages = (totalItems / _medCatalogItemsPerPage).ceil();
+
+    if (_medCatalogCurrentPage >= totalPages && totalPages > 0) {
+      _medCatalogCurrentPage = totalPages - 1;
+    }
+    if (_medCatalogCurrentPage < 0) _medCatalogCurrentPage = 0;
+
+    final paginatedItems = filtered
+        .skip(_medCatalogCurrentPage * _medCatalogItemsPerPage)
+        .take(_medCatalogItemsPerPage)
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Header Bar ──────────────────────────────────────────────────────
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
           decoration: const BoxDecoration(color: Colors.transparent),
           child: isMobile
               ? Column(
@@ -7758,78 +7782,170 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     _buildMedCatalogHeaderTitle(),
                     const SizedBox(height: 12),
                     _buildMedCatalogSearchBar(),
-                    const SizedBox(height: 12),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _buildMedCatalogHeaderTitle(),
+                    const Spacer(),
                     SizedBox(
-                      width: double.infinity,
-                      height: 48,
+                      width: 440,
+                      child: _buildMedCatalogSearchBar(),
+                    ),
+                  ],
+                ),
+        ),
+
+        // ── Stats & Actions Row ──────────────────────────────────────────────
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+          child: isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          _buildMedStatChip(
+                            Icons.medication_outlined,
+                            AppTheme.primaryColor,
+                            'Total',
+                            '${_medicationCatalog.length}',
+                          ),
+                          const SizedBox(width: 8),
+                          _buildMedStatChip(
+                            Icons.science_outlined,
+                            AppTheme.secondaryColor,
+                            'Medicine',
+                            '${_medicationCatalog.where((m) => m['category'] == 'Medicine').length}',
+                          ),
+                          const SizedBox(width: 8),
+                          _buildMedStatChip(
+                            Icons.local_hospital_outlined,
+                            const Color(0xFF7C3AED),
+                            'ICU Consumable',
+                            '${_medicationCatalog.where((m) => m['category'] == 'ICU Consumable').length}',
+                          ),
+                          const SizedBox(width: 8),
+                          _buildMedStatChip(
+                            Icons.content_cut_outlined,
+                            const Color(0xFFF59E0B),
+                            'Surgical Item',
+                            '${_medicationCatalog.where((m) => m['category'] == 'Surgical Item').length}',
+                          ),
+                          const SizedBox(width: 8),
+                          _buildMedStatChip(
+                            Icons.lock_outline,
+                            AppTheme.dangerColor,
+                            'Controlled',
+                            '${_medicationCatalog.where((m) => m['is_controlled'] == true).length}',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 38,
                       child: ElevatedButton.icon(
                         onPressed: () => _showAddMedicationDialog(isMobile),
-                        style: AppTheme.primaryButton,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Medication'),
+                        style: AppTheme.primaryButton.copyWith(
+                          padding: WidgetStateProperty.all(
+                            const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          shape: WidgetStateProperty.all(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text(
+                          'Add Medication',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 )
               : Row(
                   children: [
-                    _buildMedCatalogHeaderTitle(),
-                    const Spacer(),
-                    SizedBox(width: 280, child: _buildMedCatalogSearchBar()),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => _showAddMedicationDialog(isMobile),
-                      style: AppTheme.primaryButton,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add Medication'),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Row(
+                          children: [
+                            _buildMedStatChip(
+                              Icons.medication_outlined,
+                              AppTheme.primaryColor,
+                              'Total',
+                              '${_medicationCatalog.length}',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildMedStatChip(
+                              Icons.science_outlined,
+                              AppTheme.secondaryColor,
+                              'Medicine',
+                              '${_medicationCatalog.where((m) => m['category'] == 'Medicine').length}',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildMedStatChip(
+                              Icons.local_hospital_outlined,
+                              const Color(0xFF7C3AED),
+                              'ICU Consumable',
+                              '${_medicationCatalog.where((m) => m['category'] == 'ICU Consumable').length}',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildMedStatChip(
+                              Icons.content_cut_outlined,
+                              const Color(0xFFF59E0B),
+                              'Surgical Item',
+                              '${_medicationCatalog.where((m) => m['category'] == 'Surgical Item').length}',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildMedStatChip(
+                              Icons.lock_outline,
+                              AppTheme.dangerColor,
+                              'Controlled',
+                              '${_medicationCatalog.where((m) => m['is_controlled'] == true).length}',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      height: 34,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showAddMedicationDialog(isMobile),
+                        style: AppTheme.primaryButton.copyWith(
+                          padding: WidgetStateProperty.all(
+                            const EdgeInsets.symmetric(horizontal: 14),
+                          ),
+                          shape: WidgetStateProperty.all(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text(
+                          'Add Medication',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-        ),
-
-        // ── Stats Row ────────────────────────────────────────────────────────
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-          child: Row(
-            children: [
-              _buildMedStatChip(
-                Icons.medication_outlined,
-                AppTheme.primaryColor,
-                'Total',
-                '${_medicationCatalog.length}',
-              ),
-              const SizedBox(width: 8),
-              _buildMedStatChip(
-                Icons.science_outlined,
-                AppTheme.secondaryColor,
-                'Medicine',
-                '${_medicationCatalog.where((m) => m['category'] == 'Medicine').length}',
-              ),
-              const SizedBox(width: 8),
-              _buildMedStatChip(
-                Icons.local_hospital_outlined,
-                const Color(0xFF7C3AED),
-                'ICU Consumable',
-                '${_medicationCatalog.where((m) => m['category'] == 'ICU Consumable').length}',
-              ),
-              const SizedBox(width: 8),
-              _buildMedStatChip(
-                Icons.content_cut_outlined,
-                const Color(0xFFF59E0B),
-                'Surgical Item',
-                '${_medicationCatalog.where((m) => m['category'] == 'Surgical Item').length}',
-              ),
-              const SizedBox(width: 8),
-              _buildMedStatChip(
-                Icons.lock_outline,
-                AppTheme.dangerColor,
-                'Controlled',
-                '${_medicationCatalog.where((m) => m['is_controlled'] == true).length}',
-              ),
-            ],
-          ),
         ),
         const SizedBox(height: 16),
 
@@ -7844,8 +7960,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 : filtered.isEmpty
                 ? _buildMedCatalogEmpty()
                 : isMobile
-                ? _buildMedCatalogMobileList(filtered)
-                : _buildMedCatalogDesktopTable(filtered),
+                ? _buildMedCatalogMobileList(paginatedItems, totalPages)
+                : _buildMedCatalogDesktopTable(
+                    paginatedItems,
+                    totalPages,
+                    totalItems,
+                  ),
           ),
         ),
       ],
@@ -7893,25 +8013,59 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildMedCatalogSearchBar() {
     return TextField(
       controller: _medSearchController,
+      style: const TextStyle(fontSize: 13),
       decoration:
           AppTheme.standardInputDecoration(
             label: null,
             prefixIcon: Icons.search,
             hintText: 'Search medications...',
           ).copyWith(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.0,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: AppTheme.primaryColor,
+                width: 1.4,
+              ),
+            ),
             suffixIcon: _medCatalogSearch.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
+                    icon: const Icon(Icons.clear, size: 16),
                     onPressed: () {
                       _medSearchController.clear();
-                      setState(() => _medCatalogSearch = '');
+                      setState(() {
+                        _medCatalogSearch = '';
+                        _medCatalogCurrentPage = 0;
+                      });
                       _loadMedicationCatalog();
                     },
                   )
                 : null,
           ),
       onChanged: (v) {
-        setState(() => _medCatalogSearch = v);
+        setState(() {
+          _medCatalogSearch = v;
+          _medCatalogCurrentPage = 0;
+        });
       },
       onSubmitted: (_) => _loadMedicationCatalog(),
     );
@@ -7925,18 +8079,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   ) {
     final isSelected = _selectedMedCategoryFilter == label;
     return InkWell(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(8),
       onTap: () {
         setState(() {
           _selectedMedCategoryFilter = label;
+          _medCatalogCurrentPage = 0;
         });
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected ? color : color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected ? color : color.withValues(alpha: 0.25),
             width: isSelected ? 1.5 : 1.0,
@@ -7945,8 +8100,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ? [
                   BoxShadow(
                     color: color.withValues(alpha: 0.25),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1.5),
                   ),
                 ]
               : null,
@@ -7954,8 +8109,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: isSelected ? Colors.white : color, size: 16),
-            const SizedBox(width: 8),
+            Icon(icon, color: isSelected ? Colors.white : color, size: 14),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
@@ -7966,17 +8121,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
             const SizedBox(width: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 1.5,
+              ),
               decoration: BoxDecoration(
                 color: isSelected
                     ? Colors.white.withValues(alpha: 0.25)
                     : color,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 count,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
@@ -8047,11 +8205,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildMedCatalogDesktopTable(List<Map<String, dynamic>> items) {
+  Widget _buildMedCatalogDesktopTable(
+    List<Map<String, dynamic>> items,
+    int totalPages,
+    int totalItems,
+  ) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: Container(
         decoration: BoxDecoration(
+          color: Colors.white,
           border: Border.all(color: AppTheme.borderColor),
           borderRadius: BorderRadius.circular(14),
         ),
@@ -8067,7 +8230,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: const Row(
                 children: [
                   Expanded(
-                    flex: 3,
+                    flex: 4,
                     child: Text(
                       '#  Medication Name',
                       style: TextStyle(
@@ -8089,20 +8252,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   ),
                   Expanded(
-                    flex: 1,
+                    flex: 2,
                     child: Text(
                       'Unit',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Text(
-                      'Status',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -8114,6 +8266,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     width: 88,
                     child: Text(
                       'Actions',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -8132,7 +8285,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 itemCount: items.length,
                 itemBuilder: (ctx, i) {
                   final med = items[i];
-                  final isControlled = med['is_controlled'] == true;
+                  final itemIndex =
+                      (i + 1) + (_medCatalogCurrentPage * _medCatalogItemsPerPage);
                   final category = med['category'] as String? ?? 'Medicine';
                   final catColor = category == 'Medicine'
                       ? AppTheme.primaryColor
@@ -8148,11 +8302,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     child: Row(
                       children: [
                         Expanded(
-                          flex: 3,
+                          flex: 4,
                           child: Row(
                             children: [
                               Text(
-                                '${i + 1}. ',
+                                '$itemIndex. ',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: AppTheme.textSecondaryColor,
@@ -8184,7 +8338,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ),
                         Expanded(
-                          flex: 1,
+                          flex: 2,
                           child: Text(
                             med['default_unit'] as String? ?? '-',
                             style: const TextStyle(
@@ -8193,65 +8347,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                         ),
-                        Expanded(
-                          flex: 1,
-                          child: isControlled
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.dangerColor.withOpacity(
-                                      0.1,
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.lock_outline,
-                                        size: 12,
-                                        color: AppTheme.dangerColor,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Controlled',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: AppTheme.dangerColor,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.secondaryColor.withOpacity(
-                                      0.1,
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    'Standard',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.secondaryColor,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                        ),
                         SizedBox(
                           width: 88,
                           child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               IconButton(
                                 icon: const Icon(
@@ -8260,16 +8359,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   color: AppTheme.primaryColor,
                                 ),
                                 tooltip: 'Edit Medication',
+                                padding: const EdgeInsets.all(4),
+                                constraints: const BoxConstraints(),
                                 onPressed: () =>
                                     _showEditMedicationDialog(med, false),
                               ),
+                              const SizedBox(width: 8),
                               IconButton(
                                 icon: const Icon(
                                   Icons.delete_outline,
                                   size: 18,
                                   color: AppTheme.dangerColor,
                                 ),
-                                tooltip: 'Remove from catalog',
+                                tooltip: 'Remove',
+                                padding: const EdgeInsets.all(4),
+                                constraints: const BoxConstraints(),
                                 onPressed: () => _deleteMedication(med),
                               ),
                             ],
@@ -8281,158 +8385,257 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 },
               ),
             ),
+            if (totalPages > 1) ...[
+              const Divider(height: 1, color: AppTheme.borderColor),
+              _buildMedCatalogPaginationControls(totalPages, false),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMedCatalogMobileList(List<Map<String, dynamic>> items) {
-    return ListView.separated(
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemCount: items.length,
-      itemBuilder: (ctx, i) {
-        final med = items[i];
-        final isControlled = med['is_controlled'] == true;
-        final category = med['category'] as String? ?? 'Medicine';
-        final catColor = category == 'Medicine'
-            ? AppTheme.primaryColor
-            : category == 'ICU Consumable'
-            ? const Color(0xFF7C3AED)
-            : const Color(0xFFF59E0B);
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.borderColor),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
+  Widget _buildMedCatalogMobileList(
+    List<Map<String, dynamic>> items,
+    int totalPages,
+  ) {
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.separated(
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemCount: items.length,
+            itemBuilder: (ctx, i) {
+              final med = items[i];
+              final itemIndex =
+                  (i + 1) + (_medCatalogCurrentPage * _medCatalogItemsPerPage);
+              final isControlled = med['is_controlled'] == true;
+              final category = med['category'] as String? ?? 'Medicine';
+              final catColor = category == 'Medicine'
+                  ? AppTheme.primaryColor
+                  : category == 'ICU Consumable'
+                  ? const Color(0xFF7C3AED)
+                  : const Color(0xFFF59E0B);
+              return Container(
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.borderColor),
                 ),
-                child: Text(
-                  '${i + 1}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      med['name'] as String? ?? '',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: AppTheme.textPrimaryColor,
+                    Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$itemIndex',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: AppTheme.primaryColor,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        Text(
-                          category,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: catColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            med['default_unit'] as String? ?? '-',
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            med['name'] as String? ?? '',
                             style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textSecondaryColor,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: AppTheme.textPrimaryColor,
                             ),
                           ),
-                        ),
-                        if (isControlled)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.dangerColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.lock_outline,
-                                  size: 11,
-                                  color: AppTheme.dangerColor,
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              Text(
+                                category,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: catColor,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  'Controlled',
-                                  style: TextStyle(
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  med['default_unit'] as String? ?? '-',
+                                  style: const TextStyle(
                                     fontSize: 11,
-                                    color: AppTheme.dangerColor,
+                                    color: AppTheme.textSecondaryColor,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              if (isControlled)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.dangerColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.lock_outline,
+                                        size: 11,
+                                        color: AppTheme.dangerColor,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        'Controlled',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.dangerColor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
                           ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.edit_outlined,
+                            size: 18,
+                            color: AppTheme.primaryColor,
+                          ),
+                          tooltip: 'Edit Medication',
+                          onPressed: () => _showEditMedicationDialog(med, true),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: AppTheme.dangerColor,
+                          ),
+                          tooltip: 'Remove',
+                          onPressed: () => _deleteMedication(med),
+                        ),
                       ],
                     ),
                   ],
                 ),
+              );
+            },
+          ),
+        ),
+        if (totalPages > 1) ...[
+          const Divider(height: 1, color: AppTheme.borderColor),
+          _buildMedCatalogPaginationControls(totalPages, true),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMedCatalogPaginationControls(int totalPages, bool isMobile) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 20,
+        vertical: isMobile ? 10 : 12,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              'Page ${_medCatalogCurrentPage + 1} of $totalPages',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondaryColor,
+                fontWeight: FontWeight.w500,
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.edit_outlined,
-                      size: 18,
-                      color: AppTheme.primaryColor,
-                    ),
-                    tooltip: 'Edit Medication',
-                    onPressed: () => _showEditMedicationDialog(med, true),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              OutlinedButton(
+                onPressed: _medCatalogCurrentPage > 0
+                    ? () => setState(() => _medCatalogCurrentPage--)
+                    : null,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(64, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: AppTheme.dangerColor,
-                    ),
-                    tooltip: 'Remove',
-                    onPressed: () => _deleteMedication(med),
+                  side: BorderSide(
+                    color: _medCatalogCurrentPage > 0
+                        ? AppTheme.primaryColor
+                        : AppTheme.borderColor,
                   ),
-                ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.chevron_left, size: 16),
+                    Text('Prev', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              OutlinedButton(
+                onPressed: _medCatalogCurrentPage < totalPages - 1
+                    ? () => setState(() => _medCatalogCurrentPage++)
+                    : null,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(64, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  side: BorderSide(
+                    color: _medCatalogCurrentPage < totalPages - 1
+                        ? AppTheme.primaryColor
+                        : AppTheme.borderColor,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Text('Next', style: TextStyle(fontSize: 12)),
+                    Icon(Icons.chevron_right, size: 16),
+                  ],
+                ),
               ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -10049,7 +10252,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (result == true) _loadHomeVisitConsumablesCatalog();
   }
 
-  // Deactivate Procedure Master
+  // Remove Procedure Master
   Future<void> _deleteProcedureMaster(ProcedureMasterModel proc) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -10058,7 +10261,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Text(
-          'Deactivate Procedure',
+          'Remove Procedure',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         content: SizedBox(
@@ -10072,13 +10275,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 height: 1.5,
               ),
               children: [
-                const TextSpan(text: 'Are you sure you want to deactivate '),
+                const TextSpan(text: 'Are you sure you want to remove '),
                 TextSpan(
                   text: '"${proc.name}"',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const TextSpan(
-                  text: '? It will no longer be selectable during home visits.',
+                  text: ' from the procedure catalog? This cannot be undone.',
                 ),
               ],
             ),
@@ -10093,7 +10296,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: AppTheme.dangerButton,
-            child: const Text('Deactivate'),
+            child: const Text('Remove'),
           ),
         ],
       ),
@@ -10105,7 +10308,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Procedure "${proc.name}" deactivated'),
+            content: Text('Procedure "${proc.name}" removed'),
             backgroundColor: Colors.green.shade600,
           ),
         );
@@ -10803,7 +11006,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (result == true) _loadHomeVisitConsumablesCatalog();
   }
 
-  // Deactivate Standalone Consumable Item
+  // Remove Standalone Consumable Item
   Future<void> _deleteConsumableMaster(Map<String, dynamic> item) async {
     final name = item['name']?.toString() ?? 'this consumable';
     final itemId = int.tryParse(item['id']?.toString() ?? '0') ?? 0;
@@ -10815,7 +11018,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Text(
-          'Deactivate Consumable Item',
+          'Remove Consumable Item',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         content: SizedBox(
@@ -10829,14 +11032,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 height: 1.5,
               ),
               children: [
-                const TextSpan(text: 'Are you sure you want to deactivate '),
+                const TextSpan(text: 'Are you sure you want to remove '),
                 TextSpan(
                   text: '"$name"',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const TextSpan(
-                  text:
-                      '? It will no longer appear in the active master catalog or be selectable for procedures.',
+                  text: ' from the consumables catalog? This cannot be undone.',
                 ),
               ],
             ),
@@ -10851,7 +11053,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: AppTheme.dangerButton,
-            child: const Text('Deactivate'),
+            child: const Text('Remove'),
           ),
         ],
       ),
@@ -10863,7 +11065,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Consumable "$name" deactivated'),
+            content: Text('Consumable "$name" removed'),
             backgroundColor: Colors.green.shade600,
           ),
         );
@@ -10936,315 +11138,192 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     _buildHVConsumablesHeaderTitle(),
                     const SizedBox(height: 12),
                     _buildHVConsumablesSearchBar(),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 44,
-                            child: ElevatedButton.icon(
-                              onPressed: () =>
-                                  _showAddProcedureDialog(isMobile),
-                              style: AppTheme.primaryButton.copyWith(
-                                padding: WidgetStateProperty.all(
-                                  const EdgeInsets.symmetric(horizontal: 10),
-                                ),
-                              ),
-                              icon: const Icon(Icons.add, size: 16),
-                              label: const Text(
-                                'Add Procedure',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: SizedBox(
-                            height: 44,
-                            child: OutlinedButton.icon(
-                              onPressed: () =>
-                                  _showAddStandaloneConsumableDialog(isMobile),
-                              style: AppTheme.outlinedButton.copyWith(
-                                padding: WidgetStateProperty.all(
-                                  const EdgeInsets.symmetric(horizontal: 10),
-                                ),
-                              ),
-                              icon: const Icon(
-                                Icons.add_shopping_cart,
-                                size: 16,
-                                color: AppTheme.secondaryColor,
-                              ),
-                              label: const Text(
-                                'Add Consumable',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppTheme.secondaryColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 )
-              : Wrap(
-                  spacing: 16,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 460),
+                    Expanded(
                       child: _buildHVConsumablesHeaderTitle(),
                     ),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 220,
-                          child: _buildHVConsumablesSearchBar(),
-                        ),
-                        ElevatedButton.icon(
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: 440,
+                      child: _buildHVConsumablesSearchBar(),
+                    ),
+                  ],
+                ),
+        ),
+        const SizedBox(height: 6),
+
+        // Sub-Tab Switcher Row
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+          child: isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          _buildHVSubTabChip(
+                            icon: Icons.medical_services_outlined,
+                            color: AppTheme.primaryColor,
+                            label: 'Procedures',
+                            count: '${_hvProceduresMaster.length}',
+                            isSelected: _hvCatalogSelectedTab == 0,
+                            onTap: () =>
+                                setState(() => _hvCatalogSelectedTab = 0),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildHVSubTabChip(
+                            icon: Icons.inventory_2_outlined,
+                            color: AppTheme.secondaryColor,
+                            label: 'Consumables',
+                            count: '${_hvConsumablesMasterList.length}',
+                            isSelected: _hvCatalogSelectedTab == 1,
+                            onTap: () =>
+                                setState(() => _hvCatalogSelectedTab = 1),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    if (_hvCatalogSelectedTab == 0)
+                      SizedBox(
+                        width: double.infinity,
+                        height: 40,
+                        child: ElevatedButton.icon(
                           onPressed: () => _showAddProcedureDialog(isMobile),
-                          style: AppTheme.primaryButton,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add Procedure'),
+                          style: AppTheme.primaryButton.copyWith(
+                            shape: WidgetStateProperty.all(
+                              RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text(
+                            'Add Procedure',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                        OutlinedButton.icon(
+                      )
+                    else
+                      SizedBox(
+                        width: double.infinity,
+                        height: 40,
+                        child: ElevatedButton.icon(
                           onPressed: () =>
                               _showAddStandaloneConsumableDialog(isMobile),
-                          style: AppTheme.outlinedButton,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.secondaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
                           icon: const Icon(
                             Icons.add_shopping_cart,
-                            size: 18,
-                            color: AppTheme.secondaryColor,
+                            size: 16,
+                            color: Colors.white,
                           ),
                           label: const Text(
                             'Add Consumable',
                             style: TextStyle(
-                              color: AppTheme.secondaryColor,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
                   ],
-                ),
-        ),
-
-        // Stats Row (Horizontal scrollable on mobile)
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildMedStatChip(
-                  Icons.medical_services_outlined,
-                  AppTheme.primaryColor,
-                  'Total Procedures',
-                  '${_hvProceduresMaster.length}',
-                ),
-                const SizedBox(width: 10),
-                _buildMedStatChip(
-                  Icons.home_repair_service_outlined,
-                  AppTheme.secondaryColor,
-                  'Master Consumable Items',
-                  '${_hvConsumablesMasterList.length}',
-                ),
-                const SizedBox(width: 10),
-                _buildMedStatChip(
-                  Icons.alt_route_outlined,
-                  const Color(0xFF8B5CF6),
-                  'Active Item Mappings',
-                  '$totalMappingsCount',
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Sub-Tab Switcher Row (Segmented on mobile, Chips on desktop)
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-          child: isMobile
-              ? Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(9),
-                          onTap: () =>
-                              setState(() => _hvCatalogSelectedTab = 0),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: _hvCatalogSelectedTab == 0
-                                  ? Colors.white
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(9),
-                              boxShadow: _hvCatalogSelectedTab == 0
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.06,
-                                        ),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.medical_services_outlined,
-                                    size: 15,
-                                    color: _hvCatalogSelectedTab == 0
-                                        ? AppTheme.primaryColor
-                                        : AppTheme.textSecondaryColor,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Procedures (${_hvProceduresMaster.length})',
-                                    style: TextStyle(
-                                      color: _hvCatalogSelectedTab == 0
-                                          ? AppTheme.primaryColor
-                                          : AppTheme.textSecondaryColor,
-                                      fontWeight: _hvCatalogSelectedTab == 0
-                                          ? FontWeight.bold
-                                          : FontWeight.w600,
-                                      fontSize: 12.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(9),
-                          onTap: () =>
-                              setState(() => _hvCatalogSelectedTab = 1),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: _hvCatalogSelectedTab == 1
-                                  ? Colors.white
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(9),
-                              boxShadow: _hvCatalogSelectedTab == 1
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.06,
-                                        ),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.inventory_2_outlined,
-                                    size: 15,
-                                    color: _hvCatalogSelectedTab == 1
-                                        ? AppTheme.secondaryColor
-                                        : AppTheme.textSecondaryColor,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Consumables (${_hvConsumablesMasterList.length})',
-                                    style: TextStyle(
-                                      color: _hvCatalogSelectedTab == 1
-                                          ? AppTheme.secondaryColor
-                                          : AppTheme.textSecondaryColor,
-                                      fontWeight: _hvCatalogSelectedTab == 1
-                                          ? FontWeight.bold
-                                          : FontWeight.w600,
-                                      fontSize: 12.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 )
               : Row(
                   children: [
-                    ChoiceChip(
-                      label: Text(
-                        'Procedures Catalog (${_hvProceduresMaster.length})',
-                      ),
-                      selected: _hvCatalogSelectedTab == 0,
-                      onSelected: (val) {
-                        if (val) setState(() => _hvCatalogSelectedTab = 0);
-                      },
-                      selectedColor: AppTheme.primaryColor.withValues(
-                        alpha: 0.15,
-                      ),
-                      labelStyle: TextStyle(
-                        color: _hvCatalogSelectedTab == 0
-                            ? AppTheme.primaryColor
-                            : AppTheme.textSecondaryColor,
-                        fontWeight: _hvCatalogSelectedTab == 0
-                            ? FontWeight.bold
-                            : FontWeight.w600,
-                        fontSize: 13,
-                      ),
+                    _buildHVSubTabChip(
+                      icon: Icons.medical_services_outlined,
+                      color: AppTheme.primaryColor,
+                      label: 'Procedures Catalog',
+                      count: '${_hvProceduresMaster.length}',
+                      isSelected: _hvCatalogSelectedTab == 0,
+                      onTap: () => setState(() => _hvCatalogSelectedTab = 0),
                     ),
                     const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: Text(
-                        'Master Consumable Items (${_hvConsumablesMasterList.length})',
-                      ),
-                      selected: _hvCatalogSelectedTab == 1,
-                      onSelected: (val) {
-                        if (val) setState(() => _hvCatalogSelectedTab = 1);
-                      },
-                      selectedColor: AppTheme.secondaryColor.withValues(
-                        alpha: 0.15,
-                      ),
-                      labelStyle: TextStyle(
-                        color: _hvCatalogSelectedTab == 1
-                            ? AppTheme.secondaryColor
-                            : AppTheme.textSecondaryColor,
-                        fontWeight: _hvCatalogSelectedTab == 1
-                            ? FontWeight.bold
-                            : FontWeight.w600,
-                        fontSize: 13,
-                      ),
+                    _buildHVSubTabChip(
+                      icon: Icons.inventory_2_outlined,
+                      color: AppTheme.secondaryColor,
+                      label: 'Master Consumable Items',
+                      count: '${_hvConsumablesMasterList.length}',
+                      isSelected: _hvCatalogSelectedTab == 1,
+                      onTap: () => setState(() => _hvCatalogSelectedTab = 1),
                     ),
+                    const Spacer(),
+                    if (_hvCatalogSelectedTab == 0)
+                      SizedBox(
+                        height: 34,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showAddProcedureDialog(isMobile),
+                          style: AppTheme.primaryButton.copyWith(
+                            padding: WidgetStateProperty.all(
+                              const EdgeInsets.symmetric(horizontal: 14),
+                            ),
+                            shape: WidgetStateProperty.all(
+                              RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text(
+                            'Add Procedure',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        height: 34,
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              _showAddStandaloneConsumableDialog(isMobile),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.secondaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.add_shopping_cart,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            'Add Consumable',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
         ),
@@ -11453,24 +11532,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               ),
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.secondaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              item['status']?.toString() ?? 'Active',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.secondaryColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ],
@@ -11500,7 +11561,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         size: 18,
                         color: AppTheme.dangerColor,
                       ),
-                      tooltip: 'Deactivate Consumable',
+                      tooltip: 'Remove',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
                         minWidth: 32,
@@ -11565,7 +11626,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                           Expanded(
-                            flex: 4,
+                            flex: 5,
                             child: Text(
                               'Consumable Item Name',
                               style: TextStyle(
@@ -11597,22 +11658,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               ),
                             ),
                           ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              'Status',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textSecondaryColor,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
+                          SizedBox(
+                            width: 88,
                             child: Text(
                               'Actions',
-                              textAlign: TextAlign.end,
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -11659,7 +11709,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   ),
                                 ),
                                 Expanded(
-                                  flex: 4,
+                                  flex: 5,
                                   child: Text(
                                     item['name']?.toString() ?? '',
                                     style: const TextStyle(
@@ -11691,35 +11741,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     ),
                                   ),
                                 ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.secondaryColor
-                                            .withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        item['status']?.toString() ?? 'Active',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: AppTheme.secondaryColor,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
+                                SizedBox(
+                                  width: 88,
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       IconButton(
                                         icon: const Icon(
@@ -11728,7 +11753,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                           color: AppTheme.primaryColor,
                                         ),
                                         tooltip: 'Edit Consumable',
-                                        padding: EdgeInsets.zero,
+                                        padding: const EdgeInsets.all(4),
                                         constraints: const BoxConstraints(),
                                         onPressed: () =>
                                             _showEditStandaloneConsumableDialog(
@@ -11736,15 +11761,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                               isMobile,
                                             ),
                                       ),
-                                      const SizedBox(width: 10),
+                                      const SizedBox(width: 8),
                                       IconButton(
                                         icon: const Icon(
                                           Icons.delete_outline,
                                           size: 18,
                                           color: AppTheme.dangerColor,
                                         ),
-                                        tooltip: 'Deactivate Consumable',
-                                        padding: EdgeInsets.zero,
+                                        tooltip: 'Remove',
+                                        padding: const EdgeInsets.all(4),
                                         constraints: const BoxConstraints(),
                                         onPressed: () =>
                                             _deleteConsumableMaster(item),
@@ -12401,169 +12426,190 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: _hvKitItemsSearchController,
-                      decoration:
-                          AppTheme.standardInputDecoration(
-                            label: null,
-                            prefixIcon: Icons.search,
-                            hintText: 'Search kit items or equipment...',
-                          ).copyWith(
-                            suffixIcon: _hvKitItemsSearch.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    onPressed: () {
-                                      _hvKitItemsSearchController.clear();
-                                      setState(() => _hvKitItemsSearch = '');
-                                      _loadHomeVisitKitItemsCatalog();
-                                    },
-                                  )
-                                : null,
-                          ),
-                      onChanged: (v) => setState(() => _hvKitItemsSearch = v),
-                      onSubmitted: (_) => _loadHomeVisitKitItemsCatalog(),
-                    ),
+                    _buildCarriedKitItemsSearchBar(),
                     const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
+                      height: 40,
                       child: ElevatedButton.icon(
                         onPressed: () => _showAddCarriedKitItemDialog(isMobile),
-                        style: AppTheme.primaryButton,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Carried Kit Item'),
+                        style: AppTheme.primaryButton.copyWith(
+                          shape: WidgetStateProperty.all(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text(
+                          'Add Carried Kit Item',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 )
-              : Wrap(
-                  spacing: 16,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.inventory_outlined,
-                                color: AppTheme.primaryColor,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            const Text(
-                              'Carried Kit Items & Equipment Catalog',
-                              style: TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimaryColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Manage standard devices, medical equipment, and kits carried by nurses during home visits',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 240,
-                          child: TextField(
-                            controller: _hvKitItemsSearchController,
-                            decoration:
-                                AppTheme.standardInputDecoration(
-                                  label: null,
-                                  prefixIcon: Icons.search,
-                                  hintText: 'Search kit items or equipment...',
-                                ).copyWith(
-                                  suffixIcon: _hvKitItemsSearch.isNotEmpty
-                                      ? IconButton(
-                                          icon: const Icon(
-                                            Icons.clear,
-                                            size: 18,
-                                          ),
-                                          onPressed: () {
-                                            _hvKitItemsSearchController.clear();
-                                            setState(
-                                              () => _hvKitItemsSearch = '',
-                                            );
-                                            _loadHomeVisitKitItemsCatalog();
-                                          },
-                                        )
-                                      : null,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                            onChanged: (v) =>
-                                setState(() => _hvKitItemsSearch = v),
-                            onSubmitted: (_) => _loadHomeVisitKitItemsCatalog(),
+                                child: const Icon(
+                                  Icons.inventory_outlined,
+                                  color: AppTheme.primaryColor,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                'Carried Kit Items & Equipment Catalog',
+                                style: TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: () =>
-                              _showAddCarriedKitItemDialog(isMobile),
-                          style: AppTheme.primaryButton,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add Carried Kit Item'),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Manage standard devices, medical equipment, and kits carried by nurses during home visits',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: 440,
+                      child: _buildCarriedKitItemsSearchBar(),
                     ),
                   ],
                 ),
         ),
 
-        // Summary Stats Row
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
+        // Summary Stats Row with Add Button
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-          child: Row(
-            children: [
-              _buildHVCatalogStatChip(
-                Icons.inventory_outlined,
-                AppTheme.primaryColor,
-                'Total Master Items',
-                '${_hvKitItemsMasterList.length}',
-              ),
-              const SizedBox(width: 8),
-              _buildHVCatalogStatChip(
-                Icons.medical_information_outlined,
-                AppTheme.secondaryColor,
-                'Medical Devices',
-                '$deviceCount',
-              ),
-              const SizedBox(width: 8),
-              _buildHVCatalogStatChip(
-                Icons.precision_manufacturing_outlined,
-                const Color(0xFF8B5CF6),
-                'Equipment',
-                '$equipmentCount',
-              ),
-              const SizedBox(width: 8),
-              _buildHVCatalogStatChip(
-                Icons.home_repair_service_outlined,
-                const Color(0xFFE53E3E),
-                'Kits & Accessories',
-                '$kitCount',
-              ),
-            ],
-          ),
+          child: isMobile
+              ? SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      _buildHVCatalogStatChip(
+                        Icons.inventory_outlined,
+                        AppTheme.primaryColor,
+                        'Total Master Items',
+                        '${_hvKitItemsMasterList.length}',
+                      ),
+                      const SizedBox(width: 8),
+                      _buildHVCatalogStatChip(
+                        Icons.medical_information_outlined,
+                        AppTheme.secondaryColor,
+                        'Medical Devices',
+                        '$deviceCount',
+                      ),
+                      const SizedBox(width: 8),
+                      _buildHVCatalogStatChip(
+                        Icons.precision_manufacturing_outlined,
+                        const Color(0xFF8B5CF6),
+                        'Equipment',
+                        '$equipmentCount',
+                      ),
+                      const SizedBox(width: 8),
+                      _buildHVCatalogStatChip(
+                        Icons.home_repair_service_outlined,
+                        const Color(0xFFE53E3E),
+                        'Kits & Accessories',
+                        '$kitCount',
+                      ),
+                    ],
+                  ),
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Row(
+                          children: [
+                            _buildHVCatalogStatChip(
+                              Icons.inventory_outlined,
+                              AppTheme.primaryColor,
+                              'Total Master Items',
+                              '${_hvKitItemsMasterList.length}',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildHVCatalogStatChip(
+                              Icons.medical_information_outlined,
+                              AppTheme.secondaryColor,
+                              'Medical Devices',
+                              '$deviceCount',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildHVCatalogStatChip(
+                              Icons.precision_manufacturing_outlined,
+                              const Color(0xFF8B5CF6),
+                              'Equipment',
+                              '$equipmentCount',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildHVCatalogStatChip(
+                              Icons.home_repair_service_outlined,
+                              const Color(0xFFE53E3E),
+                              'Kits & Accessories',
+                              '$kitCount',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      height: 34,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showAddCarriedKitItemDialog(isMobile),
+                        style: AppTheme.primaryButton.copyWith(
+                          padding: WidgetStateProperty.all(
+                            const EdgeInsets.symmetric(horizontal: 14),
+                          ),
+                          shape: WidgetStateProperty.all(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text(
+                          'Add Carried Kit Item',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
         ),
         const SizedBox(height: 16),
 
@@ -12727,73 +12773,112 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ],
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                size: 18,
-                                color: AppTheme.logoRed,
-                              ),
-                              tooltip: 'Remove',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
-                              ),
-                              onPressed: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (c) => AlertDialog(
-                                    backgroundColor: Colors.white,
-                                    surfaceTintColor: Colors.transparent,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    title: const Text(
-                                      'Deactivate Kit Item',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    content: SizedBox(
-                                      width: 440,
-                                      child: Text(
-                                        'Are you sure you want to deactivate "${item['name']}"?',
-                                        softWrap: true,
-                                      ),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(c, false),
-                                        child: const Text('Cancel'),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () => Navigator.pop(c, true),
-                                        style: AppTheme.dangerButton,
-                                        child: const Text('Deactivate'),
-                                      ),
-                                    ],
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                    color: AppTheme.primaryColor,
                                   ),
-                                );
-                                if (confirm == true && itemId > 0) {
-                                  try {
-                                    await HomeVisitService()
-                                        .deleteKitItemMaster(itemId);
-                                    _loadHomeVisitKitItemsCatalog();
-                                  } catch (e) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(e.toString()),
-                                          backgroundColor: AppTheme.dangerColor,
+                                  tooltip: 'Edit Kit Item',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
+                                  onPressed: () =>
+                                      _showEditStandaloneKitItemDialog(
+                                        item,
+                                        isMobile,
+                                      ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                    color: AppTheme.dangerColor,
+                                  ),
+                                  tooltip: 'Remove',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (c) => AlertDialog(
+                                        backgroundColor: Colors.white,
+                                        surfaceTintColor: Colors.transparent,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(14),
                                         ),
-                                      );
+                                        title: const Text(
+                                          'Remove Kit Item',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        content: SizedBox(
+                                          width: 440,
+                                          child: Text(
+                                            'Are you sure you want to remove "${item['name']}"?',
+                                            softWrap: true,
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () => Navigator.pop(c, true),
+                                            style: AppTheme.dangerButton,
+                                            child: const Text('Remove'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true && itemId > 0) {
+                                      try {
+                                        await HomeVisitService()
+                                            .deleteKitItemMaster(itemId);
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Kit item "${item['name']}" removed',
+                                              ),
+                                              backgroundColor:
+                                                  Colors.green.shade600,
+                                            ),
+                                          );
+                                          _loadHomeVisitKitItemsCatalog();
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                e
+                                                    .toString()
+                                                    .replaceFirst('Exception: ', ''),
+                                              ),
+                                              backgroundColor:
+                                                  AppTheme.dangerColor,
+                                            ),
+                                          );
+                                        }
+                                      }
                                     }
-                                  }
-                                }
-                              },
+                                  },
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -12867,10 +12952,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     ),
                                   ),
                                 ),
-                                Expanded(
-                                  flex: 2,
+                                SizedBox(
+                                  width: 88,
                                   child: Text(
                                     'Actions',
+                                    textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
@@ -12954,103 +13040,150 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: TextButton.icon(
-                                            onPressed: () async {
-                                              final confirm = await showDialog<bool>(
-                                                context: context,
-                                                builder: (c) => AlertDialog(
-                                                  backgroundColor: Colors.white,
-                                                  surfaceTintColor:
-                                                      Colors.transparent,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(14),
+                                      SizedBox(
+                                        width: 88,
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.edit_outlined,
+                                                size: 18,
+                                                color: AppTheme.primaryColor,
+                                              ),
+                                              tooltip: 'Edit Kit Item',
+                                              padding: const EdgeInsets.all(4),
+                                              constraints:
+                                                  const BoxConstraints(),
+                                              onPressed: () =>
+                                                  _showEditStandaloneKitItemDialog(
+                                                    item,
+                                                    isMobile,
                                                   ),
-                                                  title: const Text(
-                                                    'Deactivate Kit Item',
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  content: SizedBox(
-                                                    width: 440,
-                                                    child: Text(
-                                                      'Are you sure you want to deactivate "${item['name']}"?',
-                                                      softWrap: true,
-                                                    ),
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                            c,
-                                                            false,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                size: 18,
+                                                color: AppTheme.dangerColor,
+                                              ),
+                                              tooltip: 'Remove',
+                                              padding: EdgeInsets.zero,
+                                              constraints:
+                                                  const BoxConstraints(),
+                                              onPressed: () async {
+                                                final confirm =
+                                                    await showDialog<bool>(
+                                                      context: context,
+                                                      builder: (c) =>
+                                                          AlertDialog(
+                                                            backgroundColor:
+                                                                Colors.white,
+                                                            surfaceTintColor:
+                                                                Colors
+                                                                    .transparent,
+                                                            shape:
+                                                                RoundedRectangleBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        14,
+                                                                      ),
+                                                                ),
+                                                            title: const Text(
+                                                              'Remove Kit Item',
+                                                              style: TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                            ),
+                                                            content: SizedBox(
+                                                              width: 440,
+                                                              child: Text(
+                                                                'Are you sure you want to remove "${item['name']}"?',
+                                                                softWrap: true,
+                                                              ),
+                                                            ),
+                                                            actions: [
+                                                              TextButton(
+                                                                onPressed: () =>
+                                                                    Navigator.pop(
+                                                                      c,
+                                                                      false,
+                                                                    ),
+                                                                child:
+                                                                    const Text(
+                                                                      'Cancel',
+                                                                    ),
+                                                              ),
+                                                              ElevatedButton(
+                                                                onPressed: () =>
+                                                                    Navigator.pop(
+                                                                      c,
+                                                                      true,
+                                                                    ),
+                                                                style: AppTheme
+                                                                    .dangerButton,
+                                                                child:
+                                                                    const Text(
+                                                                      'Remove',
+                                                                    ),
+                                                              ),
+                                                            ],
                                                           ),
-                                                      child: const Text(
-                                                        'Cancel',
-                                                      ),
-                                                    ),
-                                                    ElevatedButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                            c,
-                                                            true,
-                                                          ),
-                                                      style:
-                                                          AppTheme.dangerButton,
-                                                      child: const Text(
-                                                        'Deactivate',
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                              if (confirm == true &&
-                                                  itemId > 0) {
-                                                try {
-                                                  await HomeVisitService()
-                                                      .deleteKitItemMaster(
-                                                        itemId,
-                                                      );
-                                                  _loadHomeVisitKitItemsCatalog();
-                                                } catch (e) {
-                                                  if (mounted) {
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(
-                                                          e.toString(),
-                                                        ),
-                                                        backgroundColor:
-                                                            AppTheme
-                                                                .dangerColor,
-                                                      ),
                                                     );
+                                                if (confirm == true &&
+                                                    itemId > 0) {
+                                                  try {
+                                                    await HomeVisitService()
+                                                        .deleteKitItemMaster(
+                                                          itemId,
+                                                        );
+                                                    if (mounted) {
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(
+                                                            'Kit item "${item['name']}" removed',
+                                                          ),
+                                                          backgroundColor:
+                                                              Colors
+                                                                  .green
+                                                                  .shade600,
+                                                        ),
+                                                      );
+                                                      _loadHomeVisitKitItemsCatalog();
+                                                    }
+                                                  } catch (e) {
+                                                    if (mounted) {
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(
+                                                            e
+                                                                .toString()
+                                                                .replaceFirst(
+                                                                  'Exception: ',
+                                                                  '',
+                                                                ),
+                                                          ),
+                                                          backgroundColor:
+                                                              AppTheme
+                                                                  .dangerColor,
+                                                        ),
+                                                      );
+                                                    }
                                                   }
                                                 }
-                                              }
-                                            },
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                              size: 16,
-                                              color: AppTheme.logoRed,
-                                            ),
-                                            label: const Text(
-                                              'Remove',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: AppTheme.logoRed,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                               },
+                                             ),
+                                           ],
+                                         ),
+                                       ),
                                     ],
                                   ),
                                 );
@@ -13064,6 +13197,127 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCarriedKitItemsSearchBar() {
+    return TextField(
+      controller: _hvKitItemsSearchController,
+      style: const TextStyle(fontSize: 13),
+      decoration:
+          AppTheme.standardInputDecoration(
+            label: null,
+            prefixIcon: Icons.search,
+            hintText: 'Search kit items or equipment...',
+          ).copyWith(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.0,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: AppTheme.primaryColor,
+                width: 1.4,
+              ),
+            ),
+            suffixIcon: _hvKitItemsSearch.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 16),
+                    onPressed: () {
+                      _hvKitItemsSearchController.clear();
+                      setState(() => _hvKitItemsSearch = '');
+                      _loadHomeVisitKitItemsCatalog();
+                    },
+                  )
+                : null,
+          ),
+      onChanged: (v) => setState(() => _hvKitItemsSearch = v),
+      onSubmitted: (_) => _loadHomeVisitKitItemsCatalog(),
+    );
+  }
+
+  Widget _buildHVSubTabChip({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String count,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? color : color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? color : color.withValues(alpha: 0.25),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.25),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1.5),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: isSelected ? Colors.white : color, size: 15),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: isSelected ? Colors.white : color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 7),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.white.withValues(alpha: 0.25)
+                    : color,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                count,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -13083,7 +13337,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? color : color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
@@ -13181,15 +13435,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildHVConsumablesSearchBar() {
     return TextField(
       controller: _hvSearchController,
+      style: const TextStyle(fontSize: 13),
       decoration:
           AppTheme.standardInputDecoration(
             label: null,
             prefixIcon: Icons.search,
             hintText: 'Search procedure or consumable item...',
           ).copyWith(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.0,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: AppTheme.primaryColor,
+                width: 1.4,
+              ),
+            ),
             suffixIcon: _hvConsumableSearch.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
+                    icon: const Icon(Icons.clear, size: 16),
                     onPressed: () {
                       _hvSearchController.clear();
                       setState(() => _hvConsumableSearch = '');
@@ -13420,7 +13702,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                         size: 18,
                                         color: AppTheme.dangerColor,
                                       ),
-                                      tooltip: 'Deactivate Procedure',
+                                      tooltip: 'Remove Procedure',
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(
                                         minWidth: 32,
@@ -13471,7 +13753,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Status: ${proc.status}  •  ${proc.mappedConsumables.length} mapped consumable items',
+                                    '${proc.mappedConsumables.length} mapped consumable items',
                                     style: const TextStyle(
                                       fontSize: 11,
                                       color: AppTheme.textSecondaryColor,
@@ -13553,7 +13835,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 size: 20,
                                 color: AppTheme.dangerColor,
                               ),
-                              tooltip: 'Deactivate Procedure',
+                              tooltip: 'Remove Procedure',
                               onPressed: () => _deleteProcedureMaster(proc),
                             ),
                             // Minimize / Expand Toggle Icon

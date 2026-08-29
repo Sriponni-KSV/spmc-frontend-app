@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -1309,16 +1310,11 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 onPressed: canExecute
                     ? () => _onExecuteVisitPressed(context, visit)
                     : () {
-                        final String displayTime =
-                            (visit.scheduledTime == null ||
-                                visit.scheduledTime == "10:00 AM")
-                            ? "9:00 AM"
-                            : visit.scheduledTime!;
                         final String msg =
                             (visit.status == 'Verified' ||
                                 visit.status == 'Completed')
                             ? 'This visit has already been ${visit.status.toLowerCase()}.'
-                            : 'Duty time has not started yet. Execute Visit unlocks at 8:50 AM (10 mins before $displayTime).';
+                            : 'This visit is scheduled for ${visit.formattedScheduledDate}.';
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(msg),
@@ -1337,20 +1333,6 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         ? SizedBox(width: double.infinity, child: btn)
                         : btn,
                   ),
-                  if (!canExecute &&
-                      visit.status != 'Verified' &&
-                      visit.status != 'Completed')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(
-                        'Unlocks 10m before ${(visit.scheduledTime == null || visit.scheduledTime == "10:00 AM") ? "9:00 AM" : visit.scheduledTime}',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
                 ],
               );
             },
@@ -1687,16 +1669,11 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                               onPressed: canExecute
                                   ? () => _onExecuteVisitPressed(context, visit)
                                   : () {
-                                      final String displayTime =
-                                          (visit.scheduledTime == null ||
-                                              visit.scheduledTime == "10:00 AM")
-                                          ? "9:00 AM"
-                                          : visit.scheduledTime!;
                                       final String msg =
                                           (visit.status == 'Verified' ||
                                               visit.status == 'Completed')
                                           ? 'This visit has already been ${visit.status.toLowerCase()}.'
-                                          : 'Duty time has not started yet. Unlocks at 8:50 AM (10 mins before $displayTime).';
+                                          : 'This visit is scheduled for ${visit.formattedScheduledDate}.';
                                       ScaffoldMessenger.of(
                                         context,
                                       ).showSnackBar(
@@ -1955,7 +1932,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
         .toSet();
 
     final availablePatients = _patientsList
-        .where((p) => p.id != null && !scheduledPatientIds.contains(p.id))
+        .where((p) => p.id != null)
         .toList();
 
     PatientModel? selectedPatient;
@@ -1964,6 +1941,14 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     final formattedNow =
         "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}";
     final dateCtrl = TextEditingController(text: formattedNow);
+    String selectedShift = 'Morning Shift (09:00 AM - 06:00 PM)';
+    final timeCtrl = TextEditingController(text: '09:00 AM');
+
+    final List<Map<String, String>> shiftOptions = [
+      {'label': 'Morning Shift (09:00 AM - 06:00 PM)', 'time': '09:00 AM'},
+      {'label': 'Night Shift (06:00 PM - 09:00 AM)', 'time': '06:00 PM'},
+      {'label': 'Custom Time', 'time': 'Custom'},
+    ];
 
     showDialog(
       context: context,
@@ -1972,7 +1957,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: Row(
+          title: const Row(
             children: [
               Icon(Icons.home_work, color: AppTheme.primaryColor),
               SizedBox(width: 10),
@@ -2021,7 +2006,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
-                      'All patients already have active home visits scheduled.',
+                      'No patients available to schedule.',
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   )
@@ -2110,6 +2095,45 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     }
                   },
                 ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Shift & Scheduled Time:',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                CustomDropdownSearch(
+                  label: '',
+                  hint: 'Select Shift / Time',
+                  dropdownItems: shiftOptions.map((opt) => opt['label']!).toList(),
+                  value: selectedShift,
+                  onChanged: (val) async {
+                    if (val == null) return;
+                    setDialogState(() => selectedShift = val);
+                    final matched = shiftOptions.firstWhere((o) => o['label'] == val);
+                    if (matched['time'] == 'Custom') {
+                      final TimeOfDay? customPicked = await showTimePicker(
+                        context: context,
+                        initialTime: const TimeOfDay(hour: 9, minute: 0),
+                        helpText: 'Select Custom Scheduled Time',
+                      );
+                      if (customPicked != null) {
+                        final dt = DateTime(2026, 1, 1, customPicked.hour, customPicked.minute);
+                        setDialogState(() {
+                          timeCtrl.text = DateFormat('hh:mm a').format(dt);
+                        });
+                      }
+                    } else {
+                      setDialogState(() {
+                        timeCtrl.text = matched['time']!;
+                      });
+                    }
+                  },
+                  height: 48,
+                  borderColor: const Color(0xFFE2E8F0),
+                  focusedBorderColor: AppTheme.primaryColor,
+                  fillColor: AppTheme.backgroundColor,
+                  popupBgColor: Colors.white,
+                ),
               ],
             ),
           ),
@@ -2144,25 +2168,28 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   listen: false,
                 );
 
-                // Prevent scheduling duplicate visit for same patient on same date
-                final bool existingSameDay = homeVisitCtrl.visits.any(
+                final String targetTime = timeCtrl.text.trim();
+
+                // Prevent scheduling duplicate visit for same patient on same date and same shift/time
+                final bool existingSameShift = homeVisitCtrl.visits.any(
                   (v) =>
                       v.patientId == targetPatient.id &&
                       v.scheduledDate == apiDateStr &&
+                      (v.scheduledTime ?? '09:00 AM').trim().toLowerCase() == targetTime.toLowerCase() &&
                       v.status != 'Cancelled',
                 );
 
-                if (existingSameDay) {
+                if (existingSameShift) {
                   AppNotification.showWarning(
                     dialogCtx,
-                    'A home visit is already scheduled for ${targetPatient.name} on ${dateCtrl.text}. Only 1 visit per patient per day is allowed.',
+                    'A home visit is already scheduled for ${targetPatient.name} on ${dateCtrl.text} at $targetTime. You can schedule another shift (e.g. Night Shift) at a different time.',
                   );
                   return;
                 }
                 final newVisit = await homeVisitCtrl.createVisit({
                   'patient_id': targetPatient.id,
                   'scheduled_date': apiDateStr,
-                  'scheduled_time': '9:00 AM',
+                  'scheduled_time': targetTime,
                   'visit_address': addressCtrl.text,
                   'carried_items': [],
                 });
@@ -2174,7 +2201,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   if (context.mounted) {
                     AppNotification.showSuccess(
                       context,
-                      'Home visit ${newVisit.visitNumber} scheduled successfully!',
+                      'Home visit ${newVisit.visitNumber} ($targetTime) scheduled successfully!',
                     );
                   }
                 } else if (context.mounted) {
@@ -2194,34 +2221,11 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
   }
 
   bool _isExecuteButtonEnabled(HomeVisitModel visit) {
-    if (visit.status == 'Verified' || visit.status == 'Completed') {
+    final status = visit.status.toLowerCase();
+    if (status == 'verified' || status == 'completed' || status == 'cancelled') {
       return false;
     }
-    try {
-      final now = DateTime.now();
-      DateTime unlockTime = DateTime(now.year, now.month, now.day, 7, 0);
-
-      if (visit.scheduledDate.isNotEmpty) {
-        final dateParts = visit.scheduledDate.split('-');
-        if (dateParts.length == 3) {
-          int y, m, d;
-          if (dateParts[0].length == 4) {
-            y = int.parse(dateParts[0]);
-            m = int.parse(dateParts[1]);
-            d = int.parse(dateParts[2]);
-          } else {
-            d = int.parse(dateParts[0]);
-            m = int.parse(dateParts[1]);
-            y = int.parse(dateParts[2]);
-          }
-          unlockTime = DateTime(y, m, d, 7, 0);
-        }
-      }
-
-      return now.isAfter(unlockTime) || now.isAtSameMomentAs(unlockTime);
-    } catch (e) {
-      return true;
-    }
+    return true;
   }
 
   Widget _buildLabel(String label) {
@@ -2745,52 +2749,27 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         controller: timeCtrl,
                         readOnly: true,
                         onTap: () async {
+                          TimeOfDay initialPickerTime = TimeOfDay.now();
+                          try {
+                            if (timeCtrl.text.trim().isNotEmpty) {
+                              final parsed = DateFormat('hh:mm a').parse(timeCtrl.text.trim());
+                              initialPickerTime = TimeOfDay(hour: parsed.hour, minute: parsed.minute);
+                            }
+                          } catch (_) {}
                           final TimeOfDay? picked = await showTimePicker(
                             context: context,
-                            initialTime: TimeOfDay.fromDateTime(
-                              executionClickTime,
-                            ),
-                            helpText: 'Select Start Time (±1 hr window)',
+                            initialTime: initialPickerTime,
+                            helpText: 'Select Visit Start Time',
                           );
                           if (picked != null) {
-                            var dt = DateTime(
-                              executionClickTime.year,
-                              executionClickTime.month,
-                              executionClickTime.day,
+                            final now = DateTime.now();
+                            final dt = DateTime(
+                              now.year,
+                              now.month,
+                              now.day,
                               picked.hour,
                               picked.minute,
                             );
-                            int diff = dt
-                                .difference(executionClickTime)
-                                .inMinutes;
-                            if (diff > 12 * 60) {
-                              dt = dt.subtract(const Duration(days: 1));
-                              diff = dt
-                                  .difference(executionClickTime)
-                                  .inMinutes;
-                            } else if (diff < -12 * 60) {
-                              dt = dt.add(const Duration(days: 1));
-                              diff = dt
-                                  .difference(executionClickTime)
-                                  .inMinutes;
-                            }
-
-                            if (diff < -60 || diff > 60) {
-                              final minStr = DateFormat(
-                                'hh:mm a',
-                              ).format(minAllowedTime);
-                              final maxStr = DateFormat(
-                                'hh:mm a',
-                              ).format(maxAllowedTime);
-                              if (dialogCtx.mounted) {
-                                AppNotification.showError(
-                                  dialogCtx,
-                                  'Invalid time! Start time must be within 1 hour prior/after current time ($minStr - $maxStr).',
-                                );
-                              }
-                              return;
-                            }
-
                             setDialogState(() {
                               timeCtrl.text = DateFormat('hh:mm a').format(dt);
                             });
@@ -2808,59 +2787,22 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                           if (val == null || val.trim().isEmpty) {
                             return 'Start time is required';
                           }
-                          try {
-                            final parsed = DateFormat(
-                              'hh:mm a',
-                            ).parse(val.trim());
-                            var dt = DateTime(
-                              executionClickTime.year,
-                              executionClickTime.month,
-                              executionClickTime.day,
-                              parsed.hour,
-                              parsed.minute,
-                            );
-                            int diff = dt
-                                .difference(executionClickTime)
-                                .inMinutes;
-                            if (diff > 12 * 60) {
-                              dt = dt.subtract(const Duration(days: 1));
-                              diff = dt
-                                  .difference(executionClickTime)
-                                  .inMinutes;
-                            } else if (diff < -12 * 60) {
-                              dt = dt.add(const Duration(days: 1));
-                              diff = dt
-                                  .difference(executionClickTime)
-                                  .inMinutes;
-                            }
-                            if (diff < -60 || diff > 60) {
-                              final minStr = DateFormat(
-                                'hh:mm a',
-                              ).format(minAllowedTime);
-                              final maxStr = DateFormat(
-                                'hh:mm a',
-                              ).format(maxAllowedTime);
-                              return 'Allowed window: $minStr to $maxStr (±1 hr)';
-                            }
-                          } catch (_) {
-                            return 'Invalid time format';
-                          }
                           return null;
                         },
                       ),
                       const SizedBox(height: 6),
-                      Row(
+                      const Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.info_outline,
                             size: 13,
                             color: AppTheme.primaryColor,
                           ),
-                          const SizedBox(width: 5),
+                          SizedBox(width: 5),
                           Expanded(
                             child: Text(
-                              'Allowed window: ${DateFormat('hh:mm a').format(minAllowedTime)} - ${DateFormat('hh:mm a').format(maxAllowedTime)} (±1 hour)',
-                              style: const TextStyle(
+                              'Tap to adjust session start time if needed.',
+                              style: TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF64748B),
                                 fontWeight: FontWeight.w500,
@@ -2917,9 +2859,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                           if (formKey.currentState?.validate() == true) {
                             setDialogState(() => isSubmitting = true);
                             try {
-                              final baseUrl =
-                                  dotenv.env['BASE_URL'] ??
-                                  'http://localhost:3000/api';
+                              final baseUrl = ApiEndpoints.baseUrl;
                               final payload = {
                                 'start_time': timeCtrl.text.trim(),
                                 'nurse_name': nurseCtrl.text.trim(),

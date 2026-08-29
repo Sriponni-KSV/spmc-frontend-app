@@ -29,6 +29,7 @@ import '../controllers/nurse_shift_controller.dart';
 import '../widgets/user_profile_dialog.dart';
 import '../utils/modal_history_helper.dart';
 import '../utils/unsaved_changes_helper.dart';
+import '../config/nurse_nav_config.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -916,53 +917,21 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 ),
               ),
 
-              // Navigation Items (Scrollable Area)
+              // Navigation Items (Scrollable Area driven by NurseNavConfig)
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSidebarItem(
-                        0,
-                        Icons.dashboard_outlined,
-                        'Dashboard',
-                      ),
-                      if (user?.hasPermission('view_patients') ?? false)
-                        _buildSidebarItem(1, Icons.people_outline, 'Patients'),
-                      if (user?.hasPermission('book_appointment') ?? false)
-                        _buildSidebarItem(
-                          2,
-                          Icons.calendar_today_outlined,
-                          'Appointments',
-                        ),
-                      _buildSidebarItem(
-                        3,
-                        Icons.medical_services_outlined,
-                        'Doctors',
-                      ),
-                      _buildSidebarItem(
-                        5,
-                        Icons.local_hospital_outlined,
-                        'OPD Assistance',
-                      ),
-                      _buildSidebarItem(
-                        6,
-                        Icons.bedroom_child_outlined,
-                        'IPD Management',
-                      ),
-                      _buildSidebarItem(
-                        7,
-                        Icons.healing_outlined,
-                        'OT Management',
-                      ),
-                      _buildSidebarItem(
-                        9,
-                        Icons.home_work_outlined,
-                        'Home Visit Care',
-                      ),
-                      _buildSidebarItem(4, Icons.person_outline, 'Profile'),
-                    ],
+                    children: NurseNavConfig.getVisibleNavItems(user)
+                        .map(
+                          (item) => _buildSidebarItem(
+                            item.index,
+                            item.icon,
+                            item.label,
+                          ),
+                        )
+                        .toList(),
                   ),
                 ),
               ),
