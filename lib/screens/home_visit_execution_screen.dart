@@ -24,6 +24,7 @@ import '../utils/modal_history_helper.dart';
 import '../utils/app_notification.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import '../services/live_speech_service.dart';
 
 class HomeVisitExecutionScreen extends StatefulWidget {
   final int visitId;
@@ -698,28 +699,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   }
 
   Future<void> _initSpeech() async {
-    try {
-      bool enabled = await _speech.initialize(
-        onStatus: (status) {
-          if (status == 'notListening' || status == 'done') {
-            if (mounted) {
-              setState(() => _isListeningFeedback = false);
-            }
-          }
-        },
-        onError: (val) {
-          if (mounted) {
-            setState(() => _isListeningFeedback = false);
-          }
-        },
-      );
-      if (mounted) {
-        setState(() => _speechEnabled = enabled);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _speechEnabled = false);
-      }
+    final enabled = await LiveSpeechService().initialize();
+    if (mounted) {
+      setState(() => _speechEnabled = enabled);
     }
   }
 
@@ -728,28 +710,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     StateSetter? setModalState,
   }) async {
     if (_isListeningFeedback) {
-      try {
-        await _speech.stop();
-      } catch (_) {}
+      await LiveSpeechService().stopListening();
       if (mounted) {
         setState(() => _isListeningFeedback = false);
       }
       if (setModalState != null) {
         setModalState(() => _isListeningFeedback = false);
-      }
-      return;
-    }
-
-    if (!_speechEnabled) {
-      await _initSpeech();
-    }
-
-    if (!_speechEnabled) {
-      if (mounted) {
-        AppNotification.showError(
-          context,
-          'Microphone or speech recognition service is not available on this device.',
-        );
       }
       return;
     }
@@ -768,37 +734,52 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       });
     }
 
-    try {
-      await _speech.listen(
-        onResult: (result) {
-          final words = result.recognizedWords.trim();
-          if (words.isNotEmpty) {
-            final newText = initialText.isEmpty ? words : '$initialText $words';
-            targetController.text = newText;
-            targetController.selection = TextSelection.fromPosition(
-              TextPosition(offset: targetController.text.length),
-            );
-            if (mounted) {
-              setState(() {
-                _speechTranscription = words;
-              });
-            }
-            if (setModalState != null) {
-              setModalState(() {
-                _speechTranscription = words;
-              });
-            }
+    final success = await LiveSpeechService().startListening(
+      onResult: (liveWords) {
+        final words = liveWords.trim();
+        if (words.isNotEmpty) {
+          final newText = initialText.isEmpty ? words : '$initialText $words';
+          targetController.text = newText;
+          targetController.selection = TextSelection.fromPosition(
+            TextPosition(offset: targetController.text.length),
+          );
+          if (mounted) {
+            setState(() {
+              _speechTranscription = words;
+            });
           }
-        },
-        listenFor: const Duration(minutes: 2),
-        pauseFor: const Duration(seconds: 4),
-        listenOptions: stt.SpeechListenOptions(
-          partialResults: true,
-          cancelOnError: true,
-          listenMode: stt.ListenMode.dictation,
-        ),
-      );
-    } catch (e) {
+          if (setModalState != null) {
+            setModalState(() {
+              _speechTranscription = words;
+            });
+          }
+        }
+      },
+      onStatus: (status) {
+        if (status == 'notListening' || status == 'done') {
+          if (mounted) {
+            setState(() => _isListeningFeedback = false);
+          }
+          if (setModalState != null) {
+            setModalState(() => _isListeningFeedback = false);
+          }
+        }
+      },
+      onError: (err) {
+        if (mounted) {
+          setState(() => _isListeningFeedback = false);
+          AppNotification.showError(
+            context,
+            'Speech recognition error: $err',
+          );
+        }
+        if (setModalState != null) {
+          setModalState(() => _isListeningFeedback = false);
+        }
+      },
+    );
+
+    if (!success) {
       if (mounted) {
         setState(() => _isListeningFeedback = false);
       }
@@ -5160,9 +5141,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   void dispose() {
     UnsavedChangesHelper.setUnsavedChanges(false);
     _vitalsTimer?.cancel();
-    try {
-      _speech.stop();
-    } catch (_) {}
+    LiveSpeechService().stopListening();
     _tabController.dispose();
     _sysBpCtrl.dispose();
     _diaBpCtrl.dispose();

@@ -60,42 +60,136 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script>
-    window.audioRecorder = {
-      mediaRecorder: null,
-      audioChunks: [],
-      
-      startRecording: async function(callback) {
-        this.audioChunks = [];
+    window.speechRecognizer = {
+      recognition: null,
+      isUserListening: false,
+      onResultCallback: null,
+      onStatusCallback: null,
+      onErrorCallback: null,
+      accumulatedFinal: '',
+      targetLang: 'en-US',
+
+      isSupported: function() {
+        return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+      },
+
+      start: function(onResult, onStatus, onError, lang) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          if (onError) onError("Speech recognition not supported in this browser");
+          return false;
+        }
+
+        this.onResultCallback = onResult;
+        this.onStatusCallback = onStatus;
+        this.onErrorCallback = onError;
+        this.isUserListening = true;
+        this.accumulatedFinal = '';
+        this.targetLang = lang || 'en-US';
+
+        this._createAndStartRecognition();
+        return true;
+      },
+
+      _createAndStartRecognition: function() {
+        if (!this.isUserListening) return;
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (this.recognition) {
+          try {
+            this.recognition.onend = null;
+            this.recognition.onerror = null;
+            this.recognition.onresult = null;
+            this.recognition.abort();
+          } catch(e) {}
+          this.recognition = null;
+        }
+
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          this.mediaRecorder = new MediaRecorder(stream);
-          this.mediaRecorder.ondataavailable = (event) => {
-            this.audioChunks.push(event.data);
+          const rec = new SpeechRecognition();
+          this.recognition = rec;
+          rec.continuous = true;
+          rec.interimResults = true;
+          rec.maxAlternatives = 1;
+          rec.lang = this.targetLang;
+
+          rec.onstart = () => {
+            if (this.onStatusCallback) this.onStatusCallback('listening');
           };
-          this.mediaRecorder.start();
-          if (callback) callback(true);
-        } catch (e) {
-          console.error("Error starting recording:", e);
-          if (callback) callback(false);
+
+          rec.onresult = (event) => {
+            let sessionFinal = '';
+            let sessionInterim = '';
+            for (let i = 0; i < event.results.length; ++i) {
+              const res = event.results[i];
+              if (res.isFinal) {
+                sessionFinal += (sessionFinal.length > 0 ? ' ' : '') + res[0].transcript.trim();
+              } else {
+                sessionInterim += (sessionInterim.length > 0 ? ' ' : '') + res[0].transcript.trim();
+              }
+            }
+
+            let combined = this.accumulatedFinal;
+            if (sessionFinal.length > 0) {
+              combined = combined.length > 0 ? (combined + ' ' + sessionFinal) : sessionFinal;
+            }
+            if (sessionInterim.length > 0) {
+              combined = combined.length > 0 ? (combined + ' ' + sessionInterim) : sessionInterim;
+            }
+
+            if (this.onResultCallback) {
+              this.onResultCallback(combined.trim());
+            }
+          };
+
+          rec.onerror = (event) => {
+            console.warn("Web Speech API recognition error:", event.error);
+            if (event.error !== 'no-speech' && event.error !== 'audio-capture') {
+              if (this.onErrorCallback) this.onErrorCallback(event.error);
+            }
+          };
+
+          rec.onend = () => {
+            // If user still wants to listen (e.g. browser timed out the connection after a silence), auto-restart
+            if (this.isUserListening) {
+              // Commit current session transcripts to accumulatedFinal
+              try {
+                setTimeout(() => {
+                  if (this.isUserListening) {
+                    this._createAndStartRecognition();
+                  }
+                }, 100);
+              } catch(e) {}
+            } else {
+              if (this.onStatusCallback) this.onStatusCallback('notListening');
+            }
+          };
+
+          rec.start();
+        } catch(err) {
+          console.error("Failed to initialize Web Speech API:", err);
+          if (this.onErrorCallback) this.onErrorCallback(err.toString());
         }
       },
-      
-      stopRecording: function(callback) {
-        if (!this.mediaRecorder) {
-          if (callback) callback("");
-          return;
+
+      stop: function() {
+        this.isUserListening = false;
+        if (this.recognition) {
+          try {
+            this.recognition.stop();
+          } catch(e) {}
         }
-        this.mediaRecorder.onstop = () => {
-          const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const base64data = reader.result.split(',')[1];
-            if (callback) callback(base64data);
-          };
-          reader.readAsDataURL(audioBlob);
-          this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
-        };
-        this.mediaRecorder.stop();
+        if (this.onStatusCallback) this.onStatusCallback('notListening');
+      },
+
+      abort: function() {
+        this.isUserListening = false;
+        if (this.recognition) {
+          try {
+            this.recognition.abort();
+          } catch(e) {}
+        }
+        if (this.onStatusCallback) this.onStatusCallback('notListening');
       }
     };
 
