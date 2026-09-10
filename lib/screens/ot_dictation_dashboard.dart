@@ -261,9 +261,9 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
         if (mounted) {
           setState(() {
             _transcribedText = liveText;
-            _textController.text = liveText;
-            _textController.selection = TextSelection.fromPosition(
-              TextPosition(offset: _textController.text.length),
+            _textController.value = TextEditingValue(
+              text: liveText,
+              selection: TextSelection.collapsed(offset: liveText.length),
             );
             _processLiveSpeechText(liveText);
           });

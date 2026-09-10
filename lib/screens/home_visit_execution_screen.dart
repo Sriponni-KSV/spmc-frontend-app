@@ -739,17 +739,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         final words = liveWords.trim();
         if (words.isNotEmpty) {
           final newText = initialText.isEmpty ? words : '$initialText $words';
-          targetController.text = newText;
-          targetController.selection = TextSelection.fromPosition(
-            TextPosition(offset: targetController.text.length),
+          targetController.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: newText.length),
           );
-          if (mounted) {
-            setState(() {
-              _speechTranscription = words;
-            });
-          }
           if (setModalState != null) {
             setModalState(() {
+              _speechTranscription = words;
+            });
+          } else if (mounted) {
+            setState(() {
               _speechTranscription = words;
             });
           }

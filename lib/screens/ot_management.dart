@@ -7362,9 +7362,9 @@ class _OtDictationDialogState extends State<OtDictationDialog> {
       onResult: (liveWords) {
         if (mounted) {
           setState(() {
-            _textController.text = liveWords;
-            _textController.selection = TextSelection.fromPosition(
-              TextPosition(offset: _textController.text.length),
+            _textController.value = TextEditingValue(
+              text: liveWords,
+              selection: TextSelection.collapsed(offset: liveWords.length),
             );
           });
         }

@@ -78,34 +78,21 @@ void _ensureJsSpeechRecognizer() {
             rec.continuous = true;
             rec.interimResults = true;
             rec.maxAlternatives = 1;
-            rec.lang = this.targetLang;
+            rec.lang = (this.targetLang && this.targetLang !== 'en-US') ? this.targetLang : (navigator.language || 'en-IN');
 
             rec.onstart = () => {
               if (this.onStatusCallback) this.onStatusCallback('listening');
             };
 
             rec.onresult = (event) => {
-              let sessionFinal = '';
-              let sessionInterim = '';
+              let sessionText = '';
               for (let i = 0; i < event.results.length; ++i) {
-                const res = event.results[i];
-                if (res.isFinal) {
-                  sessionFinal += (sessionFinal.length > 0 ? ' ' : '') + res[0].transcript.trim();
-                } else {
-                  sessionInterim += (sessionInterim.length > 0 ? ' ' : '') + res[0].transcript.trim();
-                }
+                sessionText += event.results[i][0].transcript;
               }
-
-              let combined = this.accumulatedFinal;
-              if (sessionFinal.length > 0) {
-                combined = combined.length > 0 ? (combined + ' ' + sessionFinal) : sessionFinal;
-              }
-              if (sessionInterim.length > 0) {
-                combined = combined.length > 0 ? (combined + ' ' + sessionInterim) : sessionInterim;
-              }
-
-              if (this.onResultCallback) {
-                this.onResultCallback(combined.trim());
+              this._lastSessionText = sessionText;
+              const full = (this.accumulatedFinal + (sessionText.length > 0 ? (' ' + sessionText) : '')).trim();
+              if (this.onResultCallback && full.length > 0) {
+                this.onResultCallback(full);
               }
             };
 
@@ -120,13 +107,15 @@ void _ensureJsSpeechRecognizer() {
 
             rec.onend = () => {
               if (this.isUserListening) {
-                try {
-                  setTimeout(() => {
-                    if (this.isUserListening) {
-                      this._createAndStartRecognition();
-                    }
-                  }, 100);
-                } catch(e) {}
+                if (this._lastSessionText && this._lastSessionText.trim().length > 0) {
+                  this.accumulatedFinal = (this.accumulatedFinal + ' ' + this._lastSessionText).trim();
+                  this._lastSessionText = '';
+                }
+                setTimeout(() => {
+                  if (this.isUserListening) {
+                    this._createAndStartRecognition();
+                  }
+                }, 150);
               } else {
                 if (this.onStatusCallback) this.onStatusCallback('notListening');
               }
