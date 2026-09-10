@@ -307,6 +307,7 @@ class HomeVisitModel {
   final String? attenderSignatureUrl;
   final String? signedAt;
   final String? notes;
+  final String? feedback;
   final List<HomeVisitCarriedItem> carriedItems;
   final HomeVisitVitals? vitals;
   final List<HomeVisitVitals> vitalsHistory;
@@ -341,6 +342,7 @@ class HomeVisitModel {
     this.attenderSignatureUrl,
     this.signedAt,
     this.notes,
+    this.feedback,
     this.carriedItems = const [],
     this.vitals,
     this.vitalsHistory = const [],
@@ -376,6 +378,7 @@ class HomeVisitModel {
     String? attenderSignatureUrl,
     String? signedAt,
     String? notes,
+    String? feedback,
     List<HomeVisitCarriedItem>? carriedItems,
     HomeVisitVitals? vitals,
     List<HomeVisitVitals>? vitalsHistory,
@@ -410,6 +413,7 @@ class HomeVisitModel {
       attenderSignatureUrl: attenderSignatureUrl ?? this.attenderSignatureUrl,
       signedAt: signedAt ?? this.signedAt,
       notes: notes ?? this.notes,
+      feedback: feedback ?? this.feedback,
       carriedItems: carriedItems ?? this.carriedItems,
       vitals: vitals ?? this.vitals,
       vitalsHistory: vitalsHistory ?? this.vitalsHistory,
@@ -458,6 +462,7 @@ class HomeVisitModel {
       attenderSignatureUrl: json['attender_signature_url'],
       signedAt: json['signed_at'],
       notes: json['notes'],
+      feedback: json['feedback'],
       carriedItems: (json['carried_items'] as List<dynamic>?)
               ?.map((item) => HomeVisitCarriedItem.fromJson(item))
               .toList() ??

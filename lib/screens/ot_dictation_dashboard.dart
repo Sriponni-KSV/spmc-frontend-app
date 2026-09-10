@@ -11,6 +11,7 @@ import '../screens/ot_management.dart'; // To use OtCase and IntraOpLog models
 import '../models/user_model.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import '../services/live_speech_service.dart';
 
 class OtDictationDashboardView extends StatefulWidget {
   final bool isMobile;
@@ -118,6 +119,7 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
 
   @override
   void dispose() {
+    LiveSpeechService().stopListening();
     _waveformController.dispose();
     _textController.dispose();
     _searchController.dispose();
@@ -126,28 +128,10 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
   }
 
   Future<void> _initSpeech() async {
-    try {
-      bool enabled = await _speech.initialize(
-        onStatus: (status) {
-          if (status == 'notListening' || status == 'done') {
-            setState(() {
-              _isListening = false;
-            });
-          }
-        },
-        onError: (val) {
-          setState(() {
-            _isListening = false;
-            _commandFeedback = "Microphone error: ${val.errorMsg}";
-          });
-        },
-      );
+    final enabled = await LiveSpeechService().initialize();
+    if (mounted) {
       setState(() {
         _speechEnabled = enabled;
-      });
-    } catch (e) {
-      setState(() {
-        _speechEnabled = false;
       });
     }
   }
@@ -265,58 +249,70 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
   }
 
   void _startListening() async {
-    if (!_speechEnabled) {
-      await _initSpeech();
-    }
-    if (_speechEnabled) {
-      setState(() {
-        _isListening = true;
-        _transcribedText = "";
-        _textController.clear();
-      });
-      await _speech.listen(
-        onResult: (result) {
+    setState(() {
+      _isListening = true;
+      _transcribedText = "";
+      _textController.clear();
+      _soundLevel = 0.0;
+    });
+
+    final success = await LiveSpeechService().startListening(
+      onResult: (liveText) {
+        if (mounted) {
           setState(() {
-            _transcribedText = result.recognizedWords;
-            _textController.text = _transcribedText;
-            _processLiveSpeechText(_transcribedText);
+            _transcribedText = liveText;
+            _textController.text = liveText;
+            _textController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _textController.text.length),
+            );
+            _processLiveSpeechText(liveText);
           });
-        },
-        onSoundLevelChange: (level) {
+        }
+      },
+      onSoundLevel: (level) {
+        if (mounted) {
           setState(() {
             _soundLevel = level;
           });
-        },
-      );
-    } else {
-      // Simulate listening if speech is disabled
-      setState(() {
-        _isListening = true;
-      });
-      _simulateMicrophoneActivity();
-    }
-  }
+        }
+      },
+      onStatus: (status) {
+        if (status == 'notListening' || status == 'done') {
+          if (mounted) {
+            setState(() {
+              _isListening = false;
+              _soundLevel = 0.0;
+            });
+          }
+        }
+      },
+      onError: (err) {
+        if (mounted) {
+          setState(() {
+            _isListening = false;
+            _soundLevel = 0.0;
+            _commandFeedback = "Microphone error: $err";
+          });
+        }
+      },
+    );
 
-  void _simulateMicrophoneActivity() {
-    Timer.periodic(const Duration(milliseconds: 200), (timer) {
-      if (!_isListening) {
-        timer.cancel();
-        return;
-      }
+    if (!success && mounted) {
       setState(() {
-        _soundLevel = 2.0 + (math.Random().nextDouble() * 8.0);
+        _isListening = false;
+        _soundLevel = 0.0;
       });
-    });
+    }
   }
 
   void _stopListening() async {
-    if (_speechEnabled) {
-      await _speech.stop();
+    await LiveSpeechService().stopListening();
+    if (mounted) {
+      setState(() {
+        _isListening = false;
+        _soundLevel = 0.0;
+      });
     }
-    setState(() {
-      _isListening = false;
-      _soundLevel = 0.0;
-    });
     _runAiParser(_textController.text);
   }
 

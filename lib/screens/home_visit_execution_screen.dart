@@ -23,6 +23,8 @@ import '../utils/unsaved_changes_helper.dart';
 import '../utils/modal_history_helper.dart';
 import '../utils/app_notification.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import '../services/live_speech_service.dart';
 
 class HomeVisitExecutionScreen extends StatefulWidget {
   final int visitId;
@@ -645,17 +647,34 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   bool _photoSubmitAttempted = false;
   bool _isUploadingPhoto = false;
 
-  // Signature Form
+  // Signature & Feedback Form
   final TextEditingController _attenderNameCtrl = TextEditingController();
   final TextEditingController _attenderRelationCtrl = TextEditingController();
+  final TextEditingController _feedbackCtrl = TextEditingController();
   final List<Offset?> _signaturePoints = [];
   bool _isSigningSignature = false;
+
+  // Voice to Text (Speech Recognition) State for Feedback
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechEnabled = false;
+  bool _isListeningFeedback = false;
+  String _speechTranscription = '';
 
   bool _isSavingVitals = false;
   bool _isSavingCare = false;
   bool _isVerifying = false;
   String _vitalsFilter = 'All';
   Timer? _vitalsTimer;
+
+  static const List<String> _quickFeedbackTemplates = [
+    'Patient is stable and comfortable',
+    'Medication administered on time',
+    'Vitals checked and normal',
+    'Wound dressing changed cleanly',
+    'Attender satisfied with home care',
+    'Patient advised on diet & hydration',
+    'Catheter & hygiene care provided',
+  ];
 
   @override
   void initState() {
@@ -664,6 +683,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     if (!widget.isReadOnlyView) {
       UnsavedChangesHelper.setUnsavedChanges(true);
     }
+    _initSpeech();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
       // Periodically refresh visit details every 10 seconds to auto-unlock form when scheduled time is reached
@@ -676,6 +696,328 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         }
       });
     });
+  }
+
+  Future<void> _initSpeech() async {
+    final enabled = await LiveSpeechService().initialize();
+    if (mounted) {
+      setState(() => _speechEnabled = enabled);
+    }
+  }
+
+  Future<void> _toggleSpeechDictation({
+    required TextEditingController targetController,
+    StateSetter? setModalState,
+  }) async {
+    if (_isListeningFeedback) {
+      await LiveSpeechService().stopListening();
+      if (mounted) {
+        setState(() => _isListeningFeedback = false);
+      }
+      if (setModalState != null) {
+        setModalState(() => _isListeningFeedback = false);
+      }
+      return;
+    }
+
+    final initialText = targetController.text.trim();
+    if (mounted) {
+      setState(() {
+        _isListeningFeedback = true;
+        _speechTranscription = '';
+      });
+    }
+    if (setModalState != null) {
+      setModalState(() {
+        _isListeningFeedback = true;
+        _speechTranscription = '';
+      });
+    }
+
+    final success = await LiveSpeechService().startListening(
+      onResult: (liveWords) {
+        final words = liveWords.trim();
+        if (words.isNotEmpty) {
+          final newText = initialText.isEmpty ? words : '$initialText $words';
+          targetController.text = newText;
+          targetController.selection = TextSelection.fromPosition(
+            TextPosition(offset: targetController.text.length),
+          );
+          if (mounted) {
+            setState(() {
+              _speechTranscription = words;
+            });
+          }
+          if (setModalState != null) {
+            setModalState(() {
+              _speechTranscription = words;
+            });
+          }
+        }
+      },
+      onStatus: (status) {
+        if (status == 'notListening' || status == 'done') {
+          if (mounted) {
+            setState(() => _isListeningFeedback = false);
+          }
+          if (setModalState != null) {
+            setModalState(() => _isListeningFeedback = false);
+          }
+        }
+      },
+      onError: (err) {
+        if (mounted) {
+          setState(() => _isListeningFeedback = false);
+          AppNotification.showError(
+            context,
+            'Speech recognition error: $err',
+          );
+        }
+        if (setModalState != null) {
+          setModalState(() => _isListeningFeedback = false);
+        }
+      },
+    );
+
+    if (!success) {
+      if (mounted) {
+        setState(() => _isListeningFeedback = false);
+      }
+      if (setModalState != null) {
+        setModalState(() => _isListeningFeedback = false);
+      }
+    }
+  }
+
+  Widget _buildFeedbackVoiceField({
+    required TextEditingController controller,
+    StateSetter? setModalState,
+    bool isModal = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildLabel('Visit & Care Feedback / Remarks'),
+            InkWell(
+              onTap: () => _toggleSpeechDictation(
+                targetController: controller,
+                setModalState: setModalState,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _isListeningFeedback
+                      ? AppTheme.dangerColor.withOpacity(0.12)
+                      : AppTheme.primaryColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _isListeningFeedback
+                        ? AppTheme.dangerColor
+                        : AppTheme.primaryColor.withOpacity(0.4),
+                    width: 1.2,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isListeningFeedback ? Icons.stop_circle : Icons.mic,
+                      size: 15,
+                      color: _isListeningFeedback
+                          ? AppTheme.dangerColor
+                          : AppTheme.primaryColor,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      _isListeningFeedback ? 'Stop Voice Input' : 'Voice to Text',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: _isListeningFeedback
+                            ? AppTheme.dangerColor
+                            : AppTheme.primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_isListeningFeedback) ...[
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFFECACA)),
+            ),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.dangerColor,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Listening... Speak clearly into microphone (live dictation active)',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFF991B1B),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _toggleSpeechDictation(
+                    targetController: controller,
+                    setModalState: setModalState,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'STOP',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: controller,
+          maxLines: isModal ? 3 : 4,
+          maxLength: 500,
+          inputFormatters: [
+            LengthLimitingTextInputFormatter(500),
+            FilteringTextInputFormatter.allow(
+              RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;?!]'),
+            ),
+          ],
+          decoration: AppTheme.standardInputDecoration(
+            hintText: 'Speak or type attender feedback, patient condition, care remarks...',
+            suffixIcon: IconButton(
+              icon: Icon(
+                _isListeningFeedback ? Icons.mic_off : Icons.mic,
+                color: _isListeningFeedback
+                    ? AppTheme.dangerColor
+                    : AppTheme.primaryColor,
+                size: 20,
+              ),
+              tooltip: _isListeningFeedback
+                  ? 'Stop Voice Dictation'
+                  : 'Start Voice to Text Dictation',
+              onPressed: () => _toggleSpeechDictation(
+                targetController: controller,
+                setModalState: setModalState,
+              ),
+            ),
+          ),
+          onChanged: (val) {
+            if (setModalState != null) {
+              setModalState(() {});
+            } else if (mounted) {
+              setState(() {});
+            }
+          },
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: _quickFeedbackTemplates.map((template) {
+            return InkWell(
+              onTap: () {
+                final cur = controller.text.trim();
+                if (cur.isEmpty) {
+                  controller.text = template;
+                } else if (!cur.contains(template)) {
+                  controller.text = '$cur. $template';
+                }
+                controller.selection = TextSelection.fromPosition(
+                  TextPosition(offset: controller.text.length),
+                );
+                if (setModalState != null) {
+                  setModalState(() {});
+                } else if (mounted) {
+                  setState(() {});
+                }
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.add, size: 12, color: Color(0xFF475569)),
+                    const SizedBox(width: 3),
+                    Text(
+                      template,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailField(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF64748B),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1E293B),
+          ),
+        ),
+      ],
+    );
   }
 
   void _clearVitalsForm() {
@@ -3959,6 +4301,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   void _clearSignatureForm() {
     _attenderNameCtrl.clear();
     _attenderRelationCtrl.clear();
+    _feedbackCtrl.clear();
     setState(() => _signaturePoints.clear());
   }
 
@@ -4798,6 +5141,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   void dispose() {
     UnsavedChangesHelper.setUnsavedChanges(false);
     _vitalsTimer?.cancel();
+    LiveSpeechService().stopListening();
     _tabController.dispose();
     _sysBpCtrl.dispose();
     _diaBpCtrl.dispose();
@@ -4821,10 +5165,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     _consNameCtrl.dispose();
     _consQtyCtrl.dispose();
     _consPriceCtrl.dispose();
+    _customKitNameCtrl.dispose();
+    _kitItemNameCtrl.dispose();
+    _kitItemQtyCtrl.dispose();
     _photoUrlCtrl.dispose();
     _photoCaptionCtrl.dispose();
     _attenderNameCtrl.dispose();
     _attenderRelationCtrl.dispose();
+    _feedbackCtrl.dispose();
     super.dispose();
   }
 
@@ -11274,6 +11622,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     HomeVisitModel visit,
     HomeVisitController controller,
   ) {
+    final isCompleted = visit.status == 'Completed' || visit.status == 'Verified';
+
     return SingleChildScrollView(
       physics: _isSigningSignature
           ? const NeverScrollableScrollPhysics()
@@ -11291,244 +11641,412 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           ),
           const SizedBox(height: 20),
 
-          // Digital Attender Signature & Verification Form (Strict Style Guide rules)
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Patient Attender Verification & Digital Signature',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildLabel('Attender Full Name *'),
-                          TextFormField(
-                            controller: _attenderNameCtrl,
-                            inputFormatters: [
-                              LengthLimitingTextInputFormatter(30),
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[a-zA-Z\s]'),
-                              ),
-                            ],
-                            decoration: AppTheme.standardInputDecoration(
-                              hintText: 'Full Name (Min 3, Max 30 chars)',
-                            ),
-                            validator: (val) {
-                              if (val == null || val.trim().length < 3) {
-                                return 'Attender name must be at least 3 characters';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
+          if (isCompleted) ...[
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondaryColor.withOpacity(0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.verified_rounded,
+                          color: AppTheme.secondaryColor,
+                          size: 26,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildLabel('Attender Relationship *'),
-                          TextFormField(
-                            controller: _attenderRelationCtrl,
-                            inputFormatters: [
-                              LengthLimitingTextInputFormatter(20),
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[a-zA-Z\s]'),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Home Visit Completed & Verified',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF14532D),
                               ),
-                            ],
-                            decoration: AppTheme.standardInputDecoration(
-                              hintText: 'e.g. Son, Spouse, Daughter',
                             ),
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) {
-                                return 'Attender relationship is required';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
+                            const SizedBox(height: 2),
+                            Text(
+                              'Attender verification completed on ${visit.signedAt ?? visit.scheduledDate}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                _buildLabel('Attender Digital Signature Pad *'),
-                Container(
-                  height: 180,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: _signaturePoints.isNotEmpty
-                          ? AppTheme.primaryColor
-                          : const Color(0xFFCBD5E0),
-                      width: _signaturePoints.isNotEmpty ? 1.5 : 1.0,
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        if (_signaturePoints.isEmpty)
-                          const IgnorePointer(
-                            child: Center(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.draw_outlined,
-                                    color: Colors.grey,
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Draw attender signature here with mouse or touch...',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 13,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        Positioned.fill(
-                          child: Listener(
-                            behavior: HitTestBehavior.opaque,
-                            onPointerDown: (event) {
-                              FocusScope.of(context).unfocus();
-                              setState(() {
-                                _isSigningSignature = true;
-                                _signaturePoints.add(event.localPosition);
-                              });
-                            },
-                            onPointerMove: (event) {
-                              setState(() {
-                                _signaturePoints.add(event.localPosition);
-                              });
-                            },
-                            onPointerUp: (event) {
-                              setState(() {
-                                _isSigningSignature = false;
-                                _signaturePoints.add(null);
-                              });
-                            },
-                            onPointerCancel: (event) {
-                              setState(() {
-                                _isSigningSignature = false;
-                                _signaturePoints.add(null);
-                              });
-                            },
-                            child: CustomPaint(
-                              painter: SignaturePainter(
-                                points: _signaturePoints,
-                              ),
-                              size: Size.infinite,
-                            ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFF86EFAC)),
+                        ),
+                        child: const Text(
+                          'COMPLETED',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF166534),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton.icon(
-                      icon: const Icon(Icons.clear, size: 18),
-                      label: const Text('Clear Signature'),
-                      onPressed: () => setState(() => _signaturePoints.clear()),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    style: AppTheme.dangerButton,
-                    icon: _isVerifying
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.check_circle_outline,
-                            color: Colors.white,
+                  const Divider(height: 28),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDetailField(
+                          'Verified Attender Name',
+                          visit.attenderName ?? 'Attender',
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildDetailField(
+                          'Relationship',
+                          visit.attenderRelation ?? 'Attender',
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (visit.feedback != null &&
+                      visit.feedback!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _buildLabel('Recorded Visit & Care Feedback'),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.record_voice_over_outlined,
+                            size: 18,
+                            color: AppTheme.primaryColor,
                           ),
-                    label: Text(
-                      _isVerifying
-                          ? 'Generating Auto-Billing Invoice...'
-                          : 'Verify Visit & Generate Billing Invoice',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              visit.feedback!,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                color: Color(0xFF1E293B),
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    onPressed: _isVerifying
-                        ? null
-                        : () async {
-                            if (_attenderNameCtrl.text.trim().length < 3) {
-                              AppNotification.showError(
-                                context,
-                                'Please enter valid attender name (min 3 chars).',
-                              );
-                              return;
-                            }
-
-                            setState(() => _isVerifying = true);
-                            final result = await controller.verifyVisit(
-                              visit.id,
-                              _attenderNameCtrl.text.trim(),
-                              _attenderRelationCtrl.text.trim(),
-                              'signature_base64_data_valid',
-                            );
-                            setState(() => _isVerifying = false);
-
-                            if (result != null && mounted) {
-                              _clearSignatureForm();
-                              showDialog(
-                                context: context,
-                                builder: (_) => HomeVisitInvoiceDialog(
-                                  invoiceData: result,
-                                  visit: visit,
-                                  onCloseAndComplete: () {
-                                    _handleLeave();
-                                  },
-                                ),
-                              );
-                            }
-                          },
+                  ],
+                  const SizedBox(height: 16),
+                  _buildLabel('Attender Digital Signature'),
+                  Container(
+                    height: 100,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(
+                            Icons.draw_outlined,
+                            color: AppTheme.secondaryColor,
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Digital Signature Verified & Stored',
+                            style: TextStyle(
+                              color: Color(0xFF166534),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ] else ...[
+            // Digital Attender Signature & Verification Form (Strict Style Guide rules)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Patient Attender Verification & Digital Signature',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLabel('Attender Full Name *'),
+                            TextFormField(
+                              controller: _attenderNameCtrl,
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(30),
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[a-zA-Z\s]'),
+                                ),
+                              ],
+                              decoration: AppTheme.standardInputDecoration(
+                                hintText: 'Full Name (Min 3, Max 30 chars)',
+                              ),
+                              validator: (val) {
+                                if (val == null || val.trim().length < 3) {
+                                  return 'Attender name must be at least 3 characters';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLabel('Attender Relationship *'),
+                            TextFormField(
+                              controller: _attenderRelationCtrl,
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(20),
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[a-zA-Z\s]'),
+                                ),
+                              ],
+                              decoration: AppTheme.standardInputDecoration(
+                                hintText: 'e.g. Son, Spouse, Daughter',
+                              ),
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Attender relationship is required';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _buildFeedbackVoiceField(
+                    controller: _feedbackCtrl,
+                    isModal: false,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildLabel('Attender Digital Signature Pad *'),
+                  Container(
+                    height: 180,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _signaturePoints.isNotEmpty
+                            ? AppTheme.primaryColor
+                            : const Color(0xFFCBD5E0),
+                        width: _signaturePoints.isNotEmpty ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (_signaturePoints.isEmpty)
+                            const IgnorePointer(
+                              child: Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.draw_outlined,
+                                      color: Colors.grey,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Draw attender signature here with mouse or touch...',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 13,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          Positioned.fill(
+                            child: Listener(
+                              behavior: HitTestBehavior.opaque,
+                              onPointerDown: (event) {
+                                FocusScope.of(context).unfocus();
+                                setState(() {
+                                  _isSigningSignature = true;
+                                  _signaturePoints.add(event.localPosition);
+                                });
+                              },
+                              onPointerMove: (event) {
+                                setState(() {
+                                  _signaturePoints.add(event.localPosition);
+                                });
+                              },
+                              onPointerUp: (event) {
+                                setState(() {
+                                  _isSigningSignature = false;
+                                  _signaturePoints.add(null);
+                                });
+                              },
+                              onPointerCancel: (event) {
+                                setState(() {
+                                  _isSigningSignature = false;
+                                  _signaturePoints.add(null);
+                                });
+                              },
+                              child: CustomPaint(
+                                painter: SignaturePainter(
+                                  points: _signaturePoints,
+                                ),
+                                size: Size.infinite,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        icon: const Icon(Icons.clear, size: 18),
+                        label: const Text('Clear Signature'),
+                        onPressed: () =>
+                            setState(() => _signaturePoints.clear()),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton.icon(
+                      style: AppTheme.dangerButton,
+                      icon: _isVerifying
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.check_circle_outline,
+                              color: Colors.white,
+                            ),
+                      label: Text(
+                        _isVerifying
+                            ? 'Generating Auto-Billing Invoice...'
+                            : 'Verify Visit & Generate Billing Invoice',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onPressed: _isVerifying
+                          ? null
+                          : () async {
+                              if (_attenderNameCtrl.text.trim().length < 3) {
+                                AppNotification.showError(
+                                  context,
+                                  'Please enter valid attender name (min 3 chars).',
+                                );
+                                return;
+                              }
+
+                              setState(() => _isVerifying = true);
+                              final result = await controller.verifyVisit(
+                                visit.id,
+                                _attenderNameCtrl.text.trim(),
+                                _attenderRelationCtrl.text.trim(),
+                                'signature_base64_data_valid',
+                                feedback: _feedbackCtrl.text.trim(),
+                              );
+                              setState(() => _isVerifying = false);
+
+                              if (result != null && mounted) {
+                                _clearSignatureForm();
+                                showDialog(
+                                  context: context,
+                                  builder: (_) => HomeVisitInvoiceDialog(
+                                    invoiceData: result,
+                                    visit: visit,
+                                    onCloseAndComplete: () {
+                                      _handleLeave();
+                                    },
+                                  ),
+                                );
+                              }
+                            },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -11541,6 +12059,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   ) {
     final nameCtrl = TextEditingController(text: _attenderNameCtrl.text);
     final relCtrl = TextEditingController(text: _attenderRelationCtrl.text);
+    final feedbackCtrl = TextEditingController(text: _feedbackCtrl.text);
     List<Offset?> sigPoints = List.from(_signaturePoints);
     bool isSubmitting = false;
     bool isDialogSigning = false;
@@ -11554,7 +12073,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             borderRadius: BorderRadius.circular(16),
           ),
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 720),
+            constraints: const BoxConstraints(maxWidth: 620, maxHeight: 820),
             padding: const EdgeInsets.all(24),
             child: SingleChildScrollView(
               physics: isDialogSigning
@@ -11608,7 +12127,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Please record the attender details and obtain their signature to end the visit session and generate the billing invoice.',
+                    'Please record the attender details, care feedback, and obtain their signature to end the visit session and generate the billing invoice.',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   const SizedBox(height: 16),
@@ -11634,6 +12153,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     decoration: AppTheme.standardInputDecoration(
                       hintText: 'e.g. Son, Spouse, Daughter',
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildFeedbackVoiceField(
+                    controller: feedbackCtrl,
+                    setModalState: setDialogState,
+                    isModal: true,
                   ),
                   const SizedBox(height: 16),
                   _buildLabel('Attender Digital Signature Pad *'),
@@ -11815,12 +12340,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         .trim();
                                     _attenderRelationCtrl.text = relCtrl.text
                                         .trim();
+                                    _feedbackCtrl.text = feedbackCtrl.text
+                                        .trim();
 
                                     final result = await controller.verifyVisit(
                                       visit.id,
                                       nameCtrl.text.trim(),
                                       relCtrl.text.trim(),
                                       'signature_base64_data_valid',
+                                      feedback: feedbackCtrl.text.trim(),
                                     );
                                     await controller.fetchVisits();
 
