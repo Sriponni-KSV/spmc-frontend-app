@@ -12,6 +12,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
 
 class BillingManagementView extends StatefulWidget {
   const BillingManagementView({Key? key}) : super(key: key);
@@ -143,7 +144,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
 
   Future<void> _loadMedicineInventory() async {
     try {
-      final response = await ApiService.get('${dotenv.env['BASE_URL']}/inventory/items');
+      final response = await ApiService.get('${ApiEndpoints.baseUrl}/inventory/items');
       final body = jsonDecode(response.body);
       if (body['success'] == true && mounted) {
         setState(() {

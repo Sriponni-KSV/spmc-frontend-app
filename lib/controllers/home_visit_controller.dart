@@ -238,13 +238,20 @@ class HomeVisitController with ChangeNotifier {
 
   // Verify Visit & Generate Bill
   Future<Map<String, dynamic>?> verifyVisit(
-      int visitId, String attenderName, String attenderRelation, String signatureUrl) async {
+      int visitId, String attenderName, String attenderRelation, String signatureUrl,
+      {String? feedback}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final res = await _service.verifyAndGenerateBill(visitId, attenderName, attenderRelation, signatureUrl);
+      final res = await _service.verifyAndGenerateBill(
+        visitId,
+        attenderName,
+        attenderRelation,
+        signatureUrl,
+        feedback: feedback,
+      );
       try {
         await fetchVisitDetails(visitId);
         await fetchVisits();

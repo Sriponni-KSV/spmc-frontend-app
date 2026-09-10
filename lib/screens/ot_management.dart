@@ -17,6 +17,7 @@ import '../controllers/ipd_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../utils/web_audio_recorder.dart';
+import '../services/live_speech_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 
@@ -7316,7 +7317,6 @@ class OtDictationDialog extends StatefulWidget {
 }
 
 class _OtDictationDialogState extends State<OtDictationDialog> {
-  final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
   bool _speechEnabled = false;
   final TextEditingController _textController = TextEditingController();
@@ -7336,179 +7336,86 @@ class _OtDictationDialogState extends State<OtDictationDialog> {
 
   @override
   void dispose() {
+    LiveSpeechService().stopListening();
     _webSpeechTimer?.cancel();
     _textController.dispose();
     super.dispose();
   }
 
   Future<void> _initSpeech() async {
-    if (kIsWeb) {
-      setState(() {
-        _speechEnabled = true;
-      });
-      return;
-    }
-    try {
-      bool enabled = await _speech.initialize(
-        onStatus: (status) {
-          if (status == 'notListening' || status == 'done') {
-            setState(() {
-              _isListening = false;
-            });
-          }
-        },
-        onError: (val) {
-          setState(() {
-            _isListening = false;
-            _errorMessage = "Speech recognition error: ${val.errorMsg}";
-          });
-        },
-      );
+    final enabled = await LiveSpeechService().initialize();
+    if (mounted) {
       setState(() {
         _speechEnabled = enabled;
-      });
-    } catch (e) {
-      setState(() {
-        _speechEnabled = false;
       });
     }
   }
 
   void _startListening() async {
-    if (kIsWeb) {
-      setState(() {
-        _isListening = true;
-        _errorMessage = null;
-        _soundLevel = 0.0;
-      });
-      _webSpeechTimer?.cancel();
-      _webSpeechTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
-        if (!_isListening) {
-          timer.cancel();
-          return;
-        }
-        setState(() {
-          _soundLevel = (0.5 + (0.5 * (timer.tick % 5))) * 2;
-        });
-      });
+    setState(() {
+      _isListening = true;
+      _errorMessage = null;
+      _soundLevel = 0.0;
+    });
 
-      if (!isAudioRecorderAvailable()) {
-        setState(() {
-          _isListening = false;
-          _errorMessage = "audioRecorder helper not found in window object.";
-        });
-        _webSpeechTimer?.cancel();
-        _webSpeechTimer = null;
-        return;
-      }
-
-      try {
-        startAudioRecording((bool success) {
-          if (!success) {
-            setState(() {
-              _isListening = false;
-              _errorMessage = "Could not start audio recording. Please check microphone permissions.";
-              _webSpeechTimer?.cancel();
-              _webSpeechTimer = null;
-            });
-          }
-        });
-      } catch (e) {
-        setState(() {
-          _isListening = false;
-          _errorMessage = "Failed to start recording: $e";
-        });
-        _webSpeechTimer?.cancel();
-        _webSpeechTimer = null;
-      }
-      return;
-    }
-
-    if (!_speechEnabled) {
-      await _initSpeech();
-    }
-    if (_speechEnabled) {
-      setState(() {
-        _isListening = true;
-        _errorMessage = null;
-      });
-      await _speech.listen(
-        onResult: (result) {
+    final success = await LiveSpeechService().startListening(
+      onResult: (liveWords) {
+        if (mounted) {
           setState(() {
-            _textController.text = result.recognizedWords;
+            _textController.text = liveWords;
+            _textController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _textController.text.length),
+            );
           });
-        },
-        onSoundLevelChange: (level) {
+        }
+      },
+      onSoundLevel: (level) {
+        if (mounted) {
           setState(() {
             _soundLevel = level;
           });
-        },
-      );
+        }
+      },
+      onStatus: (status) {
+        if (status == 'notListening' || status == 'done') {
+          if (mounted) {
+            setState(() {
+              _isListening = false;
+              _soundLevel = 0.0;
+            });
+          }
+        }
+      },
+      onError: (err) {
+        if (mounted) {
+          setState(() {
+            _isListening = false;
+            _soundLevel = 0.0;
+            _errorMessage = "Speech recognition error: $err";
+          });
+        }
+      },
+    );
+
+    if (!success && mounted) {
+      setState(() {
+        _isListening = false;
+        _soundLevel = 0.0;
+      });
     }
   }
 
   void _stopListening() async {
-    if (kIsWeb) {
-      _webSpeechTimer?.cancel();
-      _webSpeechTimer = null;
+    await LiveSpeechService().stopListening();
+    if (mounted) {
       setState(() {
         _isListening = false;
-        _isLoading = true;
+        _soundLevel = 0.0;
       });
-      if (!isAudioRecorderAvailable()) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = "audioRecorder helper not found in window object.";
-        });
-        return;
-      }
-      try {
-        stopAudioRecording((String base64) async {
-          if (base64.isEmpty) {
-            setState(() {
-              _isLoading = false;
-              _errorMessage = "No audio data was recorded or permission denied.";
-            });
-            return;
-          }
-
-          try {
-            final otController = OtController();
-            final result = await otController.parseAudioDictation(base64);
-
-            final fieldsMap = result['fields'] as Map<String, dynamic>;
-            final tempSelected = <String, bool>{};
-            for (var key in fieldsMap.keys) {
-              if (fieldsMap[key] != null) {
-                tempSelected[key] = true;
-              }
-            }
-
-            setState(() {
-              _parsedResult = result;
-              _selectedFields = tempSelected;
-              _isLoading = false;
-            });
-          } catch (e) {
-            setState(() {
-              _isLoading = false;
-              _errorMessage = "Failed to parse audio dictation: $e";
-            });
-          }
-        });
-      } catch (e) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = "Failed to stop recording: $e";
-        });
-      }
-      return;
     }
-
-    await _speech.stop();
-    setState(() {
-      _isListening = false;
-    });
+    if (_textController.text.trim().isNotEmpty) {
+      _parseDictation();
+    }
   }
 
   Future<void> _parseDictation() async {

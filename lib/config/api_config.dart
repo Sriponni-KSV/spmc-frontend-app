@@ -7,7 +7,7 @@ class ApiEndpoints {
   static bool get useLocalhost => false;
 
   /// Your laptop's local Wi-Fi IP address on the network
-  static const String backendIp = '192.168.1.31';
+  static const String backendIp = '192.168.1.20';
 
   /// Backend server port.
   static const String port = '3001';
@@ -20,7 +20,14 @@ class ApiEndpoints {
 
   /// Gets the active base URL dynamically.
   static String get baseUrl {
-    // 1. Check flutter_dotenv configuration
+    // 1. Flutter Web local development (connect to backend on same host)
+    if (kIsWeb) {
+      final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
+      final scheme = Uri.base.scheme.startsWith('https') ? 'https' : 'http';
+      return '$scheme://$host:$port/api';
+    }
+
+    // 2. Check flutter_dotenv configuration
     try {
       final envUrl = dotenv.maybeGet('BASE_URL');
       if (envUrl != null && envUrl.trim().isNotEmpty) {
@@ -31,18 +38,11 @@ class ApiEndpoints {
       }
     } catch (_) {}
 
-    // 2. --dart-define BASE_URL
+    // 3. --dart-define BASE_URL
     if (environmentBaseUrl.isNotEmpty) {
       return environmentBaseUrl.endsWith('/')
           ? environmentBaseUrl.substring(0, environmentBaseUrl.length - 1)
           : environmentBaseUrl;
-    }
-
-    // 3. Flutter Web local development
-    if (kIsWeb) {
-      final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
-      final scheme = Uri.base.scheme.startsWith('https') ? 'https' : 'http';
-      return '$scheme://$host:$port/api';
     }
 
     // 4. Mobile local development using adb reverse (explicitly opted in)
