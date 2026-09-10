@@ -9,7 +9,7 @@ class AdminStaffProfileView extends StatelessWidget {
 
   const AdminStaffProfileView({Key? key, required this.user, required this.onBack}) : super(key: key);
 
-  Widget _buildDocumentRow(String label, String? docUrl) {
+  Widget _buildDocumentRow(BuildContext context, String label, String? docUrl) {
     final hasDoc = docUrl != null && docUrl.trim().isNotEmpty;
     final isUrl = hasDoc &&
         (docUrl.startsWith('http://') ||
@@ -51,7 +51,7 @@ class AdminStaffProfileView extends StatelessWidget {
                 if (hasDoc && isUrl)
                   OutlinedButton.icon(
                     onPressed: () {
-                      openDocumentInNewTab(docUrl, label);
+                      showDocumentViewer(context, docUrl, label);
                     },
                     icon: const Icon(
                       Icons.open_in_new,
@@ -438,7 +438,7 @@ class AdminStaffProfileView extends StatelessWidget {
               ]),
               sectionSpacing,
               _buildInfoCard('Uploaded Documents', [
-                _buildDocumentRow('Registration Certificate', user.registrationCertificate),
+                _buildDocumentRow(context, 'Registration Certificate', user.registrationCertificate),
               ]),
             ] else ...[
               Row(
@@ -460,7 +460,7 @@ class AdminStaffProfileView extends StatelessWidget {
                         ]),
                         sectionSpacing,
                         _buildInfoCard('Uploaded Documents', [
-                          _buildDocumentRow('Registration Certificate', user.registrationCertificate),
+                          _buildDocumentRow(context, 'Registration Certificate', user.registrationCertificate),
                         ]),
                       ],
                     ),

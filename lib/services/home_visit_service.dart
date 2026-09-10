@@ -1,4 +1,3 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/home_visit_model.dart';
 import 'api_service.dart';
 import '../config/api_config.dart';
@@ -294,8 +293,9 @@ class HomeVisitService {
     int visitId,
     String attenderName,
     String attenderRelation,
-    String signatureUrl,
-  ) async {
+    String signatureUrl, {
+    String? feedback,
+  }) async {
     try {
       final response = await ApiService.post(
         '$baseUrl/home-visits/$visitId/verify-and-bill',
@@ -303,6 +303,8 @@ class HomeVisitService {
           'attender_name': attenderName,
           'attender_relation': attenderRelation,
           'attender_signature_url': signatureUrl,
+          if (feedback != null && feedback.trim().isNotEmpty)
+            'feedback': feedback.trim(),
         },
       );
       final body = ApiService.decodeJsonResponse(response);

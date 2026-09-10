@@ -120,6 +120,45 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                       Expanded(child: _infoColumn('Assigned Nurse', visit.nurseName ?? 'Nurse')),
                     ],
                   ),
+                  if ((visit.feedback != null && visit.feedback!.trim().isNotEmpty) ||
+                      (invoiceData['visit'] is Map && invoiceData['visit']['feedback'] != null && invoiceData['visit']['feedback'].toString().trim().isNotEmpty)) ...[
+                    const SizedBox(height: 12),
+                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                    const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.record_voice_over_outlined, size: 16, color: AppTheme.primaryColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Visit & Attender Feedback',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                (visit.feedback != null && visit.feedback!.trim().isNotEmpty)
+                                    ? visit.feedback!
+                                    : invoiceData['visit']['feedback'].toString(),
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  color: Color(0xFF334155),
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
