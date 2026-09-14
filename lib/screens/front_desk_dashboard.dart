@@ -23,6 +23,7 @@ import '../widgets/custom_dropdown_search.dart';
 import 'front_desk_admission_counter.dart';
 import '../widgets/user_profile_dialog.dart';
 import 'billing_management_view.dart';
+import '../utils/capitalize_formatter.dart';
 import '../utils/modal_history_helper.dart';
 
 class FrontDeskDashboardScreen extends StatefulWidget {
@@ -799,6 +800,14 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
               child: const Row(
                 children: [
@@ -1941,10 +1950,14 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
           controller: controller,
           readOnly: isReadOnly,
           keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+          textCapitalization: (!isNumeric && !isReadOnly) ? TextCapitalization.words : TextCapitalization.none,
           maxLength: maxLength,
           inputFormatters: isNumeric
               ? [FilteringTextInputFormatter.digitsOnly]
-              : (isReadOnly ? null : [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s./,()\-]'))]),
+              : (isReadOnly ? null : [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s./,()\-]')),
+                  const CapitalizeWordsInputFormatter(),
+                ]),
           mouseCursor: onTap != null 
               ? SystemMouseCursors.click 
               : (isReadOnly ? SystemMouseCursors.forbidden : null),

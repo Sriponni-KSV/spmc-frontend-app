@@ -56,7 +56,7 @@ class _StatCardState extends State<StatCard> {
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(widget.isMobile ? 14 : 20),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
@@ -79,20 +79,20 @@ class _StatCardState extends State<StatCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(9),
+              padding: EdgeInsets.all(widget.isMobile ? 7 : 9),
               decoration: BoxDecoration(
                 color: widget.color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(widget.icon, color: widget.color, size: 20),
+              child: Icon(widget.icon, color: widget.color, size: widget.isMobile ? 18 : 20),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: widget.isMobile ? 10 : 14),
             Text(
               widget.value,
-              style: const TextStyle(
-                fontSize: 26,
+              style: TextStyle(
+                fontSize: widget.isMobile ? 22 : 26,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF1A202C),
+                color: const Color(0xFF1A202C),
                 letterSpacing: -0.5,
               ),
               maxLines: 1,
@@ -101,9 +101,9 @@ class _StatCardState extends State<StatCard> {
             const SizedBox(height: 3),
             Text(
               widget.title,
-              style: const TextStyle(
-                color: Color(0xFF718096),
-                fontSize: 12,
+              style: TextStyle(
+                color: const Color(0xFF718096),
+                fontSize: widget.isMobile ? 11 : 12,
                 fontWeight: FontWeight.w500,
               ),
               maxLines: 1,
@@ -114,12 +114,6 @@ class _StatCardState extends State<StatCard> {
       ),
     );
 
-    if (widget.isMobile) {
-      return SizedBox(
-        width: (MediaQuery.of(context).size.width - 48) / 2,
-        child: card,
-      );
-    }
     return card;
   }
 }
@@ -307,6 +301,7 @@ class CustomSpeedDial extends StatefulWidget {
 class _CustomSpeedDialState extends State<CustomSpeedDial>
     with SingleTickerProviderStateMixin {
   bool _isOpen = false;
+  double _dragOffsetY = 0.0;
   late AnimationController _controller;
   late Animation<double> _expandAnimation;
 
@@ -353,109 +348,121 @@ class _CustomSpeedDialState extends State<CustomSpeedDial>
       return const SizedBox.shrink();
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        if (_isOpen)
-          ...widget.children.asMap().entries.map((entry) {
-            SpeedDialChild child = entry.value;
+    final double screenHeight = MediaQuery.of(context).size.height;
+    // Allow dragging upwards up to roughly half of the screen height along the vertical line
+    final double maxUpwardDrag = -(screenHeight * 0.45);
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: FadeTransition(
-                opacity: _expandAnimation,
-                child: ScaleTransition(
-                  alignment: Alignment.bottomRight,
-                  scale: _expandAnimation,
-                  child: InkWell(
-                    onTap: () {
-                      _toggle();
-                      child.onTap();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: child.color,
-                        borderRadius: BorderRadius.circular(32),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(child.icon, color: Colors.white, size: 24),
-                          const SizedBox(width: 12),
-                          Text(
-                            child.label,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.white,
-                              fontFamily: AppTheme.fontFamily,
+    return Transform.translate(
+      offset: Offset(0, _dragOffsetY),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (_isOpen)
+            ...widget.children.asMap().entries.map((entry) {
+              SpeedDialChild child = entry.value;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: FadeTransition(
+                  opacity: _expandAnimation,
+                  child: ScaleTransition(
+                    alignment: Alignment.bottomRight,
+                    scale: _expandAnimation,
+                    child: InkWell(
+                      onTap: () {
+                        _toggle();
+                        child.onTap();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: child.color,
+                          borderRadius: BorderRadius.circular(32),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(child.icon, color: Colors.white, size: 24),
+                            const SizedBox(width: 12),
+                            Text(
+                              child.label,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.white,
+                                fontFamily: AppTheme.fontFamily,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
-        const SizedBox(height: 8),
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: _toggle,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: _isOpen
-                    ? const Color(0xFFE53E3E)
-                    : AppTheme.primaryColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  transitionBuilder: (Widget child, Animation<double> anim) {
-                    return RotationTransition(
-                      turns: _isOpen
-                          ? anim
-                          : Tween<double>(begin: 0.125, end: 0).animate(anim),
-                      child: FadeTransition(opacity: anim, child: child),
-                    );
-                  },
-                  child: Icon(
-                    _isOpen ? Icons.close : Icons.add,
-                    key: ValueKey<bool>(_isOpen),
-                    color: Colors.white,
-                    size: 32,
+              );
+            }).toList(),
+          const SizedBox(height: 8),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: _toggle,
+              onVerticalDragUpdate: (details) {
+                setState(() {
+                  _dragOffsetY = (_dragOffsetY + details.delta.dy).clamp(maxUpwardDrag, 0.0);
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: _isOpen
+                      ? const Color(0xFFE53E3E)
+                      : AppTheme.primaryColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    transitionBuilder: (Widget child, Animation<double> anim) {
+                      return RotationTransition(
+                        turns: _isOpen
+                            ? anim
+                            : Tween<double>(begin: 0.125, end: 0).animate(anim),
+                        child: FadeTransition(opacity: anim, child: child),
+                      );
+                    },
+                    child: Icon(
+                      _isOpen ? Icons.close : Icons.add,
+                      key: ValueKey<bool>(_isOpen),
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -569,7 +576,12 @@ class _SearchOverlayState extends State<SearchOverlay> {
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            filled: false,
                             fillColor: Colors.transparent,
+                            contentPadding: EdgeInsets.zero,
                           ),
                         ),
                       ),

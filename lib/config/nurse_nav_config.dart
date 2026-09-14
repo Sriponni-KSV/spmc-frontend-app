@@ -36,8 +36,8 @@ class NurseNavConfig {
   /// Home Visit Care & Services (Visible)
   static const bool showHomeVisitCare = true;
 
-  /// Appointments (Hidden - Change to true to display)
-  static const bool showAppointments = false;
+  /// Appointments (Visible)
+  static const bool showAppointments = true;
 
   /// Doctors Directory (Hidden - Change to true to display)
   static const bool showDoctors = false;

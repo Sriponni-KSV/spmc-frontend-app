@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/custom_dropdown_search.dart';
@@ -18,6 +19,7 @@ import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
 import '../models/home_visit_model.dart';
 import '../services/home_visit_service.dart';
+import '../utils/capitalize_formatter.dart';
 
 class PatientsView extends StatefulWidget {
   final List<PatientModel> patients;
@@ -1014,11 +1016,12 @@ class _PatientsViewState extends State<PatientsView> {
         onTap: () => _viewPatient(patient),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
                     decoration: BoxDecoration(
@@ -1026,31 +1029,31 @@ class _PatientsViewState extends State<PatientsView> {
                       border: Border.all(color: AppTheme.borderColor),
                     ),
                     child: CircleAvatar(
-                      radius: 26,
+                      radius: 22,
                       backgroundColor: AppTheme.getAvatarColors(name)['bg'],
                       child: Text(
                         initials,
                         style: TextStyle(
                           color: AppTheme.getAvatarColors(name)['text'],
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 15,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Flexible(
+                            Expanded(
                               child: Text(
                                 name,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 17,
+                                  fontSize: 16,
                                   color: AppTheme.textPrimaryColor,
                                 ),
                                 maxLines: 1,
@@ -1058,13 +1061,13 @@ class _PatientsViewState extends State<PatientsView> {
                               ),
                             ),
                             if (isQuick) ...[
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               InkWell(
                                 onTap: () => widget.onCompleteProfile(patient),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
+                                    horizontal: 8,
+                                    vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF3E8FF),
@@ -1072,18 +1075,18 @@ class _PatientsViewState extends State<PatientsView> {
                                     border: Border.all(
                                       color: const Color(
                                         0xFF7C3AED,
-                                      ).withOpacity(0.3),
+                                      ).withValues(alpha: 0.3),
                                     ),
                                   ),
-                                  child: Row(
+                                  child: const Row(
                                     mainAxisSize: MainAxisSize.min,
-                                    children: const [
+                                    children: [
                                       Icon(
                                         Icons.edit_note,
-                                        size: 14,
+                                        size: 13,
                                         color: Color(0xFF7C3AED),
                                       ),
-                                      const SizedBox(width: 4),
+                                      SizedBox(width: 3),
                                       Text(
                                         'Complete',
                                         style: TextStyle(
@@ -1097,80 +1100,102 @@ class _PatientsViewState extends State<PatientsView> {
                                 ),
                               ),
                             ],
+                            const SizedBox(width: 6),
+                            StatusChip(status: 'Active'),
+                            if (Provider.of<AuthProvider>(
+                                  context,
+                                  listen: false,
+                                ).user?.hasPermission('delete_patient') ??
+                                false)
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.redAccent,
+                                  size: 18,
+                                ),
+                                padding: const EdgeInsets.only(left: 4),
+                                constraints: const BoxConstraints(),
+                                onPressed: () =>
+                                    _showDeletePatientConfirmation(patient),
+                              ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Text(
                           '$ageStr • ID: ${patient.patientId ?? "---"}',
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  StatusChip(status: 'Active'),
-                  if (Provider.of<AuthProvider>(
-                        context,
-                        listen: false,
-                      ).user?.hasPermission('delete_patient') ??
-                      false)
-                    IconButton(
-                      icon: const Icon(
-                        Icons.delete_outline,
-                        color: Colors.redAccent,
-                        size: 20,
-                      ),
-                      padding: const EdgeInsets.only(left: 8),
-                      constraints: const BoxConstraints(),
-                      onPressed: () => _showDeletePatientConfirmation(patient),
-                    ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
                 decoration: BoxDecoration(
                   color: AppTheme.backgroundColor,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
                     const Icon(
                       Icons.phone_outlined,
-                      size: 16,
+                      size: 15,
                       color: AppTheme.textSecondaryColor,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      patient.phone,
+                      patient.phone.isNotEmpty
+                          ? patient.phone
+                          : 'Not Provided',
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w500,
                         color: AppTheme.textPrimaryColor,
                       ),
                     ),
-                    const Spacer(),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _viewPatient(patient),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      height: 38,
+                      child: OutlinedButton(
+                        onPressed: () => _viewPatient(patient),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 0,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          side: const BorderSide(color: AppTheme.borderColor),
                         ),
-                        side: const BorderSide(color: AppTheme.borderColor),
-                      ),
-                      child: const Text(
-                        'View Details',
-                        style: TextStyle(color: AppTheme.textPrimaryColor),
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'View Details',
+                            style: TextStyle(
+                              color: AppTheme.textPrimaryColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1180,20 +1205,35 @@ class _PatientsViewState extends State<PatientsView> {
                       listen: false,
                     ).user?.role,
                   )) ...[
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => widget.onBookAppointment(patient),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                      child: SizedBox(
+                        height: 38,
+                        child: ElevatedButton(
+                          onPressed: () => widget.onBookAppointment(patient),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 0,
+                            ),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Book Appt.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ),
-                        child: const Text('Book Appt.'),
                       ),
                     ),
                   ],
@@ -1202,20 +1242,35 @@ class _PatientsViewState extends State<PatientsView> {
                         listen: false,
                       ).user?.hasPermission('add_patient') ??
                       false) ...[
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => widget.onCompleteProfile(patient),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF6AD55),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                      child: SizedBox(
+                        height: 38,
+                        child: ElevatedButton(
+                          onPressed: () => widget.onCompleteProfile(patient),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF6AD55),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 0,
+                            ),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              isQuick ? 'Complete' : 'Edit',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ),
-                        child: Text(isQuick ? 'Complete' : 'Edit'),
                       ),
                     ),
                   ],
@@ -2133,10 +2188,12 @@ class _PatientsViewState extends State<PatientsView> {
                                 _buildQuickTextField(
                                   controller: nameCtrl,
                                   hint: 'Enter patient\'s full name',
+                                  textCapitalization: TextCapitalization.words,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.allow(
                                       RegExp(r'[a-zA-Z\s.]'),
                                     ),
+                                    const CapitalizeWordsInputFormatter(),
                                     LengthLimitingTextInputFormatter(60),
                                   ],
                                   validator: (val) {
@@ -2185,10 +2242,12 @@ class _PatientsViewState extends State<PatientsView> {
                                           _buildQuickTextField(
                                             controller: nameCtrl,
                                             hint: 'Enter patient\'s full name',
+                                            textCapitalization: TextCapitalization.words,
                                             inputFormatters: [
                                               FilteringTextInputFormatter.allow(
                                                 RegExp(r'[a-zA-Z\s.]'),
                                               ),
+                                              const CapitalizeWordsInputFormatter(),
                                               LengthLimitingTextInputFormatter(
                                                 60,
                                               ),
@@ -2841,6 +2900,7 @@ class _PatientsViewState extends State<PatientsView> {
     bool readOnly = false,
     VoidCallback? onTap,
     TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.none,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
     void Function(String)? onChanged,
@@ -2853,6 +2913,7 @@ class _PatientsViewState extends State<PatientsView> {
       onTap: onTap,
       onChanged: onChanged,
       keyboardType: keyboardType,
+      textCapitalization: textCapitalization,
       inputFormatters: inputFormatters,
       validator: validator,
       autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -3419,7 +3480,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.displayAge}  •  ${p.gender}  •  Blood Group: ${p.bloodGroup.isNotEmpty ? p.bloodGroup : "N/A"}',
+                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.displayAge}  •  ${p.gender}${p.bloodGroup.isNotEmpty ? "  •  Blood Group: ${p.bloodGroup}" : ""}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: isTablet ? 14 : 15,
@@ -3464,56 +3525,86 @@ class _PatientDetailViewState extends State<PatientDetailView>
             ),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         const Divider(color: Colors.white24, height: 1),
-        const SizedBox(height: 16),
-        // Contact info — stacked vertically so each full value is visible
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        const SizedBox(height: 14),
+        // Contact info & Onboarded info
+        Wrap(
+          spacing: 28,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             if (p.phone.isNotEmpty)
               _buildContactIconItem(
                 Icons.phone_outlined,
                 p.phone,
               ),
-            if (p.phone.isNotEmpty) const SizedBox(height: 8),
             _buildContactIconItem(
               Icons.mail_outline,
               p.email.isNotEmpty ? p.email : 'Not Provided',
             ),
-            if (p.fullAddress.isNotEmpty) const SizedBox(height: 8),
-            if (p.fullAddress.isNotEmpty)
+            if (p.createdAt != null && p.createdAt!.isNotEmpty)
               _buildContactIconItem(
-                Icons.location_on_outlined,
-                p.fullAddress,
+                Icons.calendar_today_outlined,
+                'Onboarded: ${p.createdAt!}',
               ),
           ],
         ),
+        if (p.fullAddress.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _buildContactIconItem(
+            Icons.location_on_outlined,
+            p.fullAddress,
+            isAddress: true,
+          ),
+        ],
       ],
     );
   }
 
-  Widget _buildContactIconItem(IconData icon, String text) {
+  Widget _buildContactIconItem(
+    IconData icon,
+    String text, {
+    bool isAddress = false,
+  }) {
+    if (isAddress) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, size: 18, color: Colors.white.withOpacity(0.9)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 1.3,
+              ),
+              softWrap: true,
+            ),
+          ),
+        ],
+      );
+    }
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Pin icon to top-left, never shrinks
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Icon(icon, size: 20, color: Colors.white.withOpacity(0.9)),
-        ),
-        const SizedBox(width: 10),
-        // Text expands to fill remaining width and wraps freely
-        Expanded(
+        Icon(icon, size: 18, color: Colors.white.withValues(alpha: 0.9)),
+        const SizedBox(width: 8),
+        Flexible(
           child: Text(
             text,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 14,
               fontWeight: FontWeight.w400,
-              height: 1.4,
             ),
-            softWrap: true,
           ),
         ),
       ],
@@ -3528,7 +3619,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
           children: [
             CircleAvatar(
               radius: 28,
-              backgroundColor: Colors.white.withOpacity(0.2),
+              backgroundColor: Colors.white.withValues(alpha: 0.2),
               child: Text(
                 _initials,
                 style: const TextStyle(
@@ -3557,7 +3648,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   Text(
                     'ID: ${p.patientId ?? "N/A"}',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.95),
+                      color: Colors.white.withValues(alpha: 0.95),
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -3566,9 +3657,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${p.displayAge}  •  ${p.gender}',
+                    '${p.displayAge}  •  ${p.gender}${p.bloodGroup.isNotEmpty ? "  •  ${p.bloodGroup}" : ""}',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.85),
+                      color: Colors.white.withValues(alpha: 0.85),
                       fontSize: 12,
                     ),
                     maxLines: 1,
@@ -3613,8 +3704,19 @@ class _PatientDetailViewState extends State<PatientDetailView>
         const SizedBox(height: 12),
         if (p.phone.isNotEmpty)
           _buildContactItem(Icons.phone_outlined, p.phone),
+        if (p.email.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          _buildContactItem(Icons.mail_outline, p.email),
+        ],
+        if (p.createdAt != null && p.createdAt!.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          _buildContactItem(
+            Icons.calendar_today_outlined,
+            'Onboarded: ${p.createdAt!}',
+          ),
+        ],
         if (p.fullAddress.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           _buildContactItem(Icons.location_on_outlined, p.fullAddress),
         ],
       ],
@@ -3779,7 +3881,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
           if (isMobile)
             LayoutBuilder(
               builder: (context, constraints) {
-                final double itemWidth = (constraints.maxWidth - 10) / 2;
+                if (constraints.maxWidth <= 10) return const SizedBox.shrink();
+                final double itemWidth =
+                    math.max(1.0, (constraints.maxWidth - 10) / 2);
                 return Wrap(
                   spacing: 10,
                   runSpacing: 10,
@@ -3797,7 +3901,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
           else if (isTablet)
             LayoutBuilder(
               builder: (context, constraints) {
-                final double itemWidth = (constraints.maxWidth - 24) / 3;
+                if (constraints.maxWidth <= 24) return const SizedBox.shrink();
+                final double itemWidth =
+                    math.max(1.0, (constraints.maxWidth - 24) / 3);
                 return Wrap(
                   spacing: 12,
                   runSpacing: 12,

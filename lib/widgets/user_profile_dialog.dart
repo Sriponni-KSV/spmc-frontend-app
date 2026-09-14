@@ -162,6 +162,14 @@ class UserProfileDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   _buildDetailRow(
+                    icon: Icons.calendar_today_outlined,
+                    label: 'Onboarded Date',
+                    value: user.createdAt != null && user.createdAt!.isNotEmpty
+                        ? user.createdAt!
+                        : 'N/A',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildDetailRow(
                     icon: Icons.info_outline,
                     label: 'Status',
                     value: user.status,

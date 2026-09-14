@@ -345,6 +345,26 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                       controller: _reasonController,
                       hint: 'Fever, checkup, etc.',
                       isNumeric: false,
+                      maxLength: 500,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                        ),
+                        LengthLimitingTextInputFormatter(500),
+                      ],
+                      validator: (val) {
+                        final text = val?.trim() ?? '';
+                        if (text.isEmpty) {
+                          return 'Reason for visit is required';
+                        }
+                        if (!RegExp(r'[a-zA-Z]').hasMatch(text)) {
+                          return 'Reason must contain at least one alphabet character';
+                        }
+                        if (text.length > 500) {
+                          return 'Reason must not exceed 500 characters';
+                        }
+                        return null;
+                      },
                       onChanged: (_) => setDialogState(() {}),
                     ),
                     const SizedBox(height: 24),
@@ -544,7 +564,13 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   void _validateForm() {
     final reason = _reasonController.text.trim();
     if (reason.isEmpty) {
-      throw 'Please enter reason for visit';
+      throw 'Reason for visit is required';
+    }
+    if (!RegExp(r'[a-zA-Z]').hasMatch(reason)) {
+      throw 'Reason for visit must contain at least one alphabet character';
+    }
+    if (reason.length > 500) {
+      throw 'Reason for visit must not exceed 500 characters';
     }
 
     final sys = _bpSystolicController.text.trim();
@@ -878,6 +904,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
     required String hint,
     bool isNumeric = true,
     int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
     ValueChanged<String>? onChanged,
   }) {
@@ -919,9 +946,15 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
       maxLength: maxLength,
       keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
-      inputFormatters: isNumeric
-          ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
-          : null,
+      inputFormatters: inputFormatters ??
+          (isNumeric
+              ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
+              : [
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                  ),
+                  LengthLimitingTextInputFormatter(maxLength ?? 500),
+                ]),
     );
   }
 
@@ -1131,8 +1164,15 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       ),
     );
 
+    String searchHint = 'Search patients...';
+    if (_currentViewMode == 'Hospital View') {
+      searchHint = 'Search doctors by name, ID, or department...';
+    } else if (_currentViewMode == 'Combo View') {
+      searchHint = 'Search patients, doctors, departments...';
+    }
+
     final searchWidget = Container(
-      width: isMobile ? double.infinity : 250,
+      width: isMobile ? double.infinity : 280,
       height: 40,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1152,16 +1192,24 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             child: TextField(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _searchQuery = v),
-              decoration: const InputDecoration(
-                hintText: 'Search patients...',
-                hintStyle: TextStyle(
+              decoration: InputDecoration(
+                hintText: searchHint,
+                hintStyle: const TextStyle(
                   fontSize: 13,
                   color: AppTheme.textSecondaryColor,
                 ),
+                filled: false,
+                fillColor: Colors.transparent,
                 border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
                 isDense: true,
               ),
-              style: const TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
             ),
           ),
           if (_searchQuery.isNotEmpty)
@@ -2250,6 +2298,44 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       );
     }
 
+    final query = _searchQuery.trim().toLowerCase();
+    final filteredDoctors = _doctors.where((doc) {
+      if (query.isEmpty) return true;
+      final nameMatches = doc.fullname.toLowerCase().contains(query);
+      final idMatches =
+          doc.staffUniqueId?.toLowerCase().contains(query) ?? false;
+      final specMatches =
+          doc.specialization?.toLowerCase().contains(query) ?? false;
+      return nameMatches || idMatches || specMatches;
+    }).toList();
+
+    if (filteredDoctors.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.search_off_rounded,
+                size: 48,
+                color: Colors.grey.shade400,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No doctors matching "$_searchQuery"',
+                style: const TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return GridView.builder(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -2258,9 +2344,9 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
-      itemCount: _doctors.length,
+      itemCount: filteredDoctors.length,
       itemBuilder: (context, idx) {
-        final doc = _doctors[idx];
+        final doc = filteredDoctors[idx];
         final slots = _generateSlotsForDoctor(doc);
         final bool isAvailable = _isDoctorAvailableOnDate(doc, _filterDate);
 
@@ -2453,13 +2539,11 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       if (!dateMatch) return false;
 
       if (_searchQuery.isNotEmpty) {
-        return a.patientName.toLowerCase().contains(
-              _searchQuery.toLowerCase(),
-            ) ||
-            (a.patientDisplayId?.toLowerCase().contains(
-                  _searchQuery.toLowerCase(),
-                ) ??
-                false);
+        final q = _searchQuery.toLowerCase();
+        return a.patientName.toLowerCase().contains(q) ||
+            (a.patientDisplayId?.toLowerCase().contains(q) ?? false) ||
+            a.doctorName.toLowerCase().contains(q) ||
+            a.department.toLowerCase().contains(q);
       }
       return true;
     }).toList();

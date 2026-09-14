@@ -64,8 +64,8 @@ class AdminNavConfig {
   /// Access Control / RBAC (Hidden - Change to true to display)
   static const bool showAccessControl = false;
 
-  /// Appointments (Hidden - Change to true to display)
-  static const bool showAppointments = false;
+  /// Appointments (Visible)
+  static const bool showAppointments = true;
 
   /// OPD Management (Hidden - Change to true to display)
   static const bool showOpdManagement = false;

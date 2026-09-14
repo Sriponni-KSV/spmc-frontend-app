@@ -11,6 +11,7 @@ import '../services/media_service.dart';
 import '../widgets/document_view_dialog.dart';
 import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
+import '../utils/capitalize_formatter.dart';
 
 class NurseProfileView extends StatefulWidget {
   final bool isEditing;
@@ -581,6 +582,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
           autovalidateMode: AutovalidateMode.onUserInteraction,
           validator: validator,
           keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+          textCapitalization: (!isNumeric && !isReadOnly) ? TextCapitalization.words : TextCapitalization.none,
           maxLength: maxLength,
           inputFormatters: isNumeric
               ? [FilteringTextInputFormatter.digitsOnly]
@@ -590,6 +592,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                         ? RegExp(r'[a-zA-Z0-9\s./,()\-]') 
                         : RegExp(r'[a-zA-Z\s./,()\-]'),
                   ),
+                  const CapitalizeWordsInputFormatter(),
                 ]),
           mouseCursor: onTap != null 
               ? SystemMouseCursors.click 
