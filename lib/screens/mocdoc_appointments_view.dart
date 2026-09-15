@@ -36,6 +36,9 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   DateTime _currentMonth = DateTime.now();
   String _searchQuery = '';
   final TextEditingController _searchCtrl = TextEditingController();
+  String _slotSearchQuery = '';
+  final TextEditingController _slotSearchCtrl = TextEditingController();
+  String _selectedHospitalDepartment = 'All Departments';
 
   // Selected doctor for "Doctor View"
   UserModel? _selectedFilterDoctor;
@@ -96,6 +99,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _slotSearchCtrl.dispose();
     _bpSystolicController.dispose();
     _bpDiastolicController.dispose();
     _sugarController.dispose();
@@ -131,6 +135,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       }).toList();
 
       activeDoctors.sort((a, b) => a.fullname.compareTo(b.fullname));
+      appointments.sort(_compareAppointmentTime);
 
       if (!mounted) return;
       setState(() {
@@ -620,10 +625,45 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
     }
   }
 
+  int _compareAppointmentTime(AppointmentModel a, AppointmentModel b) {
+    if (a.appointmentTime.isEmpty && b.appointmentTime.isEmpty) return 0;
+    if (a.appointmentTime.isEmpty) return 1;
+    if (b.appointmentTime.isEmpty) return -1;
+
+    DateTime? parseTime(String t) {
+      final clean = t.trim();
+      final formats = [
+        DateFormat('hh:mm a'),
+        DateFormat('h:mm a'),
+        DateFormat('hh:mma'),
+        DateFormat('h:mma'),
+        DateFormat('HH:mm:ss'),
+        DateFormat('HH:mm'),
+      ];
+      for (final f in formats) {
+        try {
+          return f.parse(clean);
+        } catch (_) {}
+      }
+      return null;
+    }
+
+    final dtA = parseTime(a.appointmentTime);
+    final dtB = parseTime(b.appointmentTime);
+
+    if (dtA != null && dtB != null) {
+      return dtA.compareTo(dtB);
+    }
+    return a.appointmentTime.compareTo(b.appointmentTime);
+  }
+
   void _showMoreAppointmentsDialog(
     DateTime date,
     List<AppointmentModel> appts,
   ) {
+    final sortedAppts = List<AppointmentModel>.from(appts)
+      ..sort(_compareAppointmentTime);
+
     showDialog(
       context: context,
       builder: (context) {
@@ -665,10 +705,10 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             constraints: const BoxConstraints(maxHeight: 450),
             child: ListView.separated(
               shrinkWrap: true,
-              itemCount: appts.length,
+              itemCount: sortedAppts.length,
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                final a = appts[index];
+                final a = sortedAppts[index];
                 final statusColor = AppTheme.getStatusTextColor(a.status);
                 final statusBg = AppTheme.getStatusBgColor(a.status);
 
@@ -772,7 +812,6 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                           ),
                         ),
                         onPressed: () {
-                          Navigator.pop(context);
                           _openViewDetailsDialog(a);
                         },
                       ),
@@ -811,45 +850,170 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   }
 
   void _cancelAppointment(AppointmentModel appt) async {
+    final formKey = GlobalKey<FormState>();
+    final ctrl = TextEditingController();
     String? cancelReason;
+
     await showDialog(
       context: context,
       builder: (context) {
-        final ctrl = TextEditingController();
         return AlertDialog(
-          title: const Text('Cancel Appointment'),
-          content: TextField(
-            controller: ctrl,
-            decoration: const InputDecoration(
-              hintText: 'Enter cancellation reason (required)',
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: AppTheme.dangerColor,
+                size: 24,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Cancel Appointment',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimaryColor,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 420,
+            child: Form(
+              key: formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Are you sure you want to cancel the appointment for ${appt.patientName}?',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildLabel('Cancellation Reason *'),
+                  TextFormField(
+                    controller: ctrl,
+                    maxLines: 3,
+                    maxLength: 200,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                      ),
+                      LengthLimitingTextInputFormatter(200),
+                    ],
+                    decoration: InputDecoration(
+                      hintText: 'Enter reason for cancellation...',
+                      hintStyle: const TextStyle(
+                        color: AppTheme.textMutedColor,
+                        fontSize: 13,
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFFF1F5F9),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide:
+                            const BorderSide(color: AppTheme.borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide:
+                            const BorderSide(color: AppTheme.borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(
+                          color: AppTheme.primaryColor,
+                          width: 1.5,
+                        ),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(
+                          color: AppTheme.dangerColor,
+                          width: 1.5,
+                        ),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(
+                          color: AppTheme.dangerColor,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textPrimaryColor,
+                    ),
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) {
+                        return 'Cancellation reason is required';
+                      }
+                      if (val.trim().length < 3) {
+                        return 'Reason must be at least 3 characters';
+                      }
+                      if (val.trim().length > 200) {
+                        return 'Reason cannot exceed 200 characters';
+                      }
+                      if (!RegExp(r'[a-zA-Z]').hasMatch(val)) {
+                        return 'Reason must contain at least one letter';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: () => Navigator.pop(context),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.textSecondaryColor,
+                side: const BorderSide(color: AppTheme.borderColor),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
               child: const Text('Back'),
             ),
             ElevatedButton(
               onPressed: () {
-                if (ctrl.text.trim().isNotEmpty) {
+                if (formKey.currentState!.validate()) {
                   cancelReason = ctrl.text.trim();
                   Navigator.pop(context);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Reason is required')),
-                  );
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: AppTheme.dangerColor,
                 foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 0,
               ),
-              child: const Text('Cancel'),
+              child: const Text('Cancel Appointment'),
             ),
           ],
         );
       },
     );
+
     if (cancelReason != null) {
       try {
         await _appointmentController.updateStatus(
@@ -858,10 +1022,23 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
           cancellationReason: cancelReason,
         );
         _fetchData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Appointment cancelled successfully'),
+              backgroundColor: AppTheme.secondaryColor,
+            ),
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+        }
       }
     }
   }
@@ -1103,7 +1280,92 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
     );
   }
 
+  Widget _buildSearchInput({required String searchHint, double height = 40}) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.search_rounded,
+            size: 18,
+            color: AppTheme.textSecondaryColor,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (v) => setState(() => _searchQuery = v),
+              decoration: InputDecoration(
+                hintText: searchHint,
+                hintStyle: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondaryColor,
+                  fontWeight: FontWeight.normal,
+                ),
+                filled: false,
+                fillColor: Colors.transparent,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                isDense: true,
+              ),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppTheme.textPrimaryColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          if (_searchQuery.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                _searchCtrl.clear();
+                setState(() => _searchQuery = '');
+              },
+              child: const Icon(
+                Icons.cancel,
+                size: 16,
+                color: AppTheme.textSecondaryColor,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFiltersRow(bool isMobile) {
+    if (widget.hideHeader) {
+      if (_currentViewMode == 'Combo View') {
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 16 : 24,
+            vertical: 8,
+          ),
+          child: _buildSearchInput(
+            searchHint: 'Search by patient name, ID, phone, doctor...',
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
     final modes = [
       {'key': 'Table', 'label': 'Table View'},
       {'key': 'Hospital View', 'label': 'Hospital View'},
@@ -1164,86 +1426,9 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       ),
     );
 
-    String searchHint = 'Search patients...';
-    if (_currentViewMode == 'Hospital View') {
-      searchHint = 'Search doctors by name, ID, or department...';
-    } else if (_currentViewMode == 'Combo View') {
-      searchHint = 'Search patients, doctors, departments...';
-    }
-
-    final searchWidget = Container(
-      width: isMobile ? double.infinity : 280,
-      height: 40,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.search,
-            size: 16,
-            color: AppTheme.textSecondaryColor,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: _searchCtrl,
-              onChanged: (v) => setState(() => _searchQuery = v),
-              decoration: InputDecoration(
-                hintText: searchHint,
-                hintStyle: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondaryColor,
-                ),
-                filled: false,
-                fillColor: Colors.transparent,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                isDense: true,
-              ),
-              style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
-            ),
-          ),
-          if (_searchQuery.isNotEmpty)
-            GestureDetector(
-              onTap: () {
-                _searchCtrl.clear();
-                setState(() => _searchQuery = '');
-              },
-              child: const Icon(
-                Icons.clear,
-                size: 16,
-                color: AppTheme.textSecondaryColor,
-              ),
-            ),
-        ],
-      ),
-    );
-
-    if (widget.hideHeader) {
-      if (isMobile) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: searchWidget,
-        );
-      }
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-        child: Row(
-          children: [
-            const Spacer(),
-            searchWidget,
-          ],
-        ),
-      );
+    String searchHint = 'Search doctors by name, ID, or department...';
+    if (_currentViewMode == 'Combo View') {
+      searchHint = 'Search by patient name, ID, phone, doctor...';
     }
 
     if (isMobile) {
@@ -1256,23 +1441,30 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
               scrollDirection: Axis.horizontal,
               child: switcherWidget,
             ),
-            const SizedBox(height: 10),
-            searchWidget,
+            if (_currentViewMode != 'Doctor View') ...[
+              const SizedBox(height: 10),
+              _buildSearchInput(searchHint: searchHint),
+            ],
           ],
         ),
       );
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
       child: Row(
         children: [
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: switcherWidget,
           ),
-          const Spacer(),
-          searchWidget,
+          if (_currentViewMode != 'Doctor View') ...[
+            const Spacer(),
+            SizedBox(
+              width: 320,
+              child: _buildSearchInput(searchHint: searchHint),
+            ),
+          ],
         ],
       ),
     );
@@ -1663,7 +1855,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                     a.appointmentDate == dateStr &&
                     a.status != 'Cancelled' &&
                     a.status.toLowerCase() != 'admitted';
-              }).toList();
+              }).toList()..sort(_compareAppointmentTime);
 
               return InkWell(
                 onTap: () {
@@ -1886,26 +2078,66 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       return const Center(child: Text('No slots configured for this doctor.'));
     }
 
+    final effectiveQuery = _slotSearchQuery.trim().isNotEmpty
+        ? _slotSearchQuery.trim().toLowerCase()
+        : _searchQuery.trim().toLowerCase();
+
     final displaySlots = slots.where((s) {
       final appt = _getAppointmentInSlot(
         _selectedFilterDoctor!,
         s,
         _filterDate,
       );
+      if (effectiveQuery.isNotEmpty) {
+        if (appt == null) return false;
+        final nameMatch =
+            appt.patientName.toLowerCase().contains(effectiveQuery);
+        final displayIdMatch =
+            appt.patientDisplayId?.toLowerCase().contains(effectiveQuery) ??
+                false;
+        final idMatch =
+            appt.patientId.toString().toLowerCase().contains(effectiveQuery);
+        final phoneMatch =
+            appt.patientPhone?.toLowerCase().contains(effectiveQuery) ?? false;
+        return nameMatch || displayIdMatch || idMatch || phoneMatch;
+      }
       return appt != null || !_isSlotInPast(s, _filterDate);
     }).toList();
 
     final slotsContent = displaySlots.isEmpty
-        ? const Padding(
-            padding: EdgeInsets.all(24.0),
+        ? Padding(
+            padding: const EdgeInsets.all(24.0),
             child: Center(
-              child: Text(
-                'No slots available.',
-                style: TextStyle(
-                  color: AppTheme.textSecondaryColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (effectiveQuery.isNotEmpty) ...[
+                    const Icon(
+                      Icons.person_search_outlined,
+                      size: 40,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No booked slots matching "$effectiveQuery"',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ] else ...[
+                    const Text(
+                      'No slots available.',
+                      style: TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           )
@@ -1933,18 +2165,6 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                 _filterDate,
               );
 
-              if (_searchQuery.isNotEmpty && appt != null) {
-                final match =
-                    appt.patientName.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ) ||
-                    (appt.patientDisplayId?.toLowerCase().contains(
-                          _searchQuery.toLowerCase(),
-                        ) ??
-                        false);
-                if (!match) return const SizedBox.shrink();
-              }
-
               if (appt != null) {
                 return _buildBookedSlotCard(appt);
               } else {
@@ -1969,14 +2189,75 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                 color: AppTheme.primaryColor,
               ),
               const SizedBox(width: 8),
-              Text(
-                'Slots for ${DateFormat('dd MMM yyyy').format(_filterDate)}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: AppTheme.primaryColor,
+              Expanded(
+                child: Text(
+                  'Slots for ${DateFormat('dd MMM yyyy').format(_filterDate)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: AppTheme.primaryColor,
+                  ),
                 ),
               ),
+            ],
+          ),
+        ),
+        Container(
+          height: 38,
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.borderColor),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.search_rounded,
+                size: 16,
+                color: AppTheme.textSecondaryColor,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: TextField(
+                  controller: _slotSearchCtrl,
+                  onChanged: (v) => setState(() => _slotSearchQuery = v),
+                  decoration: const InputDecoration(
+                    hintText: 'Search patient by name or ID...',
+                    hintStyle: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    focusedErrorBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textPrimaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (_slotSearchQuery.isNotEmpty)
+                GestureDetector(
+                  onTap: () {
+                    _slotSearchCtrl.clear();
+                    setState(() => _slotSearchQuery = '');
+                  },
+                  child: const Icon(
+                    Icons.cancel,
+                    size: 16,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
             ],
           ),
         ),
@@ -2143,43 +2424,49 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
 
           // Action Toolbar at Bottom
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _buildCardAction(
-                  Icons.visibility_outlined,
-                  'View',
-                  const Color(0xFF065D96),
-                  () {
-                    _openViewDetailsDialog(appt);
-                  },
-                ),
-                const SizedBox(width: 8),
-                if (appt.status == 'Confirmed') ...[
-                  if (!hasVitals)
-                    _buildCardAction(
-                      Icons.monitor_heart_outlined,
-                      'Vitals',
-                      const Color(0xFF79B649),
-                      () {
-                        _openVitalsEntryDialog(appt);
-                      },
-                    ),
-                  const SizedBox(width: 8),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              reverse: true,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
                   _buildCardAction(
-                    Icons.cancel_outlined,
-                    'Cancel',
-                    const Color(0xFFE53E3E),
+                    Icons.visibility_outlined,
+                    'View',
+                    const Color(0xFF065D96),
                     () {
-                      _cancelAppointment(appt);
+                      _openViewDetailsDialog(appt);
                     },
                   ),
+                  const SizedBox(width: 4),
+                  if (appt.status == 'Confirmed') ...[
+                    if (!hasVitals) ...[
+                      _buildCardAction(
+                        Icons.monitor_heart_outlined,
+                        'Vitals',
+                        const Color(0xFF79B649),
+                        () {
+                          _openVitalsEntryDialog(appt);
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    _buildCardAction(
+                      Icons.cancel_outlined,
+                      'Cancel',
+                      const Color(0xFFE53E3E),
+                      () {
+                        _cancelAppointment(appt);
+                      },
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
@@ -2197,7 +2484,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(4),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(4),
@@ -2205,8 +2492,8 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12, color: color),
-            const SizedBox(width: 4),
+            Icon(icon, size: 11, color: color),
+            const SizedBox(width: 3),
             Text(
               label,
               style: TextStyle(
@@ -2288,6 +2575,95 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   }
 
   // --- 2. HOSPITAL VIEW MODE ---
+  Widget _buildHospitalDepartmentFilterBar(bool isMobile) {
+    final deptSet = <String>{};
+    for (final doc in _doctors) {
+      if (doc.specialization != null && doc.specialization!.trim().isNotEmpty) {
+        deptSet.add(doc.specialization!.trim());
+      }
+    }
+    for (final d in _departments) {
+      if (d.trim().isNotEmpty) deptSet.add(d.trim());
+    }
+    final sortedDepts = deptSet.toList()..sort();
+    final allDepts = ['All Departments', ...sortedDepts];
+
+    final Map<String, String> deptMap = {};
+    for (final dept in allDepts) {
+      final count = dept == 'All Departments'
+          ? _doctors.length
+          : _doctors
+              .where((d) =>
+                  d.specialization?.trim().toLowerCase() ==
+                  dept.trim().toLowerCase())
+              .length;
+      deptMap[dept] = '$dept ($count)';
+    }
+
+    final deptDropdown = CustomDropdownSearch(
+      label: '',
+      hint: 'Filter by Department',
+      value: _selectedHospitalDepartment,
+      dropdownMap: deptMap,
+      height: 40,
+      fillColor: Colors.white,
+      borderColor: AppTheme.borderColor,
+      onChanged: (val) {
+        if (val != null) {
+          setState(() {
+            _selectedHospitalDepartment = val;
+          });
+        }
+      },
+    );
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 24,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        border: Border(
+          top: BorderSide(
+            color: AppTheme.borderColor.withOpacity(0.6),
+            width: 1,
+          ),
+          bottom: BorderSide(
+            color: AppTheme.borderColor.withOpacity(0.6),
+            width: 1,
+          ),
+        ),
+      ),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildSearchInput(
+                  searchHint: 'Search doctors by name, ID, or department...',
+                ),
+                const SizedBox(height: 10),
+                deptDropdown,
+              ],
+            )
+          : Row(
+              children: [
+                SizedBox(
+                  width: 280,
+                  child: deptDropdown,
+                ),
+                const Spacer(),
+                SizedBox(
+                  width: 320,
+                  child: _buildSearchInput(
+                    searchHint: 'Search doctors by name, ID, or department...',
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
   Widget _buildHospitalView(bool isMobile) {
     if (_doctors.isEmpty) {
       return const Center(
@@ -2300,6 +2676,12 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
 
     final query = _searchQuery.trim().toLowerCase();
     final filteredDoctors = _doctors.where((doc) {
+      if (_selectedHospitalDepartment != 'All Departments') {
+        final docSpec = doc.specialization?.trim().toLowerCase() ?? '';
+        if (docSpec != _selectedHospitalDepartment.trim().toLowerCase()) {
+          return false;
+        }
+      }
       if (query.isEmpty) return true;
       final nameMatches = doc.fullname.toLowerCase().contains(query);
       final idMatches =
@@ -2309,42 +2691,67 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       return nameMatches || idMatches || specMatches;
     }).toList();
 
-    if (filteredDoctors.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.search_off_rounded,
-                size: 48,
-                color: Colors.grey.shade400,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'No doctors matching "$_searchQuery"',
-                style: const TextStyle(
-                  color: AppTheme.textSecondaryColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return GridView.builder(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: isMobile ? 1 : 3,
-        childAspectRatio: isMobile ? 1.5 : 1.7,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: filteredDoctors.length,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildHospitalDepartmentFilterBar(isMobile),
+        Expanded(
+          child: filteredDoctors.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.search_off_rounded,
+                          size: 48,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _selectedHospitalDepartment != 'All Departments'
+                              ? 'No doctors found in "$_selectedHospitalDepartment"${query.isNotEmpty ? ' matching "$_searchQuery"' : ''}'
+                              : 'No doctors matching "$_searchQuery"',
+                          style: const TextStyle(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _searchCtrl.clear();
+                              _searchQuery = '';
+                              _selectedHospitalDepartment = 'All Departments';
+                            });
+                          },
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Reset Filters'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : GridView.builder(
+                  padding: EdgeInsets.all(isMobile ? 16 : 24),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: isMobile ? 1 : 3,
+                    childAspectRatio: isMobile ? 1.5 : 1.7,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: filteredDoctors.length,
       itemBuilder: (context, idx) {
         final doc = filteredDoctors[idx];
         final slots = _generateSlotsForDoctor(doc);
@@ -2476,6 +2883,9 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                             _selectedFilterDoctor = doc;
                             _currentViewMode = 'Doctor View';
                           });
+                          if (widget.onViewModeChanged != null) {
+                            widget.onViewModeChanged!('Doctor View');
+                          }
                         },
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -2500,8 +2910,11 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
           ),
         );
       },
-    );
-  }
+    ),
+  ),
+],
+);
+}
 
   Widget _buildMiniStat(String label, String value, Color color) {
     return Column(
@@ -2539,10 +2952,13 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       if (!dateMatch) return false;
 
       if (_searchQuery.isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
+        final q = _searchQuery.toLowerCase().trim();
         return a.patientName.toLowerCase().contains(q) ||
+            a.patientId.toString().toLowerCase().contains(q) ||
             (a.patientDisplayId?.toLowerCase().contains(q) ?? false) ||
+            (a.patientPhone?.toLowerCase().contains(q) ?? false) ||
             a.doctorName.toLowerCase().contains(q) ||
+            (a.doctorDisplayId?.toLowerCase().contains(q) ?? false) ||
             a.department.toLowerCase().contains(q);
       }
       return true;

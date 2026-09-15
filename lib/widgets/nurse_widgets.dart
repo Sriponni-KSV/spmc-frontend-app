@@ -10,6 +10,7 @@ class PatientModel {
   final String name;
   final String age;
   final String phone;
+  final String patientId;
   final String initials;
   final Map<String, dynamic>? originalData;
 
@@ -17,6 +18,7 @@ class PatientModel {
     required this.name,
     required this.age,
     required this.phone,
+    this.patientId = '',
     required this.initials,
     this.originalData,
   });
@@ -504,22 +506,54 @@ class _SearchOverlayState extends State<SearchOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final String query = _searchController.text.toLowerCase();
+    final String query = _searchController.text.toLowerCase().trim();
     final List<PatientModel> displayPatients = (widget.patients ?? [])
         .map((p) {
-          String name = p['name']?.toString() ?? 'Unknown';
+          String name = p['name']?.toString() ??
+              p['full_name']?.toString() ??
+              p['patient_name']?.toString() ??
+              'Unknown';
           String age = p['age']?.toString() ?? '-';
-          String phone = p['phone']?.toString() ?? '-';
+          String phone = p['phone']?.toString() ??
+              p['mobile_number']?.toString() ??
+              p['phone_number']?.toString() ??
+              '-';
+          String patientId = p['patient_id']?.toString() ??
+              p['display_id']?.toString() ??
+              p['patient_display_id']?.toString() ??
+              p['uhid']?.toString() ??
+              (p['id'] != null ? 'P-${p['id']}' : '');
           String initials = '?';
           if (name.trim().isNotEmpty) {
-            final parts = name.trim().split(' ').where((part) => part.isNotEmpty).take(2).toList();
+            final parts = name
+                .trim()
+                .split(' ')
+                .where((part) => part.isNotEmpty)
+                .take(2)
+                .toList();
             if (parts.isNotEmpty) {
               initials = parts.map((part) => part[0].toUpperCase()).join('');
             }
           }
-          return PatientModel(name: name, age: '${age}y', phone: phone, initials: initials, originalData: p);
+          return PatientModel(
+            name: name,
+            age: '${age}y',
+            phone: phone,
+            patientId: patientId,
+            initials: initials,
+            originalData: p,
+          );
         })
-        .where((p) => p.name.toLowerCase().contains(query) || p.phone.contains(query))
+        .where((p) {
+          if (query.isEmpty) return true;
+          return p.name.toLowerCase().contains(query) ||
+              p.phone.toLowerCase().contains(query) ||
+              p.patientId.toLowerCase().contains(query) ||
+              (p.originalData?['id']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['patient_id']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['display_id']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['uhid']?.toString().toLowerCase().contains(query) ?? false);
+        })
         .toList();
 
     return CallbackShortcuts(
@@ -571,7 +605,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                           ),
                           decoration: const InputDecoration(
                             hintText:
-                                'Search patients, appointments, or actions...',
+                                'Search patients by name, ID, phone, or actions...',
                             hintStyle: TextStyle(color: AppTheme.iconColor),
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
@@ -776,12 +810,37 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
-                Text(
-                  '${patient.age} • ${patient.phone}',
-                  style: const TextStyle(
-                    color: AppTheme.textSecondaryColor,
-                    fontSize: 13,
-                  ),
+                Row(
+                  children: [
+                    if (patient.patientId.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          patient.patientId,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      '${patient.age} • ${patient.phone}',
+                      style: const TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
