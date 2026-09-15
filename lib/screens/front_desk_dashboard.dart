@@ -376,6 +376,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
 
     return Scaffold(
       key: const ValueKey('front_desk_dashboard'),
+      resizeToAvoidBottomInset: false,
       backgroundColor: AppTheme.backgroundColor,
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
       floatingActionButton: isFormActive

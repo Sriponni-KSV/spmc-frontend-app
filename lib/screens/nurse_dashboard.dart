@@ -645,6 +645,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     final bool isFormActive = _isFormActive();
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: AppTheme.backgroundColor,
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
       floatingActionButton: isFormActive

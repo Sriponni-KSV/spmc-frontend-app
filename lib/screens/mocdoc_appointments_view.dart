@@ -39,6 +39,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   String _slotSearchQuery = '';
   final TextEditingController _slotSearchCtrl = TextEditingController();
   String _selectedHospitalDepartment = 'All Departments';
+  bool _showFullMonthCalendarOnMobile = false;
 
   // Selected doctor for "Doctor View"
   UserModel? _selectedFilterDoctor;
@@ -1496,45 +1497,99 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
 
     // No doctor selected yet — show prompt
     if (_selectedFilterDoctor == null) {
+      if (isMobile) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildDoctorSelectorBar(isMobile),
+              const SizedBox(height: 24),
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.search,
+                        size: 48,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Select a Doctor to View Schedule',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Use the search bar above to find and select a doctor.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      }
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildDoctorSelectorBar(isMobile),
           Expanded(
             child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.05),
-                      shape: BoxShape.circle,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.search,
+                        size: 56,
+                        color: AppTheme.primaryColor,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.search,
-                      size: 56,
-                      color: AppTheme.primaryColor,
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Select a Doctor to View Schedule',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimaryColor,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Select a Doctor to View Schedule',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimaryColor,
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Use the search bar above to find and select a doctor.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondaryColor,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Use the search bar above to find and select a doctor.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1549,27 +1604,20 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
     );
 
     if (isMobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildDoctorSelectorBar(isMobile),
-          const SizedBox(height: 8),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildMonthlyCalendar(_selectedFilterDoctor!),
-                  const SizedBox(height: 20),
-                  const Divider(height: 1, color: AppTheme.borderColor),
-                  const SizedBox(height: 12),
-                  _buildSlotsPanel(isMobile, slots, isDocAvailable),
-                ],
-              ),
-            ),
-          ),
-        ],
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildDoctorSelectorBar(isMobile),
+            const SizedBox(height: 10),
+            _buildMobileDateSelector(_selectedFilterDoctor!),
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: AppTheme.borderColor),
+            const SizedBox(height: 12),
+            _buildSlotsPanel(isMobile, slots, isDocAvailable),
+          ],
+        ),
       );
     }
 
@@ -1619,6 +1667,16 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
         }
       },
     );
+
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+        child: SizedBox(
+          width: double.infinity,
+          child: dropdownWidget,
+        ),
+      );
+    }
 
     Widget? doctorCard;
     if (_selectedFilterDoctor != null) {
@@ -1698,25 +1756,6 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       );
     }
 
-    if (isMobile) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: dropdownWidget,
-            ),
-            if (doctorCard != null) ...[
-              const SizedBox(height: 10),
-              doctorCard,
-            ],
-          ],
-        ),
-      );
-    }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
@@ -1733,6 +1772,434 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMobileDateSelector(UserModel doctor) {
+    final now = DateTime.now();
+    final isSelectedToday = _filterDate.year == now.year &&
+        _filterDate.month == now.month &&
+        _filterDate.day == now.day;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Bar with Month, Today Jump, Date Picker & View Toggle
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: () {
+                  setState(() {
+                    _currentMonth = DateTime(
+                      _currentMonth.year,
+                      _currentMonth.month - 1,
+                    );
+                    _filterDate = DateTime(
+                      _filterDate.year,
+                      _filterDate.month - 1,
+                      _filterDate.day > 28 ? 28 : _filterDate.day,
+                    );
+                  });
+                },
+              ),
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _filterDate,
+                    firstDate: DateTime(now.year - 1),
+                    lastDate: DateTime(now.year + 2),
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      _filterDate = picked;
+                      _currentMonth = DateTime(picked.year, picked.month, 1);
+                    });
+                  }
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        DateFormat('MMMM yyyy').format(_currentMonth),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.arrow_drop_down,
+                        size: 18,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: () {
+                  setState(() {
+                    _currentMonth = DateTime(
+                      _currentMonth.year,
+                      _currentMonth.month + 1,
+                    );
+                    _filterDate = DateTime(
+                      _filterDate.year,
+                      _filterDate.month + 1,
+                      _filterDate.day > 28 ? 28 : _filterDate.day,
+                    );
+                  });
+                },
+              ),
+              const Spacer(),
+              if (!isSelectedToday)
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _filterDate = DateTime.now();
+                      _currentMonth = DateTime(now.year, now.month, 1);
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.secondaryColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.secondaryColor.withOpacity(0.4)),
+                    ),
+                    child: const Text(
+                      'Today',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.secondaryColor,
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 6),
+              IconButton(
+                icon: Icon(
+                  _showFullMonthCalendarOnMobile
+                      ? Icons.view_week_rounded
+                      : Icons.calendar_month_rounded,
+                  size: 20,
+                  color: AppTheme.primaryColor,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                tooltip: _showFullMonthCalendarOnMobile
+                    ? 'Show Date Strip'
+                    : 'Show Full Month Grid',
+                onPressed: () {
+                  setState(() {
+                    _showFullMonthCalendarOnMobile =
+                        !_showFullMonthCalendarOnMobile;
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Date Selector Body
+          if (_showFullMonthCalendarOnMobile)
+            _buildMobileCompactMonthGrid(doctor)
+          else
+            _buildMobileHorizontalDateStrip(doctor),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileHorizontalDateStrip(UserModel doctor) {
+    // Generate dates: 7 days before _filterDate to 21 days after (29 days total)
+    final startDate = _filterDate.subtract(const Duration(days: 7));
+    final dates = List.generate(29, (i) => startDate.add(Duration(days: i)));
+
+    return SizedBox(
+      height: 76,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: dates.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final cellDate = dates[index];
+          final isToday = cellDate.year == DateTime.now().year &&
+              cellDate.month == DateTime.now().month &&
+              cellDate.day == DateTime.now().day;
+          final isSelected = cellDate.year == _filterDate.year &&
+              cellDate.month == _filterDate.month &&
+              cellDate.day == _filterDate.day;
+
+          final dateStr = DateFormat('dd/MM/yyyy').format(cellDate);
+          final dayAppts = _appointments.where((a) {
+            return a.doctorName == doctor.fullname &&
+                a.appointmentDate == dateStr &&
+                a.status != 'Cancelled' &&
+                a.status.toLowerCase() != 'admitted';
+          }).toList();
+
+          return InkWell(
+            onTap: () {
+              setState(() {
+                _filterDate = cellDate;
+                _currentMonth = DateTime(cellDate.year, cellDate.month, 1);
+              });
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 56,
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppTheme.primaryColor
+                    : (isToday
+                        ? AppTheme.secondaryColor.withOpacity(0.08)
+                        : const Color(0xFFF8FAFC)),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : (isToday
+                          ? AppTheme.secondaryColor
+                          : AppTheme.borderColor),
+                  width: isSelected || isToday ? 1.5 : 1.0,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.25),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : [],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    DateFormat('EEE').format(cellDate).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected
+                          ? Colors.white.withOpacity(0.85)
+                          : AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${cellDate.day}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected
+                          ? Colors.white
+                          : (isToday
+                              ? AppTheme.secondaryColor
+                              : AppTheme.textPrimaryColor),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  if (dayAppts.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? Colors.white.withOpacity(0.25)
+                            : AppTheme.primaryColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${dayAppts.length}',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: isSelected
+                              ? Colors.white
+                              : AppTheme.primaryColor,
+                        ),
+                      ),
+                    )
+                  else if (isToday)
+                    Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.white : AppTheme.secondaryColor,
+                        shape: BoxShape.circle,
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 4),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMobileCompactMonthGrid(UserModel doctor) {
+    final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
+    final lastDay = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
+    final daysInMonth = lastDay.day;
+    final paddingCells = firstDay.weekday % 7;
+    final totalCells = paddingCells + daysInMonth;
+    final rowCount = (totalCells / 7).ceil();
+    final weekdayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+    return Column(
+      children: [
+        Row(
+          children: weekdayNames
+              .map(
+                (w) => Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 6.0),
+                      child: Text(
+                        w,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            childAspectRatio: 1.1,
+            crossAxisSpacing: 4,
+            mainAxisSpacing: 4,
+          ),
+          itemCount: rowCount * 7,
+          itemBuilder: (context, index) {
+            if (index < paddingCells || index >= paddingCells + daysInMonth) {
+              return const SizedBox.shrink();
+            }
+
+            final dayNum = index - paddingCells + 1;
+            final cellDate = DateTime(
+              _currentMonth.year,
+              _currentMonth.month,
+              dayNum,
+            );
+            final isToday = cellDate.year == DateTime.now().year &&
+                cellDate.month == DateTime.now().month &&
+                cellDate.day == DateTime.now().day;
+            final isSelected = cellDate.year == _filterDate.year &&
+                cellDate.month == _filterDate.month &&
+                cellDate.day == _filterDate.day;
+
+            final dateStr = DateFormat('dd/MM/yyyy').format(cellDate);
+            final dayAppts = _appointments.where((a) {
+              return a.doctorName == doctor.fullname &&
+                  a.appointmentDate == dateStr &&
+                  a.status != 'Cancelled' &&
+                  a.status.toLowerCase() != 'admitted';
+            }).toList();
+
+            return InkWell(
+              onTap: () {
+                setState(() {
+                  _filterDate = cellDate;
+                });
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : (isToday
+                          ? AppTheme.secondaryColor.withOpacity(0.1)
+                          : Colors.transparent),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppTheme.primaryColor
+                        : (isToday
+                            ? AppTheme.secondaryColor
+                            : Colors.grey.shade300),
+                    width: isSelected || isToday ? 1.5 : 0.8,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '$dayNum',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: isSelected
+                            ? Colors.white
+                            : (isToday
+                                ? AppTheme.secondaryColor
+                                : AppTheme.textPrimaryColor),
+                      ),
+                    ),
+                    if (dayAppts.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.white
+                              : AppTheme.primaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -2698,7 +3165,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
         Expanded(
           child: filteredDoctors.isEmpty
               ? Center(
-                  child: Padding(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.all(32.0),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
