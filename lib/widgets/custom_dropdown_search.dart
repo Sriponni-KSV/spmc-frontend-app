@@ -115,6 +115,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     _searchFocusNode.onKeyEvent = (node, event) => _handleKey(event);
     _mainFocusNode.onKeyEvent = (node, event) => _handleKey(event);
     _searchFocusNode.addListener(_onFocusChange);
+    _mainFocusNode.addListener(_onFocusChange);
   }
 
   void _onFocusChange() {
@@ -151,13 +152,21 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     }
 
     if (matchedEntry != null) {
-      field.didChange(matchedEntry.key);
-      _textEditingController.text = matchedEntry.value;
-      widget.onChanged?.call(matchedEntry.key);
+      if (widget.value != matchedEntry.key) {
+        field.didChange(matchedEntry.key);
+        _textEditingController.text = matchedEntry.value;
+        widget.onChanged?.call(matchedEntry.key);
+      } else {
+        if (_textEditingController.text != matchedEntry.value) {
+          _textEditingController.text = matchedEntry.value;
+        }
+      }
     } else {
       _textEditingController.clear();
       field.didChange(null);
-      widget.onChanged?.call(null);
+      if (widget.value != null && widget.value!.isNotEmpty) {
+        widget.onChanged?.call(null);
+      }
       _filteredItems = _allEntries.entries.toList();
     }
   }
@@ -611,6 +620,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _searchFocusNode.removeListener(_onFocusChange);
+    _mainFocusNode.removeListener(_onFocusChange);
     if (_overlayEntry != null) {
       if (_overlayEntry!.mounted) {
         _overlayEntry!.remove();

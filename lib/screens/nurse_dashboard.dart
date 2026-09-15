@@ -645,6 +645,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     final bool isFormActive = _isFormActive();
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: AppTheme.backgroundColor,
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
       floatingActionButton: isFormActive
@@ -1096,6 +1097,14 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
               child: const Row(
                 children: [

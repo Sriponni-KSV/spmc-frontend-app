@@ -295,6 +295,14 @@ class AdminStaffProfileView extends StatelessWidget {
                 _buildDetailRow('Full Name', user.rawFullname ?? '-', Icons.person_outline),
                 _buildDetailRow('Email Address', user.email, Icons.mail_outline),
                 _buildDetailRow('Mobile Number', user.mobile ?? '-', Icons.phone_android_outlined),
+                if (!isMobile)
+                  _buildDetailRow(
+                    'Onboarded Date',
+                    user.createdAt != null && user.createdAt!.isNotEmpty
+                        ? user.createdAt!
+                        : '-',
+                    Icons.calendar_today_outlined,
+                  ),
                 if (user.bio != null && user.bio!.isNotEmpty)
                   _buildDetailRow('Bio Summary', user.bio!, Icons.description_outlined),
               ],

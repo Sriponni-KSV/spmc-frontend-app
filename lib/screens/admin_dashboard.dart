@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -5,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
 import '../utils/app_theme.dart';
+import '../utils/capitalize_formatter.dart';
 import '../models/user_model.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../providers/auth_provider.dart';
@@ -83,7 +85,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final ScrollController _horizontalScrollController = ScrollController();
   final ScrollController _shiftAllocHorizontalScrollController =
       ScrollController();
-  bool _showDeleted = false;
   final FocusNode _mainFocusNode = FocusNode();
   List<PatientModel> _dbPatients = [];
   final PatientController _patientController = PatientController();
@@ -271,7 +272,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       _selectedHomeVisitId = widget.selectedHomeVisitId;
 
       if (_selectedIndex == 1) {
-        _staffFuture = _adminController.fetchStaff(showDeleted: _showDeleted);
+        _staffFuture = _adminController.fetchStaff();
       }
       if (_selectedIndex == 8) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -380,7 +381,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   void _loadStaff() {
     setState(() {
-      _staffFuture = _adminController.fetchStaff(showDeleted: _showDeleted);
+      _staffFuture = _adminController.fetchStaff();
     });
     _loadDashboardStats();
   }
@@ -403,478 +404,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showEditDialog(BuildContext context, UserModel user) {
-    final String initialName = (user.rawFullname ?? '').trim();
-    final String initialEmail = user.email.trim();
-    final String initialMobile = (user.mobile ?? '').trim();
-    final String initialRole = user.role;
-    final String initialStatus = user.status;
-    final int? initialSpecializationId = user.specializationId;
-
-    final nameCtrl = TextEditingController(text: user.rawFullname);
-    final emailCtrl = TextEditingController(text: user.email);
-    final mobileCtrl = TextEditingController(text: user.mobile);
-    final editFormKey = GlobalKey<FormState>();
-    String selectedRole = user.role;
-    String selectedStatus = user.status;
-    int? selectedSpecializationId = user.specializationId;
-    List<Map<String, dynamic>> specializations = [];
-    bool isSaving = false;
-    bool isLoadingSpecializations = false;
-
-    List<String> availableRoles = [];
-    bool isLoadingRoles = false;
-    String? dialogError;
-
-    bool hasChanges() {
-      final currentName = nameCtrl.text.trim();
-      final currentEmail = emailCtrl.text.trim();
-      final currentMobile = mobileCtrl.text.trim();
-      final currentRole = selectedRole;
-      final currentStatus = selectedStatus;
-      final currentSpecId = selectedRole == 'Doctor'
-          ? selectedSpecializationId
-          : null;
-      final origSpecId = initialRole == 'Doctor'
-          ? initialSpecializationId
-          : null;
-
-      return currentName != initialName ||
-          currentEmail != initialEmail ||
-          currentMobile != initialMobile ||
-          currentRole != initialRole ||
-          currentStatus != initialStatus ||
-          currentSpecId != origSpecId;
-    }
-
-    // Initial sync
-    if (!availableRoles.contains(selectedRole)) {
-      availableRoles.add(selectedRole);
-    }
-
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          // Initialize specializations once if needed
-          if (specializations.isEmpty && !isLoadingSpecializations) {
-            setDialogState(() => isLoadingSpecializations = true);
-            _adminController
-                .fetchSpecializations()
-                .then((specs) {
-                  setDialogState(() {
-                    specializations = specs;
-                    isLoadingSpecializations = false;
-                  });
-                })
-                .catchError((e) {
-                  setDialogState(() => isLoadingSpecializations = false);
-                });
-          }
-
-          // Initialize roles dynamically
-          if (availableRoles.length <= 1 && !isLoadingRoles) {
-            setDialogState(() => isLoadingRoles = true);
-            _adminController
-                .fetchRbacData()
-                .then((rbacData) {
-                  setDialogState(() {
-                    final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
-                    final currentUserRole = Provider.of<AuthProvider>(
-                      ctx,
-                      listen: false,
-                    ).user?.role;
-
-                    // Allow Super Admin to assign any role. Admin can only assign Doctor/Nurse/Front Desk/Anaesthetist
-                    final orderedRoles = [
-                      'Super Admin',
-                      'Admin',
-                      'Doctor',
-                      'Nurse',
-                      'Anaesthetist',
-                      'Front Desk',
-                    ];
-                    availableRoles = rolesList
-                        .map((r) => r['role_name'].toString())
-                        .where((r) {
-                          if (currentUserRole == 'Super Admin') return true;
-                          return r == 'Doctor' ||
-                              r == 'Nurse' ||
-                              r == 'Front Desk' ||
-                              r == 'Anaesthetist' ||
-                              r == selectedRole;
-                        })
-                        .toList();
-                    availableRoles.sort((a, b) {
-                      int indexA = orderedRoles.indexOf(a);
-                      int indexB = orderedRoles.indexOf(b);
-                      if (indexA == -1 && indexB == -1) return a.compareTo(b);
-                      if (indexA == -1) return 1;
-                      if (indexB == -1) return -1;
-                      return indexA.compareTo(indexB);
-                    });
-
-                    if (!availableRoles.contains(selectedRole)) {
-                      availableRoles.add(selectedRole);
-                    }
-                    isLoadingRoles = false;
-                  });
-                })
-                .catchError((e) {
-                  setDialogState(() => isLoadingRoles = false);
-                });
-          }
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-            ),
-            title: const Text(
-              'Edit Staff',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            content: SizedBox(
-              width: MediaQuery.of(context).size.width > 500
-                  ? 450
-                  : MediaQuery.of(context).size.width * 0.9,
-              child: SingleChildScrollView(
-                child: Form(
-                  key: editFormKey,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (dialogError != null)
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: Colors.redAccent,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  dialogError!,
-                                  style: const TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      if (user.staffUniqueId != null) ...[
-                        const Text(
-                          'Staff ID',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: TextFormField(
-                            initialValue: user.staffUniqueId,
-                            readOnly: true,
-                            decoration: const InputDecoration(
-                              hintText: 'Staff ID',
-                              prefixIcon: Icon(Icons.pin_outlined),
-                              fillColor: Color(0xFFE5E7EB), // read-only color
-                              filled: true,
-                              helperText: 'Auto-generated ID',
-                            ),
-                          ),
-                        ),
-                      ],
-                      const Text(
-                        'Full Name',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: nameCtrl,
-                        onChanged: (_) => setDialogState(() {}),
-                        decoration: const InputDecoration(
-                          hintText: 'Enter full name',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[a-zA-Z\s]'),
-                          ),
-                          LengthLimitingTextInputFormatter(30),
-                        ],
-                        validator: (val) => val == null || val.trim().isEmpty
-                            ? 'Please enter a name'
-                            : null,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Email Address',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: emailCtrl,
-                        onChanged: (_) => setDialogState(() {}),
-                        decoration: const InputDecoration(
-                          hintText: 'Enter email address',
-                          prefixIcon: Icon(Icons.email_outlined),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        inputFormatters: [
-                          LengthLimitingTextInputFormatter(100),
-                        ],
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Please enter Email Address';
-                          }
-                          if (val.trim().contains(RegExp(r'[A-Z]'))) {
-                            return 'Please enter a valid email address';
-                          }
-                          if (!RegExp(
-                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                          ).hasMatch(val.trim())) {
-                            return 'Please enter a valid email address';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Mobile Number',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: mobileCtrl,
-                        onChanged: (_) => setDialogState(() {}),
-                        decoration: const InputDecoration(
-                          hintText: 'Enter mobile number',
-                          prefixIcon: Icon(Icons.phone_outlined),
-                          counterText: "",
-                          errorMaxLines: 2,
-                        ),
-                        keyboardType: TextInputType.phone,
-                        maxLength: 10,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(10),
-                        ],
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Please enter a mobile number';
-                          }
-                          final clean = val.trim();
-                          if (!RegExp(r'^[6-9]').hasMatch(clean)) {
-                            return 'Mobile number must start with 6, 7, 8, or 9';
-                          }
-                          if (clean.length != 10) {
-                            return 'Mobile number must be exactly 10 digits';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      if (isLoadingRoles)
-                        const Center(child: CircularProgressIndicator())
-                      else
-                        const Text(
-                          'Role',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-
-                      const SizedBox(height: 10),
-
-                      CustomDropdownSearch(
-                        label: '',
-                        value: selectedRole,
-                        dropdownItems: availableRoles,
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() {
-                              selectedRole = val;
-                              if (selectedRole != 'Doctor') {
-                                selectedSpecializationId = null;
-                              }
-                            });
-                          }
-                        },
-                      ),
-                      if (selectedRole == 'Doctor') ...[
-                        const SizedBox(height: 16),
-                        if (isLoadingSpecializations)
-                          const Center(child: CircularProgressIndicator())
-                        else
-                          CustomDropdownSearch(
-                            label: 'Specialization',
-                            value: selectedSpecializationId?.toString(),
-                            dropdownMap: {
-                              for (var s in specializations)
-                                s['id'].toString(): s['name'].toString(),
-                            },
-                            onChanged: (val) {
-                              setDialogState(() {
-                                selectedSpecializationId = val != null
-                                    ? int.tryParse(val)
-                                    : null;
-                                dialogError = null;
-                              });
-                            },
-                            validator: (val) {
-                              if (selectedRole != 'Doctor') return null;
-                              if (val == null || val.isEmpty) {
-                                return 'Please select a specialization';
-                              }
-                              final validSpecIds = specializations
-                                  .map((s) => s['id'].toString())
-                                  .toSet();
-                              if (!validSpecIds.contains(val)) {
-                                return 'Please select a valid specialization from the list';
-                              }
-                              return null;
-                            },
-                          ),
-                      ],
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Status',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      CustomDropdownSearch(
-                        label: '',
-                        value: selectedStatus,
-                        dropdownMap: const {
-                          'active': 'Active',
-                          'inactive': 'Inactive',
-                          'suspended': 'Suspended',
-                        },
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() {
-                              selectedStatus = val;
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              OutlinedButton(
-                onPressed: isSaving ? null : () => Navigator.pop(ctx),
-                style: AppTheme.cancelButton,
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: (isSaving || !hasChanges())
-                    ? null
-                    : () async {
-                        if (!editFormKey.currentState!.validate()) return;
-                        setDialogState(() => isSaving = true);
-                        try {
-                          await _adminController.updateStaff(
-                            id: user.id,
-                            fullname: nameCtrl.text.trim(),
-                            email: emailCtrl.text.trim(),
-                            mobile: mobileCtrl.text.trim(),
-                            role: selectedRole,
-                            status: selectedStatus,
-                            medicalLicense: null,
-                            specializationId: selectedRole == 'Doctor'
-                                ? selectedSpecializationId
-                                : null,
-                          );
-                          if (mounted) {
-                            Navigator.pop(ctx);
-                            _loadStaff();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '${nameCtrl.text.trim()} updated successfully!',
-                                ),
-                                backgroundColor: Colors.green.shade600,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            setDialogState(
-                              () => dialogError = e.toString().replaceFirst(
-                                'Exception: ',
-                                '',
-                              ),
-                            );
-                          }
-                        } finally {
-                          if (mounted) setDialogState(() => isSaving = false);
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.logoRed,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(120, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 14,
-                  ),
-                ),
-                child: isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text('Save'),
-              ),
-            ],
-          );
-        },
+      builder: (ctx) => EditStaffDialog(
+        user: user,
+        onSaved: _loadStaff,
       ),
     );
   }
@@ -902,14 +437,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 text: TextSpan(
                   style: const TextStyle(color: Colors.black87, fontSize: 15),
                   children: [
-                    const TextSpan(text: 'Are you sure you want to delete '),
+                    const TextSpan(text: 'Are you sure you want to permanently delete '),
                     TextSpan(
                       text: user.fullname,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const TextSpan(
                       text:
-                          '? This will deactivate their account and hide them from active lists.',
+                          '? This will permanently remove this staff member and all associated records from the database. This action cannot be undone.',
                     ),
                   ],
                 ),
@@ -933,7 +468,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             _loadStaff();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('${user.fullname} deleted.'),
+                                content: Text('${user.fullname} permanently deleted.'),
                                 backgroundColor: Colors.green.shade600,
                               ),
                             );
@@ -1264,96 +799,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ).user?.hasPermission('manage_users') ??
                             false) ...[
                           const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              // Show Deleted Toggle
-                              Expanded(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: _showDeleted
-                                        ? Colors.red.withOpacity(0.1)
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: _showDeleted
-                                          ? Colors.red.withOpacity(0.3)
-                                          : AppTheme.borderColor,
-                                    ),
-                                  ),
-                                  child: InkWell(
-                                    onTap: () {
-                                      setState(
-                                        () => _showDeleted = !_showDeleted,
-                                      );
-                                      _loadStaff();
-                                    },
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 12,
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            _showDeleted
-                                                ? Icons.delete_sweep
-                                                : Icons.delete_outline,
-                                            size: 18,
-                                            color: _showDeleted
-                                                ? Colors.red
-                                                : AppTheme.textSecondaryColor,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Show Deleted',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: _showDeleted
-                                                  ? Colors.red
-                                                  : AppTheme.textSecondaryColor,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _showAddUserDialog(context),
+                              icon: const Icon(
+                                Icons.person_add_outlined,
+                                size: 18,
+                              ),
+                              label: const Text(
+                                'Register Staff',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () => _showAddUserDialog(context),
-                                  icon: const Icon(
-                                    Icons.person_add_outlined,
-                                    size: 18,
-                                  ),
-                                  label: const Text(
-                                    'Register Staff',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.dangerColor,
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    minimumSize: const Size(0, 48),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.dangerColor,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                minimumSize: const Size(0, 48),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
-                            ],
+                            ),
                           ),
                         ],
                       ],
@@ -1385,58 +859,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               listen: false,
                             ).user?.hasPermission('manage_users') ??
                             false) ...[
-                          const SizedBox(width: 12),
-                          // Show Deleted Toggle
-                          Container(
-                            decoration: BoxDecoration(
-                              color: _showDeleted
-                                  ? Colors.red.withOpacity(0.1)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: _showDeleted
-                                    ? Colors.red.withOpacity(0.3)
-                                    : AppTheme.borderColor,
-                              ),
-                            ),
-                            child: InkWell(
-                              onTap: () {
-                                setState(() => _showDeleted = !_showDeleted);
-                                _loadStaff();
-                              },
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _showDeleted
-                                          ? Icons.delete_sweep
-                                          : Icons.delete_outline,
-                                      size: 18,
-                                      color: _showDeleted
-                                          ? Colors.red
-                                          : AppTheme.textSecondaryColor,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Show Deleted',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: _showDeleted
-                                            ? Colors.red
-                                            : AppTheme.textSecondaryColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
                             onPressed: () => _showAddUserDialog(context),
@@ -1553,6 +975,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     'Nurse',
                     'Anaesthetist',
                     'Front Desk',
+                    'Lab',
+                    'Pharmacy',
                   };
 
                   for (final staff in allStaff) {
@@ -1586,6 +1010,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     'Nurse',
                     'Anaesthetist',
                     'Front Desk',
+                    'Lab',
+                    'Pharmacy',
                   ];
 
                   final filterRoles = rolesSet.toList();
@@ -2057,6 +1483,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           case 'Anaesthetist':
                             roleColor = const Color(0xFF3B82F6);
                             break;
+                          case 'Lab':
+                            roleColor = const Color(0xFF0EA5E9);
+                            break;
+                          case 'Pharmacy':
+                            roleColor = const Color(0xFF10B981);
+                            break;
                           default:
                             roleColor = Colors.grey;
                             break;
@@ -2374,6 +1806,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           case 'Anaesthetist':
             roleColor = const Color(0xFF3B82F6);
             break;
+          case 'Lab':
+            roleColor = const Color(0xFF0EA5E9);
+            break;
+          case 'Pharmacy':
+            roleColor = const Color(0xFF10B981);
+            break;
           default:
             roleColor = Colors.grey;
             break;
@@ -2387,12 +1825,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: user.isDeleted ? Colors.red.withOpacity(0.02) : Colors.white,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: user.isDeleted
-                  ? Colors.red.withOpacity(0.3)
-                  : AppTheme.borderColor.withOpacity(0.6),
+              color: AppTheme.borderColor.withOpacity(0.6),
             ),
             boxShadow: [
               BoxShadow(
@@ -2436,27 +1872,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (user.isDeleted) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Text(
-                                  'DELETED',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                         Text(
@@ -2565,7 +1980,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       icon: const Icon(Icons.visibility_outlined, size: 18),
                       label: const Text('View'),
                     ),
-                    if (!user.isDeleted && user.role != 'Super Admin') ...[
+                    if (user.role != 'Super Admin') ...[
                       TextButton.icon(
                         onPressed: () => _showEditDialog(context, user),
                         icon: const Icon(Icons.edit_outlined, size: 18),
@@ -3124,7 +2539,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (isMobile) {
       return LayoutBuilder(
         builder: (context, constraints) {
-          final cardWidth = (constraints.maxWidth - 12) / 2;
+          if (constraints.maxWidth <= 12) return const SizedBox.shrink();
+          final cardWidth = math.max(0.0, (constraints.maxWidth - 12) / 2);
           return Wrap(
             spacing: 12,
             runSpacing: 12,
@@ -14195,6 +13611,1017 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 }
 
+class EditStaffDialog extends StatefulWidget {
+  final UserModel user;
+  final VoidCallback onSaved;
+
+  const EditStaffDialog({
+    Key? key,
+    required this.user,
+    required this.onSaved,
+  }) : super(key: key);
+
+  @override
+  State<EditStaffDialog> createState() => _EditStaffDialogState();
+}
+
+class _EditStaffDialogState extends State<EditStaffDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _mobileController;
+  final AdminController _adminController = AdminController();
+
+  final _emailFocusNode = FocusNode();
+  final _mobileFocusNode = FocusNode();
+
+  String? _selectedRole;
+  String? _selectedStatus;
+  int? _selectedSpecializationId;
+  List<Map<String, dynamic>> _specializations = [];
+  List<String> _roles = [];
+
+  bool _isSaving = false;
+  bool _isLoadingRoles = false;
+  bool _isLoadingSpecializations = false;
+  String? _dialogError;
+
+  String? _mobileDuplicateError;
+  String? _emailDuplicateError;
+  String _lastCheckedMobile = '';
+  String _lastCheckedEmail = '';
+  bool _isCheckingMobile = false;
+  bool _isCheckingEmail = false;
+  Map<String, dynamic>? _matchedMobileStaff;
+  Map<String, dynamic>? _matchedEmailStaff;
+  Timer? _emailDebounce;
+  Timer? _mobileDebounce;
+
+  late final String _initialName;
+  late final String _initialEmail;
+  late final String _initialMobile;
+  late final String _initialRole;
+  late final String _initialStatus;
+  late final int? _initialSpecializationId;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialName = (widget.user.rawFullname ?? '').trim();
+    _initialEmail = widget.user.email.trim();
+    _initialMobile = (widget.user.mobile ?? '').trim();
+    _initialRole = widget.user.role;
+    _initialStatus = widget.user.status;
+    _initialSpecializationId = widget.user.specializationId;
+
+    _nameController = TextEditingController(text: widget.user.rawFullname);
+    _emailController = TextEditingController(text: widget.user.email);
+    _mobileController = TextEditingController(text: widget.user.mobile ?? '');
+
+    _selectedRole = widget.user.role;
+    _selectedStatus = widget.user.status;
+    _selectedSpecializationId = widget.user.specializationId;
+
+    _lastCheckedEmail = _initialEmail;
+    _lastCheckedMobile = _initialMobile;
+
+    _loadSpecializations();
+    _loadRoles();
+
+    _mobileController.addListener(_onMobileChanged);
+    _emailController.addListener(_onEmailChanged);
+  }
+
+  bool _hasChanges() {
+    final currentName = _nameController.text.trim();
+    final currentEmail = _emailController.text.trim();
+    final currentMobile = _mobileController.text.trim();
+    final currentRole = _selectedRole;
+    final currentStatus = _selectedStatus;
+    final currentSpecId =
+        _selectedRole == 'Doctor' ? _selectedSpecializationId : null;
+    final origSpecId =
+        _initialRole == 'Doctor' ? _initialSpecializationId : null;
+
+    return currentName != _initialName ||
+        currentEmail != _initialEmail ||
+        currentMobile != _initialMobile ||
+        currentRole != _initialRole ||
+        currentStatus != _initialStatus ||
+        currentSpecId != origSpecId;
+  }
+
+  void _onMobileChanged() {
+    _mobileDebounce?.cancel();
+    final mobile = _mobileController.text.trim();
+    if (mobile == _initialMobile) {
+      if (_mobileDuplicateError != null || _matchedMobileStaff != null) {
+        setState(() {
+          _mobileDuplicateError = null;
+          _matchedMobileStaff = null;
+        });
+        _formKey.currentState?.validate();
+      }
+      return;
+    }
+
+    if (mobile.length == 10 && RegExp(r'^[6-9]\d{9}$').hasMatch(mobile)) {
+      _mobileDebounce = Timer(const Duration(milliseconds: 200), () {
+        if (mobile != _lastCheckedMobile) {
+          _lastCheckedMobile = mobile;
+          _checkExistingMobile(mobile);
+        }
+      });
+    } else {
+      if (_mobileDuplicateError != null || _matchedMobileStaff != null) {
+        setState(() {
+          _mobileDuplicateError = null;
+          _matchedMobileStaff = null;
+        });
+        _formKey.currentState?.validate();
+      }
+      if (mobile.length < 10) {
+        _lastCheckedMobile = '';
+      }
+    }
+  }
+
+  void _onEmailChanged() {
+    _emailDebounce?.cancel();
+    final email = _emailController.text.trim();
+    if (email.toLowerCase() == _initialEmail.toLowerCase()) {
+      if (_emailDuplicateError != null || _matchedEmailStaff != null) {
+        setState(() {
+          _emailDuplicateError = null;
+          _matchedEmailStaff = null;
+        });
+        _formKey.currentState?.validate();
+      }
+      return;
+    }
+
+    if (email.isNotEmpty &&
+        !email.contains(RegExp(r'[A-Z]')) &&
+        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      _emailDebounce = Timer(const Duration(milliseconds: 300), () {
+        if (email != _lastCheckedEmail) {
+          _lastCheckedEmail = email;
+          _checkExistingEmail(email);
+        }
+      });
+    } else {
+      if (_emailDuplicateError != null || _matchedEmailStaff != null) {
+        setState(() {
+          _emailDuplicateError = null;
+          _matchedEmailStaff = null;
+        });
+        _formKey.currentState?.validate();
+      }
+      if (email.isEmpty) {
+        _lastCheckedEmail = '';
+      }
+    }
+  }
+
+  Future<void> _checkExistingMobile(String mobile) async {
+    setState(() => _isCheckingMobile = true);
+    try {
+      final res = await _adminController.checkDuplicateStaff(
+        mobile: mobile,
+        excludeId: widget.user.id,
+      );
+      final mobileDup = res['mobileDuplicate'];
+      if (mobileDup != null && mounted) {
+        final name = mobileDup['fullname'] ?? 'Staff Member';
+        final staffId = mobileDup['staff_unique_id'] ?? '';
+        setState(() {
+          _matchedMobileStaff = mobileDup;
+          _mobileDuplicateError =
+              'This mobile number is already registered to $name${staffId.isNotEmpty ? " ($staffId)" : ""}.';
+        });
+        _formKey.currentState?.validate();
+        _showDuplicateStaffDialog(
+          title: 'Mobile Number Already Registered',
+          description:
+              'A staff member is already registered with this mobile number ($mobile). Only one staff account is permitted per mobile number.',
+          staff: mobileDup,
+          fieldType: 'mobile',
+        );
+      } else if (mounted) {
+        setState(() {
+          _matchedMobileStaff = null;
+          _mobileDuplicateError = null;
+        });
+        _formKey.currentState?.validate();
+      }
+    } catch (e) {
+      print('Error checking mobile duplicate: $e');
+    } finally {
+      if (mounted) setState(() => _isCheckingMobile = false);
+    }
+  }
+
+  Future<void> _checkExistingEmail(String email) async {
+    setState(() => _isCheckingEmail = true);
+    try {
+      final res = await _adminController.checkDuplicateStaff(
+        email: email,
+        excludeId: widget.user.id,
+      );
+      final emailDup = res['emailDuplicate'];
+      if (emailDup != null && mounted) {
+        final name = emailDup['fullname'] ?? 'Staff Member';
+        final staffId = emailDup['staff_unique_id'] ?? '';
+        setState(() {
+          _matchedEmailStaff = emailDup;
+          _emailDuplicateError =
+              'A staff member with this email already exists ($name${staffId.isNotEmpty ? ", $staffId" : ""}).';
+        });
+        _formKey.currentState?.validate();
+        _showDuplicateStaffDialog(
+          title: 'Email Address Already Registered',
+          description:
+              'A staff member is already registered with this email address ($email). Each staff account requires a unique email.',
+          staff: emailDup,
+          fieldType: 'email',
+        );
+      } else if (mounted) {
+        setState(() {
+          _matchedEmailStaff = null;
+          _emailDuplicateError = null;
+        });
+        _formKey.currentState?.validate();
+      }
+    } catch (e) {
+      print('Error checking email duplicate: $e');
+    } finally {
+      if (mounted) setState(() => _isCheckingEmail = false);
+    }
+  }
+
+  Widget _buildDialogDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDuplicateStaffDialog({
+    required String title,
+    required String description,
+    required Map<String, dynamic> staff,
+    required String fieldType,
+  }) {
+    final name = staff['fullname'] ?? 'Staff Member';
+    final staffId = staff['staff_unique_id'] ?? '';
+    final role = staff['role'] ?? 'N/A';
+    final value = fieldType == 'email'
+        ? (staff['email'] ?? '')
+        : (staff['mobile'] ?? '');
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          backgroundColor: Colors.white,
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppTheme.dangerColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Container(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF64748B),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (staffId.toString().isNotEmpty)
+                        _buildDialogDetailRow('Staff ID', staffId.toString()),
+                      _buildDialogDetailRow('Name', name.toString()),
+                      _buildDialogDetailRow('Role', role.toString()),
+                      if (value.toString().isNotEmpty)
+                        _buildDialogDetailRow(
+                          fieldType == 'email' ? 'Email' : 'Mobile',
+                          value.toString(),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  fieldType == 'email'
+                      ? 'Please enter a different email address to proceed.'
+                      : 'Please enter a different mobile number to proceed.',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                if (fieldType == 'email') {
+                  _emailDebounce?.cancel();
+                  _lastCheckedEmail = '';
+                  _emailController.clear();
+                  setState(() {
+                    _emailDuplicateError = null;
+                    _matchedEmailStaff = null;
+                  });
+                  Future.microtask(() {
+                    if (mounted) _emailFocusNode.requestFocus();
+                  });
+                } else {
+                  _mobileDebounce?.cancel();
+                  _lastCheckedMobile = '';
+                  _mobileController.clear();
+                  setState(() {
+                    _mobileDuplicateError = null;
+                    _matchedMobileStaff = null;
+                  });
+                  Future.microtask(() {
+                    if (mounted) _mobileFocusNode.requestFocus();
+                  });
+                }
+                _formKey.currentState?.validate();
+              },
+              style: AppTheme.primaryButton,
+              child: Text(
+                fieldType == 'email'
+                    ? 'Enter Different Email'
+                    : 'Enter Different Number',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _loadRoles() async {
+    setState(() => _isLoadingRoles = true);
+    try {
+      final rbacData = await _adminController.fetchRbacData();
+      final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
+      final currentUserRole = Provider.of<AuthProvider>(
+        context,
+        listen: false,
+      ).user?.role;
+
+      final orderedRoles = [
+        'Super Admin',
+        'Admin',
+        'Doctor',
+        'Nurse',
+        'Anaesthetist',
+        'Front Desk',
+        'Lab',
+        'Pharmacy',
+      ];
+      final rNames = rolesList
+          .map((r) => r['role_name']?.toString() ?? '')
+          .where((r) {
+            if (currentUserRole == 'Super Admin') return true;
+            return r == 'Doctor' ||
+                r == 'Nurse' ||
+                r == 'Front Desk' ||
+                r == 'Anaesthetist' ||
+                r == 'Lab' ||
+                r == 'Pharmacy' ||
+                r == _selectedRole;
+          })
+          .toList();
+      rNames.sort((a, b) {
+        int indexA = orderedRoles.indexOf(a);
+        int indexB = orderedRoles.indexOf(b);
+        if (indexA == -1 && indexB == -1) return a.compareTo(b);
+        if (indexA == -1) return 1;
+        if (indexB == -1) return -1;
+        return indexA.compareTo(indexB);
+      });
+
+      if (mounted) {
+        setState(() {
+          if (rNames.isNotEmpty) _roles = rNames;
+          if (_selectedRole != null && !_roles.contains(_selectedRole)) {
+            _roles.add(_selectedRole!);
+          }
+          _isLoadingRoles = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingRoles = false);
+      }
+    }
+  }
+
+  Future<void> _loadSpecializations() async {
+    setState(() => _isLoadingSpecializations = true);
+    try {
+      final specs = await _adminController.fetchSpecializations();
+      if (mounted) {
+        setState(() {
+          _specializations = specs;
+          _isLoadingSpecializations = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingSpecializations = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailDebounce?.cancel();
+    _mobileDebounce?.cancel();
+    _emailFocusNode.dispose();
+    _mobileFocusNode.dispose();
+    _mobileController.removeListener(_onMobileChanged);
+    _emailController.removeListener(_onEmailChanged);
+    _nameController.dispose();
+    _emailController.dispose();
+    _mobileController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveChanges() async {
+    if (_mobileDuplicateError != null || _emailDuplicateError != null) {
+      setState(
+        () => _dialogError = _mobileDuplicateError ?? _emailDuplicateError,
+      );
+      return;
+    }
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSaving = true);
+    try {
+      await _adminController.updateStaff(
+        id: widget.user.id,
+        fullname: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        mobile: _mobileController.text.trim(),
+        role: _selectedRole ?? widget.user.role,
+        status: _selectedStatus ?? widget.user.status,
+        medicalLicense: null,
+        specializationId: _selectedRole == 'Doctor'
+            ? _selectedSpecializationId
+            : null,
+      );
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onSaved();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${_nameController.text.trim()} updated successfully!',
+            ),
+            backgroundColor: Colors.green.shade600,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final errText = e.toString().replaceFirst('Exception: ', '');
+        setState(() {
+          _dialogError = errText;
+          if (errText.toLowerCase().contains('email')) {
+            _emailDuplicateError = errText;
+          }
+          if (errText.toLowerCase().contains('mobile')) {
+            _mobileDuplicateError = errText;
+          }
+        });
+        _formKey.currentState?.validate();
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+      ),
+      title: const Text(
+        'Edit Staff',
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+      content: SizedBox(
+        width: MediaQuery.of(context).size.width > 500
+            ? 450
+            : MediaQuery.of(context).size.width * 0.9,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_dialogError != null)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _dialogError!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (widget.user.staffUniqueId != null) ...[
+                  const Text(
+                    'Staff ID',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: TextFormField(
+                      initialValue: widget.user.staffUniqueId,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        hintText: 'Staff ID',
+                        prefixIcon: Icon(Icons.pin_outlined),
+                        fillColor: Color(0xFFE5E7EB),
+                        filled: true,
+                        helperText: 'Auto-generated ID',
+                      ),
+                    ),
+                  ),
+                ],
+                const Text(
+                  'Full Name',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _nameController,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  textCapitalization: TextCapitalization.words,
+                  onChanged: (_) {
+                    if (_dialogError != null) setState(() => _dialogError = null);
+                  },
+                  decoration: const InputDecoration(
+                    hintText: 'Enter full name',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-Z\s.]'),
+                    ),
+                    const CapitalizeWordsInputFormatter(),
+                    LengthLimitingTextInputFormatter(60),
+                  ],
+                  validator: (val) => val == null || val.trim().isEmpty
+                      ? 'Please enter a name'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Email Address',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _emailController,
+                  focusNode: _emailFocusNode,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  onChanged: (_) {
+                    if (_dialogError != null) setState(() => _dialogError = null);
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Enter email address',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    suffixIcon: _isCheckingEmail
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          )
+                        : null,
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor),
+                    ),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                    LengthLimitingTextInputFormatter(100),
+                  ],
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Please enter Email Address';
+                    }
+                    if (val.trim().contains(RegExp(r'[A-Z]'))) {
+                      return 'Please enter a valid email address';
+                    }
+                    if (!RegExp(
+                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                    ).hasMatch(val.trim())) {
+                      return 'Please enter a valid email address';
+                    }
+                    if (_emailDuplicateError != null) {
+                      return _emailDuplicateError;
+                    }
+                    return null;
+                  },
+                ),
+                if (_emailDuplicateError != null) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.dangerColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: AppTheme.dangerColor,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _matchedEmailStaff != null
+                                ? 'Registered to: ${_matchedEmailStaff!['fullname'] ?? "Staff"} (${_matchedEmailStaff!['staff_unique_id'] ?? "ID: N/A"}). Email already exists.'
+                                : _emailDuplicateError!,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.dangerColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                const Text(
+                  'Mobile Number',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _mobileController,
+                  focusNode: _mobileFocusNode,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  onChanged: (_) {
+                    if (_dialogError != null) setState(() => _dialogError = null);
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Enter mobile number',
+                    prefixIcon: const Icon(Icons.phone_outlined),
+                    counterText: "",
+                    errorMaxLines: 2,
+                    suffixIcon: _isCheckingMobile
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          )
+                        : null,
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor),
+                    ),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Please enter a mobile number';
+                    }
+                    final clean = val.trim();
+                    if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+                      return 'Mobile number must start with 6, 7, 8, or 9';
+                    }
+                    if (clean.length != 10) {
+                      return 'Mobile number must be exactly 10 digits';
+                    }
+                    if (_mobileDuplicateError != null) {
+                      return _mobileDuplicateError;
+                    }
+                    return null;
+                  },
+                ),
+                if (_mobileDuplicateError != null) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.dangerColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: AppTheme.dangerColor,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _matchedMobileStaff != null
+                                ? 'Registered to: ${_matchedMobileStaff!['fullname'] ?? "Staff"} (${_matchedMobileStaff!['staff_unique_id'] ?? "ID: N/A"}). Mobile number already exists.'
+                                : _mobileDuplicateError!,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.dangerColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                if (_isLoadingRoles)
+                  const Center(child: CircularProgressIndicator())
+                else
+                  const Text(
+                    'Role',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                CustomDropdownSearch(
+                  label: '',
+                  value: _selectedRole,
+                  dropdownItems: _roles,
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedRole = val;
+                        if (_selectedRole != 'Doctor') {
+                          _selectedSpecializationId = null;
+                        }
+                      });
+                    }
+                  },
+                ),
+                if (_selectedRole == 'Doctor') ...[
+                  const SizedBox(height: 16),
+                  if (_isLoadingSpecializations)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    CustomDropdownSearch(
+                      label: 'Specialization',
+                      value: _selectedSpecializationId?.toString(),
+                      dropdownMap: {
+                        for (var s in _specializations)
+                          s['id'].toString(): s['name'].toString(),
+                      },
+                      onChanged: (val) {
+                        setState(() {
+                          _selectedSpecializationId =
+                              val != null ? int.tryParse(val) : null;
+                          _dialogError = null;
+                        });
+                      },
+                      validator: (val) {
+                        if (_selectedRole != 'Doctor') return null;
+                        if (val == null || val.isEmpty) {
+                          return 'Please select a specialization';
+                        }
+                        final validSpecIds = _specializations
+                            .map((s) => s['id'].toString())
+                            .toSet();
+                        if (!validSpecIds.contains(val)) {
+                          return 'Please select a valid specialization from the list';
+                        }
+                        return null;
+                      },
+                    ),
+                ],
+                const SizedBox(height: 16),
+                const Text(
+                  'Status',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                CustomDropdownSearch(
+                  label: '',
+                  value: _selectedStatus,
+                  dropdownMap: const {
+                    'active': 'Active',
+                    'inactive': 'Inactive',
+                    'suspended': 'Suspended',
+                  },
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedStatus = val;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        OutlinedButton(
+          onPressed: _isSaving ? null : () => Navigator.pop(context),
+          style: AppTheme.cancelButton,
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: (_isSaving || !_hasChanges()) ? null : _saveChanges,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.logoRed,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(120, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 14,
+            ),
+          ),
+          child: _isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+              : const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
 class AddUserDialog extends StatefulWidget {
   const AddUserDialog({Key? key}) : super(key: key);
 
@@ -14212,7 +14639,14 @@ class _AddUserDialogState extends State<AddUserDialog> {
   final AdminController _adminController = AdminController();
 
   String? _selectedRole;
-  List<String> _roles = ['Doctor', 'Nurse', 'Anaesthetist', 'Front Desk'];
+  List<String> _roles = [
+    'Doctor',
+    'Nurse',
+    'Anaesthetist',
+    'Front Desk',
+    'Lab',
+    'Pharmacy',
+  ];
   int? _selectedSpecializationId;
   List<Map<String, dynamic>> _specializations = [];
   bool _isLoading = false;
@@ -14221,12 +14655,322 @@ class _AddUserDialogState extends State<AddUserDialog> {
   String? _errorMessage;
   bool _obscurePassword = true;
 
+  String? _mobileDuplicateError;
+  String? _emailDuplicateError;
+  String _lastCheckedMobile = '';
+  String _lastCheckedEmail = '';
+  bool _isCheckingMobile = false;
+  bool _isCheckingEmail = false;
+  Map<String, dynamic>? _matchedMobileStaff;
+  Map<String, dynamic>? _matchedEmailStaff;
+  Timer? _emailDebounce;
+  Timer? _mobileDebounce;
+  final _emailFocusNode = FocusNode();
+  final _mobileFocusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
     _passwordController.text = PasswordPolicy.generateSecurePassword();
     _loadSpecializations();
     _loadRoles();
+    _mobileController.addListener(_onMobileChanged);
+    _emailController.addListener(_onEmailChanged);
+  }
+
+  void _onMobileChanged() {
+    _mobileDebounce?.cancel();
+    final mobile = _mobileController.text.trim();
+    if (mobile.length == 10 && RegExp(r'^[6-9]\d{9}$').hasMatch(mobile)) {
+      _mobileDebounce = Timer(const Duration(milliseconds: 200), () {
+        if (mobile != _lastCheckedMobile) {
+          _lastCheckedMobile = mobile;
+          _checkExistingMobile(mobile);
+        }
+      });
+    } else {
+      if (_mobileDuplicateError != null || _matchedMobileStaff != null) {
+        setState(() {
+          _mobileDuplicateError = null;
+          _matchedMobileStaff = null;
+        });
+        _formKey.currentState?.validate();
+      }
+      if (mobile.length < 10) {
+        _lastCheckedMobile = '';
+      }
+    }
+  }
+
+  void _onEmailChanged() {
+    _emailDebounce?.cancel();
+    final email = _emailController.text.trim();
+    if (email.isNotEmpty &&
+        !email.contains(RegExp(r'[A-Z]')) &&
+        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      _emailDebounce = Timer(const Duration(milliseconds: 300), () {
+        if (email != _lastCheckedEmail) {
+          _lastCheckedEmail = email;
+          _checkExistingEmail(email);
+        }
+      });
+    } else {
+      if (_emailDuplicateError != null || _matchedEmailStaff != null) {
+        setState(() {
+          _emailDuplicateError = null;
+          _matchedEmailStaff = null;
+        });
+        _formKey.currentState?.validate();
+      }
+      if (email.isEmpty) {
+        _lastCheckedEmail = '';
+      }
+    }
+  }
+
+  Future<void> _checkExistingMobile(String mobile) async {
+    setState(() => _isCheckingMobile = true);
+    try {
+      final res = await _adminController.checkDuplicateStaff(mobile: mobile);
+      final mobileDup = res['mobileDuplicate'];
+      if (mobileDup != null && mounted) {
+        final name = mobileDup['fullname'] ?? 'Staff Member';
+        final staffId = mobileDup['staff_unique_id'] ?? '';
+        setState(() {
+          _matchedMobileStaff = mobileDup;
+          _mobileDuplicateError =
+              'This mobile number is already registered to $name${staffId.isNotEmpty ? " ($staffId)" : ""}.';
+        });
+        _formKey.currentState?.validate();
+        _showDuplicateStaffDialog(
+          title: 'Mobile Number Already Registered',
+          description:
+              'A staff member is already registered with this mobile number ($mobile). Only one staff account is permitted per mobile number.',
+          staff: mobileDup,
+          fieldType: 'mobile',
+        );
+      } else if (mounted) {
+        setState(() {
+          _matchedMobileStaff = null;
+          _mobileDuplicateError = null;
+        });
+        _formKey.currentState?.validate();
+      }
+    } catch (e) {
+      print('Error checking mobile duplicate: $e');
+    } finally {
+      if (mounted) setState(() => _isCheckingMobile = false);
+    }
+  }
+
+  Future<void> _checkExistingEmail(String email) async {
+    setState(() => _isCheckingEmail = true);
+    try {
+      final res = await _adminController.checkDuplicateStaff(email: email);
+      final emailDup = res['emailDuplicate'];
+      if (emailDup != null && mounted) {
+        final name = emailDup['fullname'] ?? 'Staff Member';
+        final staffId = emailDup['staff_unique_id'] ?? '';
+        setState(() {
+          _matchedEmailStaff = emailDup;
+          _emailDuplicateError =
+              'A staff member with this email already exists ($name${staffId.isNotEmpty ? ", $staffId" : ""}).';
+        });
+        _formKey.currentState?.validate();
+        _showDuplicateStaffDialog(
+          title: 'Email Address Already Registered',
+          description:
+              'A staff member is already registered with this email address ($email). Each staff account requires a unique email.',
+          staff: emailDup,
+          fieldType: 'email',
+        );
+      } else if (mounted) {
+        setState(() {
+          _matchedEmailStaff = null;
+          _emailDuplicateError = null;
+        });
+        _formKey.currentState?.validate();
+      }
+    } catch (e) {
+      print('Error checking email duplicate: $e');
+    } finally {
+      if (mounted) setState(() => _isCheckingEmail = false);
+    }
+  }
+
+  Widget _buildDialogDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDuplicateStaffDialog({
+    required String title,
+    required String description,
+    required Map<String, dynamic> staff,
+    required String fieldType,
+  }) {
+    final name = staff['fullname'] ?? 'Staff Member';
+    final staffId = staff['staff_unique_id'] ?? '';
+    final role = staff['role'] ?? 'N/A';
+    final value = fieldType == 'email'
+        ? (staff['email'] ?? '')
+        : (staff['mobile'] ?? '');
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          backgroundColor: Colors.white,
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppTheme.dangerColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Container(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF64748B),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (staffId.toString().isNotEmpty)
+                        _buildDialogDetailRow('Staff ID', staffId.toString()),
+                      _buildDialogDetailRow('Name', name.toString()),
+                      _buildDialogDetailRow('Role', role.toString()),
+                      if (value.toString().isNotEmpty)
+                        _buildDialogDetailRow(
+                          fieldType == 'email' ? 'Email' : 'Mobile',
+                          value.toString(),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  fieldType == 'email'
+                      ? 'Please enter a different email address to proceed.'
+                      : 'Please enter a different mobile number to proceed.',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                if (fieldType == 'email') {
+                  _emailDebounce?.cancel();
+                  _lastCheckedEmail = '';
+                  _emailController.clear();
+                  setState(() {
+                    _emailDuplicateError = null;
+                    _matchedEmailStaff = null;
+                  });
+                  Future.microtask(() {
+                    if (mounted) _emailFocusNode.requestFocus();
+                  });
+                } else {
+                  _mobileDebounce?.cancel();
+                  _lastCheckedMobile = '';
+                  _mobileController.clear();
+                  setState(() {
+                    _mobileDuplicateError = null;
+                    _matchedMobileStaff = null;
+                  });
+                  Future.microtask(() {
+                    if (mounted) _mobileFocusNode.requestFocus();
+                  });
+                }
+                _formKey.currentState?.validate();
+              },
+              style: AppTheme.primaryButton,
+              child: Text(
+                fieldType == 'email'
+                    ? 'Enter Different Email'
+                    : 'Enter Different Number',
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _loadRoles() async {
@@ -14234,41 +14978,13 @@ class _AddUserDialogState extends State<AddUserDialog> {
     try {
       final rbacData = await _adminController.fetchRbacData();
       final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
-
+      final names = rolesList
+          .map((r) => r['name']?.toString() ?? '')
+          .where((name) => name.isNotEmpty && name != 'Super Admin')
+          .toList();
       if (mounted) {
-        final currentUserRole = Provider.of<AuthProvider>(
-          context,
-          listen: false,
-        ).user?.role;
         setState(() {
-          _roles = rolesList.map((r) => r['role_name'].toString()).where((r) {
-            if (currentUserRole == 'Super Admin') return true;
-            return r == 'Doctor' ||
-                r == 'Nurse' ||
-                r == 'Front Desk' ||
-                r == 'Anaesthetist';
-          }).toList();
-
-          final orderedRoles = [
-            'Super Admin',
-            'Admin',
-            'Doctor',
-            'Nurse',
-            'Anaesthetist',
-            'Front Desk',
-          ];
-          _roles.sort((a, b) {
-            int indexA = orderedRoles.indexOf(a);
-            int indexB = orderedRoles.indexOf(b);
-            if (indexA == -1 && indexB == -1) return a.compareTo(b);
-            if (indexA == -1) return 1;
-            if (indexB == -1) return -1;
-            return indexA.compareTo(indexB);
-          });
-
-          if (_selectedRole != null && !_roles.contains(_selectedRole)) {
-            _selectedRole = null;
-          }
+          if (names.isNotEmpty) _roles = names;
           _isLoadingRoles = false;
         });
       }
@@ -14308,6 +15024,12 @@ class _AddUserDialogState extends State<AddUserDialog> {
 
   @override
   void dispose() {
+    _emailDebounce?.cancel();
+    _mobileDebounce?.cancel();
+    _emailFocusNode.dispose();
+    _mobileFocusNode.dispose();
+    _mobileController.removeListener(_onMobileChanged);
+    _emailController.removeListener(_onEmailChanged);
     _nameController.dispose();
     _emailController.dispose();
     _mobileController.dispose();
@@ -14317,6 +15039,12 @@ class _AddUserDialogState extends State<AddUserDialog> {
   }
 
   Future<void> _createUser() async {
+    if (_mobileDuplicateError != null || _emailDuplicateError != null) {
+      setState(
+        () => _errorMessage = _mobileDuplicateError ?? _emailDuplicateError,
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     if (_selectedRole == null || !_roles.contains(_selectedRole)) {
       setState(
@@ -14361,9 +15089,17 @@ class _AddUserDialogState extends State<AddUserDialog> {
       Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        setState(
-          () => _errorMessage = e.toString().replaceFirst('Exception: ', ''),
-        );
+        final errText = e.toString().replaceFirst('Exception: ', '');
+        setState(() {
+          _errorMessage = errText;
+          if (errText.toLowerCase().contains('email')) {
+            _emailDuplicateError = errText;
+          }
+          if (errText.toLowerCase().contains('mobile')) {
+            _mobileDuplicateError = errText;
+          }
+        });
+        _formKey.currentState?.validate();
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -14385,12 +15121,15 @@ class _AddUserDialogState extends State<AddUserDialog> {
         const SizedBox(height: 10),
         TextFormField(
           controller: _nameController,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          textCapitalization: TextCapitalization.words,
           onChanged: (_) {
             if (_errorMessage != null) setState(() => _errorMessage = null);
           },
           inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
-            LengthLimitingTextInputFormatter(30),
+            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s.]')),
+            const CapitalizeWordsInputFormatter(),
+            LengthLimitingTextInputFormatter(60),
           ],
           decoration: InputDecoration(
             hintText: 'Enter full name',
@@ -14411,11 +15150,11 @@ class _AddUserDialogState extends State<AddUserDialog> {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -14444,6 +15183,8 @@ class _AddUserDialogState extends State<AddUserDialog> {
         const SizedBox(height: 10),
         TextFormField(
           controller: _emailController,
+          focusNode: _emailFocusNode,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           onChanged: (_) {
             if (_errorMessage != null) setState(() => _errorMessage = null);
           },
@@ -14457,6 +15198,20 @@ class _AddUserDialogState extends State<AddUserDialog> {
             hintText: 'Enter email address',
             hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
             counterText: '',
+            errorMaxLines: 2,
+            suffixIcon: _isCheckingEmail
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  )
+                : null,
             filled: true,
             fillColor: AppTheme.backgroundColor,
             border: OutlineInputBorder(
@@ -14473,11 +15228,11 @@ class _AddUserDialogState extends State<AddUserDialog> {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -14496,9 +15251,50 @@ class _AddUserDialogState extends State<AddUserDialog> {
             ).hasMatch(val.trim())) {
               return 'Please enter a valid email address';
             }
+            if (_emailDuplicateError != null) {
+              return _emailDuplicateError;
+            }
             return null;
           },
         ),
+        if (_emailDuplicateError != null) ...[
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.dangerColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppTheme.dangerColor.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: AppTheme.dangerColor,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _matchedEmailStaff != null
+                        ? 'Registered to: ${_matchedEmailStaff!['fullname'] ?? "Staff"} (${_matchedEmailStaff!['staff_unique_id'] ?? "ID: N/A"}). Email already exists.'
+                        : _emailDuplicateError!,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.dangerColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -14518,6 +15314,8 @@ class _AddUserDialogState extends State<AddUserDialog> {
         const SizedBox(height: 10),
         TextFormField(
           controller: _mobileController,
+          focusNode: _mobileFocusNode,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           onChanged: (_) {
             if (_errorMessage != null) setState(() => _errorMessage = null);
           },
@@ -14532,6 +15330,19 @@ class _AddUserDialogState extends State<AddUserDialog> {
             hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
             counterText: '',
             errorMaxLines: 2,
+            suffixIcon: _isCheckingMobile
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  )
+                : null,
             filled: true,
             fillColor: AppTheme.backgroundColor,
             border: OutlineInputBorder(
@@ -14548,13 +15359,12 @@ class _AddUserDialogState extends State<AddUserDialog> {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
-            errorStyle: const TextStyle(fontSize: 11, color: Colors.red),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
@@ -14571,9 +15381,50 @@ class _AddUserDialogState extends State<AddUserDialog> {
             if (clean.length != 10) {
               return 'Mobile number must be exactly 10 digits';
             }
+            if (_mobileDuplicateError != null) {
+              return _mobileDuplicateError;
+            }
             return null;
           },
         ),
+        if (_mobileDuplicateError != null) ...[
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.dangerColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppTheme.dangerColor.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: AppTheme.dangerColor,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _matchedMobileStaff != null
+                        ? 'Registered to: ${_matchedMobileStaff!['fullname'] ?? "Staff"} (${_matchedMobileStaff!['staff_unique_id'] ?? "ID: N/A"}). Mobile number already exists.'
+                        : _mobileDuplicateError!,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.dangerColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -14593,6 +15444,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
         const SizedBox(height: 10),
         TextFormField(
           controller: _passwordController,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           onChanged: (_) {
             if (_errorMessage != null) setState(() => _errorMessage = null);
           },
@@ -14657,11 +15509,11 @@ class _AddUserDialogState extends State<AddUserDialog> {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,

@@ -7,6 +7,7 @@ import '../controllers/admin_controller.dart';
 import '../models/patient_model.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../utils/unsaved_changes_helper.dart';
+import '../utils/capitalize_formatter.dart';
 
 class NewPatientRegistrationView extends StatefulWidget {
   final VoidCallback onBack;
@@ -1001,10 +1002,12 @@ class _NewPatientRegistrationViewState
               _buildTextField(
                 controller: _nameController,
                 hint: 'Enter patient\'s full name',
+                textCapitalization: TextCapitalization.words,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(
                     RegExp(r'[a-zA-Z\s.]'),
                   ),
+                  const CapitalizeWordsInputFormatter(),
                   LengthLimitingTextInputFormatter(60),
                 ],
                 validator: (val) {
@@ -1159,10 +1162,12 @@ class _NewPatientRegistrationViewState
               _buildTextField(
                 controller: _emergencyContactNameController,
                 hint: 'Enter name',
+                textCapitalization: TextCapitalization.words,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(
                     RegExp(r'[a-zA-Z\s.]'),
                   ),
+                  const CapitalizeWordsInputFormatter(),
                   LengthLimitingTextInputFormatter(60),
                 ],
                 validator: (val) {
@@ -1181,10 +1186,12 @@ class _NewPatientRegistrationViewState
               _buildTextField(
                 controller: _emergencyContactRelationController,
                 hint: 'Enter Relationship',
+                textCapitalization: TextCapitalization.words,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(
                     RegExp(r'[a-zA-Z\s]'),
                   ),
+                  const CapitalizeWordsInputFormatter(),
                   LengthLimitingTextInputFormatter(20),
                 ],
                 validator: (val) {
@@ -1332,10 +1339,12 @@ class _NewPatientRegistrationViewState
                         _buildTextField(
                           controller: _nameController,
                           hint: 'Enter patient\'s full name',
+                          textCapitalization: TextCapitalization.words,
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
                               RegExp(r'[a-zA-Z\s.]'),
                             ),
+                            const CapitalizeWordsInputFormatter(),
                             LengthLimitingTextInputFormatter(60),
                           ],
                           validator: (val) {
@@ -1533,10 +1542,12 @@ class _NewPatientRegistrationViewState
                         _buildTextField(
                           controller: _emergencyContactNameController,
                           hint: 'Enter name',
+                          textCapitalization: TextCapitalization.words,
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
                               RegExp(r'[a-zA-Z\s.]'),
                             ),
+                            const CapitalizeWordsInputFormatter(),
                             LengthLimitingTextInputFormatter(60),
                           ],
                           validator: (val) {
@@ -1566,10 +1577,12 @@ class _NewPatientRegistrationViewState
                         _buildTextField(
                           controller: _emergencyContactRelationController,
                           hint: 'Enter Relationship',
+                          textCapitalization: TextCapitalization.words,
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
                               RegExp(r'[a-zA-Z\s]'),
                             ),
+                            const CapitalizeWordsInputFormatter(),
                             LengthLimitingTextInputFormatter(20),
                           ],
                           validator: (val) {
@@ -3535,6 +3548,7 @@ class _NewPatientRegistrationViewState
     VoidCallback? onTap,
     bool readOnly = false,
     TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.none,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
     ValueChanged<String>? onChanged,
@@ -3548,6 +3562,7 @@ class _NewPatientRegistrationViewState
       readOnly: readOnly,
       onTap: onTap,
       keyboardType: keyboardType,
+      textCapitalization: textCapitalization,
       inputFormatters: inputFormatters,
       decoration: InputDecoration(
         hintText: hint,

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -268,84 +269,66 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
 
 
   Widget _buildStatsRow() {
-    if (widget.isMobile) {
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 195,
-              child: _buildStatCard(
-                'Currently Admitted',
-                _admittedCount.toString(),
-                'Patients in Wards',
-                Icons.bedroom_child_outlined,
-                Colors.blue,
-              ),
-            ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 195,
-              child: _buildStatCard(
-                'Available Beds',
-                '$_availableBedsCount/${_beds.length}',
-                'Ready for intake',
-                Icons.hotel_outlined,
-                Colors.green,
-              ),
-            ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 195,
-              child: _buildStatCard(
-                'ICU Occupancy',
-                _icuOccupancy.toString(),
-                'Critical cases',
-                Icons.local_hospital_outlined,
-                Colors.red,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildStatCard(
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.isMobile ? 16 : 24,
+        vertical: 12,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final statItems = [
+            _buildStatCard(
               'Currently Admitted',
               _admittedCount.toString(),
               'Patients in Wards',
               Icons.bedroom_child_outlined,
               Colors.blue,
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildStatCard(
+            _buildStatCard(
               'Available Beds',
               '$_availableBedsCount/${_beds.length}',
               'Ready for intake',
               Icons.hotel_outlined,
               Colors.green,
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildStatCard(
+            _buildStatCard(
               'ICU Occupancy',
               _icuOccupancy.toString(),
               'Critical cases',
               Icons.local_hospital_outlined,
               Colors.red,
             ),
-          ),
-        ],
+          ];
+
+          if (constraints.maxWidth < 500) {
+            return Column(
+              children: statItems
+                  .map((card) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: SizedBox(width: double.infinity, child: card),
+                      ))
+                  .toList(),
+            );
+          } else if (constraints.maxWidth < 950) {
+            final cardWidth = math.max(0.0, (constraints.maxWidth - 12) / 2);
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: statItems
+                  .map((card) => SizedBox(width: cardWidth, child: card))
+                  .toList(),
+            );
+          } else {
+            final cardWidth = math.max(0.0, (constraints.maxWidth - (16 * 2)) / 3);
+            return Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: statItems
+                  .map((card) => SizedBox(width: cardWidth, child: card))
+                  .toList(),
+            );
+          }
+        },
       ),
     );
   }
@@ -429,8 +412,8 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
         unselectedLabelColor: AppTheme.textSecondaryColor,
         indicatorColor: AppTheme.primaryColor,
         indicatorWeight: 3,
-        isScrollable: widget.isMobile,
-        tabAlignment: widget.isMobile ? TabAlignment.start : null,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
         tabs: [
           Tab(text: 'Active Wards ($activeCount)'),
           Tab(text: 'Pending Requests ($pendingCount)'),

@@ -261,9 +261,9 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
         if (mounted) {
           setState(() {
             _transcribedText = liveText;
-            _textController.text = liveText;
-            _textController.selection = TextSelection.fromPosition(
-              TextPosition(offset: _textController.text.length),
+            _textController.value = TextEditingValue(
+              text: liveText,
+              selection: TextSelection.collapsed(offset: liveText.length),
             );
             _processLiveSpeechText(liveText);
           });
@@ -709,69 +709,94 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
     return Scaffold(
       backgroundColor: bgColor,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
+        preferredSize: Size.fromHeight(isMobileLayout ? 52 : 60),
         child: Container(
           decoration: const BoxDecoration(
             color: Colors.transparent,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.symmetric(horizontal: isMobileLayout ? 16 : 24),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.online_prediction,
-                    color: _isListening ? AppTheme.logoRed : AppTheme.secondaryColor,
-                    size: 28,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'AI Dictation',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: textPrimary,
-                      letterSpacing: 0.5,
+              Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.online_prediction,
+                      color: _isListening ? AppTheme.logoRed : AppTheme.secondaryColor,
+                      size: isMobileLayout ? 24 : 28,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
-                      borderRadius: BorderRadius.circular(4),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'AI Dictation',
+                        style: TextStyle(
+                          fontSize: isMobileLayout ? 16 : 18,
+                          fontWeight: FontWeight.bold,
+                          color: textPrimary,
+                          letterSpacing: 0.5,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    child: const Text(
-                      'AI ASSISTED EMR v2.5',
-                      style: TextStyle(color: AppTheme.primaryColor, fontSize: 10, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
+                    if (!isMobileLayout) ...[
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'AI ASSISTED EMR v2.5',
+                          style: TextStyle(color: AppTheme.primaryColor, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              Row(
-                children: [
-                  Text(
-                    _isDarkMode ? 'FUTURISTIC DARK' : 'CLINICAL LIGHT',
-                    style: TextStyle(
-                      color: textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+              const SizedBox(width: 8),
+              if (isMobileLayout)
+                IconButton(
+                  icon: Icon(
+                    _isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                    color: _isDarkMode ? Colors.amber : AppTheme.primaryColor,
+                    size: 22,
+                  ),
+                  tooltip: _isDarkMode ? 'Dark Mode' : 'Light Mode',
+                  onPressed: () {
+                    setState(() {
+                      _isDarkMode = !_isDarkMode;
+                    });
+                  },
+                )
+              else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _isDarkMode ? 'FUTURISTIC DARK' : 'CLINICAL LIGHT',
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Switch(
-                    value: _isDarkMode,
-                    activeColor: AppTheme.primaryColor,
-                    onChanged: (val) {
-                      setState(() {
-                        _isDarkMode = val;
-                      });
-                    },
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+                    Switch(
+                      value: _isDarkMode,
+                      activeColor: AppTheme.primaryColor,
+                      onChanged: (val) {
+                        setState(() {
+                          _isDarkMode = val;
+                        });
+                      },
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

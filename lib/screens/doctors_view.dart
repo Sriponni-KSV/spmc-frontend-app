@@ -9,6 +9,7 @@ import '../controllers/appointment_controller.dart';
 import '../models/user_model.dart';
 import '../models/appointment_model.dart';
 import '../providers/auth_provider.dart';
+import '../utils/capitalize_formatter.dart';
 
 class DoctorsView extends StatefulWidget {
   final Function(UserModel)? onBookAppointment;
@@ -902,12 +903,16 @@ class _DoctorsViewState extends State<DoctorsView> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: canEdit 
-                                    ? _buildModernField('Full Name', fullnameController,
-                                        maxLength: 50,
-                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))],
-                                      )
-                                    : _buildDetailItem('Full Name', fullnameController.text),
+                                   child: canEdit 
+                                     ? _buildModernField('Full Name', fullnameController,
+                                         maxLength: 60,
+                                         textCapitalization: TextCapitalization.words,
+                                         inputFormatters: [
+                                           FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s.]')),
+                                           const CapitalizeWordsInputFormatter(),
+                                         ],
+                                       )
+                                     : _buildDetailItem('Full Name', fullnameController.text),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
@@ -1308,7 +1313,7 @@ class _DoctorsViewState extends State<DoctorsView> {
     );
   }
 
-  Widget _buildModernField(String label, TextEditingController controller, {bool isNumeric = false, int maxLines = 1, String? hint, bool enabled = true, List<TextInputFormatter>? inputFormatters, int? maxLength}) {
+  Widget _buildModernField(String label, TextEditingController controller, {bool isNumeric = false, int maxLines = 1, String? hint, bool enabled = true, TextCapitalization textCapitalization = TextCapitalization.none, List<TextInputFormatter>? inputFormatters, int? maxLength}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Column(
@@ -1327,6 +1332,7 @@ class _DoctorsViewState extends State<DoctorsView> {
             controller: controller,
             readOnly: !enabled,
             keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+            textCapitalization: textCapitalization,
             maxLines: maxLines,
             maxLength: maxLength,
             inputFormatters: inputFormatters,
