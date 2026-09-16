@@ -42,11 +42,11 @@ class NurseNavConfig {
   /// Doctors Directory (Hidden - Change to true to display)
   static const bool showDoctors = false;
 
-  /// OPD Assistance (Hidden)
-  static const bool showOpdAssistance = false;
+  /// OPD Assistance (Visible)
+  static const bool showOpdAssistance = true;
 
-  /// IPD Management (Visible)
-  static const bool showIpdManagement = true;
+  /// IPD Management (Hidden - Change to true to display)
+  static const bool showIpdManagement = false;
 
   /// OT Management (Hidden - Change to true to display)
   static const bool showOtManagement = false;

@@ -242,7 +242,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               Container(
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppTheme.borderColor),
                 ),
@@ -261,6 +261,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         onChanged: (v) => setState(() => _search = v),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: EdgeInsets.zero,
                           hintText: 'Search patient name or ID...',
                           hintStyle: TextStyle(
                             fontSize: 13,

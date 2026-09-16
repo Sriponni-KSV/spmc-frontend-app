@@ -67,11 +67,11 @@ class AdminNavConfig {
   /// Appointments (Visible)
   static const bool showAppointments = true;
 
-  /// OPD Management (Hidden)
-  static const bool showOpdManagement = false;
+  /// OPD Management (Visible)
+  static const bool showOpdManagement = true;
 
-  /// IPD Management (Visible)
-  static const bool showIpdManagement = true;
+  /// IPD Management (Hidden - Change to true to display)
+  static const bool showIpdManagement = false;
 
   /// OT Management (Hidden - Change to true to display)
   static const bool showOtManagement = false;

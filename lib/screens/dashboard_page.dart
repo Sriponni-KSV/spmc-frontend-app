@@ -25,6 +25,7 @@ import 'ot_dictation_dashboard.dart';
 import '../controllers/ot_controller.dart';
 import '../controllers/lab_controller.dart';
 import '../controllers/notification_controller.dart';
+import '../config/doctor_nav_config.dart';
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
@@ -4174,50 +4175,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-          // Navigation Items (Scrollable)
+          // Navigation Items (Scrollable Area driven by DoctorNavConfig)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Column(
-                children: [
-                  if (isAnaesthetist) ...[
-                    _buildSidebarItem(0, Icons.grid_view_outlined, 'Dashboard'),
-                    _buildSidebarItem(
-                      4,
-                      Icons.healing_outlined,
-                      'OT Management',
-                    ),
-                    _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
-                  ] else ...[
-                    _buildSidebarItem(0, Icons.grid_view_outlined, 'Dashboard'),
-                    _buildSidebarItem(
-                      1,
-                      Icons.history_edu_outlined,
-                      'My Consultations',
-                    ),
-                    _buildSidebarItem(
-                      6,
-                      Icons.science_outlined,
-                      'Lab Reports',
-                    ),
-                    _buildSidebarItem(
-                      3,
-                      Icons.local_hospital_outlined,
-                      'IPD Management',
-                    ),
-                    _buildSidebarItem(
-                      4,
-                      Icons.healing_outlined,
-                      'OT Management',
-                    ),
-                    _buildSidebarItem(
-                      5,
-                      Icons.mic_none_outlined,
-                      'AI Dictation',
-                    ),
-                    _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
-                  ],
-                ],
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: DoctorNavConfig.getVisibleNavItems(user)
+                    .map(
+                      (item) => _buildSidebarItem(
+                        item.index,
+                        item.icon,
+                        item.label,
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ),
@@ -4563,8 +4535,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .where((a) => a.status == 'Confirmed' || a.status == 'Scheduled')
         .length;
     final int totalPatients = _doctorAppointments.length;
-    final int admittedCount = _doctorAppointments
-        .where((a) => a.status == 'Admitted')
+    final int completedCount = _doctorAppointments
+        .where((a) => a.status == 'Completed' || a.status == 'Consulted')
         .length;
 
     final statItems = [
@@ -4593,11 +4565,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         isMobile,
       ),
       _buildStatCard(
-        'IPD Admission Cases',
-        admittedCount.toString(),
-        'Pending ward assignment',
-        Icons.local_hospital_outlined,
-        Colors.red,
+        'Completed Cases',
+        completedCount.toString(),
+        'Consultations done',
+        Icons.task_alt_outlined,
+        Colors.teal,
         isMobile,
       ),
     ];
