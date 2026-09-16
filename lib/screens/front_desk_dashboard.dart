@@ -379,9 +379,27 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
       resizeToAvoidBottomInset: false,
       backgroundColor: AppTheme.backgroundColor,
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
-      floatingActionButton: isFormActive
-          ? null
-          : CustomSpeedDial(
+      floatingActionButton: null,
+      body: Stack(
+        children: [
+          Row(
+            children: [
+              // Sidebar (only on desktop)
+              if (!isMobile) _buildSidebar(context),
+
+              // Main Content Area
+              Expanded(
+                child: Column(
+                  children: [
+                    if (_selectedIndex != 0) _buildHeader(context, isMobile),
+                    Expanded(child: _buildMainContent(isMobile)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (!isFormActive)
+            CustomSpeedDial(
               isVisible: !isFormActive,
               children: [
                 if (Provider.of<AuthProvider>(
@@ -408,20 +426,6 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                   ),
               ],
             ),
-      body: Row(
-        children: [
-          // Sidebar (only on desktop)
-          if (!isMobile) _buildSidebar(context),
-
-          // Main Content Area
-          Expanded(
-            child: Column(
-              children: [
-                if (_selectedIndex != 0) _buildHeader(context, isMobile),
-                Expanded(child: _buildMainContent(isMobile)),
-              ],
-            ),
-          ),
         ],
       ),
     );

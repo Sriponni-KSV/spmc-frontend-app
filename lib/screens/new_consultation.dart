@@ -10,13 +10,13 @@ import '../controllers/ipd_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../services/api_service.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/media_service.dart';
 import '../widgets/document_view_dialog.dart';
 import '../utils/unsaved_changes_helper.dart';
 import 'dart:io' as io;
+import '../services/live_speech_service.dart';
 
 class NewConsultationView extends StatefulWidget {
   final AppointmentModel appointment;
@@ -36,6 +36,11 @@ class NewConsultationView extends StatefulWidget {
 
 class _NewConsultationViewState extends State<NewConsultationView> {
   final _formKey = GlobalKey<FormState>();
+
+  // Voice to Text State
+  TextEditingController? _activeListeningController;
+  bool _isSpeechPaused = false;
+  String _speechBaseText = '';
 
   final TextEditingController _symptomsController = TextEditingController();
   final TextEditingController _diagnosisController = TextEditingController();
@@ -233,6 +238,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     super.initState();
     UnsavedChangesHelper.setUnsavedChanges(true);
     _currentAppointment = widget.appointment;
+    _initSpeech();
     _fetchLatestVitals();
     _fetchPreviousConsultations();
     _initializeData();
@@ -243,6 +249,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   @override
   void dispose() {
     UnsavedChangesHelper.setUnsavedChanges(false);
+    _stopSpeech();
     _symptomsController.dispose();
     _diagnosisController.dispose();
     _notesController.dispose();
@@ -261,6 +268,159 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     _referralNotesController.dispose();
     _docTitleController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initSpeech() async {
+    await LiveSpeechService().initialize();
+  }
+
+  Future<void> _startSpeech(
+    TextEditingController targetController,
+    String fieldName,
+  ) async {
+    // If active on another field, stop it first
+    if (_activeListeningController != null) {
+      await _stopSpeech();
+    }
+
+    final initialText = targetController.text.trim();
+    if (mounted) {
+      setState(() {
+        _activeListeningController = targetController;
+        _isSpeechPaused = false;
+        _speechBaseText = initialText;
+      });
+    }
+
+    final success = await LiveSpeechService().startListening(
+      onResult: (liveWords) {
+        if (_isSpeechPaused) return;
+        final words = liveWords.trim();
+        if (words.isNotEmpty &&
+            mounted &&
+            _activeListeningController == targetController) {
+          final newText =
+              _speechBaseText.isEmpty ? words : '$_speechBaseText $words';
+          targetController.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: newText.length),
+          );
+        }
+      },
+      onStatus: (status) {
+        if (status == 'notListening' || status == 'done') {
+          if (mounted &&
+              !_isSpeechPaused &&
+              _activeListeningController == targetController) {
+            setState(() {
+              _activeListeningController = null;
+            });
+          }
+        }
+      },
+      onError: (err) {
+        if (mounted) {
+          setState(() {
+            _activeListeningController = null;
+            _isSpeechPaused = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Voice input: $err'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      },
+    );
+
+    if (!success && mounted) {
+      setState(() {
+        _activeListeningController = null;
+        _isSpeechPaused = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Microphone / Speech recognition is not available or permission was denied.',
+          ),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _pauseSpeech() async {
+    if (_activeListeningController == null) return;
+    if (mounted) {
+      setState(() {
+        _isSpeechPaused = true;
+        _speechBaseText = _activeListeningController!.text.trim();
+      });
+    }
+    await LiveSpeechService().stopListening();
+  }
+
+  Future<void> _resumeSpeech() async {
+    final controller = _activeListeningController;
+    if (controller == null) return;
+
+    final initialText = controller.text.trim();
+    if (mounted) {
+      setState(() {
+        _isSpeechPaused = false;
+        _speechBaseText = initialText;
+      });
+    }
+
+    await LiveSpeechService().startListening(
+      onResult: (liveWords) {
+        if (_isSpeechPaused) return;
+        final words = liveWords.trim();
+        if (words.isNotEmpty &&
+            mounted &&
+            _activeListeningController == controller) {
+          final newText =
+              _speechBaseText.isEmpty ? words : '$_speechBaseText $words';
+          controller.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: newText.length),
+          );
+        }
+      },
+      onStatus: (status) {
+        if (status == 'notListening' || status == 'done') {
+          if (mounted &&
+              !_isSpeechPaused &&
+              _activeListeningController == controller) {
+            setState(() {
+              _activeListeningController = null;
+            });
+          }
+        }
+      },
+      onError: (err) {
+        if (mounted) {
+          setState(() {
+            _activeListeningController = null;
+            _isSpeechPaused = false;
+          });
+        }
+      },
+    );
+  }
+
+  Future<void> _stopSpeech() async {
+    if (mounted) {
+      setState(() {
+        _isSpeechPaused = false;
+        _speechBaseText = '';
+        _activeListeningController = null;
+      });
+    }
+    await LiveSpeechService().stopListening();
   }
 
   Future<void> _loadMedicineCatalog() async {
@@ -1052,30 +1212,28 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           ),
           const SizedBox(height: 12),
           // Header Title
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.initialConsultation != null
-                        ? 'Edit Consultation: ${_currentAppointment.patientName}'
-                        : 'Consultation: ${_currentAppointment.patientName}',
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Appt Date: ${_currentAppointment.appointmentDate} • Status: ${_currentAppointment.status}',
-                    style: const TextStyle(
-                      color: AppTheme.textSecondaryColor,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
+              Text(
+                widget.initialConsultation != null
+                    ? 'Edit Consultation: ${_currentAppointment.patientName}'
+                    : 'Consultation: ${_currentAppointment.patientName}',
+                style: TextStyle(
+                  fontSize: isMobile ? 20 : 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+                softWrap: true,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Appt Date: ${_currentAppointment.appointmentDate} • Status: ${_currentAppointment.status}',
+                style: const TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 13,
+                ),
+                softWrap: true,
               ),
             ],
           ),
@@ -1952,6 +2110,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                             'Document Title',
                             _docTitleController,
                             'e.g. Chest X-Ray Report',
+                            enableVoice: true,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -2414,6 +2573,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   }
 
   Widget _buildTabFooterNavigation() {
+    final bool isMobile = MediaQuery.of(context).size.width < 768;
     final tabTitles = [
       'Complaint',
       'Examination',
@@ -2423,6 +2583,140 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       'Treatment',
       'Prescription',
     ];
+
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppTheme.borderColor)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                if (_currentStep > 0) ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => setState(() => _currentStep--),
+                      icon: const Icon(Icons.arrow_back, size: 16),
+                      label: Text(
+                        'Previous: ${tabTitles[_currentStep - 1]}',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: const BorderSide(color: AppTheme.borderColor),
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                if (_currentStep < 6)
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (_validateCurrentTab()) {
+                          setState(() => _currentStep++);
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.arrow_forward,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                      label: Text(
+                        'Next: ${tabTitles[_currentStep + 1]}',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: OutlinedButton(
+                    onPressed: () async {
+                      if (await _onWillPop()) {
+                        widget.onBack();
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.textSecondaryColor,
+                      side: const BorderSide(color: AppTheme.borderColor),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _saveConsultation,
+                    icon: _isSaving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.check_circle_outline,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                    label: Text(
+                      widget.initialConsultation != null
+                          ? 'Update & Save'
+                          : 'Complete & Submit',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.logoRed,
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
@@ -2452,7 +2746,10 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           else
             const SizedBox.shrink(),
 
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               OutlinedButton(
                 onPressed: () async {
@@ -2463,8 +2760,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                 style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
-              const SizedBox(width: 12),
-              if (_currentStep < 6) ...[
+              if (_currentStep < 6)
                 ElevatedButton.icon(
                   onPressed: () {
                     if (_validateCurrentTab()) {
@@ -2494,8 +2790,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-              ],
               ElevatedButton.icon(
                 onPressed: _isSaving ? null : _saveConsultation,
                 icon: _isSaving
@@ -2587,17 +2881,23 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     String hint, {
     bool required = false,
   }) {
+    final isCurrentActive = _activeListeningController == controller;
+    final isListening = isCurrentActive && !_isSpeechPaused;
+    final isPaused = isCurrentActive && _isSpeechPaused;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Colors.black,
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Colors.black,
+                ),
               ),
             ),
             if (required)
@@ -2611,24 +2911,341 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           ],
         ),
         const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          maxLines: 3,
-          maxLength: 100,
-          validator: required
-              ? (v) => (v == null || v.trim().isEmpty)
-                    ? 'This field is required'
-                    : null
-              : null,
-          decoration: InputDecoration(
-            hintText: hint,
-            counterText: '',
-            fillColor: AppTheme.backgroundColor,
-            filled: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
+        Container(
+          decoration: BoxDecoration(
+            color: isListening
+                ? Colors.red.withValues(alpha: 0.02)
+                : (isPaused
+                    ? Colors.amber.withValues(alpha: 0.02)
+                    : AppTheme.backgroundColor),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isListening
+                  ? Colors.red.shade400
+                  : (isPaused
+                      ? Colors.orange.shade400
+                      : AppTheme.borderColor),
+              width: (isListening || isPaused) ? 1.5 : 1.0,
             ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: controller,
+                maxLines: 3,
+                maxLength: 500,
+                validator: required
+                    ? (v) => (v == null || v.trim().isEmpty)
+                        ? 'This field is required'
+                        : null
+                    : null,
+                decoration: InputDecoration(
+                  hintText: hint,
+                  counterText: '',
+                  fillColor: Colors.transparent,
+                  filled: true,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+              // Integrated bottom Voice-to-Text toolbar directly inside the text field
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: isListening
+                      ? Colors.red.withValues(alpha: 0.06)
+                      : (isPaused
+                          ? Colors.orange.withValues(alpha: 0.06)
+                          : Colors.grey.shade50),
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(7),
+                    bottomRight: Radius.circular(7),
+                  ),
+                  border: Border(
+                    top: BorderSide(
+                      color: isListening
+                          ? Colors.red.shade200
+                          : (isPaused
+                              ? Colors.orange.shade200
+                              : Colors.grey.shade200),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Status indicator
+                    if (isListening)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            'Listening... Speak now',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ],
+                      )
+                    else if (isPaused)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.pause_circle_filled,
+                            size: 13,
+                            color: Colors.orange.shade800,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Voice Paused',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange.shade800,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Text(
+                        'Voice to Text',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+
+                    // Control buttons (Start, Pause, Resume, Stop)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!isCurrentActive) ...[
+                          InkWell(
+                            onTap: () => _startSpeech(controller, label),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withValues(
+                                  alpha: 0.08,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: AppTheme.primaryColor.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.mic_none_rounded,
+                                    size: 14,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Start Voice',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          if (isListening) ...[
+                            // Pause button
+                            InkWell(
+                              onTap: _pauseSpeech,
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.orange.shade300,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.pause_rounded,
+                                      size: 14,
+                                      color: Colors.orange.shade800,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Pause',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange.shade800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            // Stop button
+                            InkWell(
+                              onTap: _stopSpeech,
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.red.shade300,
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.stop_rounded,
+                                      size: 14,
+                                      color: Colors.red,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Stop',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (isPaused) ...[
+                            // Resume button
+                            InkWell(
+                              onTap: _resumeSpeech,
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.play_arrow_rounded,
+                                      size: 14,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Resume',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            // Stop button
+                            InkWell(
+                              onTap: _stopSpeech,
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.red.shade300,
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.stop_rounded,
+                                      size: 14,
+                                      color: Colors.red,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Stop',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -2744,8 +3361,13 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   Widget _buildSmallField(
     String label,
     TextEditingController controller,
-    String hint,
-  ) {
+    String hint, {
+    bool enableVoice = false,
+  }) {
+    final isCurrentActive = _activeListeningController == controller;
+    final isListening = isCurrentActive && !_isSpeechPaused;
+    final isPaused = isCurrentActive && _isSpeechPaused;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2764,15 +3386,108 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           decoration: InputDecoration(
             hintText: hint,
             isDense: true,
-            fillColor: Colors.white,
+            fillColor: isListening
+                ? Colors.red.withValues(alpha: 0.03)
+                : (isPaused
+                    ? Colors.amber.withValues(alpha: 0.03)
+                    : Colors.white),
             filled: true,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 10,
               vertical: 10,
             ),
+            suffixIcon: enableVoice
+                ? (isCurrentActive
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isListening)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.pause_rounded,
+                                size: 16,
+                                color: Colors.orange,
+                              ),
+                              tooltip: 'Pause voice input',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 26,
+                                minHeight: 26,
+                              ),
+                              onPressed: _pauseSpeech,
+                            ),
+                          if (isPaused)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.play_arrow_rounded,
+                                size: 16,
+                                color: AppTheme.primaryColor,
+                              ),
+                              tooltip: 'Resume voice input',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 26,
+                                minHeight: 26,
+                              ),
+                              onPressed: _resumeSpeech,
+                            ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.stop_rounded,
+                              size: 16,
+                              color: Colors.red,
+                            ),
+                            tooltip: 'Stop voice input',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 26,
+                              minHeight: 26,
+                            ),
+                            onPressed: _stopSpeech,
+                          ),
+                        ],
+                      )
+                    : IconButton(
+                        icon: const Icon(
+                          Icons.mic_none_rounded,
+                          size: 16,
+                          color: AppTheme.primaryColor,
+                        ),
+                        tooltip: 'Start Voice Input',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 28,
+                          minHeight: 28,
+                        ),
+                        onPressed: () => _startSpeech(controller, label),
+                      ))
+                : null,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
-              borderSide: const BorderSide(color: AppTheme.borderColor),
+              borderSide: BorderSide(
+                color: isListening
+                    ? Colors.red
+                    : (isPaused ? Colors.orange : AppTheme.borderColor),
+                width: (isListening || isPaused) ? 1.5 : 1.0,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(
+                color: isListening
+                    ? Colors.red
+                    : (isPaused ? Colors.orange : AppTheme.borderColor),
+                width: (isListening || isPaused) ? 1.5 : 1.0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(
+                color: isListening
+                    ? Colors.red
+                    : (isPaused ? Colors.orange : AppTheme.primaryColor),
+                width: 1.5,
+              ),
             ),
           ),
         ),
@@ -2882,6 +3597,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                       'Other Custom Lab Test',
                       _customLabController,
                       'e.g. Liver Function Test (LFT)',
+                      enableVoice: true,
                     ),
                   ),
                   const SizedBox(width: 12),
