@@ -922,13 +922,15 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                            const BorderSide(color: AppTheme.borderColor),
+                        borderSide: const BorderSide(
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                            const BorderSide(color: AppTheme.borderColor),
+                        borderSide: const BorderSide(
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -983,8 +985,10 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.textSecondaryColor,
                 side: const BorderSide(color: AppTheme.borderColor),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -1001,8 +1005,10 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.dangerColor,
                 foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -1124,7 +1130,8 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
       maxLength: maxLength,
       keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
-      inputFormatters: inputFormatters ??
+      inputFormatters:
+          inputFormatters ??
           (isNumeric
               ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
               : [
@@ -1193,8 +1200,8 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _errorMessage != null
-                  ? _buildErrorView()
-                  : _buildSelectedView(isMobile),
+              ? _buildErrorView()
+              : _buildSelectedView(isMobile),
         ),
       ],
     );
@@ -1203,10 +1210,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       return content;
     }
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: content,
-    );
+    return Scaffold(backgroundColor: AppTheme.backgroundColor, body: content);
   }
 
   Widget _buildErrorView() {
@@ -1394,10 +1398,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             borderRadius: BorderRadius.circular(8),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: isSel ? Colors.white : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
@@ -1671,37 +1672,25 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
     if (isMobile) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
-        child: SizedBox(
-          width: double.infinity,
-          child: dropdownWidget,
-        ),
+        child: SizedBox(width: double.infinity, child: dropdownWidget),
       );
     }
 
     Widget? doctorCard;
     if (_selectedFilterDoctor != null) {
       doctorCard = Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: AppTheme.primaryColor.withOpacity(0.04),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: AppTheme.primaryColor.withOpacity(0.15),
-          ),
+          border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 16,
               backgroundColor: AppTheme.primaryColor,
-              child: const Icon(
-                Icons.person,
-                color: Colors.white,
-                size: 16,
-              ),
+              child: const Icon(Icons.person, color: Colors.white, size: 16),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1761,15 +1750,9 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 380,
-            child: dropdownWidget,
-          ),
+          SizedBox(width: 380, child: dropdownWidget),
           const SizedBox(width: 24),
-          if (doctorCard != null)
-            Expanded(
-              child: doctorCard,
-            ),
+          if (doctorCard != null) Expanded(child: doctorCard),
         ],
       ),
     );
@@ -1777,7 +1760,8 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
 
   Widget _buildMobileDateSelector(UserModel doctor) {
     final now = DateTime.now();
-    final isSelectedToday = _filterDate.year == now.year &&
+    final isSelectedToday =
+        _filterDate.year == now.year &&
         _filterDate.month == now.month &&
         _filterDate.day == now.day;
 
@@ -1836,7 +1820,10 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1887,11 +1874,16 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                   },
                   borderRadius: BorderRadius.circular(6),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.secondaryColor.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.secondaryColor.withOpacity(0.4)),
+                      border: Border.all(
+                        color: AppTheme.secondaryColor.withOpacity(0.4),
+                      ),
                     ),
                     child: const Text(
                       'Today',
@@ -1951,10 +1943,12 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final cellDate = dates[index];
-          final isToday = cellDate.year == DateTime.now().year &&
+          final isToday =
+              cellDate.year == DateTime.now().year &&
               cellDate.month == DateTime.now().month &&
               cellDate.day == DateTime.now().day;
-          final isSelected = cellDate.year == _filterDate.year &&
+          final isSelected =
+              cellDate.year == _filterDate.year &&
               cellDate.month == _filterDate.month &&
               cellDate.day == _filterDate.day;
 
@@ -1982,15 +1976,15 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                 color: isSelected
                     ? AppTheme.primaryColor
                     : (isToday
-                        ? AppTheme.secondaryColor.withOpacity(0.08)
-                        : const Color(0xFFF8FAFC)),
+                          ? AppTheme.secondaryColor.withOpacity(0.08)
+                          : const Color(0xFFF8FAFC)),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isSelected
                       ? AppTheme.primaryColor
                       : (isToday
-                          ? AppTheme.secondaryColor
-                          : AppTheme.borderColor),
+                            ? AppTheme.secondaryColor
+                            : AppTheme.borderColor),
                   width: isSelected || isToday ? 1.5 : 1.0,
                 ),
                 boxShadow: isSelected
@@ -2025,8 +2019,8 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                       color: isSelected
                           ? Colors.white
                           : (isToday
-                              ? AppTheme.secondaryColor
-                              : AppTheme.textPrimaryColor),
+                                ? AppTheme.secondaryColor
+                                : AppTheme.textPrimaryColor),
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -2058,7 +2052,9 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                       width: 4,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.white : AppTheme.secondaryColor,
+                        color: isSelected
+                            ? Colors.white
+                            : AppTheme.secondaryColor,
                         shape: BoxShape.circle,
                       ),
                     )
@@ -2126,10 +2122,12 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
               _currentMonth.month,
               dayNum,
             );
-            final isToday = cellDate.year == DateTime.now().year &&
+            final isToday =
+                cellDate.year == DateTime.now().year &&
                 cellDate.month == DateTime.now().month &&
                 cellDate.day == DateTime.now().day;
-            final isSelected = cellDate.year == _filterDate.year &&
+            final isSelected =
+                cellDate.year == _filterDate.year &&
                 cellDate.month == _filterDate.month &&
                 cellDate.day == _filterDate.day;
 
@@ -2153,15 +2151,15 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                   color: isSelected
                       ? AppTheme.primaryColor
                       : (isToday
-                          ? AppTheme.secondaryColor.withOpacity(0.1)
-                          : Colors.transparent),
+                            ? AppTheme.secondaryColor.withOpacity(0.1)
+                            : Colors.transparent),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: isSelected
                         ? AppTheme.primaryColor
                         : (isToday
-                            ? AppTheme.secondaryColor
-                            : Colors.grey.shade300),
+                              ? AppTheme.secondaryColor
+                              : Colors.grey.shade300),
                     width: isSelected || isToday ? 1.5 : 0.8,
                   ),
                 ),
@@ -2176,8 +2174,8 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                         color: isSelected
                             ? Colors.white
                             : (isToday
-                                ? AppTheme.secondaryColor
-                                : AppTheme.textPrimaryColor),
+                                  ? AppTheme.secondaryColor
+                                  : AppTheme.textPrimaryColor),
                       ),
                     ),
                     if (dayAppts.isNotEmpty) ...[
@@ -2373,7 +2371,9 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                                     vertical: 1,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primaryColor.withOpacity(0.1),
+                                    color: AppTheme.primaryColor.withOpacity(
+                                      0.1,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -2557,13 +2557,15 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       );
       if (effectiveQuery.isNotEmpty) {
         if (appt == null) return false;
-        final nameMatch =
-            appt.patientName.toLowerCase().contains(effectiveQuery);
+        final nameMatch = appt.patientName.toLowerCase().contains(
+          effectiveQuery,
+        );
         final displayIdMatch =
             appt.patientDisplayId?.toLowerCase().contains(effectiveQuery) ??
-                false;
-        final idMatch =
-            appt.patientId.toString().toLowerCase().contains(effectiveQuery);
+            false;
+        final idMatch = appt.patientId.toString().toLowerCase().contains(
+          effectiveQuery,
+        );
         final phoneMatch =
             appt.patientPhone?.toLowerCase().contains(effectiveQuery) ?? false;
         return nameMatch || displayIdMatch || idMatch || phoneMatch;
@@ -2613,10 +2615,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             physics: isMobile
                 ? const NeverScrollableScrollPhysics()
                 : const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 0,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               childAspectRatio: 1.35,
@@ -2635,10 +2634,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
               if (appt != null) {
                 return _buildBookedSlotCard(appt);
               } else {
-                return _buildAvailableSlotCard(
-                  _selectedFilterDoctor!,
-                  slot,
-                );
+                return _buildAvailableSlotCard(_selectedFilterDoctor!, slot);
               }
             },
           );
@@ -2728,10 +2724,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             ],
           ),
         ),
-        if (isMobile)
-          slotsContent
-        else
-          Expanded(child: slotsContent),
+        if (isMobile) slotsContent else Expanded(child: slotsContent),
       ],
     );
   }
@@ -3060,10 +3053,12 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       final count = dept == 'All Departments'
           ? _doctors.length
           : _doctors
-              .where((d) =>
-                  d.specialization?.trim().toLowerCase() ==
-                  dept.trim().toLowerCase())
-              .length;
+                .where(
+                  (d) =>
+                      d.specialization?.trim().toLowerCase() ==
+                      dept.trim().toLowerCase(),
+                )
+                .length;
       deptMap[dept] = '$dept ($count)';
     }
 
@@ -3115,10 +3110,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             )
           : Row(
               children: [
-                SizedBox(
-                  width: 280,
-                  child: deptDropdown,
-                ),
+                SizedBox(width: 280, child: deptDropdown),
                 const Spacer(),
                 SizedBox(
                   width: 320,
@@ -3219,169 +3211,185 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                     mainAxisSpacing: 16,
                   ),
                   itemCount: filteredDoctors.length,
-      itemBuilder: (context, idx) {
-        final doc = filteredDoctors[idx];
-        final slots = _generateSlotsForDoctor(doc);
-        final bool isAvailable = _isDoctorAvailableOnDate(doc, _filterDate);
+                  itemBuilder: (context, idx) {
+                    final doc = filteredDoctors[idx];
+                    final slots = _generateSlotsForDoctor(doc);
+                    final bool isAvailable = _isDoctorAvailableOnDate(
+                      doc,
+                      _filterDate,
+                    );
 
-        // Calculate stats
-        int total = slots.length;
-        int booked = 0;
-        for (var s in slots) {
-          if (_getAppointmentInSlot(doc, s, _filterDate) != null) booked++;
-        }
-        int available = total - booked;
+                    // Calculate stats
+                    int total = slots.length;
+                    int booked = 0;
+                    for (var s in slots) {
+                      if (_getAppointmentInSlot(doc, s, _filterDate) != null)
+                        booked++;
+                    }
+                    int available = total - booked;
 
-        return Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: AppTheme.borderColor.withOpacity(0.8)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                      radius: 20,
-                      child: Text(
-                        doc.fullname[0].toUpperCase(),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
+                    return Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: AppTheme.borderColor.withOpacity(0.8),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            doc.fullname,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: AppTheme.textPrimaryColor,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: AppTheme.primaryColor
+                                      .withOpacity(0.1),
+                                  radius: 20,
+                                  child: Text(
+                                    doc.fullname[0].toUpperCase(),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        doc.fullname,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: AppTheme.textPrimaryColor,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        doc.specialization ??
+                                            'General Medicine',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.primaryColor,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            doc.specialization ?? 'General Medicine',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.w500,
+                            const SizedBox(height: 12),
+                            Text(
+                              'Timing: ${doc.slotStartTime ?? "--"} - ${doc.slotEndTime ?? "--"}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textSecondaryColor,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Timing: ${doc.slotStartTime ?? "--"} - ${doc.slotEndTime ?? "--"}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.textSecondaryColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const Spacer(),
-                if (!isAvailable) ...[
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 4.0),
-                      child: Text(
-                        'Unavailable Today',
-                        style: TextStyle(
-                          color: Colors.redAccent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                            const Spacer(),
+                            if (!isAvailable) ...[
+                              const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 4.0),
+                                  child: Text(
+                                    'Unavailable Today',
+                                    style: TextStyle(
+                                      color: Colors.redAccent,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _buildMiniStat(
+                                    'Total Slots',
+                                    total.toString(),
+                                    Colors.blue,
+                                  ),
+                                  _buildMiniStat(
+                                    'Booked',
+                                    booked.toString(),
+                                    Colors.orange,
+                                  ),
+                                  _buildMiniStat(
+                                    'Available',
+                                    available.toString(),
+                                    Colors.green,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              LinearProgressIndicator(
+                                value: total > 0 ? (booked / total) : 0,
+                                backgroundColor: Colors.grey.shade100,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppTheme.primaryColor.withOpacity(0.8),
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _selectedFilterDoctor = doc;
+                                        _currentViewMode = 'Doctor View';
+                                      });
+                                      if (widget.onViewModeChanged != null) {
+                                        widget.onViewModeChanged!(
+                                          'Doctor View',
+                                        );
+                                      }
+                                    },
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 10,
+                                      ),
+                                      side: const BorderSide(
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'View Schedule',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                ] else ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildMiniStat(
-                        'Total Slots',
-                        total.toString(),
-                        Colors.blue,
-                      ),
-                      _buildMiniStat(
-                        'Booked',
-                        booked.toString(),
-                        Colors.orange,
-                      ),
-                      _buildMiniStat(
-                        'Available',
-                        available.toString(),
-                        Colors.green,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  LinearProgressIndicator(
-                    value: total > 0 ? (booked / total) : 0,
-                    backgroundColor: Colors.grey.shade100,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppTheme.primaryColor.withOpacity(0.8),
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedFilterDoctor = doc;
-                            _currentViewMode = 'Doctor View';
-                          });
-                          if (widget.onViewModeChanged != null) {
-                            widget.onViewModeChanged!('Doctor View');
-                          }
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          side: const BorderSide(color: AppTheme.primaryColor),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          'View Schedule',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
-              ],
-            ),
-          ),
-        );
-      },
-    ),
-  ),
-],
-);
-}
+        ),
+      ],
+    );
+  }
 
   Widget _buildMiniStat(String label, String value, Color color) {
     return Column(

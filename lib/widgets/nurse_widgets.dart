@@ -303,7 +303,9 @@ class CustomSpeedDial extends StatefulWidget {
 class _CustomSpeedDialState extends State<CustomSpeedDial>
     with SingleTickerProviderStateMixin {
   bool _isOpen = false;
-  double _dragOffsetY = 0.0;
+  bool _isDragging = false;
+  static const double _right = 24.0;
+  double _bottom = 24.0;
   late AnimationController _controller;
   late Animation<double> _expandAnimation;
 
@@ -351,11 +353,13 @@ class _CustomSpeedDialState extends State<CustomSpeedDial>
     }
 
     final double screenHeight = MediaQuery.of(context).size.height;
-    // Allow dragging upwards up to roughly half of the screen height along the vertical line
-    final double maxUpwardDrag = -(screenHeight * 0.45);
+    // Limit vertical dragging to strictly half (50%) of the screen height
+    final double maxBottom = (screenHeight * 0.50).clamp(24.0, double.infinity);
+    final double clampedBottom = _bottom.clamp(24.0, maxBottom);
 
-    return Transform.translate(
-      offset: Offset(0, _dragOffsetY),
+    return Positioned(
+      right: _right,
+      bottom: clampedBottom,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -413,19 +417,38 @@ class _CustomSpeedDialState extends State<CustomSpeedDial>
                   ),
                 ),
               );
-            }).toList(),
+            }),
           const SizedBox(height: 8),
           MouseRegion(
-            cursor: SystemMouseCursors.click,
+            cursor: SystemMouseCursors.allScroll,
             child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: _toggle,
-              onVerticalDragUpdate: (details) {
+              onPanStart: (_) {
                 setState(() {
-                  _dragOffsetY = (_dragOffsetY + details.delta.dy).clamp(maxUpwardDrag, 0.0);
+                  _isDragging = true;
+                });
+              },
+              onPanUpdate: (details) {
+                setState(() {
+                  // Only up and down: dragging up decreases dy -> increases bottom
+                  _bottom = (_bottom - details.delta.dy).clamp(24.0, maxBottom);
+                });
+              },
+              onPanEnd: (_) {
+                setState(() {
+                  _isDragging = false;
+                });
+              },
+              onPanCancel: () {
+                setState(() {
+                  _isDragging = false;
                 });
               },
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
+                duration: _isDragging
+                    ? Duration.zero
+                    : const Duration(milliseconds: 250),
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(

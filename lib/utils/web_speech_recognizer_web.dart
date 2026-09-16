@@ -3,19 +3,23 @@ import 'dart:js' as js;
 
 void _ensureJsSpeechRecognizer() {
   try {
-    if (js.context['speechRecognizer'] != null) return;
-
     final jsCode = '''
     (function() {
-      if (window.speechRecognizer) return;
+      // Clean up previous instance if reloading
+      if (window.speechRecognizer && window.speechRecognizer.recognition) {
+        try { window.speechRecognizer.recognition.abort(); } catch(e) {}
+      }
+
       window.speechRecognizer = {
         recognition: null,
         isUserListening: false,
+        isReady: true,
         onResultCallback: null,
         onStatusCallback: null,
         onErrorCallback: null,
         accumulatedFinal: '',
-        targetLang: 'en-US',
+        sessionFinal: '',
+        targetLang: 'en-IN',
 
         isSupported: function() {
           return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -33,28 +37,10 @@ void _ensureJsSpeechRecognizer() {
           this.onErrorCallback = onError;
           this.isUserListening = true;
           this.accumulatedFinal = '';
-          this.targetLang = lang || 'en-US';
+          this.sessionFinal = '';
+          this.targetLang = lang || 'en-IN';
 
-          // Ensure microphone permission is granted first
-          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ audio: true })
-              .then((stream) => {
-                // Stop the temporary stream tracks now that permission is confirmed
-                stream.getTracks().forEach(track => track.stop());
-                this._createAndStartRecognition();
-              })
-              .catch((err) => {
-                console.warn("Microphone permission error:", err);
-                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                  if (this.onErrorCallback) this.onErrorCallback("Microphone permission denied. Please allow microphone access in your browser address bar.");
-                } else {
-                  this._createAndStartRecognition();
-                }
-              });
-          } else {
-            this._createAndStartRecognition();
-          }
-
+          this._createAndStartRecognition();
           return true;
         },
 
@@ -64,6 +50,7 @@ void _ensureJsSpeechRecognizer() {
           const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
           if (this.recognition) {
             try {
+              this.recognition.onstart = null;
               this.recognition.onend = null;
               this.recognition.onerror = null;
               this.recognition.onresult = null;
@@ -78,44 +65,74 @@ void _ensureJsSpeechRecognizer() {
             rec.continuous = true;
             rec.interimResults = true;
             rec.maxAlternatives = 1;
-            rec.lang = (this.targetLang && this.targetLang !== 'en-US') ? this.targetLang : (navigator.language || 'en-IN');
+            rec.lang = this.targetLang || 'en-IN';
 
             rec.onstart = () => {
-              if (this.onStatusCallback) this.onStatusCallback('listening');
+              if (this.isUserListening && this.onStatusCallback) {
+                this.onStatusCallback('listening');
+              }
             };
 
             rec.onresult = (event) => {
-              let sessionText = '';
+              let finalChunk = '';
+              let interimChunk = '';
+
               for (let i = 0; i < event.results.length; ++i) {
-                sessionText += event.results[i][0].transcript;
+                const item = event.results[i];
+                if (item && item[0] && item[0].transcript) {
+                  const text = item[0].transcript.trim();
+                  if (item.isFinal) {
+                    finalChunk += (finalChunk ? ' ' : '') + text;
+                  } else {
+                    interimChunk += (interimChunk ? ' ' : '') + text;
+                  }
+                }
               }
-              this._lastSessionText = sessionText;
-              const full = (this.accumulatedFinal + (sessionText.length > 0 ? (' ' + sessionText) : '')).trim();
-              if (this.onResultCallback && full.length > 0) {
-                this.onResultCallback(full);
+
+              this.sessionFinal = finalChunk;
+              const livePart = interimChunk || finalChunk;
+              let full = this.accumulatedFinal;
+              if (livePart) {
+                full = (full ? full + ' ' : '') + livePart;
+              }
+
+              if (this.onResultCallback && full.trim().length > 0) {
+                this.onResultCallback(full.trim());
               }
             };
 
             rec.onerror = (event) => {
-              console.warn("Web Speech API recognition error:", event.error);
+              if (event.error === 'no-speech' || event.error === 'aborted') {
+                return;
+              }
               if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                if (this.onErrorCallback) this.onErrorCallback("Microphone permission denied or blocked.");
-              } else if (event.error !== 'no-speech' && event.error !== 'audio-capture') {
-                if (this.onErrorCallback) this.onErrorCallback(event.error);
+                this.isUserListening = false;
+                if (this.onErrorCallback) this.onErrorCallback("Microphone permission denied. Please allow microphone access in your browser address bar.");
+                if (this.onStatusCallback) this.onStatusCallback('notListening');
+              } else if (event.error === 'audio-capture') {
+                this.isUserListening = false;
+                if (this.onErrorCallback) this.onErrorCallback("No microphone found or microphone is in use by another application.");
+                if (this.onStatusCallback) this.onStatusCallback('notListening');
+              } else if (event.error === 'network') {
+                this.isUserListening = false;
+                if (this.onErrorCallback) this.onErrorCallback("Network error during speech recognition. Please check your internet connection.");
+                if (this.onStatusCallback) this.onStatusCallback('notListening');
+              } else {
+                if (this.onErrorCallback) this.onErrorCallback("Speech error: " + event.error);
               }
             };
 
             rec.onend = () => {
               if (this.isUserListening) {
-                if (this._lastSessionText && this._lastSessionText.trim().length > 0) {
-                  this.accumulatedFinal = (this.accumulatedFinal + ' ' + this._lastSessionText).trim();
-                  this._lastSessionText = '';
+                if (this.sessionFinal) {
+                  this.accumulatedFinal = (this.accumulatedFinal ? this.accumulatedFinal + ' ' : '') + this.sessionFinal;
+                  this.sessionFinal = '';
                 }
                 setTimeout(() => {
                   if (this.isUserListening) {
                     this._createAndStartRecognition();
                   }
-                }, 150);
+                }, 100);
               } else {
                 if (this.onStatusCallback) this.onStatusCallback('notListening');
               }
@@ -123,13 +140,16 @@ void _ensureJsSpeechRecognizer() {
 
             rec.start();
           } catch(err) {
-            console.error("Failed to initialize Web Speech API:", err);
             if (this.onErrorCallback) this.onErrorCallback(err.toString());
           }
         },
 
         stop: function() {
           this.isUserListening = false;
+          if (this.sessionFinal) {
+            this.accumulatedFinal = (this.accumulatedFinal ? this.accumulatedFinal + ' ' : '') + this.sessionFinal;
+            this.sessionFinal = '';
+          }
           if (this.recognition) {
             try {
               this.recognition.stop();
@@ -140,6 +160,8 @@ void _ensureJsSpeechRecognizer() {
 
         abort: function() {
           this.isUserListening = false;
+          this.accumulatedFinal = '';
+          this.sessionFinal = '';
           if (this.recognition) {
             try {
               this.recognition.abort();
