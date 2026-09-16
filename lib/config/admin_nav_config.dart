@@ -67,17 +67,17 @@ class AdminNavConfig {
   /// Appointments (Visible)
   static const bool showAppointments = true;
 
-  /// OPD Management (Hidden - Change to true to display)
+  /// OPD Management (Hidden)
   static const bool showOpdManagement = false;
 
-  /// IPD Management (Hidden - Change to true to display)
-  static const bool showIpdManagement = false;
+  /// IPD Management (Visible)
+  static const bool showIpdManagement = true;
 
   /// OT Management (Hidden - Change to true to display)
   static const bool showOtManagement = false;
 
-  /// Shift Allocation (Hidden - Change to true to display)
-  static const bool showShiftAllocation = false;
+  /// Shift Allocation (Visible)
+  static const bool showShiftAllocation = true;
 
   /// ICU & Emergency (Hidden - Change to true to display)
   static const bool showIcuEmergency = false;
