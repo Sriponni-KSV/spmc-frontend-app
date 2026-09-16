@@ -1142,10 +1142,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               child: const Text('Share', style: TextStyle(fontSize: 14)),
             ),
           ],
-          SizedBox(width: isMobile ? 12 : 24),
-
-          // Date & Time
-          const LiveClock(),
+          if (!isMobile) ...[
+            const SizedBox(width: 24),
+            const LiveClock(),
+          ],
         ],
       ),
     );
@@ -3979,16 +3979,17 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                   border: Border.all(color: Colors.amber.shade800.withOpacity(0.5)),
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.warning_amber_rounded, color: Colors.amberAccent.shade200, size: 18),
                     const SizedBox(width: 8),
-                    const Text(
-                      'No vitals telemetry streamed. Use the simulator below to log baseline vitals.',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontFamily: AppTheme.fontFamily,
+                    const Expanded(
+                      child: Text(
+                        'No vitals telemetry streamed. Use the simulator below to log baseline vitals.',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontFamily: AppTheme.fontFamily,
+                        ),
                       ),
                     ),
                   ],

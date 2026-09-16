@@ -333,10 +333,12 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
           ],
         ),
 
-        const SizedBox(width: 16),
-        const Icon(Icons.settings_outlined, color: Color(0xFF4A5568), size: 22),
-        const SizedBox(width: 16),
-        const LiveClock(isDark: false),
+        if (!isMobile) ...[
+          const SizedBox(width: 16),
+          const Icon(Icons.settings_outlined, color: Color(0xFF4A5568), size: 22),
+          const SizedBox(width: 16),
+          const LiveClock(isDark: false),
+        ],
       ],
     );
   }

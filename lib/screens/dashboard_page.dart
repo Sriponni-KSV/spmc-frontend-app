@@ -4920,7 +4920,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           LayoutBuilder(
             builder: (context, constraints) {
-              final tableWidth = math.max(850.0, constraints.maxWidth);
+              final tableWidth = math.max(960.0, constraints.maxWidth);
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: SizedBox(
@@ -4940,7 +4940,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Expanded(flex: 3, child: _buildTableHeaderText('REASON')),
                             Expanded(flex: 2, child: _buildTableHeaderText('STATUS')),
                             Expanded(
-                              flex: 2,
+                              flex: 3,
                               child: Align(
                                 alignment: Alignment.center,
                                 child: _buildTableHeaderText('ACTION'),
@@ -5226,7 +5226,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             // Action Column (always same width)
             Expanded(
-              flex: 2,
+              flex: 3,
               child: Align(
                 alignment: Alignment.center,
                 child: (appt.status == 'Waiting' || appt.status == 'Confirmed' || appt.status == 'Admitted' || appt.status == 'Scheduled')
