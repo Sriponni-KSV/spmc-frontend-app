@@ -39,11 +39,11 @@ class DoctorNavConfig {
   /// AI Dictation (Visible)
   static const bool showAiDictation = true;
 
-  /// IPD Management (Hidden - Change to true to display)
-  static const bool showIpdManagement = false;
+  /// IPD Management (Visible)
+  static const bool showIpdManagement = true;
 
-  /// OT Management (Hidden for regular doctor - Change to true to display)
-  static const bool showOtManagement = false;
+  /// OT Management (Visible)
+  static const bool showOtManagement = true;
 
   /// My Profile (Visible)
   static const bool showProfile = true;
