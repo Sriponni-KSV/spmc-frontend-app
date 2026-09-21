@@ -70,11 +70,11 @@ class AdminNavConfig {
   /// OPD Management (Visible)
   static const bool showOpdManagement = true;
 
-  /// IPD Management (Visible)
-  static const bool showIpdManagement = true;
+  /// IPD Management (Hidden - Change to true to display)
+  static const bool showIpdManagement = false;
 
-  /// OT Management (Visible)
-  static const bool showOtManagement = true;
+  /// OT Management (Hidden - Change to true to display)
+  static const bool showOtManagement = false;
 
   /// Shift Allocation (Visible)
   static const bool showShiftAllocation = true;

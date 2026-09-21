@@ -45,11 +45,11 @@ class NurseNavConfig {
   /// OPD Assistance (Visible)
   static const bool showOpdAssistance = true;
 
-  /// IPD Management (Visible)
-  static const bool showIpdManagement = true;
+  /// IPD Management (Hidden)
+  static const bool showIpdManagement = false;
 
-  /// OT Management (Visible)
-  static const bool showOtManagement = true;
+  /// OT Management (Hidden)
+  static const bool showOtManagement = false;
 
   /// Profile Screen (Hidden - Change to true to display)
   static const bool showProfile = true;
